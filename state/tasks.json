@@ -143,6 +143,7 @@
       "last_updated": "2026-04-05T15:16:00+08:00",
       "completed_at": "2026-04-05T15:16:00+08:00",
       "reviewed_by": "second_bot"
+    },
     {
       "task_id": "T-010",
       "title": "建立目前內容資產總清單",
@@ -159,6 +160,21 @@
       "last_updated": "2026-04-05T15:26:00+08:00",
       "completed_at": "2026-04-05T15:26:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-011",
+      "title": "建立 Executor Report Template",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `templates/executor_report_template.md`，正式沉澱 kimiclaw bot 的標準執行回報格式，供後續任務直接沿用",
+      "output_file": "templates/executor_report_template.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T15:32:00+08:00"
     }
   ]
 }
