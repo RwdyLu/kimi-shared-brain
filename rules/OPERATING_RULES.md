@@ -80,3 +80,12 @@
 
 - After creating a task, second bot should notify the assigned executor automatically.
 - 建立任務後，second bot 應自動通知被指派的執行 bot。
+- 
+- ## Git Access Rules
+## Git 存取規則
+
+- Both second bot and kimiclaw bot should use SSH authentication for GitHub operations.
+- second bot 與 kimiclaw bot 都應使用 SSH 驗證進行 GitHub 操作。
+
+- Personal access tokens should be used only as temporary fallback credentials.
+- Personal access token 僅作為臨時備援憑證使用。
