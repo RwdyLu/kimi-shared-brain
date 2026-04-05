@@ -62,7 +62,7 @@
       "task_id": "T-005",
       "title": "建立 Discord 任務入口規格文件",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "documentation",
       "goal": "建立 `rules/DISCORD_TASK_INTAKE.md`，定義 Discord 下指令到 GitHub-only workflow 的標準格式與流程",
@@ -71,7 +71,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T14:22:00+08:00"
+      "last_updated": "2026-04-05T14:24:00+08:00",
+      "completed_at": "2026-04-05T14:24:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
