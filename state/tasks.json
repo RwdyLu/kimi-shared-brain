@@ -181,7 +181,7 @@
       "task_id": "T-012",
       "title": "建立 Supervisor Decision Template",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "documentation",
       "goal": "建立 `templates/supervisor_decision_template.md`，正式沉澱 second bot 的標準決策輸出格式，供後續任務直接沿用",
@@ -190,7 +190,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T15:46:00+08:00"
+      "last_updated": "2026-04-05T15:49:00+08:00",
+      "completed_at": "2026-04-05T15:49:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
