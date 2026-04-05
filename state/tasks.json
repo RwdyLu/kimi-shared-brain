@@ -403,7 +403,7 @@
       "task_id": "T-019",
       "title": "建立 BTC 4H Filter Strategy Card",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "documentation",
       "goal": "建立 `strategies/BTC_4H_filter_card.md`，根據目前已建立的研究框架、criteria、risk control 與 strategy card template，產出第一張正式策略卡",
@@ -412,7 +412,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T17:41:00+08:00"
+      "last_updated": "2026-04-05T17:47:00+08:00",
+      "completed_at": "2026-04-05T17:47:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
