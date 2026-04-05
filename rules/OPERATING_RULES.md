@@ -62,3 +62,6 @@
 
 - Result files in `outbox/` must use JSON format unless explicitly specified otherwise.
 - 除非有明確例外，`outbox/` 的結果檔必須使用 JSON 格式。
+
+- Default outbox filename format: `outbox/<task_id>_result.json`
+- 預設的 outbox 檔名格式：`outbox/<task_id>_result.json`
