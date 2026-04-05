@@ -329,7 +329,7 @@
       "task_id": "T-015-patch",
       "title": "修正 Research Criteria",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "精準修正 research/criteria.md：1) current research focus 與 permanent criteria 分開 2) 增加 monitor/pause/eliminate 決策分層 3) Strategy Card Template 拆出為獨立模板建議 4) 只保留 selection/elimination/evidence/anti-overfitting/stability",
@@ -338,13 +338,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T16:51:00+08:00",
+      "completed_at": "2026-04-05T16:51:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-016-patch",
       "title": "修正 Risk Control Principles",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "精準修正 research/risk_control.md：1) 區分 capital allocation/risk at stop/exposure 2) 數字改為 draft guidelines / to be confirmed 3) 強化 research vs live execution boundary 4) stop/pause 與 failure protocol 一致化整理",
@@ -353,13 +355,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T16:51:00+08:00",
+      "completed_at": "2026-04-05T16:51:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-017-patch",
       "title": "修正 BTC ETH Strategy Framework",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "精準修正 research/BTC_ETH_strategy_framework.md：1) framework 層與 active project status 分開 2) 門檻數值降級為高層原則，細節引用 criteria.md 3) timeframe 改為 current preferred 4) ETH 區塊標為 provisional 5) output paths 加註 proposed 6) 修正 ETH 章節編號 7) 與 criteria/risk_control 去重",
@@ -368,7 +372,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T16:51:00+08:00",
+      "completed_at": "2026-04-05T16:51:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
