@@ -59,6 +59,7 @@
       "completed_at": "2026-04-05T14:18:00+08:00",
       "reviewed_by": "second_bot"
     },
+    {
       "task_id": "T-005",
       "title": "建立 Discord 任務入口規格文件",
       "assigned_to": "kimiclaw_bot",
@@ -74,6 +75,7 @@
       "last_updated": "2026-04-05T14:24:00+08:00",
       "completed_at": "2026-04-05T14:24:00+08:00",
       "reviewed_by": "second_bot"
+    },
     {
       "task_id": "T-006",
       "title": "建立 Blocker Report 規格文件",
@@ -90,6 +92,21 @@
       "last_updated": "2026-04-05T14:41:00+08:00",
       "completed_at": "2026-04-05T14:41:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-007",
+      "title": "建立 Task Schema 規格文件",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `rules/TASK_SCHEMA.md`，定義 `state/tasks.json` 的欄位、狀態、轉換規則、寫入權限與範例",
+      "output_file": "rules/TASK_SCHEMA.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T14:45:00+08:00"
     }
   ]
 }
