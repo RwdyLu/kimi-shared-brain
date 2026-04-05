@@ -245,6 +245,21 @@
       "last_updated": "2026-04-05T16:14:00+08:00",
       "completed_at": "2026-04-05T16:14:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-016",
+      "title": "建立 Risk Control Principles 文件",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `research/risk_control.md`，整理使用者先前形成的風控原則與風險約束",
+      "output_file": "research/risk_control.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T16:16:00+08:00"
     }
   ]
 }
