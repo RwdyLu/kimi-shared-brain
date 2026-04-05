@@ -284,7 +284,7 @@
       "task_id": "T-012-patch",
       "title": "修正 Supervisor Decision Template",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "精準修正 templates/supervisor_decision_template.md：1) Discord ID 改為占位符 2) 定義 needs_user_decision 固定格式 3) 精簡過長範例",
@@ -293,13 +293,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T17:04:00+08:00",
+      "completed_at": "2026-04-05T17:04:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-013-patch",
       "title": "修正 README",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "精準修正 README.md：1) Quick Start 輸出檔名改為 outbox/T-XXX_result.json 2) 更聚焦總覽，移除易過時細節 3) active projects 加註 current examples / current focus",
@@ -308,13 +310,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T17:04:00+08:00",
+      "completed_at": "2026-04-05T17:04:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-014-patch",
       "title": "修正 Git Conventions",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "精準修正 docs/git_conventions.md：1) SSH key 路徑改為 default example 2) main-only 政策加註為 current small-scale workflow policy 3) git add . 改為僅在 working tree fully reviewed 時使用",
@@ -323,7 +327,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T16:36:00+08:00"
+      "last_updated": "2026-04-05T17:04:00+08:00",
+      "completed_at": "2026-04-05T17:04:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-015-patch",
