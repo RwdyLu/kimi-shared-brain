@@ -1,3 +1,15 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "task_id": "T-001",
+      "title": "測試共享 repo 工作流程",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "next_action": "先讀 operating rules，然後在 outbox 提交一份測試結果",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T00:00:00+08:00"
+    }
+  ]
 }
