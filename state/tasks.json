@@ -415,6 +415,21 @@
       "last_updated": "2026-04-05T17:47:00+08:00",
       "completed_at": "2026-04-05T17:47:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-020",
+      "title": "建立 Trade Plan Template",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `research/trade_plan_template.md`，作為 BTC/ETH 策略研究的標準交易計畫模板，供後續所有 trade plan 直接沿用",
+      "output_file": "research/trade_plan_template.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T17:52:00+08:00"
     }
   ]
 }
