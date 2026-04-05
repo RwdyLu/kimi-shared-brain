@@ -25,6 +25,37 @@
       "last_updated": "2026-04-05T13:35:00+08:00",
       "completed_at": "2026-04-05T13:35:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-003",
+      "title": "測試 Discord 任務入口",
+      "assigned_to": "kimiclaw_bot",
+      "status": "completed",
+      "priority": "high",
+      "type": "workflow_test",
+      "goal": "讀取 rules 與 state，然後提交 outbox/T-003_result.json",
+      "output_file": "outbox/T-003_result.json",
+      "success_condition": "second bot 完成驗收並更新 state/tasks.json",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T13:52:00+08:00",
+      "completed_at": "2026-04-05T13:52:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-004",
+      "title": "測試 GitHub-only 執行流程",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "workflow_test",
+      "goal": "僅透過 GitHub repo 完成一次完整任務流程，不使用本地路徑 fallback",
+      "output_file": "outbox/T-004_result.json",
+      "success_condition": "second bot 完成 git pull 驗收並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T14:07:00+08:00"
     }
   ]
 }
