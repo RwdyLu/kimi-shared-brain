@@ -46,7 +46,7 @@
       "task_id": "T-004",
       "title": "測試 GitHub-only 執行流程",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "workflow_test",
       "goal": "僅透過 GitHub repo 完成一次完整任務流程，不使用本地路徑 fallback",
@@ -55,7 +55,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T14:07:00+08:00"
+      "last_updated": "2026-04-05T14:18:00+08:00",
+      "completed_at": "2026-04-05T14:18:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
