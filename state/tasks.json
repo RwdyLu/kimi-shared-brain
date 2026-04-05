@@ -4,12 +4,14 @@
       "task_id": "T-001",
       "title": "測試共享 repo 工作流程",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
-      "next_action": "先讀 operating rules，然後在 outbox 提交一份測試結果",
+      "next_action": "已由 second_bot 審查完成，工作流程驗證成功",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T00:00:00+08:00"
+      "last_updated": "2026-04-05T13:25:00+08:00",
+      "completed_at": "2026-04-05T13:25:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
