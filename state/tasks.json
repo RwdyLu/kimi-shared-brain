@@ -228,6 +228,21 @@
       "last_updated": "2026-04-05T16:10:00+08:00",
       "completed_at": "2026-04-05T16:10:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-015",
+      "title": "建立 Research Criteria 文件",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `research/criteria.md`，整理使用者先前明確定義的研究標準、淘汰標準與策略評估原則",
+      "output_file": "research/criteria.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T16:11:00+08:00"
     }
   ]
 }
