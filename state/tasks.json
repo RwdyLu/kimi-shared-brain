@@ -432,6 +432,21 @@
       "last_updated": "2026-04-05T17:57:00+08:00",
       "completed_at": "2026-04-05T17:57:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-021",
+      "title": "建立 BTC 4H Filter Trade Plan",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `plans/BTC_4H_filter_trade_plan.md`，根據目前已建立的 BTC 4H Filter Strategy Card 與 Trade Plan Template，產出第一份正式交易計畫",
+      "output_file": "plans/BTC_4H_filter_trade_plan.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T18:13:00+08:00"
     }
   ]
 }
