@@ -12,6 +12,17 @@
       "last_updated": "2026-04-05T13:25:00+08:00",
       "completed_at": "2026-04-05T13:25:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-002",
+      "title": "測試 JSON 格式 outbox 提交流程",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "next_action": "讀取 operating rules，然後以 JSON 格式提交測試結果到 outbox",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T13:30:00+08:00"
     }
   ]
 }
