@@ -97,7 +97,7 @@
       "task_id": "T-007",
       "title": "建立 Task Schema 規格文件",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "documentation",
       "goal": "建立 `rules/TASK_SCHEMA.md`，定義 `state/tasks.json` 的欄位、狀態、轉換規則、寫入權限與範例",
@@ -106,7 +106,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-05T14:45:00+08:00"
+      "last_updated": "2026-04-05T14:48:00+08:00",
+      "completed_at": "2026-04-05T14:48:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
