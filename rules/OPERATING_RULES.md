@@ -89,3 +89,21 @@
 
 - Personal access tokens should be used only as temporary fallback credentials.
 - Personal access token 僅作為臨時備援憑證使用。
+
+- ## GitHub-Only Execution Rules
+## GitHub-only 執行規則
+
+- Cross-bot execution must use the GitHub repository as the only shared workspace.
+- 跨 bot 執行時，GitHub repository 必須是唯一共享工作空間。
+
+- second bot and kimiclaw bot must use SSH authentication for GitHub operations.
+- second bot 與 kimiclaw bot 必須使用 SSH 進行 GitHub 操作。
+
+- Executor must not use supervisor-local filesystem paths.
+- 執行 bot 不可使用 supervisor 的本地檔案系統路徑。
+
+- Before validation, second bot must run `git pull`.
+- 驗收前，second bot 必須先執行 `git pull`。
+
+- Result files in `outbox/` must use the format `outbox/<task_id>_result.json` unless explicitly specified otherwise.
+- 除非另有明確指定，`outbox/` 的結果檔必須使用 `outbox/<task_id>_result.json` 格式。
