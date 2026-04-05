@@ -65,3 +65,18 @@
 
 - Default outbox filename format: `outbox/<task_id>_result.json`
 - 預設的 outbox 檔名格式：`outbox/<task_id>_result.json`
+
+- ## Discord Task Intake
+## Discord 任務入口規則
+
+- second bot is the only bot allowed to convert Discord task instructions into entries in `state/tasks.json`.
+- 只有 second bot 可以把 Discord 任務指令轉成 `state/tasks.json` 裡的任務項目。
+
+- All new Discord tasks must use a structured task format.
+- 所有新的 Discord 任務都必須使用結構化格式。
+
+- If a Discord instruction is ambiguous, second bot must ask for clarification before creating the task.
+- 如果 Discord 指令不清楚，second bot 必須先釐清，再建立任務。
+
+- After creating a task, second bot should notify the assigned executor automatically.
+- 建立任務後，second bot 應自動通知被指派的執行 bot。
