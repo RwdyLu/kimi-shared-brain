@@ -107,3 +107,6 @@
 
 - Result files in `outbox/` must use the format `outbox/<task_id>_result.json` unless explicitly specified otherwise.
 - 除非另有明確指定，`outbox/` 的結果檔必須使用 `outbox/<task_id>_result.json` 格式。
+- 
+- - After executor reports successful push, second bot should proceed to validation automatically unless the user explicitly tells it to stop.
+- 在執行 bot 回報 push 成功後，除非使用者明確要求停止，second bot 應自動進入驗收流程。
