@@ -109,6 +109,7 @@
       "last_updated": "2026-04-05T14:48:00+08:00",
       "completed_at": "2026-04-05T14:48:00+08:00",
       "reviewed_by": "second_bot"
+    },
     {
       "task_id": "T-008",
       "title": "建立 Command Templates 規格文件",
@@ -125,6 +126,21 @@
       "last_updated": "2026-04-05T14:54:00+08:00",
       "completed_at": "2026-04-05T14:54:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-009",
+      "title": "驗證 kimiclaw bot 歷史內容並建立 GitHub 遷移建議清單",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "review_and_migration_planning",
+      "goal": "檢查 kimiclaw bot 先前產生的內容，判斷哪些值得長期保存到 GitHub，並建立一份遷移建議文件",
+      "output_file": "outputs/T-009_kimiclaw_migration_review.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T15:06:00+08:00"
     }
   ]
 }
