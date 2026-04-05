@@ -109,6 +109,20 @@
       "last_updated": "2026-04-05T14:48:00+08:00",
       "completed_at": "2026-04-05T14:48:00+08:00",
       "reviewed_by": "second_bot"
+    {
+      "task_id": "T-008",
+      "title": "建立 Command Templates 規格文件",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "建立 `rules/COMMAND_TEMPLATES.md`，整理常用 Discord 指令模板，供後續直接複製使用",
+      "output_file": "rules/COMMAND_TEMPLATES.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T14:51:00+08:00"
     }
   ]
 }
