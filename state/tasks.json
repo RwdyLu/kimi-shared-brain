@@ -143,6 +143,20 @@
       "last_updated": "2026-04-05T15:16:00+08:00",
       "completed_at": "2026-04-05T15:16:00+08:00",
       "reviewed_by": "second_bot"
+    {
+      "task_id": "T-010",
+      "title": "建立目前內容資產總清單",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "inventory_and_catalog",
+      "goal": "先整理目前所有高價值內容的總清單，之後再依清單判斷哪些要搬到 GitHub",
+      "output_file": "outputs/T-010_content_inventory.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認清單文件已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T15:21:00+08:00"
     }
   ]
 }
