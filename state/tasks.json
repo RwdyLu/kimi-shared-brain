@@ -449,7 +449,21 @@
       "last_updated": "2026-04-05T18:18:00+08:00",
       "completed_at": "2026-04-05T18:18:00+08:00",
       "reviewed_by": "second_bot"
-    }
+    },
+    {
+      "task_id": "T-022",
+      "title": "建立 BTC ETH 監測系統（提醒用，不自動下單）",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "implementation",
+      "goal": "建立 BTCUSDT / ETHUSDT 監測系統，只做訊號提醒與觀察，不做自動下單",
+      "output_file": "workflows/btc_eth_monitoring_system.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認系統設計文件、phase 產出與實作規劃完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T18:39:00+08:00"
     }
   ]
 }
