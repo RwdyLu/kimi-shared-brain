@@ -177,6 +177,7 @@
       "last_updated": "2026-04-05T15:35:00+08:00",
       "completed_at": "2026-04-05T15:35:00+08:00",
       "reviewed_by": "second_bot"
+    },
     {
       "task_id": "T-012",
       "title": "建立 Supervisor Decision Template",
@@ -193,6 +194,21 @@
       "last_updated": "2026-04-05T15:49:00+08:00",
       "completed_at": "2026-04-05T15:49:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-013",
+      "title": "擴充 README 說明文件",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation",
+      "goal": "擴充 `README.md`，讓使用者能快速理解 repo 結構、角色分工、GitHub-only workflow 與常用規則文件",
+      "output_file": "README.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 README 已更新且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-05T15:50:00+08:00"
     }
   ]
 }
