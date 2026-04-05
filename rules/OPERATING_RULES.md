@@ -56,3 +56,9 @@
 
 - kimiclaw bot should not ask the user for routine decisions unless explicitly required.
 - 除非真的需要，kimiclaw bot 不應該為了一般性小決策直接詢問使用者。
+- 
+- Before validating any task result, second bot must confirm remote URL and run `git pull`.
+- 在驗收任何任務結果前，second bot 必須先確認 remote URL 並執行 `git pull`。
+
+- Result files in `outbox/` must use JSON format unless explicitly specified otherwise.
+- 除非有明確例外，`outbox/` 的結果檔必須使用 JSON 格式。
