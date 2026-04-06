@@ -522,7 +522,7 @@
       "task_id": "T-026",
       "title": "Implement Notification Module",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "implementation",
       "goal": "實作 notifications/formatter.py 與 notifications/notifier.py 模組，完成監測系統的提醒輸出層，只產生提醒訊息，不做自動下單",
@@ -531,7 +531,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-025"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-06T11:26:00+08:00"
+      "last_updated": "2026-04-06T11:56:00+08:00",
+      "completed_at": "2026-04-06T11:56:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
