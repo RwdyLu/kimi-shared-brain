@@ -466,6 +466,21 @@
       "last_updated": "2026-04-05T19:00:00+08:00",
       "completed_at": "2026-04-05T19:00:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-023",
+      "title": "Implement Data Fetcher Module",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "implementation",
+      "goal": "實作 data/fetcher.py 模組，完成 BTCUSDT / ETHUSDT 的 1m / 5m / 15m K 線資料抓取，作為監測系統的資料層",
+      "output_file": "data/fetcher.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 data fetcher 模組已建立、可讀取 Binance API K 線資料、輸出格式一致，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-06T11:14:00+08:00"
     }
   ]
 }
