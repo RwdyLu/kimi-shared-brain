@@ -177,25 +177,28 @@ class MonitorRunner:
         
         try:
             # Fetch 5m data (for trend analysis) / 抓取 5m 資料（趨勢分析）
-            data_5m = self.fetcher.fetch_klines(
+            raw_5m = self.fetcher.fetch_klines(
                 symbol=symbol,
-                timeframe="5m",
+                interval="5m",
                 limit=TIMEFRAMES["5m"]["limit"]
             )
+            data_5m = self.fetcher.normalize_kline_data(raw_5m)
             
             # Fetch 1m data (for volume analysis) / 抓取 1m 資料（成交量分析）
-            data_1m = self.fetcher.fetch_klines(
+            raw_1m = self.fetcher.fetch_klines(
                 symbol=symbol,
-                timeframe="1m",
+                interval="1m",
                 limit=TIMEFRAMES["1m"]["limit"]
             )
+            data_1m = self.fetcher.normalize_kline_data(raw_1m)
             
             # Fetch 15m data (for contrarian patterns) / 抓取 15m 資料（逆勢型態）
-            data_15m = self.fetcher.fetch_klines(
+            raw_15m = self.fetcher.fetch_klines(
                 symbol=symbol,
-                timeframe="15m",
+                interval="15m",
                 limit=TIMEFRAMES["15m"]["limit"]
             )
+            data_15m = self.fetcher.normalize_kline_data(raw_15m)
             
         except Exception as e:
             error = f"Failed to fetch data for {symbol}: {str(e)}"
