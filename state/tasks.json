@@ -590,7 +590,7 @@
       "task_id": "T-030",
       "title": "Add Scheduler for Monitoring Runs",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "implementation",
       "goal": "為 BTC / ETH 監測系統建立 scheduler / cron-ready 執行方案，讓監測系統可定時執行提醒流程",
@@ -599,7 +599,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-029"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-06T21:45:00+08:00"
+      "last_updated": "2026-04-06T22:17:00+08:00",
+      "completed_at": "2026-04-06T22:17:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
