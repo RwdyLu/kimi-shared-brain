@@ -857,7 +857,7 @@
       "task_id": "T-039-06",
       "title": "Action Queue MVP",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "implementation",
       "goal": "建立人工決策頁雛形，顯示建議下單 / pending actions，提供 Approve/Reject/Snooze 按鈕，只寫入 queue/state 不接交易 API",
@@ -867,7 +867,9 @@
       "depends_on": ["T-039-05"],
       "report_to": "second_bot",
       "phase_of": "T-039",
-      "phase_number": 6
+      "phase_number": 6,
+      "completed_at": "2026-04-08T05:42:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-039-07",
