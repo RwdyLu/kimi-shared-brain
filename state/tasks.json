@@ -721,6 +721,21 @@
       "last_updated": "2026-04-07T20:27:00+08:00",
       "completed_at": "2026-04-07T20:27:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-038",
+      "title": "Document Anti-Timeout Execution Rules",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "documentation_and_rules",
+      "goal": "將 anti-timeout execution 規則正式寫入 repo 規則文件，變成之後派工的預設規則",
+      "output_file": "rules/OPERATING_RULES.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 anti-timeout 規則已寫入文件並更新相關規格，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-037"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-07T20:29:00+08:00"
     }
   ]
 }
