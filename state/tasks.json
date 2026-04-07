@@ -675,7 +675,7 @@
       "task_id": "T-035",
       "title": "Verify Realtime BTC ETH Data Feed",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "validation",
       "goal": "驗證 BTCUSDT / ETHUSDT 監測系統目前使用的是否為即時資料來源，而不是舊樣本、placeholder 或未更新資料",
@@ -684,7 +684,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-034"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-07T17:58:00+08:00"
+      "last_updated": "2026-04-07T18:13:00+08:00",
+      "completed_at": "2026-04-07T18:13:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
