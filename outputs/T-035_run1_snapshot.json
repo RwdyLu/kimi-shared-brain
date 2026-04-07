@@ -1,0 +1,32 @@
+{
+  "execution_time": "2026-04-07T18:09:02.031131",
+  "BTCUSDT": {
+    "1m": {
+      "latest_time": 1775556540000,
+      "latest_close": 69016.09,
+      "latest_volume": 0.00701
+    },
+    "5m": {
+      "latest_time": 1775556300000,
+      "latest_close": 69016.09
+    },
+    "15m": {
+      "latest_time": 1775556000000,
+      "latest_close": 69019.32
+    }
+  },
+  "ETHUSDT": {
+    "1m": {
+      "latest_time": 1775556540000,
+      "latest_close": 2124.05
+    },
+    "5m": {
+      "latest_time": 1775556300000,
+      "latest_close": 2124.05
+    },
+    "15m": {
+      "latest_time": 1775556000000,
+      "latest_close": 2124.05
+    }
+  }
+}
