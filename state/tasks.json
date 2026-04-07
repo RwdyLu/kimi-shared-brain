@@ -636,6 +636,21 @@
       "last_updated": "2026-04-07T16:51:00+08:00",
       "completed_at": "2026-04-07T16:51:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-033",
+      "title": "Deployment Readiness Check and Start Monitoring",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "deployment_readiness_and_start",
+      "goal": "先完成監測系統啟動前檢查，然後以安全模式啟動 BTC / ETH 持續監控（提醒用，不自動下單）",
+      "output_file": "outputs/T-033_deployment_readiness.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認啟動前檢查已完成、啟動步驟已執行、監控已開始或明確指出最後阻塞點，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-032"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-07T17:01:00+08:00"
     }
   ]
 }
