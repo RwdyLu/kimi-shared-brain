@@ -607,7 +607,7 @@
       "task_id": "T-031",
       "title": "Review Signal Quality and Monitoring Output",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "review_and_validation",
       "goal": "檢查 BTC / ETH 監測系統目前的提醒品質與輸出可用性，評估訊號是否過多、過少、模糊或不實用，並產出一份改進建議報告",
@@ -616,7 +616,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-030"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-07T15:47:00+08:00"
+      "last_updated": "2026-04-07T15:55:00+08:00",
+      "completed_at": "2026-04-07T15:55:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
