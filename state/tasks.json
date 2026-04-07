@@ -658,7 +658,7 @@
       "task_id": "T-034",
       "title": "建立 Task Instruction Archive System",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "documentation_and_structure",
       "goal": "建立 task 原始指令封存系統，採用每 100 個 task 一份 archive 的方式保存使用者原始指令，並讓 task state 可追溯到對應 instruction archive",
@@ -667,7 +667,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-033"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-07T17:26:00+08:00"
+      "last_updated": "2026-04-07T17:36:00+08:00",
+      "completed_at": "2026-04-07T17:36:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
