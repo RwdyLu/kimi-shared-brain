@@ -16,8 +16,8 @@ This module generates ALERTS ONLY. No automatic trading is performed.
 本模組僅產生提醒，不執行自動交易。
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-04-06
+Version: 1.1.0
+Date: 2026-04-07
 """
 
 from typing import Dict, Any, Optional, List
@@ -47,16 +47,51 @@ class NotificationFormatter:
     
     # Signal type display names / 訊號類型顯示名稱
     SIGNAL_NAMES = {
-        SignalType.TREND_LONG: ("📈 TREND LONG", "📈 順勢做多"),
-        SignalType.TREND_SHORT: ("📉 TREND SHORT", "📉 順勢做空"),
-        SignalType.CONTRARIAN_WATCH_OVERHEATED: ("🔥 CONTRARIAN WATCH", "🔥 逆勢觀察 - 過熱"),
-        SignalType.CONTRARIAN_WATCH_OVERSOLD: ("❄️ CONTRARIAN WATCH", "❄️ 逆勢觀察 - 超賣")
+        SignalType.TREND_LONG: ("📈 TREND LONG", "📈 順勢做多提醒"),
+        SignalType.TREND_SHORT: ("📉 TREND SHORT", "📉 順勢做空提醒"),
+        SignalType.CONTRARIAN_WATCH_OVERHEATED: ("🔥 CONTRARIAN WATCH", "🔥 逆勢觀察：過熱"),
+        SignalType.CONTRARIAN_WATCH_OVERSOLD: ("❄️ CONTRARIAN WATCH", "❄️ 逆勢觀察：超跌")
     }
     
     # Level indicators / 層級指示器
     LEVEL_INDICATORS = {
         SignalLevel.CONFIRMED: ("✅ CONFIRMED", "✅ 已確認"),
         SignalLevel.WATCH_ONLY: ("👁️ WATCH ONLY", "👁️ 僅觀察")
+    }
+    
+    # Chinese readable signal descriptions / 中文可讀訊號描述
+    SIGNAL_DESCRIPTIONS_ZH = {
+        SignalType.TREND_LONG: {
+            "name": "順勢做多提醒",
+            "emoji": "📈",
+            "description": "價格突破均線，成交量放大，可能開啟上漲趨勢",
+            "action": "可考慮順勢做多，設定止損"
+        },
+        SignalType.TREND_SHORT: {
+            "name": "順勢做空提醒",
+            "emoji": "📉",
+            "description": "價格跌破均線，成交量放大，可能開啟下跌趨勢",
+            "action": "可考慮順勢做空，設定止損"
+        },
+        SignalType.CONTRARIAN_WATCH_OVERHEATED: {
+            "name": "逆勢觀察：過熱",
+            "emoji": "🔥",
+            "description": "連續上漲後出現過熱訊號，可能面臨回調",
+            "action": "僅供觀察，等待確認訊號，不要追多"
+        },
+        SignalType.CONTRARIAN_WATCH_OVERSOLD: {
+            "name": "逆勢觀察：超跌",
+            "emoji": "❄️",
+            "description": "連續下跌後出現超跌訊號，可能面臨反彈",
+            "action": "僅供觀察，等待確認訊號，不要追空"
+        }
+    }
+    
+    # Warning translations / 警告翻譯
+    WARNING_TRANSLATIONS = {
+        "ALERT_ONLY_NO_AUTO_TRADE": "⚠️ 僅供提醒，不會自動下單",
+        "WATCH_ONLY_NOT_EXECUTION_SIGNAL": "👁️ 僅供觀察，不是進場訊號",
+        "ALERT_ONLY - NO AUTO TRADING": "⚠️ 僅供提醒，不會自動下單"
     }
     
     def __init__(self, language: str = "en"):
@@ -223,6 +258,109 @@ class NotificationFormatter:
         # Footer / 頁尾
         lines.append("")
         lines.append(f"{'=' * 50}")
+        
+        return "\n".join(lines)
+    
+    def format_chinese_readable(self, signal: Signal) -> str:
+        """
+        Format signal as human-readable Chinese Discord message / 格式化為中文可讀的 Discord 訊息
+        
+        Designed for quick reading in Discord notifications.
+        專為快速閱讀 Discord 提醒而設計。
+        
+        Args:
+            signal: Signal object to format / 要格式化的訊號物件
+            
+        Returns:
+            Formatted Chinese alert string / 格式化的中文提醒字串
+        """
+        # Get signal description
+        sig_desc = self.SIGNAL_DESCRIPTIONS_ZH.get(signal.signal_type, {
+            "name": str(signal.signal_type),
+            "emoji": "📊",
+            "description": "未知訊號類型",
+            "action": "請謹慎評估"
+        })
+        
+        # Format times
+        dt_utc = datetime.fromtimestamp(signal.timestamp / 1000, tz=timezone.utc)
+        dt_local = dt_utc.astimezone()
+        utc_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+        local_str = dt_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+        
+        # Get price data
+        close_price = signal.price_data.get("close_5m", "N/A")
+        if isinstance(close_price, (int, float)):
+            close_price = self._format_price(close_price)
+        
+        # Get volume ratio if available
+        vol_ratio = signal.price_data.get("volume_ratio")
+        vol_text = f"（量比 {vol_ratio:.1f}x）" if vol_ratio else ""
+        
+        # Translate warning
+        warning_zh = self.WARNING_TRANSLATIONS.get(signal.warning, signal.warning)
+        
+        # Build lines
+        lines = []
+        
+        # Header with emoji
+        lines.append(f"{sig_desc['emoji']} **{sig_desc['name']}** {sig_desc['emoji']}")
+        lines.append("")
+        
+        # Key info box
+        lines.append("```")
+        lines.append(f"標的:     {signal.symbol}")
+        lines.append(f"價格:     {close_price} {vol_text}")
+        
+        # Level indicator
+        if signal.level == SignalLevel.CONFIRMED:
+            lines.append(f"狀態:     ✅ 已確認訊號")
+        else:
+            lines.append(f"狀態:     👁️ 僅供觀察")
+        
+        lines.append("```")
+        lines.append("")
+        
+        # What happened / 發生了什麼
+        lines.append(f"**📋 說明**: {sig_desc['description']}")
+        lines.append("")
+        
+        # Key conditions summary / 關鍵條件摘要
+        if signal.conditions:
+            lines.append("**🔍 觸發條件**:")
+            # Translate condition names
+            condition_translations = {
+                "c1_above_ma240": "價格在 MA240 之上",
+                "c1_below_ma240": "價格在 MA240 之下",
+                "c2_ma_cross_above": "MA5 上穿 MA20（黃金交叉）",
+                "c2_ma_cross_below": "MA5 下穿 MA20（死亡交叉）",
+                "c3_volume_spike": "成交量放大（超過均量）",
+                "c3_above_ma240": "價格在 MA240 之上",
+                "c4_four_red_candles": "連續四根紅 K（上漲）",
+                "c4_four_green_candles": "連續四根綠 K（下跌）"
+            }
+            
+            for cond, met in signal.conditions.items():
+                if met:
+                    cond_zh = condition_translations.get(cond, cond)
+                    lines.append(f"  ✅ {cond_zh}")
+            lines.append("")
+        
+        # What to do / 該怎麼辦
+        lines.append(f"**💡 建議**: {sig_desc['action']}")
+        lines.append("")
+        
+        # Time info / 時間資訊
+        lines.append(f"🕐 **UTC**: {utc_str}")
+        lines.append(f"🕐 **本地**: {local_str}")
+        lines.append("")
+        
+        # Warning box / 警告框
+        lines.append(f"> ⚠️ **{warning_zh}**")
+        
+        if signal.level == SignalLevel.WATCH_ONLY:
+            lines.append(">")
+            lines.append("> 👁️ **僅供觀察，不是進場訊號**")
         
         return "\n".join(lines)
     
