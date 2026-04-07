@@ -13,6 +13,14 @@ import os
 
 sys.path.insert(0, '/tmp/kimi-shared-brain')
 
+# Import monitor service / 匯入監測服務
+from ui.services.monitor_service import (
+    get_scheduler_status,
+    get_last_run_info,
+    get_next_run_time,
+    get_logs_preview
+)
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/system", title="System")
 
@@ -31,7 +39,55 @@ layout = dbc.Container(
                 dbc.CardHeader(html.H5("System Health / 系統健康度", className="mb-0")),
                 dbc.CardBody(
                     id="system-health",
-                    children=render_system_health()
+                    children=[]  # Will be populated by callback
+                )
+            ],
+            className="mb-4"
+        ),
+        
+        # Scheduler Status / 排程器狀態
+        dbc.Card(
+            [
+                dbc.CardHeader(html.H5("Scheduler Status / 排程器狀態", className="mb-0")),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.H6("Status / 狀態"),
+                                        html.P(id="system-scheduler-status", children="Checking...")
+                                    ],
+                                    width=6,
+                                    md=3
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.H6("PID"),
+                                        html.P(id="system-scheduler-pid", children="--")
+                                    ],
+                                    width=6,
+                                    md=3
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.H6("Last Run / 最後執行"),
+                                        html.P(id="system-last-run", children="--")
+                                    ],
+                                    width=6,
+                                    md=3
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.H6("Next Run / 下次執行"),
+                                        html.P(id="system-next-run", children="--")
+                                    ],
+                                    width=6,
+                                    md=3
+                                ),
+                            ]
+                        )
+                    ]
                 )
             ],
             className="mb-4"
@@ -70,18 +126,16 @@ layout = dbc.Container(
                         dbc.ButtonGroup(
                             [
                                 dbc.Button(
-                                    "Scheduler Config",
-                                    href="#",
-                                    color="link",
-                                    size="sm"
-                                ),
-                                dbc.Button(
                                     "Monitoring Params",
-                                    href="#",
+                                    href="/parameters",
                                     color="link",
                                     size="sm"
                                 ),
                             ]
+                        ),
+                        html.P(
+                            "⚠️ Scheduler controls are for display only in MVP. Use command line to control scheduler.",
+                            className="text-muted small mt-3 mb-0"
                         )
                     ]
                 )
@@ -102,7 +156,7 @@ layout = dbc.Container(
                     [
                         html.Div(
                             id="system-logs",
-                            children=render_logs_preview(),
+                            children="Loading logs...",
                             style={
                                 "maxHeight": "400px",
                                 "overflowY": "auto",
@@ -115,9 +169,9 @@ layout = dbc.Container(
                         ),
                         html.Hr(),
                         dbc.Button(
-                            "View Full Logs / 查看完整日誌",
-                            href="#",
-                            color="link",
+                            "Refresh Logs / 刷新日誌",
+                            id="system-refresh-logs",
+                            color="outline-primary",
                             size="sm"
                         )
                     ]
@@ -152,11 +206,11 @@ layout = dbc.Container(
                                         ]),
                                         html.Tr([
                                             html.Td("Logs / 日誌"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/logs/"))
+                                            html.Td(html.Code("/tmp/kimi-shared-brain/logs/scheduler.log"))
                                         ]),
                                         html.Tr([
-                                            html.Td("Alerts / 提醒"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/alerts/"))
+                                            html.Td("PID File / PID 檔案"),
+                                            html.Td(html.Code("/tmp/kimi-shared-brain/.monitor.pid"))
                                         ]),
                                         html.Tr([
                                             html.Td("Outputs / 輸出"),
@@ -248,125 +302,106 @@ layout = dbc.Container(
 )
 
 
-def render_system_health():
-    """Render system health indicators"""
-    try:
-        # Check scheduler status
-        pid_file = "/tmp/kimi-shared-brain/.monitor.pid"
-        scheduler_status = "stopped"
-        scheduler_pid = None
-        
-        if os.path.exists(pid_file):
-            with open(pid_file, 'r') as f:
-                pid = f.read().strip()
-                try:
-                    os.kill(int(pid), 0)
-                    scheduler_status = "running"
-                    scheduler_pid = pid
-                except (OSError, ValueError):
-                    scheduler_status = "stale"
-        
-        # Check data connection (placeholder)
-        data_status = "connected"  # Would check actual API
-        
-        # Check Discord connection (placeholder)
-        discord_status = "connected"  # Would check actual connection
-        
-        return dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        html.H6("Scheduler / 排程器"),
-                        dbc.Badge(
-                            "🟢 Running" if scheduler_status == "running" else "🔴 Stopped",
-                            color="success" if scheduler_status == "running" else "danger",
-                            className="mb-2 d-block"
-                        ),
-                        html.Small(
-                            f"PID: {scheduler_pid}" if scheduler_pid else "Not running",
-                            className="text-muted"
-                        ) if scheduler_status == "running" else None
-                    ],
-                    width=6,
-                    md=3,
-                    className="mb-3"
-                ),
-                dbc.Col(
-                    [
-                        html.H6("Data API / 資料 API"),
-                        dbc.Badge(
-                            "🟢 Connected" if data_status == "connected" else "🔴 Disconnected",
-                            color="success" if data_status == "connected" else "danger",
-                            className="mb-2 d-block"
-                        ),
-                        html.Small("Binance API", className="text-muted")
-                    ],
-                    width=6,
-                    md=3,
-                    className="mb-3"
-                ),
-                dbc.Col(
-                    [
-                        html.H6("Notifications / 通知"),
-                        dbc.Badge(
-                            "🟢 Connected" if discord_status == "connected" else "🔴 Disconnected",
-                            color="success" if discord_status == "connected" else "danger",
-                            className="mb-2 d-block"
-                        ),
-                        html.Small("Discord + Console", className="text-muted")
-                    ],
-                    width=6,
-                    md=3,
-                    className="mb-3"
-                ),
-                dbc.Col(
-                    [
-                        html.H6("UI Status / UI 狀態"),
-                        dbc.Badge("🟢 Active", color="success", className="mb-2 d-block"),
-                        html.Small("Dash server running", className="text-muted")
-                    ],
-                    width=6,
-                    md=3,
-                    className="mb-3"
-                ),
-            ]
-        )
-    except Exception as e:
-        return dbc.Alert(f"Error checking health / 檢查健康度錯誤: {e}", color="danger")
-
-
-def render_logs_preview():
-    """Render a preview of recent logs"""
-    log_lines = []
-    
-    try:
-        log_file = "/tmp/kimi-shared-brain/logs/scheduler.log"
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                # Get last 20 lines
-                lines = f.readlines()
-                log_lines = lines[-20:] if len(lines) > 20 else lines
-        else:
-            log_lines = ["No log file found / 未找到日誌檔案"]
-    except Exception as e:
-        log_lines = [f"Error reading logs / 讀取日誌錯誤: {e}"]
-    
-    if not log_lines:
-        log_lines = ["No logs available / 無可用日誌"]
-    
-    return html.Pre(
-        "".join(log_lines),
-        style={"margin": 0}
-    )
-
-
 # Callbacks / 回調
 
 @callback(
     Output("system-health", "children"),
+    Output("system-scheduler-status", "children"),
+    Output("system-scheduler-pid", "children"),
+    Output("system-last-run", "children"),
+    Output("system-next-run", "children"),
     Output("system-logs", "children"),
-    Input("system-interval", "n_intervals")
+    Input("system-interval", "n_intervals"),
+    Input("system-refresh-logs", "n_clicks")
 )
-def update_system_info(n):
-    """Update system health and logs"""
-    return render_system_health(), render_logs_preview()
+def update_system_info(n_intervals, n_clicks):
+    """Update system information using monitor service"""
+    try:
+        # Get scheduler status
+        status = get_scheduler_status()
+        
+        # Health indicators
+        health_children = []
+        
+        # Scheduler health
+        if status.get("running"):
+            scheduler_badge = dbc.Badge("🟢 Running", color="success", className="mb-2 d-block")
+            scheduler_status_text = dbc.Badge("✓ Operational", color="success")
+        else:
+            scheduler_badge = dbc.Badge("🔴 Stopped", color="danger", className="mb-2 d-block")
+            scheduler_status_text = dbc.Badge("✗ Not Running", color="danger")
+        
+        health_children.append(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.H6("Scheduler / 排程器"),
+                            scheduler_badge,
+                            html.Small(
+                                f"PID: {status.get('pid')}" if status.get('pid') else "No PID",
+                                className="text-muted"
+                            ) if status.get("running") else None
+                        ],
+                        width=6,
+                        md=3,
+                        className="mb-3"
+                    ),
+                    dbc.Col(
+                        [
+                            html.H6("Data API / 資料 API"),
+                            dbc.Badge("🟢 Connected", color="success", className="mb-2 d-block"),
+                            html.Small("Binance API", className="text-muted")
+                        ],
+                        width=6,
+                        md=3,
+                        className="mb-3"
+                    ),
+                    dbc.Col(
+                        [
+                            html.H6("Notifications / 通知"),
+                            dbc.Badge("🟢 Active", color="success", className="mb-2 d-block"),
+                            html.Small("Console + Discord", className="text-muted")
+                        ],
+                        width=6,
+                        md=3,
+                        className="mb-3"
+                    ),
+                    dbc.Col(
+                        [
+                            html.H6("UI Status / UI 狀態"),
+                            dbc.Badge("🟢 Active", color="success", className="mb-2 d-block"),
+                            html.Small("Dash server running", className="text-muted")
+                        ],
+                        width=6,
+                        md=3,
+                        className="mb-3"
+                    ),
+                ]
+            )
+        )
+        
+        # Get last run info
+        last_run = get_last_run_info()
+        last_run_text = last_run.get("time_ago", "--") if last_run.get("timestamp") else "No runs"
+        
+        # Get next run time
+        next_run = get_next_run_time()
+        next_run_text = next_run if next_run else "--"
+        
+        # Get logs
+        logs = get_logs_preview(30)
+        logs_display = html.Pre(logs, style={"margin": 0, "whiteSpace": "pre-wrap"})
+        
+        return (
+            health_children,
+            scheduler_status_text,
+            status.get("pid", "--"),
+            last_run_text,
+            next_run_text,
+            logs_display
+        )
+        
+    except Exception as e:
+        error_msg = dbc.Alert(f"Error: {e}", color="danger")
+        return error_msg, "Error", "--", "--", "--", f"Error loading logs: {e}"

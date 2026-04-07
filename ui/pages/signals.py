@@ -8,10 +8,12 @@ Signal history and alert viewing.
 import dash
 from dash import dcc, html, callback, Output, Input
 import dash_bootstrap_components as dbc
-from dash import dash_table
 import sys
 
 sys.path.insert(0, '/tmp/kimi-shared-brain')
+
+# Import monitor service / 匯入監測服務
+from ui.services.monitor_service import get_recent_runs, get_today_signals
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/signals", title="Signals")
@@ -24,6 +26,63 @@ layout = dbc.Container(
         html.P("Signal history and alert feed / 訊號歷史與提醒串流", className="text-muted"),
         
         html.Hr(),
+        
+        # Summary Cards / 摘要卡片
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H3(id="signals-total-count", children="--"),
+                                    html.P("Total Today / 今日總計", className="text-muted mb-0")
+                                ]
+                            )
+                        ],
+                        color="primary",
+                        outline=True
+                    ),
+                    width=6,
+                    md=4,
+                    className="mb-3"
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H3(id="signals-confirmed-count", children="--"),
+                                    html.P("Confirmed / 已確認", className="text-muted mb-0")
+                                ]
+                            )
+                        ],
+                        color="success",
+                        outline=True
+                    ),
+                    width=6,
+                    md=4,
+                    className="mb-3"
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H3(id="signals-watch-count", children="--"),
+                                    html.P("Watch Only / 僅觀察", className="text-muted mb-0")
+                                ]
+                            )
+                        ],
+                        color="info",
+                        outline=True
+                    ),
+                    width=6,
+                    md=4,
+                    className="mb-3"
+                ),
+            ]
+        ),
         
         # Filters / 篩選器
         dbc.Card(
@@ -88,8 +147,8 @@ layout = dbc.Container(
                         ]
                     ),
                     dbc.Button(
-                        "Apply Filters / 套用篩選",
-                        id="signals-apply-filters",
+                        "Refresh / 刷新",
+                        id="signals-refresh",
                         color="primary",
                         className="mt-2"
                     )
@@ -98,24 +157,77 @@ layout = dbc.Container(
             className="mb-4"
         ),
         
-        # Signal list / 訊號列表
+        # Run History / 執行歷史
         dbc.Card(
             [
                 dbc.CardHeader(
                     [
-                        "Signal History / 訊號歷史",
-                        dbc.Badge("Live", color="success", className="ms-2")
+                        html.H5("Run History / 執行歷史", className="mb-0"),
+                        html.Small("Recent monitoring runs with signal counts", className="text-muted")
                     ]
                 ),
                 dbc.CardBody(
-                    id="signals-list",
+                    id="signals-run-history",
                     children=[
-                        html.Div(
+                        html.P("Loading run history...", className="text-muted")
+                    ]
+                )
+            ],
+            className="mb-4"
+        ),
+        
+        # Signal Alert Info / 訊號提醒資訊
+        dbc.Card(
+            [
+                dbc.CardHeader("Signal Types / 訊號類型"),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
                             [
-                                html.P("📡 Signal data connection pending", className="text-muted"),
-                                html.P("(Implemented in Phase 4: Connect Monitoring Status)", className="text-muted small")
-                            ],
-                            className="text-center py-5"
+                                dbc.Col(
+                                    [
+                                        html.H6("✅ Trend Long / 順勢做多"),
+                                        html.P(
+                                            "Confirmed execution-grade signal for long positions. "
+                                            "Requires: price > MA240, MA5 crosses above MA20, volume spike.",
+                                            className="text-muted small"
+                                        )
+                                    ],
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.H6("✅ Trend Short / 順勢做空"),
+                                        html.P(
+                                            "Confirmed execution-grade signal for short positions. "
+                                            "Requires: price < MA240, MA5 crosses below MA20, volume spike.",
+                                            className="text-muted small"
+                                        )
+                                    ],
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.H6("👁️ Contrarian Watch / 逆勢觀察"),
+                                        html.P(
+                                            "Watch-only signal for potential reversals. "
+                                            "Not for execution - use for observation and analysis only.",
+                                            className="text-muted small"
+                                        ),
+                                        dbc.Alert(
+                                            "⚠️ WATCH ONLY - NOT FOR EXECUTION / 僅觀察 - 非執行訊號",
+                                            color="warning",
+                                            className="py-1 mt-2"
+                                        )
+                                    ],
+                                    width=12,
+                                    className="mb-3"
+                                ),
+                            ]
                         )
                     ]
                 )
@@ -123,21 +235,23 @@ layout = dbc.Container(
             className="mb-4"
         ),
         
-        # Real-time alert feed / 即時提醒串流
-        dbc.Card(
+        # Alert-Only Notice / 僅提醒通知
+        dbc.Alert(
             [
-                dbc.CardHeader("Real-time Alert Feed / 即時提醒串流"),
-                dbc.CardBody(
-                    id="signals-alert-feed",
-                    children=[
-                        html.Div(
-                            html.P("Waiting for alerts... / 等待提醒...", className="text-muted"),
-                            className="text-center py-3"
-                        )
-                    ],
-                    style={"maxHeight": "300px", "overflowY": "auto"}
+                html.H5("⚠️ Alert-Only System / 僅提醒系統", className="alert-heading"),
+                html.P(
+                    "This monitoring system generates ALERTS ONLY. No automatic trading is performed. "
+                    "All trading decisions require manual confirmation.",
+                    className="mb-0"
+                ),
+                html.Hr(),
+                html.P(
+                    "本監測系統僅產生提醒，不執行自動交易。所有交易決策需人工確認。",
+                    className="mb-0 small"
                 )
-            ]
+            ],
+            color="warning",
+            className="mb-4"
         ),
         
         # Auto-refresh / 自動刷新
@@ -154,58 +268,77 @@ layout = dbc.Container(
 # Callbacks / 回調
 
 @callback(
-    Output("signals-list", "children"),
+    Output("signals-total-count", "children"),
+    Output("signals-confirmed-count", "children"),
+    Output("signals-watch-count", "children"),
+    Output("signals-run-history", "children"),
     Input("signals-interval", "n_intervals"),
-    Input("signals-apply-filters", "n_clicks")
+    Input("signals-refresh", "n_clicks")
 )
-def update_signals_list(n_intervals, n_clicks):
-    """Update signal list display"""
-    # Placeholder - will be implemented in Phase 4
-    return html.Div(
-        [
-            html.P("Signal history table will be displayed here", className="text-muted"),
-            html.P("Features: Sortable columns, pagination, detail view", className="text-muted small"),
-            html.Hr(),
-            html.Table(
+def update_signals_page(n_intervals, n_clicks):
+    """Update signals page with real data"""
+    try:
+        # Get today's signals
+        today = get_today_signals()
+        total = today.get("total", 0)
+        confirmed = today.get("confirmed", 0)
+        watch = today.get("watch_only", 0)
+        
+        # Get recent runs
+        runs = get_recent_runs(10)
+        
+        # Build run history table
+        if runs:
+            rows = []
+            for run in runs:
+                run_id = run.get("run_id", "--")
+                timestamp = run.get("timestamp", "--")
+                signals = run.get("signals", 0)
+                confirmed_count = run.get("confirmed", 0)
+                watch_count = run.get("watch_only", 0)
+                
+                # Format signal display
+                if signals > 0:
+                    signal_text = f"{signals} total"
+                    signal_detail = f"({confirmed_count}✓, {watch_count}👁️)"
+                    badge_color = "success" if confirmed_count > 0 else "info"
+                else:
+                    signal_text = "No signals"
+                    signal_detail = ""
+                    badge_color = "secondary"
+                
+                rows.append(
+                    html.Tr([
+                        html.Td(f"#{run_id}"),
+                        html.Td(timestamp),
+                        html.Td(
+                            [
+                                dbc.Badge(signal_text, color=badge_color, className="me-1"),
+                                html.Small(signal_detail, className="text-muted") if signal_detail else None
+                            ]
+                        ),
+                    ])
+                )
+            
+            run_history = dbc.Table(
                 [
                     html.Thead(
                         html.Tr([
+                            html.Th("Run / 執行"),
                             html.Th("Time / 時間"),
-                            html.Th("Symbol / 標的"),
-                            html.Th("Type / 類型"),
-                            html.Th("Status / 狀態"),
-                            html.Th("Actions / 操作")
+                            html.Th("Signals / 訊號"),
                         ])
                     ),
-                    html.Tbody(
-                        html.Tr(
-                            html.Td("No data / 無資料", colSpan=5, className="text-center text-muted"),
-                            className="py-4"
-                        )
-                    )
+                    html.Tbody(rows)
                 ],
-                className="table table-striped"
+                bordered=True,
+                hover=True,
+                size="sm"
             )
-        ]
-    )
-
-
-@callback(
-    Output("signals-alert-feed", "children"),
-    Input("signals-interval", "n_intervals")
-)
-def update_alert_feed(n):
-    """Update real-time alert feed"""
-    # Placeholder - will be implemented in Phase 4
-    return html.Div(
-        [
-            dbc.Alert(
-                [
-                    html.Strong("System Ready / 系統就緒"),
-                    html.Br(),
-                    "Waiting for new signals... / 等待新訊號..."
-                ],
-                color="info"
-            )
-        ]
-    )
+        else:
+            run_history = html.P("No run history available", className="text-muted text-center py-3")
+        
+        return str(total), str(confirmed), str(watch), run_history
+        
+    except Exception as e:
+        return "--", "--", "--", dbc.Alert(f"Error loading data: {e}", color="danger")

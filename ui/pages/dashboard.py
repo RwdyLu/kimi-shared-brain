@@ -13,6 +13,15 @@ import sys
 
 sys.path.insert(0, '/tmp/kimi-shared-brain')
 
+# Import monitor service / 匯入監測服務
+from ui.services.monitor_service import (
+    get_scheduler_status,
+    get_last_run_info,
+    get_today_signals,
+    get_recent_runs
+)
+from config.loader import get_enabled_symbols
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/", title="Dashboard")
 
@@ -40,6 +49,7 @@ layout = dbc.Container(
                                 ]
                             )
                         ],
+                        id="dashboard-status-card",
                         color="info",
                         outline=True
                     ),
@@ -82,6 +92,7 @@ layout = dbc.Container(
                                 ]
                             )
                         ],
+                        id="dashboard-signals-card",
                         color="warning",
                         outline=True
                     ),
@@ -104,6 +115,27 @@ layout = dbc.Container(
                                 id="dashboard-symbols",
                                 children=[
                                     html.P("Loading symbols...", className="text-muted")
+                                ]
+                            )
+                        )
+                    ],
+                    width=12,
+                    className="mb-4"
+                )
+            ]
+        ),
+        
+        # Recent Runs / 最近執行
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H4("Recent Runs / 最近執行", className="mt-4 mb-3"),
+                        dbc.Card(
+                            dbc.CardBody(
+                                id="dashboard-recent-runs",
+                                children=[
+                                    html.P("Loading recent runs...", className="text-muted")
                                 ]
                             )
                         )
@@ -188,24 +220,53 @@ layout = dbc.Container(
 @callback(
     Output("dashboard-status", "children"),
     Output("dashboard-status-detail", "children"),
+    Output("dashboard-status-card", "color"),
     Input("dashboard-interval", "n_intervals")
 )
 def update_status(n):
-    """Update system status display"""
+    """Update system status display using monitor service"""
     try:
-        import os
-        pid_file = "/tmp/kimi-shared-brain/.monitor.pid"
-        if os.path.exists(pid_file):
-            with open(pid_file, 'r') as f:
-                pid = f.read().strip()
-                try:
-                    os.kill(int(pid), 0)
-                    return "🟢 Running", f"PID: {pid}"
-                except (OSError, ValueError):
-                    return "🔴 Stopped", "Scheduler not running"
-        return "🔴 Stopped", "No PID file found"
+        status = get_scheduler_status()
+        
+        if status.get("running"):
+            return (
+                "🟢 Running",
+                f"PID: {status.get('pid')}",
+                "success"
+            )
+        else:
+            return (
+                "🔴 Stopped",
+                status.get("status_text", "Scheduler not running"),
+                "danger"
+            )
     except Exception as e:
-        return "⚪ Unknown", str(e)
+        return "⚪ Unknown", str(e), "secondary"
+
+
+@callback(
+    Output("dashboard-last-run", "children"),
+    Output("dashboard-last-run-result", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_last_run(n):
+    """Update last run time using monitor service"""
+    try:
+        last_run = get_last_run_info()
+        
+        if last_run.get("timestamp"):
+            time_display = last_run.get("time_ago", last_run["timestamp"])
+            result_text = last_run.get("result_text", "No details")
+            
+            # Add run number if available
+            if last_run.get("run_id"):
+                time_display = f"#{last_run['run_id']} • {time_display}"
+            
+            return time_display, result_text
+        else:
+            return "No runs yet", "Waiting for first run"
+    except Exception as e:
+        return "Error", str(e)
 
 
 @callback(
@@ -215,7 +276,6 @@ def update_status(n):
 def update_symbols(n):
     """Update active symbols display"""
     try:
-        from config.loader import get_enabled_symbols
         symbols = get_enabled_symbols()
         
         if not symbols:
@@ -238,37 +298,134 @@ def update_symbols(n):
 
 
 @callback(
+    Output("dashboard-signals-count", "children"),
+    Output("dashboard-signals-breakdown", "children"),
+    Output("dashboard-signals-card", "color"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_signals_count(n):
+    """Update signal counts using monitor service"""
+    try:
+        signals = get_today_signals()
+        
+        total = signals.get("total", 0)
+        confirmed = signals.get("confirmed", 0)
+        watch_only = signals.get("watch_only", 0)
+        
+        if total > 0:
+            breakdown = f"✅ {confirmed} confirmed • 👁️ {watch_only} watch"
+            color = "warning" if confirmed > 0 else "info"
+        else:
+            breakdown = "No signals today / 今日無訊號"
+            color = "success"
+        
+        return str(total), breakdown, color
+    except Exception as e:
+        return "--", str(e), "secondary"
+
+
+@callback(
+    Output("dashboard-recent-runs", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_recent_runs(n):
+    """Update recent runs display"""
+    try:
+        runs = get_recent_runs(5)
+        
+        if not runs:
+            return html.P("No recent runs found", className="text-muted text-center py-3")
+        
+        rows = []
+        for run in runs:
+            run_id = run.get("run_id", "--")
+            timestamp = run.get("timestamp", "--")
+            signals = run.get("signals", 0)
+            confirmed = run.get("confirmed", 0)
+            watch = run.get("watch_only", 0)
+            
+            # Signal badge color
+            if signals > 0:
+                if confirmed > 0:
+                    badge_color = "success"
+                    badge_text = f"{signals} ({confirmed}✓)"
+                else:
+                    badge_color = "info"
+                    badge_text = f"{signals} (👁️)"
+            else:
+                badge_color = "secondary"
+                badge_text = "0"
+            
+            rows.append(
+                html.Tr([
+                    html.Td(f"#{run_id}"),
+                    html.Td(timestamp),
+                    html.Td(dbc.Badge(badge_text, color=badge_color)),
+                ])
+            )
+        
+        return dbc.Table(
+            [
+                html.Thead(
+                    html.Tr([
+                        html.Th("Run"),
+                        html.Th("Time / 時間"),
+                        html.Th("Signals / 訊號"),
+                    ])
+                ),
+                html.Tbody(rows)
+            ],
+            bordered=True,
+            hover=True,
+            size="sm"
+        )
+    except Exception as e:
+        return html.P(f"Error loading runs: {e}", className="text-danger")
+
+
+@callback(
     Output("dashboard-recent-signals", "children"),
     Input("dashboard-interval", "n_intervals")
 )
 def update_recent_signals(n):
     """Update recent signals display"""
-    # Placeholder - will be implemented in Phase 4
-    return html.Div(
-        [
-            html.P("📡 Signal history will be displayed here", className="text-muted"),
-            html.P("(Implemented in Phase 4: Connect Monitoring Status)", className="text-muted small")
-        ]
-    )
-
-
-@callback(
-    Output("dashboard-signals-count", "children"),
-    Output("dashboard-signals-breakdown", "children"),
-    Input("dashboard-interval", "n_intervals")
-)
-def update_signals_count(n):
-    """Update signal counts"""
-    # Placeholder - will be implemented in Phase 4
-    return "--", "(Data connection pending)"
-
-
-@callback(
-    Output("dashboard-last-run", "children"),
-    Output("dashboard-last-run-result", "children"),
-    Input("dashboard-interval", "n_intervals")
-)
-def update_last_run(n):
-    """Update last run time"""
-    # Placeholder - will be implemented in Phase 4
-    return "--", "(Data connection pending)"
+    try:
+        # Get today's signals info
+        signals = get_today_signals()
+        
+        if signals.get("total", 0) == 0:
+            return html.Div(
+                [
+                    html.P("📡 No signals today", className="text-muted text-center"),
+                    html.P(
+                        "Signals will appear here when detected",
+                        className="text-muted text-center small"
+                    )
+                ],
+                className="py-3"
+            )
+        
+        # Show summary of today's signals
+        return html.Div(
+            [
+                html.P(f"Today's signal count: {signals['total']}", className="mb-2"),
+                html.Ul(
+                    [
+                        html.Li(f"Confirmed signals: {signals['confirmed']}"),
+                        html.Li(f"Watch-only signals: {signals['watch_only']}"),
+                    ]
+                ),
+                html.P(
+                    "Go to Signals page for details / 前往訊號頁面查看詳情",
+                    className="text-muted small"
+                ),
+                dbc.Button(
+                    "View All Signals",
+                    href="/signals",
+                    color="primary",
+                    size="sm"
+                )
+            ]
+        )
+    except Exception as e:
+        return html.P(f"Error loading signals: {e}", className="text-danger")

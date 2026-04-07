@@ -1,0 +1,5306 @@
+============================================================
+BTC/ETH MONITORING STARTED / BTC/ETH 監控已啟動
+============================================================
+
+Configuration / 配置:
+  Mode: interval
+  Interval: 5 minutes
+  Max Runs: Unlimited
+  Prevent Overlap: True
+  Log File: /tmp/kimi-shared-brain/logs/scheduler.log
+
+Safety / 安全:
+  ✅ Alert-Only System
+  ✅ No Auto-Trading
+  ✅ Volume Threshold: 1.5x
+  ✅ Cooldown: 15-30 minutes
+
+Press Ctrl+C to stop / 按 Ctrl+C 停止
+============================================================
+
+[2026-04-07 17:13:39] Starting interval scheduler / 啟動間隔排程器
+[2026-04-07 17:13:39] Interval: 5 minutes / 間隔：5 分鐘
+[2026-04-07 17:13:39] Press Ctrl+C to stop / 按 Ctrl+C 停止
+[2026-04-07 17:13:39] ============================================================
+[2026-04-07 17:13:39] ============================================================
+[2026-04-07 17:13:39] Run #1 started at 2026-04-07 17:13:39.108460
+[2026-04-07 17:13:39] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:13:39
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69041.23
+    ✓ MA20: 68826.11
+    ✓ MA240: 69165.69
+    ✓ Volume Ratio: 0.42x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: ❄️ CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: BTCUSDT
+Time: 2026-04-07 09:13:39 UTC / 2026-04-07 17:13:39 CST
+
+Price Data / 價格資料:
+  Pattern: oversold
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: BTCUSDT 15m: 4 consecutive oversold candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2121.39
+    ✓ MA20: 2111.50
+    ✓ MA240: 2126.00
+    ✓ Volume Ratio: 0.41x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:13:39.585000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - BTCUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:13:39] Run #1 completed
+[2026-04-07 17:13:39]   Duration: 0.5s
+[2026-04-07 17:13:39]   Symbols: 2/2
+[2026-04-07 17:13:39]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #1: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 17:13:39] Next run at 17:18:39 (in 5 min)
+[2026-04-07 17:18:39] ============================================================
+[2026-04-07 17:18:39] Run #2 started at 2026-04-07 17:18:39.617654
+[2026-04-07 17:18:39] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:18:39
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69070.80
+    ✓ MA20: 68849.38
+    ✓ MA240: 69164.73
+    ✓ Volume Ratio: 0.28x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2123.52
+    ✓ MA20: 2112.66
+    ✓ MA240: 2125.95
+    ✓ Volume Ratio: 0.25x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:18:40.092000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:18:40] Run #2 completed
+[2026-04-07 17:18:40]   Duration: 0.5s
+[2026-04-07 17:18:40]   Symbols: 2/2
+[2026-04-07 17:18:40]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:18:40] Next run at 17:23:40 (in 5 min)
+[2026-04-07 17:23:40] ============================================================
+[2026-04-07 17:23:40] Run #3 started at 2026-04-07 17:23:40.122534
+[2026-04-07 17:23:40] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:23:40
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69089.04
+    ✓ MA20: 68866.98
+    ✓ MA240: 69163.10
+    ✓ Volume Ratio: 0.20x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2125.62
+    ✓ MA20: 2113.75
+    ✓ MA240: 2125.88
+    ✓ Volume Ratio: 0.06x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:23:40.737000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:23:40] Run #3 completed
+[2026-04-07 17:23:40]   Duration: 0.6s
+[2026-04-07 17:23:40]   Symbols: 2/2
+[2026-04-07 17:23:40]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:23:40] Next run at 17:28:40 (in 5 min)
+[2026-04-07 17:28:40] ============================================================
+[2026-04-07 17:28:40] Run #4 started at 2026-04-07 17:28:40.771256
+[2026-04-07 17:28:40] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:28:40
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69102.04
+    ✓ MA20: 68885.71
+    ✓ MA240: 69161.34
+    ✓ Volume Ratio: 1.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2127.17
+    ✓ MA20: 2114.89
+    ✓ MA240: 2125.80
+    ✓ Volume Ratio: 1.07x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:28:41.280000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:28:41] Run #4 completed
+[2026-04-07 17:28:41]   Duration: 0.5s
+[2026-04-07 17:28:41]   Symbols: 2/2
+[2026-04-07 17:28:41]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:28:41] Next run at 17:33:41 (in 5 min)
+[2026-04-07 17:33:41] ============================================================
+[2026-04-07 17:33:41] Run #5 started at 2026-04-07 17:33:41.305540
+[2026-04-07 17:33:41] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:33:41
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69093.58
+    ✓ MA20: 68910.34
+    ✓ MA240: 69159.99
+    ✓ Volume Ratio: 0.65x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2126.87
+    ✓ MA20: 2116.18
+    ✓ MA240: 2125.73
+    ✓ Volume Ratio: 1.15x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:33:41.821000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:33:41] Run #5 completed
+[2026-04-07 17:33:41]   Duration: 0.5s
+[2026-04-07 17:33:41]   Symbols: 2/2
+[2026-04-07 17:33:41]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:33:41] Next run at 17:38:41 (in 5 min)
+[2026-04-07 17:38:41] ============================================================
+[2026-04-07 17:38:41] Run #6 started at 2026-04-07 17:38:41.847954
+[2026-04-07 17:38:41] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:38:41
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69100.62
+    ✓ MA20: 68936.25
+    ✓ MA240: 69159.31
+    ✓ Volume Ratio: 0.16x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2127.33
+    ✓ MA20: 2117.42
+    ✓ MA240: 2125.68
+    ✓ Volume Ratio: 0.13x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:38:42.319000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:38:42] Run #6 completed
+[2026-04-07 17:38:42]   Duration: 0.5s
+[2026-04-07 17:38:42]   Symbols: 2/2
+[2026-04-07 17:38:42]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:38:42] Next run at 17:43:42 (in 5 min)
+[2026-04-07 17:43:42] ============================================================
+[2026-04-07 17:43:42] Run #7 started at 2026-04-07 17:43:42.348245
+[2026-04-07 17:43:42] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:43:42
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69122.85
+    ✓ MA20: 68962.92
+    ✓ MA240: 69158.84
+    ✓ Volume Ratio: 0.43x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2127.82
+    ✓ MA20: 2118.58
+    ✓ MA240: 2125.62
+    ✓ Volume Ratio: 0.81x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:43:42.816000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:43:42] Run #7 completed
+[2026-04-07 17:43:42]   Duration: 0.5s
+[2026-04-07 17:43:42]   Symbols: 2/2
+[2026-04-07 17:43:42]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:43:42] Next run at 17:48:42 (in 5 min)
+[2026-04-07 17:48:42] ============================================================
+[2026-04-07 17:48:42] Run #8 started at 2026-04-07 17:48:42.848788
+[2026-04-07 17:48:42] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:48:42
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69147.50
+    ✓ MA20: 68987.45
+    ✓ MA240: 69158.09
+    ✓ Volume Ratio: 0.74x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2128.40
+    ✓ MA20: 2119.64
+    ✓ MA240: 2125.56
+    ✓ Volume Ratio: 0.47x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:48:43.398000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:48:43] Run #8 completed
+[2026-04-07 17:48:43]   Duration: 0.5s
+[2026-04-07 17:48:43]   Symbols: 2/2
+[2026-04-07 17:48:43]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:48:43] Next run at 17:53:43 (in 5 min)
+[2026-04-07 17:53:43] ============================================================
+[2026-04-07 17:53:43] Run #9 started at 2026-04-07 17:53:43.427087
+[2026-04-07 17:53:43] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:53:43
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69163.21
+    ✓ MA20: 69007.38
+    ✓ MA240: 69156.85
+    ✓ Volume Ratio: 0.59x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2128.72
+    ✓ MA20: 2120.58
+    ✓ MA240: 2125.48
+    ✓ Volume Ratio: 0.28x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:53:44.181000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:53:44] Run #9 completed
+[2026-04-07 17:53:44]   Duration: 0.8s
+[2026-04-07 17:53:44]   Symbols: 2/2
+[2026-04-07 17:53:44]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:53:44] Next run at 17:58:44 (in 5 min)
+[2026-04-07 17:58:44] ============================================================
+[2026-04-07 17:58:44] Run #10 started at 2026-04-07 17:58:44.216866
+[2026-04-07 17:58:44] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 17:58:44
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69164.01
+    ✓ MA20: 69026.30
+    ✓ MA240: 69155.69
+    ✓ Volume Ratio: 0.40x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2128.38
+    ✓ MA20: 2121.44
+    ✓ MA240: 2125.41
+    ✓ Volume Ratio: 0.13x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 17:58:44.733000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 17:58:44] Run #10 completed
+[2026-04-07 17:58:44]   Duration: 0.5s
+[2026-04-07 17:58:44]   Symbols: 2/2
+[2026-04-07 17:58:44]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 17:58:44] Next run at 18:03:44 (in 5 min)
+[2026-04-07 18:03:44] ============================================================
+[2026-04-07 18:03:44] Run #11 started at 2026-04-07 18:03:44.757962
+[2026-04-07 18:03:44] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:03:44
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69151.40
+    ✓ MA20: 69038.07
+    ✓ MA240: 69155.22
+    ✓ Volume Ratio: 0.97x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2127.58
+    ✓ MA20: 2122.09
+    ✓ MA240: 2125.35
+    ✓ Volume Ratio: 1.93x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:03:45.249000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:03:45] Run #11 completed
+[2026-04-07 18:03:45]   Duration: 0.5s
+[2026-04-07 18:03:45]   Symbols: 2/2
+[2026-04-07 18:03:45]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:03:45] Next run at 18:08:45 (in 5 min)
+[2026-04-07 18:08:45] ============================================================
+[2026-04-07 18:08:45] Run #12 started at 2026-04-07 18:08:45.281216
+[2026-04-07 18:08:45] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:08:45
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69110.18
+    ✓ MA20: 69049.25
+    ✓ MA240: 69153.94
+    ✓ Volume Ratio: 0.35x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2126.48
+    ✓ MA20: 2122.78
+    ✓ MA240: 2125.28
+    ✓ Volume Ratio: 0.28x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:08:45.762000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:08:45] Run #12 completed
+[2026-04-07 18:08:45]   Duration: 0.5s
+[2026-04-07 18:08:45]   Symbols: 2/2
+[2026-04-07 18:08:45]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:08:45] Next run at 18:13:45 (in 5 min)
+[2026-04-07 18:13:45] ============================================================
+[2026-04-07 18:13:45] Run #13 started at 2026-04-07 18:13:45.788421
+[2026-04-07 18:13:45] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:13:45
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 69050.46
+    ✓ MA20: 69051.19
+    ✓ MA240: 69151.98
+    ✓ Volume Ratio: 0.18x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2123.97
+    ✓ MA20: 2123.01
+    ✓ MA240: 2125.17
+    ✓ Volume Ratio: 0.67x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:13:46.272000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:13:46] Run #13 completed
+[2026-04-07 18:13:46]   Duration: 0.5s
+[2026-04-07 18:13:46]   Symbols: 2/2
+[2026-04-07 18:13:46]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:13:46] Next run at 18:18:46 (in 5 min)
+[2026-04-07 18:18:46] ============================================================
+[2026-04-07 18:18:46] Run #14 started at 2026-04-07 18:18:46.301875
+[2026-04-07 18:18:46] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:18:46
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68996.94
+    ✓ MA20: 69051.57
+    ✓ MA240: 69149.56
+    ✓ Volume Ratio: 0.23x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2121.94
+    ✓ MA20: 2123.28
+    ✓ MA240: 2125.04
+    ✓ Volume Ratio: 0.11x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:18:46.815000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:18:46] Run #14 completed
+[2026-04-07 18:18:46]   Duration: 0.5s
+[2026-04-07 18:18:46]   Symbols: 2/2
+[2026-04-07 18:18:46]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:18:46] Next run at 18:23:46 (in 5 min)
+[2026-04-07 18:23:46] ============================================================
+[2026-04-07 18:23:46] Run #15 started at 2026-04-07 18:23:46.841737
+[2026-04-07 18:23:46] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:23:46
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68959.53
+    ✓ MA20: 69053.76
+    ✓ MA240: 69147.27
+    ✓ Volume Ratio: 0.48x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2120.63
+    ✓ MA20: 2123.60
+    ✓ MA240: 2124.89
+    ✓ Volume Ratio: 0.31x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:23:47.364000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:23:47] Run #15 completed
+[2026-04-07 18:23:47]   Duration: 0.5s
+[2026-04-07 18:23:47]   Symbols: 2/2
+[2026-04-07 18:23:47]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:23:47] Next run at 18:28:47 (in 5 min)
+[2026-04-07 18:28:47] ============================================================
+[2026-04-07 18:28:47] Run #16 started at 2026-04-07 18:28:47.395258
+[2026-04-07 18:28:47] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:28:47
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68897.01
+    ✓ MA20: 69045.49
+    ✓ MA240: 69143.95
+    ✓ Volume Ratio: 0.56x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2117.26
+    ✓ MA20: 2123.27
+    ✓ MA240: 2124.70
+    ✓ Volume Ratio: 0.69x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:28:47.949000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:28:47] Run #16 completed
+[2026-04-07 18:28:47]   Duration: 0.6s
+[2026-04-07 18:28:47]   Symbols: 2/2
+[2026-04-07 18:28:47]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:28:47] Next run at 18:33:47 (in 5 min)
+[2026-04-07 18:33:47] ============================================================
+[2026-04-07 18:33:47] Run #17 started at 2026-04-07 18:33:47.981474
+[2026-04-07 18:33:47] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:33:47
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68853.31
+    ✓ MA20: 69033.57
+    ✓ MA240: 69140.12
+    ✓ Volume Ratio: 0.34x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: BTCUSDT
+Time: 2026-04-07 10:33:48 UTC / 2026-04-07 18:33:48 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: BTCUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2114.18
+    ✓ MA20: 2122.82
+    ✓ MA240: 2124.48
+    ✓ Volume Ratio: 0.18x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:33:48.508000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - BTCUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:33:48] Run #17 completed
+[2026-04-07 18:33:48]   Duration: 0.5s
+[2026-04-07 18:33:48]   Symbols: 2/2
+[2026-04-07 18:33:48]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #17: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 18:33:48] Next run at 18:38:48 (in 5 min)
+[2026-04-07 18:38:48] ============================================================
+[2026-04-07 18:38:48] Run #18 started at 2026-04-07 18:38:48.535647
+[2026-04-07 18:38:48] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:38:48
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68783.26
+    ✓ MA20: 69014.99
+    ✓ MA240: 69136.90
+    ✓ Volume Ratio: 0.90x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2110.61
+    ✓ MA20: 2122.05
+    ✓ MA240: 2124.29
+    ✓ Volume Ratio: 1.13x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: ETHUSDT
+Time: 2026-04-07 10:38:49 UTC / 2026-04-07 18:38:49 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: ETHUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:38:49.016000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - ETHUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:38:49] Run #18 completed
+[2026-04-07 18:38:49]   Duration: 0.5s
+[2026-04-07 18:38:49]   Symbols: 2/2
+[2026-04-07 18:38:49]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #18: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 18:38:49] Next run at 18:43:49 (in 5 min)
+[2026-04-07 18:43:49] ============================================================
+[2026-04-07 18:43:49] Run #19 started at 2026-04-07 18:43:49.040794
+[2026-04-07 18:43:49] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:43:49
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68708.91
+    ✓ MA20: 68993.58
+    ✓ MA240: 69133.13
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2107.12
+    ✓ MA20: 2121.25
+    ✓ MA240: 2124.10
+    ✓ Volume Ratio: 0.27x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:43:49.561000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:43:49] Run #19 completed
+[2026-04-07 18:43:49]   Duration: 0.5s
+[2026-04-07 18:43:49]   Symbols: 2/2
+[2026-04-07 18:43:49]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:43:49] Next run at 18:48:49 (in 5 min)
+[2026-04-07 18:48:49] ============================================================
+[2026-04-07 18:48:49] Run #20 started at 2026-04-07 18:48:49.589381
+[2026-04-07 18:48:49] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:48:49
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68582.56
+    ✓ MA20: 68950.12
+    ✓ MA240: 69128.91
+    ✓ Volume Ratio: 0.26x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2101.57
+    ✓ MA20: 2119.36
+    ✓ MA240: 2123.88
+    ✓ Volume Ratio: 0.75x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:48:50.378000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:48:50] Run #20 completed
+[2026-04-07 18:48:50]   Duration: 0.8s
+[2026-04-07 18:48:50]   Symbols: 2/2
+[2026-04-07 18:48:50]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:48:50] Next run at 18:53:50 (in 5 min)
+[2026-04-07 18:53:50] ============================================================
+[2026-04-07 18:53:50] Run #21 started at 2026-04-07 18:53:50.402976
+[2026-04-07 18:53:50] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:53:50
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68490.68
+    ✓ MA20: 68908.62
+    ✓ MA240: 69123.34
+    ✓ Volume Ratio: 0.97x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2098.72
+    ✓ MA20: 2117.64
+    ✓ MA240: 2123.61
+    ✓ Volume Ratio: 1.14x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:53:50.902000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:53:50] Run #21 completed
+[2026-04-07 18:53:50]   Duration: 0.5s
+[2026-04-07 18:53:50]   Symbols: 2/2
+[2026-04-07 18:53:50]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:53:50] Next run at 18:58:50 (in 5 min)
+[2026-04-07 18:58:50] ============================================================
+[2026-04-07 18:58:50] Run #22 started at 2026-04-07 18:58:50.928386
+[2026-04-07 18:58:50] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 18:58:50
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68396.30
+    ✓ MA20: 68866.91
+    ✓ MA240: 69117.55
+    ✓ Volume Ratio: 1.24x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2095.48
+    ✓ MA20: 2115.76
+    ✓ MA240: 2123.33
+    ✓ Volume Ratio: 1.15x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 18:58:51.544000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 18:58:51] Run #22 completed
+[2026-04-07 18:58:51]   Duration: 0.6s
+[2026-04-07 18:58:51]   Symbols: 2/2
+[2026-04-07 18:58:51]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 18:58:51] Next run at 19:03:51 (in 5 min)
+[2026-04-07 19:03:51] ============================================================
+[2026-04-07 19:03:51] Run #23 started at 2026-04-07 19:03:51.571711
+[2026-04-07 19:03:51] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:03:51
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68315.18
+    ✓ MA20: 68821.77
+    ✓ MA240: 69111.28
+    ✓ Volume Ratio: 0.91x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: BTCUSDT
+Time: 2026-04-07 11:03:51 UTC / 2026-04-07 19:03:51 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: BTCUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2092.46
+    ✓ MA20: 2113.76
+    ✓ MA240: 2123.02
+    ✓ Volume Ratio: 0.60x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:03:52.061000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - BTCUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:03:52] Run #23 completed
+[2026-04-07 19:03:52]   Duration: 0.5s
+[2026-04-07 19:03:52]   Symbols: 2/2
+[2026-04-07 19:03:52]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #23: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 19:03:52] Next run at 19:08:52 (in 5 min)
+[2026-04-07 19:08:52] ============================================================
+[2026-04-07 19:08:52] Run #24 started at 2026-04-07 19:08:52.089715
+[2026-04-07 19:08:52] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:08:52
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68288.46
+    ✓ MA20: 68786.05
+    ✓ MA240: 69105.71
+    ✓ Volume Ratio: 0.61x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2090.76
+    ✓ MA20: 2112.02
+    ✓ MA240: 2122.73
+    ✓ Volume Ratio: 0.44x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:08:52.742000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:08:52] Run #24 completed
+[2026-04-07 19:08:52]   Duration: 0.7s
+[2026-04-07 19:08:52]   Symbols: 2/2
+[2026-04-07 19:08:52]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:08:52] Next run at 19:13:52 (in 5 min)
+[2026-04-07 19:13:52] ============================================================
+[2026-04-07 19:13:52] Run #25 started at 2026-04-07 19:13:52.773990
+[2026-04-07 19:13:52] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:13:52
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68260.39
+    ✓ MA20: 68743.01
+    ✓ MA240: 69099.80
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2088.81
+    ✓ MA20: 2109.93
+    ✓ MA240: 2122.40
+    ✓ Volume Ratio: 0.29x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: ETHUSDT
+Time: 2026-04-07 11:13:53 UTC / 2026-04-07 19:13:53 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: ETHUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:13:53.257000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - ETHUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:13:53] Run #25 completed
+[2026-04-07 19:13:53]   Duration: 0.5s
+[2026-04-07 19:13:53]   Symbols: 2/2
+[2026-04-07 19:13:53]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #25: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 19:13:53] Next run at 19:18:53 (in 5 min)
+[2026-04-07 19:18:53] ============================================================
+[2026-04-07 19:18:53] Run #26 started at 2026-04-07 19:18:53.287768
+[2026-04-07 19:18:53] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:18:53
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68287.70
+    ✓ MA20: 68705.86
+    ✓ MA240: 69094.61
+    ✓ Volume Ratio: 0.12x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2088.74
+    ✓ MA20: 2108.01
+    ✓ MA240: 2122.09
+    ✓ Volume Ratio: 0.33x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:18:53.801000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:18:53] Run #26 completed
+[2026-04-07 19:18:53]   Duration: 0.5s
+[2026-04-07 19:18:53]   Symbols: 2/2
+[2026-04-07 19:18:53]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:18:53] Next run at 19:23:53 (in 5 min)
+[2026-04-07 19:23:53] ============================================================
+[2026-04-07 19:23:53] Run #27 started at 2026-04-07 19:23:53.834561
+[2026-04-07 19:23:53] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:23:53
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68288.16
+    ✓ MA20: 68658.58
+    ✓ MA240: 69088.73
+    ✓ Volume Ratio: 0.35x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2087.95
+    ✓ MA20: 2105.85
+    ✓ MA240: 2121.77
+    ✓ Volume Ratio: 0.81x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:23:54.343000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:23:54] Run #27 completed
+[2026-04-07 19:23:54]   Duration: 0.5s
+[2026-04-07 19:23:54]   Symbols: 2/2
+[2026-04-07 19:23:54]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:23:54] Next run at 19:28:54 (in 5 min)
+[2026-04-07 19:28:54] ============================================================
+[2026-04-07 19:28:54] Run #28 started at 2026-04-07 19:28:54.370067
+[2026-04-07 19:28:54] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:28:54
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68331.32
+    ✓ MA20: 68620.16
+    ✓ MA240: 69083.16
+    ✓ Volume Ratio: 0.35x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2089.51
+    ✓ MA20: 2104.10
+    ✓ MA240: 2121.47
+    ✓ Volume Ratio: 0.39x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:28:54.874000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:28:54] Run #28 completed
+[2026-04-07 19:28:54]   Duration: 0.5s
+[2026-04-07 19:28:54]   Symbols: 2/2
+[2026-04-07 19:28:54]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:28:54] Next run at 19:33:54 (in 5 min)
+[2026-04-07 19:33:54] ============================================================
+[2026-04-07 19:33:54] Run #29 started at 2026-04-07 19:33:54.911715
+[2026-04-07 19:33:54] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:33:54
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68321.90
+    ✓ MA20: 68575.46
+    ✓ MA240: 69076.92
+    ✓ Volume Ratio: 0.57x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2088.68
+    ✓ MA20: 2102.01
+    ✓ MA240: 2121.15
+    ✓ Volume Ratio: 1.41x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:33:55.403000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:33:55] Run #29 completed
+[2026-04-07 19:33:55]   Duration: 0.5s
+[2026-04-07 19:33:55]   Symbols: 2/2
+[2026-04-07 19:33:55]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:33:55] Next run at 19:38:55 (in 5 min)
+[2026-04-07 19:38:55] ============================================================
+[2026-04-07 19:38:55] Run #30 started at 2026-04-07 19:38:55.431222
+[2026-04-07 19:38:55] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:38:55
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68342.11
+    ✓ MA20: 68540.15
+    ✓ MA240: 69071.48
+    ✓ Volume Ratio: 0.81x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2089.30
+    ✓ MA20: 2100.21
+    ✓ MA240: 2120.85
+    ✓ Volume Ratio: 0.42x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:38:55.910000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:38:55] Run #30 completed
+[2026-04-07 19:38:55]   Duration: 0.5s
+[2026-04-07 19:38:55]   Symbols: 2/2
+[2026-04-07 19:38:55]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:38:55] Next run at 19:43:55 (in 5 min)
+[2026-04-07 19:43:55] ============================================================
+[2026-04-07 19:43:55] Run #31 started at 2026-04-07 19:43:55.941587
+[2026-04-07 19:43:55] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:43:55
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68372.00
+    ✓ MA20: 68509.55
+    ✓ MA240: 69065.74
+    ✓ Volume Ratio: 0.34x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2089.82
+    ✓ MA20: 2098.52
+    ✓ MA240: 2120.54
+    ✓ Volume Ratio: 0.37x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:43:56.432000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:43:56] Run #31 completed
+[2026-04-07 19:43:56]   Duration: 0.5s
+[2026-04-07 19:43:56]   Symbols: 2/2
+[2026-04-07 19:43:56]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:43:56] Next run at 19:48:56 (in 5 min)
+[2026-04-07 19:48:56] ============================================================
+[2026-04-07 19:48:56] Run #32 started at 2026-04-07 19:48:56.465567
+[2026-04-07 19:48:56] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:48:56
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68392.06
+    ✓ MA20: 68482.51
+    ✓ MA240: 69059.81
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2090.16
+    ✓ MA20: 2096.92
+    ✓ MA240: 2120.23
+    ✓ Volume Ratio: 0.51x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:48:56.993000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:48:56] Run #32 completed
+[2026-04-07 19:48:56]   Duration: 0.5s
+[2026-04-07 19:48:56]   Symbols: 2/2
+[2026-04-07 19:48:56]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:48:56] Next run at 19:53:56 (in 5 min)
+[2026-04-07 19:53:57] ============================================================
+[2026-04-07 19:53:57] Run #33 started at 2026-04-07 19:53:57.019896
+[2026-04-07 19:53:57] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:53:57
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68393.85
+    ✓ MA20: 68456.10
+    ✓ MA240: 69053.36
+    ✓ Volume Ratio: 1.45x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2089.75
+    ✓ MA20: 2095.54
+    ✓ MA240: 2119.92
+    ✓ Volume Ratio: 0.69x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:53:57.504000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:53:57] Run #33 completed
+[2026-04-07 19:53:57]   Duration: 0.5s
+[2026-04-07 19:53:57]   Symbols: 2/2
+[2026-04-07 19:53:57]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:53:57] Next run at 19:58:57 (in 5 min)
+[2026-04-07 19:58:57] ============================================================
+[2026-04-07 19:58:57] Run #34 started at 2026-04-07 19:58:57.532208
+[2026-04-07 19:58:57] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 19:58:57
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68397.40
+    ✓ MA20: 68426.66
+    ✓ MA240: 69046.57
+    ✓ Volume Ratio: 0.60x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2090.13
+    ✓ MA20: 2094.09
+    ✓ MA240: 2119.61
+    ✓ Volume Ratio: 0.57x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 19:58:58.025000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 19:58:58] Run #34 completed
+[2026-04-07 19:58:58]   Duration: 0.5s
+[2026-04-07 19:58:58]   Symbols: 2/2
+[2026-04-07 19:58:58]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 19:58:58] Next run at 20:03:58 (in 5 min)
+[2026-04-07 20:03:58] ============================================================
+[2026-04-07 20:03:58] Run #35 started at 2026-04-07 20:03:58.058484
+[2026-04-07 20:03:58] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:03:58
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68377.88
+    ✓ MA20: 68395.98
+    ✓ MA240: 69039.98
+    ✓ Volume Ratio: 0.60x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2089.26
+    ✓ MA20: 2092.39
+    ✓ MA240: 2119.29
+    ✓ Volume Ratio: 0.90x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:03:58.574000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:03:58] Run #35 completed
+[2026-04-07 20:03:58]   Duration: 0.5s
+[2026-04-07 20:03:58]   Symbols: 2/2
+[2026-04-07 20:03:58]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:03:58] Next run at 20:08:58 (in 5 min)
+[2026-04-07 20:08:58] ============================================================
+[2026-04-07 20:08:58] Run #36 started at 2026-04-07 20:08:58.601297
+[2026-04-07 20:08:58] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:08:58
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68320.47
+    ✓ MA20: 68365.18
+    ✓ MA240: 69032.59
+    ✓ Volume Ratio: 2.61x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2086.56
+    ✓ MA20: 2090.90
+    ✓ MA240: 2118.93
+    ✓ Volume Ratio: 1.57x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:08:59.115000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:08:59] Run #36 completed
+[2026-04-07 20:08:59]   Duration: 0.5s
+[2026-04-07 20:08:59]   Symbols: 2/2
+[2026-04-07 20:08:59]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:08:59] Next run at 20:13:59 (in 5 min)
+[2026-04-07 20:13:59] ============================================================
+[2026-04-07 20:13:59] Run #37 started at 2026-04-07 20:13:59.143805
+[2026-04-07 20:13:59] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:13:59
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68298.08
+    ✓ MA20: 68344.18
+    ✓ MA240: 69025.27
+    ✓ Volume Ratio: 0.22x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2085.63
+    ✓ MA20: 2089.89
+    ✓ MA240: 2118.60
+    ✓ Volume Ratio: 0.31x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:13:59.823000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:13:59] Run #37 completed
+[2026-04-07 20:13:59]   Duration: 0.7s
+[2026-04-07 20:13:59]   Symbols: 2/2
+[2026-04-07 20:13:59]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:13:59] Next run at 20:18:59 (in 5 min)
+[2026-04-07 20:18:59] ============================================================
+[2026-04-07 20:18:59] Run #38 started at 2026-04-07 20:18:59.848710
+[2026-04-07 20:18:59] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:18:59
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68298.05
+    ✓ MA20: 68333.48
+    ✓ MA240: 69018.34
+    ✓ Volume Ratio: 1.01x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2084.89
+    ✓ MA20: 2089.10
+    ✓ MA240: 2118.27
+    ✓ Volume Ratio: 1.07x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:19:00.374000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:19:00] Run #38 completed
+[2026-04-07 20:19:00]   Duration: 0.5s
+[2026-04-07 20:19:00]   Symbols: 2/2
+[2026-04-07 20:19:00]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:19:00] Next run at 20:24:00 (in 5 min)
+[2026-04-07 20:24:00] ============================================================
+[2026-04-07 20:24:00] Run #39 started at 2026-04-07 20:24:00.403784
+[2026-04-07 20:24:00] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:24:00
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68304.96
+    ✓ MA20: 68328.79
+    ✓ MA240: 69011.53
+    - Volume: N/A
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2083.56
+    ✓ MA20: 2088.30
+    ✓ MA240: 2117.94
+    - Volume: N/A
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:24:00.894000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:24:00] Run #39 completed
+[2026-04-07 20:24:00]   Duration: 0.5s
+[2026-04-07 20:24:00]   Symbols: 2/2
+[2026-04-07 20:24:00]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:24:00] Next run at 20:29:00 (in 5 min)
+[2026-04-07 20:29:00] ============================================================
+[2026-04-07 20:29:00] Run #40 started at 2026-04-07 20:29:00.928799
+[2026-04-07 20:29:00] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:29:00
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68312.42
+    ✓ MA20: 68328.90
+    ✓ MA240: 69005.37
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2082.69
+    ✓ MA20: 2087.64
+    ✓ MA240: 2117.63
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: ETHUSDT
+Time: 2026-04-07 12:29:01 UTC / 2026-04-07 20:29:01 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: ETHUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:29:01.419000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 1
+  ✅ Confirmed: 0
+  👁️  Watch Only: 1
+
+Symbols with Signals / 有訊號的標的:
+  - ETHUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:29:01] Run #40 completed
+[2026-04-07 20:29:01]   Duration: 0.5s
+[2026-04-07 20:29:01]   Symbols: 2/2
+[2026-04-07 20:29:01]   Signals: 1 (Confirmed: 0, Watch: 1)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 1 signals detected
+Run #40: 0 confirmed, 1 watch-only
+============================================================
+
+[2026-04-07 20:29:01] Next run at 20:34:01 (in 5 min)
+[2026-04-07 20:34:01] ============================================================
+[2026-04-07 20:34:01] Run #41 started at 2026-04-07 20:34:01.449059
+[2026-04-07 20:34:01] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:34:01
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68352.76
+    ✓ MA20: 68333.40
+    ✓ MA240: 68998.51
+    ✓ Volume Ratio: 0.01x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2083.71
+    ✓ MA20: 2087.23
+    ✓ MA240: 2117.31
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:34:02.016000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:34:02] Run #41 completed
+[2026-04-07 20:34:02]   Duration: 0.6s
+[2026-04-07 20:34:02]   Symbols: 2/2
+[2026-04-07 20:34:02]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:34:02] Next run at 20:39:02 (in 5 min)
+[2026-04-07 20:39:02] ============================================================
+[2026-04-07 20:39:02] Run #42 started at 2026-04-07 20:39:02.046113
+[2026-04-07 20:39:02] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:39:02
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68378.45
+    ✓ MA20: 68341.44
+    ✓ MA240: 68991.79
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2083.73
+    ✓ MA20: 2086.97
+    ✓ MA240: 2116.99
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:39:02.535000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:39:02] Run #42 completed
+[2026-04-07 20:39:02]   Duration: 0.5s
+[2026-04-07 20:39:02]   Symbols: 2/2
+[2026-04-07 20:39:02]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:39:02] Next run at 20:44:02 (in 5 min)
+[2026-04-07 20:44:02] ============================================================
+[2026-04-07 20:44:02] Run #43 started at 2026-04-07 20:44:02.567165
+[2026-04-07 20:44:02] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:44:02
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68385.28
+    ✓ MA20: 68350.10
+    ✓ MA240: 68984.44
+    ✓ Volume Ratio: 0.14x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2083.61
+    ✓ MA20: 2086.80
+    ✓ MA240: 2116.66
+    ✓ Volume Ratio: 0.12x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:44:03.111000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:44:03] Run #43 completed
+[2026-04-07 20:44:03]   Duration: 0.5s
+[2026-04-07 20:44:03]   Symbols: 2/2
+[2026-04-07 20:44:03]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:44:03] Next run at 20:49:03 (in 5 min)
+[2026-04-07 20:49:03] ============================================================
+[2026-04-07 20:49:03] Run #44 started at 2026-04-07 20:49:03.146274
+[2026-04-07 20:49:03] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:49:03
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68351.59
+    ✓ MA20: 68345.99
+    ✓ MA240: 68976.09
+    ✓ Volume Ratio: 0.49x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2081.36
+    ✓ MA20: 2085.97
+    ✓ MA240: 2116.27
+    ✓ Volume Ratio: 0.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:49:03.620000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:49:03] Run #44 completed
+[2026-04-07 20:49:03]   Duration: 0.5s
+[2026-04-07 20:49:03]   Symbols: 2/2
+[2026-04-07 20:49:03]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:49:03] Next run at 20:54:03 (in 5 min)
+[2026-04-07 20:54:03] ============================================================
+[2026-04-07 20:54:03] Run #45 started at 2026-04-07 20:54:03.646869
+[2026-04-07 20:54:03] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:54:03
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68342.16
+    ✓ MA20: 68347.66
+    ✓ MA240: 68969.21
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2081.07
+    ✓ MA20: 2085.69
+    ✓ MA240: 2115.98
+    ✓ Volume Ratio: 0.02x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:54:04.129000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:54:04] Run #45 completed
+[2026-04-07 20:54:04]   Duration: 0.5s
+[2026-04-07 20:54:04]   Symbols: 2/2
+[2026-04-07 20:54:04]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:54:04] Next run at 20:59:04 (in 5 min)
+[2026-04-07 20:59:04] ============================================================
+[2026-04-07 20:59:04] Run #46 started at 2026-04-07 20:59:04.153864
+[2026-04-07 20:59:04] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 20:59:04
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68354.82
+    ✓ MA20: 68353.72
+    ✓ MA240: 68963.47
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2082.02
+    ✓ MA20: 2085.68
+    ✓ MA240: 2115.76
+    ✓ Volume Ratio: 0.04x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 20:59:04.651000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 20:59:04] Run #46 completed
+[2026-04-07 20:59:04]   Duration: 0.5s
+[2026-04-07 20:59:04]   Symbols: 2/2
+[2026-04-07 20:59:04]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 20:59:04] Next run at 21:04:04 (in 5 min)
+[2026-04-07 21:04:04] ============================================================
+[2026-04-07 21:04:04] Run #47 started at 2026-04-07 21:04:04.682863
+[2026-04-07 21:04:04] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:04:04
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68344.41
+    ✓ MA20: 68356.90
+    ✓ MA240: 68958.37
+    ✓ Volume Ratio: 0.01x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2082.20
+    ✓ MA20: 2085.55
+    ✓ MA240: 2115.56
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:04:05.163000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:04:05] Run #47 completed
+[2026-04-07 21:04:05]   Duration: 0.5s
+[2026-04-07 21:04:05]   Symbols: 2/2
+[2026-04-07 21:04:05]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:04:05] Next run at 21:09:05 (in 5 min)
+[2026-04-07 21:09:05] ============================================================
+[2026-04-07 21:09:05] Run #48 started at 2026-04-07 21:09:05.197033
+[2026-04-07 21:09:05] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:09:05
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68410.93
+    ✓ MA20: 68370.64
+    ✓ MA240: 68954.24
+    ✓ Volume Ratio: 0.29x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2085.28
+    ✓ MA20: 2085.59
+    ✓ MA240: 2115.36
+    ✓ Volume Ratio: 0.02x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:09:05.706000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:09:05] Run #48 completed
+[2026-04-07 21:09:05]   Duration: 0.5s
+[2026-04-07 21:09:05]   Symbols: 2/2
+[2026-04-07 21:09:05]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:09:05] Next run at 21:14:05 (in 5 min)
+[2026-04-07 21:14:05] ============================================================
+[2026-04-07 21:14:05] Run #49 started at 2026-04-07 21:14:05.743051
+[2026-04-07 21:14:05] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:14:05
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68456.65
+    ✓ MA20: 68379.60
+    ✓ MA240: 68950.72
+    ✓ Volume Ratio: 1.22x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2087.05
+    ✓ MA20: 2085.58
+    ✓ MA240: 2115.20
+    ✓ Volume Ratio: 0.80x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:14:06.221000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:14:06] Run #49 completed
+[2026-04-07 21:14:06]   Duration: 0.5s
+[2026-04-07 21:14:06]   Symbols: 2/2
+[2026-04-07 21:14:06]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:14:06] Next run at 21:19:06 (in 5 min)
+[2026-04-07 21:19:06] ============================================================
+[2026-04-07 21:19:06] Run #50 started at 2026-04-07 21:19:06.271307
+[2026-04-07 21:19:06] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:19:06
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68513.73
+    ✓ MA20: 68388.52
+    ✓ MA240: 68947.68
+    ✓ Volume Ratio: 0.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2088.08
+    ✓ MA20: 2085.36
+    ✓ MA240: 2115.03
+    ✓ Volume Ratio: 0.06x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:19:06.777000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:19:06] Run #50 completed
+[2026-04-07 21:19:06]   Duration: 0.5s
+[2026-04-07 21:19:06]   Symbols: 2/2
+[2026-04-07 21:19:06]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:19:06] Next run at 21:24:06 (in 5 min)
+[2026-04-07 21:24:06] ============================================================
+[2026-04-07 21:24:06] Run #51 started at 2026-04-07 21:24:06.805381
+[2026-04-07 21:24:06] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:24:06
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68530.92
+    ✓ MA20: 68392.02
+    ✓ MA240: 68943.51
+    ✓ Volume Ratio: 0.01x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2087.36
+    ✓ MA20: 2085.02
+    ✓ MA240: 2114.82
+    ✓ Volume Ratio: 0.00x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:24:07.308000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:24:07] Run #51 completed
+[2026-04-07 21:24:07]   Duration: 0.5s
+[2026-04-07 21:24:07]   Symbols: 2/2
+[2026-04-07 21:24:07]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:24:07] Next run at 21:29:07 (in 5 min)
+[2026-04-07 21:29:07] ============================================================
+[2026-04-07 21:29:07] Run #52 started at 2026-04-07 21:29:07.338991
+[2026-04-07 21:29:07] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:29:07
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68539.79
+    ✓ MA20: 68394.83
+    ✓ MA240: 68939.13
+    ✓ Volume Ratio: 0.01x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2086.89
+    ✓ MA20: 2084.77
+    ✓ MA240: 2114.61
+    ✓ Volume Ratio: 0.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:29:07.871000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:29:07] Run #52 completed
+[2026-04-07 21:29:07]   Duration: 0.5s
+[2026-04-07 21:29:07]   Symbols: 2/2
+[2026-04-07 21:29:07]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:29:07] Next run at 21:34:07 (in 5 min)
+[2026-04-07 21:34:07] ============================================================
+[2026-04-07 21:34:07] Run #53 started at 2026-04-07 21:34:07.902895
+[2026-04-07 21:34:07] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:34:07
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68517.48
+    ✓ MA20: 68401.52
+    ✓ MA240: 68934.69
+    ✓ Volume Ratio: 0.17x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2085.42
+    ✓ MA20: 2084.50
+    ✓ MA240: 2114.39
+    ✓ Volume Ratio: 0.37x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:34:08.387000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:34:08] Run #53 completed
+[2026-04-07 21:34:08]   Duration: 0.5s
+[2026-04-07 21:34:08]   Symbols: 2/2
+[2026-04-07 21:34:08]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:34:08] Next run at 21:39:08 (in 5 min)
+[2026-04-07 21:39:08] ============================================================
+[2026-04-07 21:39:08] Run #54 started at 2026-04-07 21:39:08.426472
+[2026-04-07 21:39:08] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:39:08
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68475.25
+    ✓ MA20: 68404.52
+    ✓ MA240: 68930.05
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2083.02
+    ✓ MA20: 2083.93
+    ✓ MA240: 2114.16
+    ✓ Volume Ratio: 0.14x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:39:08.921000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:39:08] Run #54 completed
+[2026-04-07 21:39:08]   Duration: 0.5s
+[2026-04-07 21:39:08]   Symbols: 2/2
+[2026-04-07 21:39:08]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:39:08] Next run at 21:44:08 (in 5 min)
+[2026-04-07 21:44:08] ============================================================
+[2026-04-07 21:44:08] Run #55 started at 2026-04-07 21:44:08.949910
+[2026-04-07 21:44:08] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:44:08
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68428.47
+    ✓ MA20: 68399.37
+    ✓ MA240: 68925.16
+    ✓ Volume Ratio: 0.13x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2081.54
+    ✓ MA20: 2083.39
+    ✓ MA240: 2113.93
+    ✓ Volume Ratio: 0.30x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:44:09.453000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:44:09] Run #55 completed
+[2026-04-07 21:44:09]   Duration: 0.5s
+[2026-04-07 21:44:09]   Symbols: 2/2
+[2026-04-07 21:44:09]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:44:09] Next run at 21:49:09 (in 5 min)
+[2026-04-07 21:49:09] ============================================================
+[2026-04-07 21:49:09] Run #56 started at 2026-04-07 21:49:09.498527
+[2026-04-07 21:49:09] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:49:09
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68372.95
+    ✓ MA20: 68402.23
+    ✓ MA240: 68919.76
+    ✓ Volume Ratio: 0.09x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2080.18
+    ✓ MA20: 2083.34
+    ✓ MA240: 2113.69
+    ✓ Volume Ratio: 0.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:49:09.990000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:49:09] Run #56 completed
+[2026-04-07 21:49:09]   Duration: 0.5s
+[2026-04-07 21:49:09]   Symbols: 2/2
+[2026-04-07 21:49:09]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:49:09] Next run at 21:54:09 (in 5 min)
+[2026-04-07 21:54:10] ============================================================
+[2026-04-07 21:54:10] Run #57 started at 2026-04-07 21:54:10.017153
+[2026-04-07 21:54:10] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:54:10
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68371.67
+    ✓ MA20: 68412.50
+    ✓ MA240: 68915.33
+    ✓ Volume Ratio: 0.15x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2079.86
+    ✓ MA20: 2083.29
+    ✓ MA240: 2113.48
+    ✓ Volume Ratio: 0.18x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:54:10.520000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:54:10] Run #57 completed
+[2026-04-07 21:54:10]   Duration: 0.5s
+[2026-04-07 21:54:10]   Symbols: 2/2
+[2026-04-07 21:54:10]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:54:10] Next run at 21:59:10 (in 5 min)
+[2026-04-07 21:59:10] ============================================================
+[2026-04-07 21:59:10] Run #58 started at 2026-04-07 21:59:10.547842
+[2026-04-07 21:59:10] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 21:59:10
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68346.03
+    ✓ MA20: 68410.44
+    ✓ MA240: 68909.97
+    ✓ Volume Ratio: 0.03x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2079.07
+    ✓ MA20: 2082.99
+    ✓ MA240: 2113.24
+    ✓ Volume Ratio: 0.02x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 21:59:11.067000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 21:59:11] Run #58 completed
+[2026-04-07 21:59:11]   Duration: 0.5s
+[2026-04-07 21:59:11]   Symbols: 2/2
+[2026-04-07 21:59:11]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 21:59:11] Next run at 22:04:11 (in 5 min)
+[2026-04-07 22:04:11] ============================================================
+[2026-04-07 22:04:11] Run #59 started at 2026-04-07 22:04:11.097594
+[2026-04-07 22:04:11] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:04:11
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68292.50
+    ✓ MA20: 68397.12
+    ✓ MA240: 68904.25
+    ✓ Volume Ratio: 0.18x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: BTCUSDT
+Time: 2026-04-07 14:04:11 UTC / 2026-04-07 22:04:11 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: BTCUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2077.25
+    ✓ MA20: 2082.31
+    ✓ MA240: 2112.98
+    ✓ Volume Ratio: 0.13x
+[3/4] Generating signals...
+    ✓ Total signals: 1
+    ✓ Confirmed: 0
+    ✓ Watch Only: 1
+[4/4] Outputting notifications...
+[93m==================================================
+ALERT: 🔥 CONTRARIAN WATCH 👁️ WATCH ONLY
+==================================================
+Symbol: ETHUSDT
+Time: 2026-04-07 14:04:11 UTC / 2026-04-07 22:04:11 CST
+
+Price Data / 價格資料:
+  Pattern: overheated
+  Consecutive Count: 4
+
+Conditions Met / 條件滿足:
+  ✅ pattern_detected
+
+Reason / 原因: ETHUSDT 15m: 4 consecutive overheated candles - potential reversal zone
+
+⚠️  WATCH_ONLY_NOT_EXECUTION_SIGNAL
+
+==================================================[0m
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:04:11.584000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 2
+  ✅ Confirmed: 0
+  👁️  Watch Only: 2
+
+Symbols with Signals / 有訊號的標的:
+  - BTCUSDT
+  - ETHUSDT
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:04:11] Run #59 completed
+[2026-04-07 22:04:11]   Duration: 0.5s
+[2026-04-07 22:04:11]   Symbols: 2/2
+[2026-04-07 22:04:11]   Signals: 2 (Confirmed: 0, Watch: 2)
+
+============================================================
+NOTIFICATION / 通知
+============================================================
+🚨 Monitoring Alert - 2 signals detected
+Run #59: 0 confirmed, 2 watch-only
+============================================================
+
+[2026-04-07 22:04:11] Next run at 22:09:11 (in 5 min)
+[2026-04-07 22:09:11] ============================================================
+[2026-04-07 22:09:11] Run #60 started at 2026-04-07 22:09:11.613435
+[2026-04-07 22:09:11] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:09:11
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68188.48
+    ✓ MA20: 68366.87
+    ✓ MA240: 68897.13
+    ✓ Volume Ratio: 0.28x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2074.24
+    ✓ MA20: 2081.25
+    ✓ MA240: 2112.69
+    ✓ Volume Ratio: 0.05x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:09:12.092000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:09:12] Run #60 completed
+[2026-04-07 22:09:12]   Duration: 0.5s
+[2026-04-07 22:09:12]   Symbols: 2/2
+[2026-04-07 22:09:12]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:09:12] Next run at 22:14:12 (in 5 min)
+[2026-04-07 22:14:12] ============================================================
+[2026-04-07 22:14:12] Run #61 started at 2026-04-07 22:14:12.122480
+[2026-04-07 22:14:12] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:14:12
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68106.44
+    ✓ MA20: 68342.92
+    ✓ MA240: 68889.31
+    ✓ Volume Ratio: 0.26x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2072.23
+    ✓ MA20: 2080.46
+    ✓ MA240: 2112.37
+    ✓ Volume Ratio: 0.48x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:14:12.624000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:14:12] Run #61 completed
+[2026-04-07 22:14:12]   Duration: 0.5s
+[2026-04-07 22:14:12]   Symbols: 2/2
+[2026-04-07 22:14:12]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:14:12] Next run at 22:19:12 (in 5 min)
+[2026-04-07 22:19:12] ============================================================
+[2026-04-07 22:19:12] Run #62 started at 2026-04-07 22:19:12.649025
+[2026-04-07 22:19:12] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:19:12
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 67975.05
+    ✓ MA20: 68311.21
+    ✓ MA240: 68880.82
+    ✓ Volume Ratio: 0.59x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2068.33
+    ✓ MA20: 2079.42
+    ✓ MA240: 2112.04
+    ✓ Volume Ratio: 0.06x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:19:13.150000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:19:13] Run #62 completed
+[2026-04-07 22:19:13]   Duration: 0.5s
+[2026-04-07 22:19:13]   Symbols: 2/2
+[2026-04-07 22:19:13]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:19:13] Next run at 22:24:13 (in 5 min)
+[2026-04-07 22:24:13] ============================================================
+[2026-04-07 22:24:13] Run #63 started at 2026-04-07 22:24:13.177953
+[2026-04-07 22:24:13] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:24:13
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 67971.71
+    ✓ MA20: 68305.95
+    ✓ MA240: 68874.14
+    ✓ Volume Ratio: 0.06x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2068.88
+    ✓ MA20: 2079.45
+    ✓ MA240: 2111.76
+    ✓ Volume Ratio: 0.04x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:24:13.667000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:24:13] Run #63 completed
+[2026-04-07 22:24:13]   Duration: 0.5s
+[2026-04-07 22:24:13]   Symbols: 2/2
+[2026-04-07 22:24:13]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:24:13] Next run at 22:29:13 (in 5 min)
+[2026-04-07 22:29:13] ============================================================
+[2026-04-07 22:29:13] Run #64 started at 2026-04-07 22:29:13.694985
+[2026-04-07 22:29:13] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:29:13
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 67960.44
+    ✓ MA20: 68295.21
+    ✓ MA240: 68866.66
+    ✓ Volume Ratio: 0.15x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2070.09
+    ✓ MA20: 2079.37
+    ✓ MA240: 2111.48
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:29:14.323000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:29:14] Run #64 completed
+[2026-04-07 22:29:14]   Duration: 0.6s
+[2026-04-07 22:29:14]   Symbols: 2/2
+[2026-04-07 22:29:14]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:29:14] Next run at 22:34:14 (in 5 min)
+[2026-04-07 22:34:14] ============================================================
+[2026-04-07 22:34:14] Run #65 started at 2026-04-07 22:34:14.360010
+[2026-04-07 22:34:14] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:34:14
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68027.34
+    ✓ MA20: 68287.85
+    ✓ MA240: 68859.91
+    ✓ Volume Ratio: 0.10x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2072.08
+    ✓ MA20: 2078.97
+    ✓ MA240: 2111.19
+    ✓ Volume Ratio: 0.08x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:34:14.834000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:34:14] Run #65 completed
+[2026-04-07 22:34:14]   Duration: 0.5s
+[2026-04-07 22:34:14]   Symbols: 2/2
+[2026-04-07 22:34:14]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:34:14] Next run at 22:39:14 (in 5 min)
+[2026-04-07 22:39:14] ============================================================
+[2026-04-07 22:39:14] Run #66 started at 2026-04-07 22:39:14.858683
+[2026-04-07 22:39:14] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:39:14
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68045.83
+    ✓ MA20: 68267.45
+    ✓ MA240: 68852.39
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2072.72
+    ✓ MA20: 2078.15
+    ✓ MA240: 2110.89
+    ✓ Volume Ratio: 0.30x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:39:15.358000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:39:15] Run #66 completed
+[2026-04-07 22:39:15]   Duration: 0.5s
+[2026-04-07 22:39:15]   Symbols: 2/2
+[2026-04-07 22:39:15]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:39:15] Next run at 22:44:15 (in 5 min)
+[2026-04-07 22:44:15] ============================================================
+[2026-04-07 22:44:15] Run #67 started at 2026-04-07 22:44:15.388696
+[2026-04-07 22:44:15] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:44:15
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68087.49
+    ✓ MA20: 68248.64
+    ✓ MA240: 68845.26
+    ✓ Volume Ratio: 0.25x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2074.23
+    ✓ MA20: 2077.50
+    ✓ MA240: 2110.60
+    ✓ Volume Ratio: 0.14x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:44:15.874000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:44:15] Run #67 completed
+[2026-04-07 22:44:15]   Duration: 0.5s
+[2026-04-07 22:44:15]   Symbols: 2/2
+[2026-04-07 22:44:15]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:44:15] Next run at 22:49:15 (in 5 min)
+[2026-04-07 22:49:15] ============================================================
+[2026-04-07 22:49:15] Run #68 started at 2026-04-07 22:49:15.902507
+[2026-04-07 22:49:15] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:49:15
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68083.05
+    ✓ MA20: 68223.13
+    ✓ MA240: 68838.09
+    ✓ Volume Ratio: 0.16x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2074.33
+    ✓ MA20: 2076.73
+    ✓ MA240: 2110.32
+    ✓ Volume Ratio: 0.19x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:49:16.416000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:49:16] Run #68 completed
+[2026-04-07 22:49:16]   Duration: 0.5s
+[2026-04-07 22:49:16]   Symbols: 2/2
+[2026-04-07 22:49:16]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:49:16] Next run at 22:54:16 (in 5 min)
+[2026-04-07 22:54:16] ============================================================
+[2026-04-07 22:54:16] Run #69 started at 2026-04-07 22:54:16.451478
+[2026-04-07 22:54:16] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:54:16
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68058.70
+    ✓ MA20: 68193.76
+    ✓ MA240: 68830.32
+    ✓ Volume Ratio: 0.11x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ BTCUSDT monitoring complete
+
+============================================================
+Monitoring ETHUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 2073.73
+    ✓ MA20: 2075.92
+    ✓ MA240: 2110.02
+    ✓ Volume Ratio: 0.41x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
+✓ ETHUSDT monitoring complete
+
+======================================================================
+RUN SUMMARY / 執行摘要
+======================================================================
+Timestamp: 2026-04-07 22:54:16.961000
+Total Symbols: 2
+  ✓ Successful: 2
+  ✗ Failed: 0
+
+Signals Generated / 產生的訊號:
+  Total: 0
+  ✅ Confirmed: 0
+  👁️  Watch Only: 0
+======================================================================
+⚠️  REMINDER / 提醒:
+   All signals are ALERT ONLY.
+[2026-04-07 22:54:16] Run #69 completed
+[2026-04-07 22:54:16]   Duration: 0.5s
+[2026-04-07 22:54:16]   Symbols: 2/2
+[2026-04-07 22:54:16]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-04-07 22:54:16] Next run at 22:59:16 (in 5 min)
+[2026-04-07 22:59:16] ============================================================
+[2026-04-07 22:59:16] Run #70 started at 2026-04-07 22:59:16.985946
+[2026-04-07 22:59:16] ============================================================
+
+======================================================================
+BTC/ETH Monitoring System - Single Run
+BTC/ETH 監測系統 - 單次執行
+======================================================================
+⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易
+⏱️  Timestamp: 2026-04-07 22:59:16
+📊 Symbols: BTCUSDT, ETHUSDT
+======================================================================
+
+============================================================
+Monitoring BTCUSDT...
+============================================================
+[1/4] Fetching data...
+    ✓ 5m: 250 candles
+    ✓ 1m: 20 candles
+    ✓ 15m: 10 candles
+[2/4] Calculating indicators...
+    ✓ MA5: 68013.36
+    ✓ MA20: 68162.18
+    ✓ MA240: 68821.99
+    ✓ Volume Ratio: 0.90x
+[3/4] Generating signals...
+    ✓ Total signals: 0
+    ✓ Confirmed: 0
+    ✓ Watch Only: 0
+[4/4] Outputting notifications...
+    - No signals to notify
