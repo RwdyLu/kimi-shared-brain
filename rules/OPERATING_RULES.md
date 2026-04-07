@@ -110,3 +110,125 @@
 - 
 - - After executor reports successful push, second bot should proceed to validation automatically unless the user explicitly tells it to stop.
 - 在執行 bot 回報 push 成功後，除非使用者明確要求停止，second bot 應自動進入驗收流程。
+
+## Anti-Timeout Execution Rule
+## 防 Timeout 執行規則
+
+### Purpose / 目的
+Prevent task execution failures due to session timeouts during long-running operations.
+防止長時間執行操作時因 session timeout 導致任務失敗。
+
+### Rule Definition / 規則定義
+
+When executing long-running tasks (est. > 5 minutes), the executor must:
+執行長時間任務（預估 > 5 分鐘）時，執行者必須：
+
+1. **Pre-execution notification / 執行前通知**
+   - Notify the supervisor bot before starting the long operation
+   - 在開始長時間操作前通知 supervisor bot
+   - Format: `[TASK_EXECUTION] Starting long-running operation: <estimated_duration>`
+
+2. **Progress checkpoints / 進度檢查點**
+   - For operations > 10 minutes, send progress updates every 5 minutes
+   - 對於 > 10 分鐘的操作，每 5 分鐘發送進度更新
+   - Format: `[PROGRESS] <task_id> - <percent>% complete, <status>`
+
+3. **Timeout prevention / 防止 timeout**
+   - Use `yield` or `sessions_yield` when available to allow system maintenance
+   - 當可用時使用 `yield` 或 `sessions_yield` 允許系統維護
+   - Break large tasks into smaller sub-tasks when possible
+   - 盡可能將大任務拆分為較小子任務
+
+4. **Completion confirmation / 完成確認**
+   - Always confirm task completion with a final status message
+   - 始終以最終狀態消息確認任務完成
+   - Include execution time and result summary
+   - 包含執行時間和結果摘要
+
+### Task Types Requiring Anti-Timeout Measures / 需要防 timeout 措施的任務類型
+
+| Task Type / 任務類型 | Typical Duration / 典型時長 | Required Action / 必要動作 |
+|---------------------|---------------------------|---------------------------|
+| Data fetching with multiple symbols / 多標的資料抓取 | 3-5 min | Pre-notification |
+| Backtesting with large datasets / 大量資料回測 | 10-30 min | Progress checkpoints |
+| Git operations with large files / 大檔案 Git 操作 | 5-10 min | Pre-notification |
+| Multi-step batch execution / 多步驟批次執行 | 15+ min | Progress checkpoints + sub-tasks |
+| External API polling with delays / 延遲輪詢外部 API | Variable / 變動 | Pre-notification + timeout handling |
+
+### Timeout Handling Guidelines / Timeout 處理指南
+
+1. **If timeout occurs during execution / 如果在執行期間發生 timeout**
+   - Write current progress to a recoverable state file
+   - 將當前進度寫入可恢復的狀態檔案
+   - Use format: `state/<task_id>_checkpoint.json`
+   - 使用格式：`state/<task_id>_checkpoint.json`
+
+2. **Resuming after timeout / Timeout 後恢復**
+   - Check for checkpoint files before starting
+   - 開始前檢查 checkpoint 檔案
+   - Resume from last saved state if available
+   - 如果可用則從最後保存的狀態恢復
+   - Report resume status to supervisor
+   - 向 supervisor 報告恢復狀態
+
+3. **Supervisor responsibilities / Supervisor 責任**
+   - Monitor for long-running tasks without updates
+   - 監控無更新的長時間執行任務
+   - Send check-in message if no progress for 10+ minutes
+   - 如果 10+ 分鐘無進度則發送確認消息
+   - Escalate to user if executor unresponsive for 20+ minutes
+   - 如果執行者 20+ 分鐘無回應則升級給使用者
+
+### Communication Templates / 溝通模板
+
+**Start Long Operation / 開始長時間操作**
+```
+[TASK_EXECUTION]
+task_id: <TASK_ID>
+status: STARTING_LONG_OPERATION
+estimated_duration: <N> minutes
+operation: <description>
+```
+
+**Progress Update / 進度更新**
+```
+[PROGRESS]
+task_id: <TASK_ID>
+percent: <N>%
+elapsed: <N> minutes
+remaining_estimate: <N> minutes
+status: <description>
+```
+
+**Checkpoint Save / 檢查點保存**
+```
+[CHECKPOINT]
+task_id: <TASK_ID>
+step: <current_step>
+completed_items: <N>
+total_items: <N>
+saved_to: state/<task_id>_checkpoint.json
+```
+
+### Default Configuration / 預設配置
+
+```json
+{
+  "anti_timeout": {
+    "pre_notification_threshold_minutes": 5,
+    "progress_update_interval_minutes": 5,
+    "checkpoint_interval_minutes": 10,
+    "supervisor_check_in_minutes": 10,
+    "escalation_threshold_minutes": 20
+  }
+}
+```
+
+### Compliance Verification / 合規驗證
+
+- All tasks with estimated duration > 5 minutes must follow this rule
+- 所有預估時長 > 5 分鐘的任務必須遵循此規則
+- Violations should be documented in task reviews
+- 違規情況應在任務審查中記錄
+- Rule effectiveness reviewed monthly
+- 規則有效性每月檢討
