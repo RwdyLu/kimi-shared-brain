@@ -821,7 +821,7 @@
       "task_id": "T-039-04",
       "title": "Connect Monitoring Status",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "integration",
       "goal": "將現有監測系統狀態接入 UI，顯示 scheduler status、last run time、recent signals、current channel、log summary",
@@ -831,7 +831,9 @@
       "depends_on": ["T-039-03"],
       "report_to": "second_bot",
       "phase_of": "T-039",
-      "phase_number": 4
+      "phase_number": 4,
+      "completed_at": "2026-04-08T05:35:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-039-05",
