@@ -785,7 +785,7 @@
       "task_id": "T-039-02",
       "title": "Config Centralization",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "refactoring",
       "goal": "建立或整理 config/monitoring_params.json、config/strategies.json、config/assets.json，並更新現有程式使其逐步改讀 config",
@@ -795,7 +795,9 @@
       "depends_on": ["T-039-01"],
       "report_to": "second_bot",
       "phase_of": "T-039",
-      "phase_number": 2
+      "phase_number": 2,
+      "completed_at": "2026-04-07T21:53:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-039-03",
