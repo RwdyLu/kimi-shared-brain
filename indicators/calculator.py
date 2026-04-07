@@ -50,7 +50,7 @@ class VolumeAnalysisResult:
     avg_volume: float
     ratio: float
     is_spike: bool
-    threshold: float = 2.0
+    threshold: float = 1.5  # Changed from 2.0 to 1.5 per T-032
 
 
 @dataclass

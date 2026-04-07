@@ -267,7 +267,7 @@ class SignalEngine:
         
         # C3: Volume confirmation
         if volumes_1m:
-            vol_analysis = analyze_volume(volume_1m, volumes_1m, period=20, threshold=2.0)
+            vol_analysis = analyze_volume(volume_1m, volumes_1m, period=20, threshold=1.5)
             conditions["c3_volume_spike"] = vol_analysis.is_spike
             details["volume_analysis"] = vol_analysis
         
@@ -313,7 +313,7 @@ class SignalEngine:
         
         # C3: Volume confirmation
         if volumes_1m:
-            vol_analysis = analyze_volume(volume_1m, volumes_1m, period=20, threshold=2.0)
+            vol_analysis = analyze_volume(volume_1m, volumes_1m, period=20, threshold=1.5)
             conditions["c3_volume_spike"] = vol_analysis.is_spike
             details["volume_analysis"] = vol_analysis
         

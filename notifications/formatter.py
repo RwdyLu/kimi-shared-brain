@@ -21,7 +21,7 @@ Date: 2026-04-06
 """
 
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 import sys
@@ -80,12 +80,14 @@ class NotificationFormatter:
         return indicators[self.lang_idx]
     
     def _format_timestamp(self, timestamp_ms: int) -> str:
-        """Format timestamp to readable string / 將時間戳格式化為可讀字串"""
-        dt = datetime.fromtimestamp(timestamp_ms / 1000)
-        if self.language == "en":
-            return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-        else:
-            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        """Format timestamp with UTC and local time / 格式化時間戳（含 UTC 與本地時間）"""
+        dt_utc = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+        dt_local = dt_utc.astimezone()  # Convert to local timezone
+        
+        utc_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+        local_str = dt_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+        
+        return f"{utc_str} / {local_str}"
     
     def _format_price(self, price: Optional[float]) -> str:
         """Format price with appropriate decimals / 格式化價格（適當小數位）"""
