@@ -619,6 +619,21 @@
       "last_updated": "2026-04-07T15:55:00+08:00",
       "completed_at": "2026-04-07T15:55:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-032",
+      "title": "Apply Safe Monitoring Tweaks",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "patch",
+      "goal": "根據 T-031 審查結果，對 BTC / ETH 監測系統做兩個安全微調：降低 volume threshold，並在提醒輸出中加入 UTC + local timestamp",
+      "output_file": "signals/engine.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認兩項安全微調已完成、未超出 patch 範圍，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-031"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-07T16:45:00+08:00"
     }
   ]
 }
