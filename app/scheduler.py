@@ -55,11 +55,33 @@ class SchedulerConfig:
         enable_file_logging: Whether to log to file / 是否啟用檔案日誌
     """
     mode: SchedulerMode = SchedulerMode.ONCE
-    interval_minutes: int = 5
+    interval_minutes: int = None  # Will load from config if None
     max_runs: Optional[int] = None
     prevent_overlap: bool = True
-    log_file: str = "/tmp/kimi-shared-brain/logs/scheduler.log"
-    enable_file_logging: bool = True
+    log_file: str = None  # Will load from config if None
+    enable_file_logging: bool = None  # Will load from config if None
+    
+    def __post_init__(self):
+        """Load defaults from config if not provided"""
+        try:
+            from config.loader import get_monitoring_params
+            params = get_monitoring_params()
+            monitoring = params.get("monitoring", {})
+            
+            if self.interval_minutes is None:
+                self.interval_minutes = monitoring.get("check_interval_minutes", 5)
+            if self.log_file is None:
+                self.log_file = monitoring.get("log_file", "/tmp/kimi-shared-brain/logs/scheduler.log")
+            if self.enable_file_logging is None:
+                self.enable_file_logging = monitoring.get("enable_file_logging", True)
+        except Exception:
+            # Fallback defaults
+            if self.interval_minutes is None:
+                self.interval_minutes = 5
+            if self.log_file is None:
+                self.log_file = "/tmp/kimi-shared-brain/logs/scheduler.log"
+            if self.enable_file_logging is None:
+                self.enable_file_logging = True
 
 
 @dataclass

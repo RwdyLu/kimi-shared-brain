@@ -1,0 +1,102 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-04-07",
+  "description": "Strategy registry / 策略註冊表",
+  
+  "strategies": [
+    {
+      "id": "ma_cross_trend",
+      "name": "MA Cross Trend",
+      "name_zh": "MA交叉順勢策略",
+      "type": "trend",
+      "enabled": true,
+      "description": "Trend following strategy based on MA cross and volume confirmation",
+      "description_zh": "基於MA交叉與成交量確認的順勢交易策略",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m"],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike"
+      ],
+      "parameters": {
+        "volume_threshold": 1.5,
+        "consecutive_required": false
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "ma_cross_trend_short",
+      "name": "MA Cross Trend Short",
+      "name_zh": "MA交叉順勢做空策略",
+      "type": "trend",
+      "enabled": true,
+      "description": "Trend following short strategy based on MA cross and volume confirmation",
+      "description_zh": "基於MA交叉與成交量確認的順勢做空策略",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m"],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_below_ma20",
+        "volume_spike"
+      ],
+      "parameters": {
+        "volume_threshold": 1.5,
+        "consecutive_required": false
+      },
+      "signal_type": "trend_short",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "contrarian_watch_overheated",
+      "name": "Contrarian Watch - Overheated",
+      "name_zh": "逆勢觀察 - 過熱",
+      "type": "contrarian",
+      "enabled": true,
+      "description": "Contrarian watch for potentially overheated markets (consecutive green candles)",
+      "description_zh": "逆勢觀察策略 - 偵測潛在過熱市場（連續上漲K線）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m"],
+      "conditions": [
+        "close_above_ma240",
+        "consecutive_green"
+      ],
+      "parameters": {
+        "consecutive_count": 4,
+        "volume_threshold": 1.0
+      },
+      "signal_type": "contrarian_watch_overheated",
+      "signal_level": "watch_only",
+      "warning": "WATCH ONLY - NOT FOR EXECUTION / 僅觀察 - 非執行訊號"
+    },
+    {
+      "id": "contrarian_watch_oversold",
+      "name": "Contrarian Watch - Oversold",
+      "name_zh": "逆勢觀察 - 超跌",
+      "type": "contrarian",
+      "enabled": true,
+      "description": "Contrarian watch for potentially oversold markets (consecutive red candles)",
+      "description_zh": "逆勢觀察策略 - 偵測潛在超跌市場（連續下跌K線）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m"],
+      "conditions": [
+        "close_below_ma240",
+        "consecutive_red"
+      ],
+      "parameters": {
+        "consecutive_count": 4,
+        "volume_threshold": 1.0
+      },
+      "signal_type": "contrarian_watch_oversold",
+      "signal_level": "watch_only",
+      "warning": "WATCH ONLY - NOT FOR EXECUTION / 僅觀察 - 非執行訊號"
+    }
+  ],
+  
+  "registry_settings": {
+    "auto_load": true,
+    "validate_on_load": true,
+    "allow_duplicate_ids": false
+  }
+}

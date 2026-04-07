@@ -9,13 +9,18 @@ This module provides technical indicator calculations for the monitoring system.
 本模組提供監測系統的技術指標計算。
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-04-06
+Version: 1.1.0
+Date: 2026-04-07
 """
 
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
+
+# Import config loader / 匯入配置載入器
+import sys
+sys.path.insert(0, '/tmp/kimi-shared-brain')
+from config.loader import get_indicator_params, get_volume_threshold
 
 
 class CrossType(Enum):
@@ -50,7 +55,15 @@ class VolumeAnalysisResult:
     avg_volume: float
     ratio: float
     is_spike: bool
-    threshold: float = 1.5  # Changed from 2.0 to 1.5 per T-032
+    threshold: float = None  # Loaded from config / 從配置載入
+    
+    def __post_init__(self):
+        """Set default threshold from config if not provided"""
+        if self.threshold is None:
+            try:
+                self.threshold = get_volume_threshold()
+            except:
+                self.threshold = 1.5  # Fallback default
 
 
 @dataclass
@@ -165,8 +178,8 @@ def calculate_volume_sma(volumes: List[float], period: int = 20) -> float:
 def analyze_volume(
     current_volume: float,
     volumes: List[float],
-    period: int = 20,
-    threshold: float = 2.0
+    period: int = None,
+    threshold: float = None
 ) -> VolumeAnalysisResult:
     """
     Analyze current volume against average / 分析當前成交量相對於平均值
@@ -174,8 +187,8 @@ def analyze_volume(
     Args:
         current_volume: Current period volume / 當前期間成交量
         volumes: Historical volume data / 歷史成交量資料
-        period: Average period / 平均週期
-        threshold: Spike threshold multiplier / 爆增閾值倍數
+        period: Average period (default: from config) / 平均週期（預設：從配置讀取）
+        threshold: Spike threshold multiplier (default: from config) / 爆增閾值倍數（預設：從配置讀取）
         
     Returns:
         Volume analysis result / 成交量分析結果
@@ -186,6 +199,22 @@ def analyze_volume(
         >>> result.is_spike
         True  # 25 > 10 * 2.0
     """
+    # Load defaults from config if not provided
+    if period is None or threshold is None:
+        try:
+            indicator_params = get_indicator_params()
+            volume_config = indicator_params.get("volume", {})
+            if period is None:
+                period = volume_config.get("window", 20)
+            if threshold is None:
+                threshold = volume_config.get("spike_threshold", 1.5)
+        except:
+            # Fallback defaults
+            if period is None:
+                period = 20
+            if threshold is None:
+                threshold = 1.5
+    
     avg_volume = calculate_volume_sma(volumes, period)
     
     if avg_volume == 0:

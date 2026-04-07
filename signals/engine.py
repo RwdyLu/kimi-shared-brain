@@ -19,8 +19,8 @@ contrarian_watch signals are for OBSERVATION ONLY, not execution.
 contrarian_watch 訊號僅供觀察，非執行訊號。
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-04-06
+Version: 1.1.0
+Date: 2026-04-07
 """
 
 import time
@@ -47,6 +47,9 @@ from indicators.calculator import (
     VolumeAnalysisResult,
     CandlePatternResult
 )
+
+# Import config loader / 匯入配置載入器
+from config.loader import get_signal_params, get_cooldown_minutes, get_enabled_symbols
 
 
 class SignalType(Enum):
@@ -100,11 +103,30 @@ class CooldownConfig:
     Cooldown configuration / 冷卻設定
     
     Defines cooldown periods for different signal types.
-    定義不同訊號類型的冷卻期。
+    Loads from config/monitoring_params.json if not explicitly provided.
+    定義不同訊號類型的冷卻期。若未明確提供則從配置載入。
     """
-    trend_long_seconds: int = 900        # 15 minutes
-    trend_short_seconds: int = 900       # 15 minutes
-    contrarian_watch_seconds: int = 1800  # 30 minutes
+    trend_long_seconds: int = None
+    trend_short_seconds: int = None
+    contrarian_watch_seconds: int = None
+    
+    def __post_init__(self):
+        """Load defaults from config if not provided"""
+        try:
+            if self.trend_long_seconds is None:
+                self.trend_long_seconds = get_cooldown_minutes("trend_long") * 60
+            if self.trend_short_seconds is None:
+                self.trend_short_seconds = get_cooldown_minutes("trend_short") * 60
+            if self.contrarian_watch_seconds is None:
+                self.contrarian_watch_seconds = get_cooldown_minutes("contrarian_watch") * 60
+        except Exception:
+            # Fallback defaults
+            if self.trend_long_seconds is None:
+                self.trend_long_seconds = 1800  # 30 minutes
+            if self.trend_short_seconds is None:
+                self.trend_short_seconds = 1800  # 30 minutes
+            if self.contrarian_watch_seconds is None:
+                self.contrarian_watch_seconds = 900  # 15 minutes
 
 
 class CooldownManager:

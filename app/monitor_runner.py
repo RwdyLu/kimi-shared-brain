@@ -19,8 +19,8 @@ This is SINGLE-RUN ONLY (not a daemon).
 這僅為單次執行（非常駐服務）。
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-04-06
+Version: 1.1.0
+Date: 2026-04-07
 """
 
 import sys
@@ -49,14 +49,58 @@ from signals.engine import (
 from notifications.formatter import NotificationFormatter
 from notifications.notifier import Notifier, NotifierConfig, OutputChannel
 
+# Import config loader / 匯入配置載入器
+from config.loader import get_enabled_symbols, get_monitoring_params, get_indicator_params
 
-# Configuration / 設定
-MONITOR_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
-TIMEFRAMES = {
-    "5m": {"limit": 250, "description": "Primary trend analysis"},
-    "1m": {"limit": 20, "description": "Volume analysis"},
-    "15m": {"limit": 10, "description": "Contrarian pattern analysis"}
-}
+
+# Default configuration (will be overridden by config files)
+# 預設配置（將被配置文件覆蓋）
+def get_monitor_symbols() -> List[str]:
+    """Get list of symbols to monitor from config / 從配置取得監測標的列表"""
+    try:
+        return get_enabled_symbols()
+    except Exception:
+        return ["BTCUSDT", "ETHUSDT"]
+
+
+def get_timeframes() -> Dict[str, Dict[str, Any]]:
+    """Get timeframe configuration from config / 從配置取得時間框架設定"""
+    try:
+        params = get_monitoring_params()
+        data_config = params.get("data", {})
+        timeframes = data_config.get("timeframes", ["1m", "5m", "15m"])
+        
+        # Build timeframe config
+        result = {}
+        limits = {"1m": 20, "5m": 250, "15m": 10, "1h": 100, "4h": 50, "1d": 30}
+        descriptions = {
+            "1m": "Volume analysis",
+            "5m": "Primary trend analysis", 
+            "15m": "Contrarian pattern analysis",
+            "1h": "Hourly trend",
+            "4h": "4H trend (for research)",
+            "1d": "Daily trend"
+        }
+        
+        for tf in timeframes:
+            result[tf] = {
+                "limit": limits.get(tf, 100),
+                "description": descriptions.get(tf, f"{tf} analysis")
+            }
+        return result
+    except Exception:
+        # Fallback defaults
+        return {
+            "5m": {"limit": 250, "description": "Primary trend analysis"},
+            "1m": {"limit": 20, "description": "Volume analysis"},
+            "15m": {"limit": 10, "description": "Contrarian pattern analysis"}
+        }
+
+
+# Legacy constants for backward compatibility
+# 舊常數保持向後相容
+MONITOR_SYMBOLS = get_monitor_symbols()
+TIMEFRAMES = get_timeframes()
 
 
 @dataclass
