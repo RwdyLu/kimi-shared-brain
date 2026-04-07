@@ -704,6 +704,21 @@
       "last_updated": "2026-04-07T19:41:00+08:00",
       "completed_at": "2026-04-07T19:41:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-037",
+      "title": "Diagnose Signal Conditions",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "validation_and_debug",
+      "goal": "針對 BTC / ETH 監測系統做訊號條件診斷，確認目前沒有提醒時，到底是哪個條件卡住，並輸出可讀的條件追蹤報告",
+      "output_file": "outputs/T-037_signal_condition_trace.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認條件診斷報告已建立且內容完整，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-036"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-07T19:46:00+08:00"
     }
   ]
 }
