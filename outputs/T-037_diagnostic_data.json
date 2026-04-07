@@ -1,0 +1,40 @@
+{
+  "BTCUSDT": {
+    "close_5m": 68324.95,
+    "ma240": 69046.40912499999,
+    "c1_above": false,
+    "c1_below": true,
+    "c1_diff_pct": 1.0448901458349287,
+    "cross_above": false,
+    "cross_below": false,
+    "ma_bullish": false,
+    "ma_bearish": true,
+    "volume_ratio": 0.075298656572419,
+    "volume_is_spike": false,
+    "consecutive_up": 0,
+    "consecutive_down": 1,
+    "trend_long_ready": false,
+    "trend_short_ready": false,
+    "contrarian_over_ready": false,
+    "contrarian_under_ready": false
+  },
+  "ETHUSDT": {
+    "close_5m": 2088.63,
+    "ma240": 2119.6,
+    "c1_above": false,
+    "c1_below": true,
+    "c1_diff_pct": 1.4611247405170693,
+    "cross_above": false,
+    "cross_below": false,
+    "ma_bullish": false,
+    "ma_bearish": true,
+    "volume_ratio": 0.10104279650997128,
+    "volume_is_spike": false,
+    "consecutive_up": 0,
+    "consecutive_down": 2,
+    "trend_long_ready": false,
+    "trend_short_ready": false,
+    "contrarian_over_ready": false,
+    "contrarian_under_ready": false
+  }
+}
