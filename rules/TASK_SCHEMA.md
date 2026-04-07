@@ -1,10 +1,10 @@
 # Task Schema Specification
 # Task Schema 規格
 
-**Version**: 1.0.0  
-**版本**: 1.0.0  
-**Last Updated**: 2026-04-05  
-**最後更新**: 2026-04-05
+**Version**: 1.1.0  
+**版本**: 1.1.0  
+**Last Updated**: 2026-04-07  
+**最後更新**: 2026-04-07
 
 ---
 
@@ -62,6 +62,9 @@ Define the complete schema for `state/tasks.json`, including required fields, st
 | `completed_at` | string | Completion timestamp / 完成時間戳 | Set when status becomes `completed` |
 | `reviewed_by` | string | Reviewer identifier / 審查者識別碼 | Usually `"second_bot"` |
 | `repo_url` | string | GitHub repository URL / GitHub 倉庫 URL | For GitHub-only workflows |
+| `instruction_archive_file` | string | Path to instruction archive / 指令封存檔路徑 | For traceability to original instruction |
+| `instruction_anchor` | string | Anchor within archive file / 封存檔內錨點 | Usually same as task_id |
+| `instruction_summary` | string | Brief instruction summary / 指令簡要摘要 | For quick reference without opening archive |
 
 ---
 
@@ -335,9 +338,66 @@ OPERATING_RULES.md (root / 根)
 
 ---
 
+## 13. Task Instruction Archive Integration / 任務指令封存整合
+
+### 13.1 Purpose / 目的
+
+Task instructions are archived separately from the task state to maintain an immutable record of original user requests. The task state references these archives for traceability.
+
+任務指令與任務狀態分開封存，以保持原始使用者请求的不可變記錄。任務狀態引用這些封存以實現可追溯性。
+
+### 13.2 Archive Fields / 封存欄位
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `instruction_archive_file` | string | Path to archive file containing original instruction | `"tasks/archive/tasks_001_100.md"` |
+| `instruction_anchor` | string | Anchor/ID within archive file | `"T-034"` |
+| `instruction_summary` | string | Brief summary for quick reference | `"建立每 100 個 task 一份的指令封存系統"` |
+
+### 13.3 Archive File Structure / 封存檔結構
+
+Archives are organized in batches of 100 tasks:
+
+封存檔以每批 100 個任務組織：
+
+```
+tasks/archive/
+├── README.md              # Archive system documentation
+├── tasks_001_100.md       # T-001 ~ T-100
+├── tasks_101_200.md       # T-101 ~ T-200
+└── tasks_201_300.md       # T-201 ~ T-300
+```
+
+### 13.4 Example Task with Archive Reference / 含封存引用的任務範例
+
+```json
+{
+  "task_id": "T-034",
+  "title": "建立 Task Instruction Archive System",
+  "assigned_to": "kimiclaw_bot",
+  "status": "completed",
+  "priority": "high",
+  "type": "documentation_and_structure",
+  "goal": "建立 task 原始指令封存系統...",
+  "output_file": "tasks/archive/tasks_001_100.md",
+  "success_condition": "second bot 完成 git pull 驗收...",
+  "report_to": "second_bot",
+  "last_updated": "2026-04-07T17:30:00+08:00",
+  "instruction_archive_file": "tasks/archive/tasks_001_100.md",
+  "instruction_anchor": "T-034",
+  "instruction_summary": "建立每 100 個 task 一份的指令封存系統"
+}
+```
+
+### 13.5 Archive Rules / 封存規則
+
+- **Append-Only**: Once written, never modify / 只追加：一旦寫入，永不修改
+- **Range-Based**: 100 tasks per file / 基於範圍：每檔 100 個任務
+- **Immutable History**: Preserves original instruction exactly as issued / 不可變歷史：完全按發出時保存原始指令
+
 **Established by**: kimiclaw_bot  
 **建立者**: kimiclaw_bot  
 **Reviewed by**: second_bot  
 **審查者**: second_bot  
-**Date**: 2026-04-05  
-**日期**: 2026-04-05
+**Date**: 2026-04-07  
+**日期**: 2026-04-07

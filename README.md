@@ -34,6 +34,8 @@ Centralized storage for Central Brain multi-agent system:
 kimi-shared-brain/
 ├── rules/              # System rules / 系統規則
 ├── state/              # Task states / 任務狀態
+├── tasks/              # Task instructions archive / 任務指令封存
+│   └── archive/        # Instruction archives (per 100 tasks) / 指令封存（每100任務）
 ├── templates/          # Output templates / 輸出模板
 ├── outbox/             # Task results / 任務結果
 ├── outputs/            # Review documents / 審查文件
@@ -73,6 +75,8 @@ All shared work **must** go through GitHub. No local path fallbacks.
 | `rules/DISCORD_TASK_INTAKE.md` | Discord command format / Discord 指令格式 |
 | `rules/TASK_SCHEMA.md` | Task structure definitions / 任務結構定義 |
 | `state/tasks.json` | Current task states / 當前任務狀態 |
+| `tasks/archive/README.md` | Archive system documentation / 封存系統說明 |
+| `tasks/archive/tasks_001_100.md` | Task instructions T-001~T-100 / 任務指令 T-001~T-100 |
 
 ---
 
