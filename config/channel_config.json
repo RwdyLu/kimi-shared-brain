@@ -1,0 +1,7 @@
+{
+  "channel_type": "discord_webhook",
+  "webhook_url": "https://discord.com/api/webhooks/1491028454525636750/8_s7oCdfwC3LGiUxvPiPqTptIUzURW3d2RpI5AV1bU4kLwBhj7eJXhWTUo50Joeyc101",
+  "fallback_to_console": true,
+  "timeout_seconds": 10,
+  "retry_count": 1
+}
