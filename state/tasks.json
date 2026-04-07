@@ -687,6 +687,21 @@
       "last_updated": "2026-04-07T18:13:00+08:00",
       "completed_at": "2026-04-07T18:13:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-036",
+      "title": "Improve Notification Message Format to Chinese",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "patch",
+      "goal": "將監測系統提醒訊息改成更容易閱讀的中文解讀格式，讓使用者在 Discord 一眼就看懂提醒內容",
+      "output_file": "notifications/formatter.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認中文提醒格式已更新、範例文件已建立，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-035"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-07T19:29:00+08:00"
     }
   ]
 }
