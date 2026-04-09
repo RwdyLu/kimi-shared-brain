@@ -911,7 +911,7 @@
       "task_id": "T-040",
       "title": "Fix UI Config Paths and Live Status Sync",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "修復 UI 中的 config 路徑讀取問題與 scheduler live status 同步問題，讓 Dashboard / Parameters / Strategies / System 頁面能正確反映目前狀態",
@@ -919,7 +919,9 @@
       "success_condition": "second bot 完成 git pull 驗收，確認 config 路徑修正完成、scheduler 狀態顯示一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-039-06-patch"],
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-09T20:27:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
