@@ -895,7 +895,7 @@
       "task_id": "T-039-06-patch",
       "title": "Normalize Action Queue Structure",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "補正 T-039-06 的 Action Queue 結構，將內嵌於 ui/pages/actions.py 的 ActionQueueService 抽離為獨立 service，並建立缺少的初始狀態檔",
@@ -903,6 +903,22 @@
       "success_condition": "second bot 完成 git pull 驗收，確認 Action Queue 功能保留、檔案結構補正完成，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-039-06"],
+      "report_to": "second_bot",
+      "completed_at": "2026-04-09T19:17:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-040",
+      "title": "Fix UI Config Paths and Live Status Sync",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "patch",
+      "goal": "修復 UI 中的 config 路徑讀取問題與 scheduler live status 同步問題，讓 Dashboard / Parameters / Strategies / System 頁面能正確反映目前狀態",
+      "output_file": "outputs/T-040_ui_fix_summary.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 config 路徑修正完成、scheduler 狀態顯示一致，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-039-06-patch"],
       "report_to": "second_bot"
     }
   ]
