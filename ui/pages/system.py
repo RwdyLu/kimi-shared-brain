@@ -10,16 +10,21 @@ from dash import dcc, html, callback, Output, Input
 import dash_bootstrap_components as dbc
 import sys
 import os
+from pathlib import Path
 
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+# Dynamic path setup / 動態路徑設定
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent.parent
+sys.path.insert(0, str(project_root))
 
-# Import monitor service / 匯入監測服務
+# Import monitor service and paths / 匯入監測服務與路徑
 from ui.services.monitor_service import (
     get_scheduler_status,
     get_last_run_info,
     get_next_run_time,
     get_logs_preview
 )
+from config.paths import PROJECT_ROOT, CONFIG_DIR, LOGS_DIR, OUTPUTS_DIR, STATE_DIR
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/system", title="System")
@@ -198,27 +203,27 @@ layout = dbc.Container(
                                     [
                                         html.Tr([
                                             html.Td("Project Root / 專案根目錄"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain"))
+                                            html.Td(html.Code(str(PROJECT_ROOT)))
                                         ]),
                                         html.Tr([
                                             html.Td("Config Files / 配置文件"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/config/"))
+                                            html.Td(html.Code(str(CONFIG_DIR) + "/"))
                                         ]),
                                         html.Tr([
                                             html.Td("Logs / 日誌"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/logs/scheduler.log"))
+                                            html.Td(html.Code(str(LOGS_DIR / "scheduler.log")))
                                         ]),
                                         html.Tr([
                                             html.Td("PID File / PID 檔案"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/.monitor.pid"))
+                                            html.Td(html.Code(str(PROJECT_ROOT / ".monitor.pid")))
                                         ]),
                                         html.Tr([
                                             html.Td("Outputs / 輸出"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/outputs/"))
+                                            html.Td(html.Code(str(OUTPUTS_DIR) + "/"))
                                         ]),
                                         html.Tr([
                                             html.Td("State / 狀態"),
-                                            html.Td(html.Code("/tmp/kimi-shared-brain/state/"))
+                                            html.Td(html.Code(str(STATE_DIR) + "/"))
                                         ]),
                                     ]
                                 )

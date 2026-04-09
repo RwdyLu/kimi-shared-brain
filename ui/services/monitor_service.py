@@ -19,6 +19,11 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 
+# Import dynamic path resolver / 匯入動態路徑解析器
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from config.paths import PROJECT_ROOT, LOGS_DIR, STATE_DIR
+
 
 class MonitorService:
     """
@@ -26,14 +31,14 @@ class MonitorService:
     查詢監測系統狀態的服務
     """
     
-    def __init__(self, base_path: str = "/tmp/kimi-shared-brain"):
+    def __init__(self, base_path: str = None):
         """
         Initialize monitor service
         
         Args:
-            base_path: Base path to monitoring system
+            base_path: Base path to monitoring system (default: auto-detected)
         """
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path) if base_path else PROJECT_ROOT
         self.log_file = self.base_path / "logs" / "scheduler.log"
         self.pid_file = self.base_path / ".monitor.pid"
         self.alerts_dir = self.base_path / "alerts"
@@ -310,9 +315,14 @@ class MonitorService:
         Get next scheduled run time from log
         
         Returns:
-            Formatted time string or None
+            Formatted time string or None if scheduler is stopped
         """
         try:
+            # Check if scheduler is running first
+            status = self.get_scheduler_status()
+            if not status.get("running", False):
+                return None  # Scheduler is stopped, no next run
+            
             if not self.log_file.exists():
                 return None
             
@@ -350,15 +360,19 @@ class MonitorService:
         Get complete monitoring status
         
         Returns:
-            Dict with all status information
+            Dict with all status information including historical vs live distinction
         """
+        scheduler_status = self.get_scheduler_status()
+        
         return {
-            "scheduler": self.get_scheduler_status(),
+            "scheduler": scheduler_status,
             "last_run": self.get_last_run_info(),
             "today_signals": self.get_today_signals(),
             "recent_runs": self.get_recent_runs(5),
-            "next_run": self.get_next_run_time(),
-            "timestamp": datetime.now().isoformat()
+            "next_run": self.get_next_run_time() if scheduler_status.get("running") else None,
+            "is_live": scheduler_status.get("running", False),
+            "timestamp": datetime.now().isoformat(),
+            "mode": "LIVE" if scheduler_status.get("running") else "HISTORICAL_ONLY"
         }
 
 

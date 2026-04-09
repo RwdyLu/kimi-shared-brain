@@ -12,8 +12,12 @@ import sys
 import json
 from datetime import datetime
 from typing import List, Dict, Any
+from pathlib import Path
 
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+# Dynamic path setup / 動態路徑設定
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent.parent
+sys.path.insert(0, str(project_root))
 
 # Import ActionQueueService from dedicated service module
 # 從專用服務模組匯入 ActionQueueService

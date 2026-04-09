@@ -10,8 +10,12 @@ from dash import dcc, html, callback, Output, Input
 import dash_bootstrap_components as dbc
 from datetime import datetime
 import sys
+from pathlib import Path
 
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+# Dynamic path setup / 動態路徑設定
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent.parent
+sys.path.insert(0, str(project_root))
 
 # Import monitor service / 匯入監測服務
 from ui.services.monitor_service import (

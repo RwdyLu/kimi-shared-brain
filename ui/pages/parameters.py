@@ -12,16 +12,24 @@ import sys
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+# Dynamic path setup / 動態路徑設定
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent.parent
+sys.path.insert(0, str(project_root))
 
 from config.loader import get_monitoring_params
+from config.paths import CONFIG_DIR, LOGS_DIR
+
+# Get log file path / 取得日誌檔案路徑
+DEFAULT_LOG_FILE = str(LOGS_DIR / "scheduler.log")
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/parameters", title="Parameters")
 
-# Config file path / 配置文件路徑
-CONFIG_FILE = "/tmp/kimi-shared-brain/config/monitoring_params.json"
+# Config file path / 配置文件路徑 (dynamic / 動態)
+CONFIG_FILE = CONFIG_DIR / "monitoring_params.json"
 
 
 # Load initial config / 載入初始配置
@@ -219,7 +227,7 @@ def render_general_tab(monitoring):
                 render_editable_row(
                     "log_file",
                     "Log File / 日誌檔案",
-                    monitoring.get("log_file", "/tmp/kimi-shared-brain/logs/scheduler.log"),
+                    monitoring.get("log_file", DEFAULT_LOG_FILE),
                     "",
                     "Path to scheduler log file / 排程器日誌檔案路徑",
                     input_type="text"
@@ -676,7 +684,7 @@ def build_config_from_params(params, current_data):
             "max_run_history": params.get("max_run_history", 100),
             "prevent_overlap": params.get("prevent_overlap", True),
             "enable_file_logging": params.get("enable_file_logging", True),
-            "log_file": params.get("log_file", "/tmp/kimi-shared-brain/logs/scheduler.log")
+            "log_file": params.get("log_file", DEFAULT_LOG_FILE)
         },
         "indicators": {
             "ma_periods": {
@@ -732,7 +740,7 @@ def get_default_config():
             "max_run_history": 100,
             "prevent_overlap": True,
             "enable_file_logging": True,
-            "log_file": "/tmp/kimi-shared-brain/logs/scheduler.log"
+            "log_file": DEFAULT_LOG_FILE
         },
         "indicators": {
             "ma_periods": {

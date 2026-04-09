@@ -19,9 +19,12 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from pathlib import Path
 
+# Import dynamic path resolver / 匯入動態路徑解析器
+from config.paths import CONFIG_DIR, resolve_path
+
 
 # Default config paths / 預設配置路徑
-DEFAULT_CONFIG_DIR = Path("/tmp/kimi-shared-brain/config")
+DEFAULT_CONFIG_DIR = CONFIG_DIR
 
 
 class ConfigLoader:

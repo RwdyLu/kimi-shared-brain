@@ -17,12 +17,18 @@ Date: 2026-04-09
 
 import json
 import os
+import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from pathlib import Path
+
+# Import dynamic path resolver / 匯入動態路徑解析器
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from config.paths import STATE_DIR, ACTIONS_DIR
 
 
 # Default paths / 預設路徑
-DEFAULT_ACTIONS_DIR = "/tmp/kimi-shared-brain/state/actions"
+DEFAULT_ACTIONS_DIR = str(ACTIONS_DIR)
 DEFAULT_ACTIONS_FILE = os.path.join(DEFAULT_ACTIONS_DIR, "queue.json")
 DEFAULT_HISTORY_FILE = os.path.join(DEFAULT_ACTIONS_DIR, "history.json")
 
@@ -46,7 +52,7 @@ class ActionQueueService:
         Initialize the action queue service
         
         Args:
-            actions_dir: Directory for action files (default: /tmp/kimi-shared-brain/state/actions)
+            actions_dir: Directory for action files (auto-detected from project root)
             actions_file: Path to queue.json (default: actions_dir/queue.json)
             history_file: Path to history.json (default: actions_dir/history.json)
         """

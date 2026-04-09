@@ -18,12 +18,16 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 import sys
 import os
+from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+# Dynamic path setup / 動態路徑設定
+ui_dir = Path(__file__).resolve().parent
+project_root = ui_dir.parent
+sys.path.insert(0, str(project_root))
 
 # Import configuration
 from config.loader import get_monitoring_params
+from config.paths import PROJECT_ROOT
 
 # Initialize the Dash app with multi-page support
 # 使用多頁支援初始化 Dash 應用程式
@@ -138,8 +142,8 @@ def update_navbar_status(n):
     try:
         # Check if scheduler is running
         import os
-        pid_file = "/tmp/kimi-shared-brain/.monitor.pid"
-        if os.path.exists(pid_file):
+        pid_file = PROJECT_ROOT / ".monitor.pid"
+        if pid_file.exists():
             with open(pid_file, 'r') as f:
                 pid = f.read().strip()
                 try:
