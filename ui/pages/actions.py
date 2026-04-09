@@ -10,186 +10,17 @@ from dash import dcc, html, callback, Output, Input, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 import sys
 import json
-import os
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 sys.path.insert(0, '/tmp/kimi-shared-brain')
 
+# Import ActionQueueService from dedicated service module
+# 從專用服務模組匯入 ActionQueueService
+from ui.services.action_service import ActionQueueService, load_pending_actions, load_history, process_decision, get_today_stats, clear_history
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/actions", title="Actions")
-
-# Constants / 常數
-ACTIONS_DIR = "/tmp/kimi-shared-brain/state/actions"
-ACTIONS_FILE = os.path.join(ACTIONS_DIR, "queue.json")
-HISTORY_FILE = os.path.join(ACTIONS_DIR, "history.json")
-
-
-# Action Queue Service / 行動佇列服務
-class ActionQueueService:
-    """
-    Service for managing action queue
-    管理行動佇列的服務
-    """
-    
-    def __init__(self):
-        self.actions_dir = ACTIONS_DIR
-        self.actions_file = ACTIONS_FILE
-        self.history_file = HISTORY_FILE
-        self._ensure_dirs()
-    
-    def _ensure_dirs(self):
-        """Ensure directories exist"""
-        os.makedirs(self.actions_dir, exist_ok=True)
-    
-    def load_pending_actions(self) -> List[Dict[str, Any]]:
-        """Load pending actions from file"""
-        try:
-            if os.path.exists(self.actions_file):
-                with open(self.actions_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get("pending", [])
-            return []
-        except Exception as e:
-            print(f"Error loading pending actions: {e}")
-            return []
-    
-    def load_history(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Load action history from file"""
-        try:
-            if os.path.exists(self.history_file):
-                with open(self.history_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    history = data.get("history", [])
-                    # Return most recent first
-                    return sorted(history, key=lambda x: x.get("decided_at", ""), reverse=True)[:limit]
-            return []
-        except Exception as e:
-            print(f"Error loading history: {e}")
-            return []
-    
-    def save_pending_actions(self, actions: List[Dict[str, Any]]):
-        """Save pending actions to file"""
-        try:
-            data = {
-                "pending": actions,
-                "updated_at": datetime.now().isoformat(),
-                "count": len(actions)
-            }
-            with open(self.actions_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving pending actions: {e}")
-    
-    def save_history(self, history: List[Dict[str, Any]]):
-        """Save action history to file"""
-        try:
-            data = {
-                "history": history,
-                "updated_at": datetime.now().isoformat()
-            }
-            with open(self.history_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving history: {e}")
-    
-    def process_decision(self, action_id: str, decision: str, note: str = "") -> bool:
-        """
-        Process a decision for an action
-        
-        Args:
-            action_id: Action ID
-            decision: 'approve', 'reject', or 'snooze'
-            note: Optional note
-            
-        Returns:
-            True if successful
-        """
-        try:
-            pending = self.load_pending_actions()
-            history = self.load_history(limit=1000)  # Load all for append
-            
-            # Find the action
-            action = None
-            for i, a in enumerate(pending):
-                if a.get("id") == action_id:
-                    action = a
-                    pending.pop(i)
-                    break
-            
-            if not action:
-                return False
-            
-            # Update action with decision
-            now = datetime.now().isoformat()
-            action["decision"] = decision
-            action["decided_at"] = now
-            action["decision_note"] = note
-            
-            if decision == "snooze":
-                # For snooze, move to end of queue with snooze timestamp
-                action["snooze_until"] = (datetime.now().replace(minute=datetime.now().minute + 30)).isoformat()
-                action["snooze_count"] = action.get("snooze_count", 0) + 1
-                pending.append(action)
-            else:
-                # For approve/reject, add to history
-                history.append(action)
-            
-            # Save both files
-            self.save_pending_actions(pending)
-            self.save_history(history)
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error processing decision: {e}")
-            return False
-    
-    def add_action(self, action: Dict[str, Any]) -> str:
-        """
-        Add a new action to the queue
-        
-        Returns:
-            Action ID
-        """
-        pending = self.load_pending_actions()
-        
-        # Generate ID
-        action_id = f"ACT_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(pending)}"
-        action["id"] = action_id
-        action["created_at"] = datetime.now().isoformat()
-        action["status"] = "pending"
-        
-        pending.append(action)
-        self.save_pending_actions(pending)
-        
-        return action_id
-    
-    def get_today_stats(self) -> Dict[str, int]:
-        """Get today's action statistics"""
-        history = self.load_history(limit=1000)
-        today = datetime.now().strftime("%Y-%m-%d")
-        
-        stats = {
-            "pending": len(self.load_pending_actions()),
-            "approved": 0,
-            "rejected": 0,
-            "snoozed": 0
-        }
-        
-        for action in history:
-            decided_at = action.get("decided_at", "")
-            if today in decided_at:
-                decision = action.get("decision", "")
-                if decision == "approve":
-                    stats["approved"] += 1
-                elif decision == "reject":
-                    stats["rejected"] += 1
-                elif decision == "snooze":
-                    stats["snoozed"] += 1
-        
-        return stats
-
 
 # Global service instance / 全局服務實例
 _action_service = ActionQueueService()
@@ -651,14 +482,12 @@ def render_history_item(action: Dict[str, Any]) -> dbc.ListGroupItem:
     prevent_initial_call=False
 )
 def update_actions_data(n_intervals, n_clicks):
-    """Update actions data from file"""
+    """Update actions data from service"""
     try:
-        service = ActionQueueService()
-        
-        # Load data
-        pending = service.load_pending_actions()
-        history = service.load_history(limit=10)
-        stats = service.get_today_stats()
+        # Load data using service functions
+        pending = load_pending_actions()
+        history = load_history(limit=10)
+        stats = get_today_stats()
         
         # Render pending list
         if pending:
@@ -746,9 +575,8 @@ def handle_decision(approve_clicks, reject_clicks, snooze_clicks, notes, note_id
                 note = notes[i]
                 break
         
-        # Process decision
-        service = ActionQueueService()
-        success = service.process_decision(action_id, decision, note)
+        # Process decision using service function
+        success = process_decision(action_id, decision, note)
         
         if success:
             decision_labels = {
@@ -759,9 +587,9 @@ def handle_decision(approve_clicks, reject_clicks, snooze_clicks, notes, note_id
             message = f"✅ Action {action_id} has been {decision_labels.get(decision, decision)}"
             
             # Refresh data
-            pending = service.load_pending_actions()
-            history = service.load_history(limit=10)
-            stats = service.get_today_stats()
+            pending = load_pending_actions()
+            history = load_history(limit=10)
+            stats = get_today_stats()
             data = {"pending": pending, "history": history, "stats": stats}
             
             return dbc.Alert(message, color="success", dismissable=True, className="mt-3"), data
@@ -800,17 +628,19 @@ def handle_clear_history(clear_btn, cancel_btn, confirm_btn, is_open):
     
     elif button_id == "clear-confirm":
         try:
-            # Clear history file
-            service = ActionQueueService()
-            service.save_history([])
+            # Clear history using service function
+            success = clear_history()
             
-            # Refresh data
-            pending = service.load_pending_actions()
-            history = service.load_history(limit=10)
-            stats = service.get_today_stats()
-            data = {"pending": pending, "history": history, "stats": stats}
-            
-            return False, dbc.Alert("✅ History cleared successfully", color="info", dismissable=True), data
+            if success:
+                # Refresh data
+                pending = load_pending_actions()
+                history = load_history(limit=10)
+                stats = get_today_stats()
+                data = {"pending": pending, "history": history, "stats": stats}
+                
+                return False, dbc.Alert("✅ History cleared successfully", color="info", dismissable=True), data
+            else:
+                return False, dbc.Alert("❌ Failed to clear history", color="danger", dismissable=True), dash.no_update
             
         except Exception as e:
             return False, dbc.Alert(f"❌ Error clearing history: {e}", color="danger", dismissable=True), dash.no_update

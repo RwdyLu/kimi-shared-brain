@@ -1,0 +1,55 @@
+{
+  "version": "1.0.0",
+  "description": "Action Queue Configuration / 行動佇列配置",
+  "note": "This file provides initial structure for the action queue. Runtime state is stored in state/actions/",
+  "initial_setup": {
+    "pending_actions": [],
+    "action_history": [],
+    "default_settings": {
+      "snooze_duration_minutes": 30,
+      "max_snooze_count": 3,
+      "auto_expire_hours": 24
+    }
+  },
+  "action_types": {
+    "TREND_LONG": {
+      "label": "Trend Long / 順勢做多",
+      "color": "success",
+      "requires_confirmation": true
+    },
+    "TREND_SHORT": {
+      "label": "Trend Short / 順勢做空",
+      "color": "danger",
+      "requires_confirmation": true
+    },
+    "CONTRARIAN_WATCH": {
+      "label": "Contrarian Watch / 逆勢觀察",
+      "color": "info",
+      "requires_confirmation": false,
+      "note": "Watch only - not for execution"
+    }
+  },
+  "decisions": {
+    "approve": {
+      "label": "Approve / 核准",
+      "color": "success",
+      "description": "Log approval decision (no auto-trading)"
+    },
+    "reject": {
+      "label": "Reject / 拒絕",
+      "color": "danger",
+      "description": "Decline the signal"
+    },
+    "snooze": {
+      "label": "Snooze / 暫緩",
+      "color": "info",
+      "description": "Postpone decision for 30 minutes"
+    }
+  },
+  "safety_notice": "⚠️ ALERT-ONLY SYSTEM / 僅提醒系統: This queue logs decisions but NEVER executes trades automatically.",
+  "storage_paths": {
+    "runtime_state_dir": "state/actions/",
+    "queue_file": "state/actions/queue.json",
+    "history_file": "state/actions/history.json"
+  }
+}
