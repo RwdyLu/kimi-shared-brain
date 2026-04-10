@@ -961,7 +961,7 @@
       "task_id": "T-044",
       "title": "Fix Dashboard System Status Card Sync",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "修復 Dashboard 左上 System Status 卡片，讓其與 scheduler 實際運行狀態、Last Run、Recent Runs 使用一致的 live status source",
@@ -970,7 +970,24 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-043"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T18:57:00+08:00"
+      "last_updated": "2026-04-10T19:03:00+08:00",
+      "completed_at": "2026-04-10T19:03:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-045",
+      "title": "Fix Recent Runs Sync and Add Symbol Breakdown",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "patch",
+      "goal": "修復 Dashboard Recent Runs 表格與 Last Run 的同步問題，並增加每輪 run 的 symbol breakdown，讓使用者能看出 BTCUSDT / ETHUSDT 各自結果",
+      "output_file": "outputs/T-045_recent_runs_symbol_breakdown.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Recent Runs 顯示最新 run，且能區分 BTC / ETH，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-044"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-10T19:24:00+08:00"
     }
   ]
 }
