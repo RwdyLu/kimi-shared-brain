@@ -25,9 +25,10 @@ ui_dir = Path(__file__).resolve().parent
 project_root = ui_dir.parent
 sys.path.insert(0, str(project_root))
 
-# Import configuration
+# Import configuration and services / 匯入配置與服務
 from config.loader import get_monitoring_params
 from config.paths import PROJECT_ROOT
+from ui.services.monitor_service import get_scheduler_status
 
 # Initialize the Dash app with multi-page support
 # 使用多頁支援初始化 Dash 應用程式
@@ -138,20 +139,15 @@ app.layout = dbc.Container(
     Input("global-interval", "n_intervals")
 )
 def update_navbar_status(n):
-    """Update system status badge in navbar"""
+    """Update system status badge in navbar using monitor service"""
     try:
-        # Check if scheduler is running
-        import os
-        pid_file = PROJECT_ROOT / ".monitor.pid"
-        if pid_file.exists():
-            with open(pid_file, 'r') as f:
-                pid = f.read().strip()
-                try:
-                    os.kill(int(pid), 0)
-                    return dbc.Badge("🟢 Running", color="success", className="me-2")
-                except (OSError, ValueError):
-                    pass
-        return dbc.Badge("🔴 Stopped", color="danger", className="me-2")
+        # Use the same source as Dashboard/System pages
+        status = get_scheduler_status()
+        
+        if status.get("running"):
+            return dbc.Badge("🟢 Running", color="success", className="me-2")
+        else:
+            return dbc.Badge("🔴 Stopped", color="danger", className="me-2")
     except Exception:
         return dbc.Badge("⚪ Unknown", color="secondary", className="me-2")
 
