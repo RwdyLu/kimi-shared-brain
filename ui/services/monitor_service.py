@@ -405,6 +405,11 @@ def get_logs_preview(lines: int = 20) -> str:
     return _service.get_logs_preview(lines)
 
 
+def get_next_run_time() -> Optional[str]:
+    """Get next scheduled run time"""
+    return _service.get_next_run_time()
+
+
 def get_full_status() -> Dict[str, Any]:
     """Get full monitoring status"""
     return _service.get_full_status()

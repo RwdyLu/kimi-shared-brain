@@ -29,31 +29,32 @@ def load_strategies():
         return {"error": str(e)}
 
 
-# Page layout / 頁面佈局
-layout = dbc.Container(
-    [
-        # Header / 標題
-        html.H2("Strategies", className="mb-4"),
-        html.P("Strategy registry and management / 策略註冊表與管理", className="text-muted"),
-        
-        html.Hr(),
-        
-        # Strategy list / 策略列表
-        dbc.Card(
-            [
-                dbc.CardHeader(
-                    [
-                        html.H5("Registered Strategies / 已註冊策略", className="mb-0"),
-                        html.Small("Enable/disable strategies and view details / 啟用/停用策略並查看詳情", className="text-muted")
-                    ]
-                ),
-                dbc.CardBody(
-                    id="strategies-list",
-                    children=render_strategies_list()
-                )
-            ],
-            className="mb-4"
-        ),
+# Page layout function / 頁面佈局函式
+def layout():
+    return dbc.Container(
+        [
+            # Header / 標題
+            html.H2("Strategies", className="mb-4"),
+            html.P("Strategy registry and management / 策略註冊表與管理", className="text-muted"),
+            
+            html.Hr(),
+            
+            # Strategy list / 策略列表
+            dbc.Card(
+                [
+                    dbc.CardHeader(
+                        [
+                            html.H5("Registered Strategies / 已註冊策略", className="mb-0"),
+                            html.Small("Enable/disable strategies and view details / 啟用/停用策略並查看詳情", className="text-muted")
+                        ]
+                    ),
+                    dbc.CardBody(
+                        id="strategies-list",
+                        children=render_strategies_list()
+                    )
+                ],
+                className="mb-4"
+            ),
         
         # Strategy extensibility info / 策略擴充資訊
         dbc.Card(
@@ -101,7 +102,7 @@ layout = dbc.Container(
         ),
     ],
     fluid=True
-)
+    )
 
 
 def render_strategies_list():
@@ -294,14 +295,11 @@ def render_strategy_details(strategy):
             ),
             
             # Warning (if applicable) / 警告（如適用）
-            if strategy.get("warning"):
-                dbc.Alert(
-                    strategy.get("warning"),
-                    color="warning",
-                    className="mt-3"
-                )
-            else:
-                None
+            dbc.Alert(
+                strategy.get("warning"),
+                color="warning",
+                className="mt-3"
+            ) if strategy.get("warning") else None,
         ]
     )
 
