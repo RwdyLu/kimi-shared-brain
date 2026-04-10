@@ -26,6 +26,12 @@ from datetime import datetime, timedelta
 from enum import Enum
 import threading
 
+# Import dynamic path resolver / 匯入動態路徑解析器
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from config.paths import PROJECT_ROOT, LOGS_DIR, STATE_DIR
+
 # Import monitoring system / 匯入監測系統
 from app.monitor_runner import MonitorRunner
 from notifications.channels import (
@@ -71,7 +77,7 @@ class SchedulerConfig:
             if self.interval_minutes is None:
                 self.interval_minutes = monitoring.get("check_interval_minutes", 5)
             if self.log_file is None:
-                self.log_file = monitoring.get("log_file", "/tmp/kimi-shared-brain/logs/scheduler.log")
+                self.log_file = str(LOGS_DIR / "scheduler.log")
             if self.enable_file_logging is None:
                 self.enable_file_logging = monitoring.get("enable_file_logging", True)
         except Exception:
@@ -79,7 +85,7 @@ class SchedulerConfig:
             if self.interval_minutes is None:
                 self.interval_minutes = 5
             if self.log_file is None:
-                self.log_file = "/tmp/kimi-shared-brain/logs/scheduler.log"
+                self.log_file = str(LOGS_DIR / "scheduler.log")
             if self.enable_file_logging is None:
                 self.enable_file_logging = True
 
@@ -101,8 +107,8 @@ class SchedulerLock:
     基於檔案的鎖，防止重疊執行
     """
     
-    def __init__(self, lock_file: str = "/tmp/kimi-shared-brain/.scheduler.lock"):
-        self.lock_file = lock_file
+    def __init__(self, lock_file: str = None):
+        self.lock_file = lock_file or str(STATE_DIR / ".scheduler.lock")
         self._locked = False
         self._pid = os.getpid()
     
@@ -197,6 +203,7 @@ class MonitoringScheduler:
         self._stop_requested = False
         self._run_records: List[RunRecord] = []
         self._lock = SchedulerLock()
+        self._pid_file = str(STATE_DIR / ".monitor.pid")
         
         # Register cleanup on exit / 註冊退出時清理
         atexit.register(self._cleanup)
@@ -204,6 +211,24 @@ class MonitoringScheduler:
     def _cleanup(self) -> None:
         """Cleanup resources / 清理資源"""
         self._lock.release()
+        self._remove_pid_file()
+    
+    def _write_pid_file(self) -> None:
+        """Write PID file / 寫入 PID 檔案"""
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            with open(self._pid_file, 'w') as f:
+                f.write(str(os.getpid()))
+        except Exception:
+            pass
+    
+    def _remove_pid_file(self) -> None:
+        """Remove PID file / 移除 PID 檔案"""
+        try:
+            if os.path.exists(self._pid_file):
+                os.remove(self._pid_file)
+        except Exception:
+            pass
     
     def _log(self, message: str) -> None:
         """Log message to console and optionally file / 記錄訊息到 console 和檔案"""
@@ -313,6 +338,9 @@ class MonitoringScheduler:
         interval = interval_minutes or self.config.interval_minutes
         self._running = True
         self._stop_requested = False
+        
+        # Write PID file / 寫入 PID 檔案
+        self._write_pid_file()
         
         self._log(f"Starting interval scheduler / 啟動間隔排程器")
         self._log(f"Interval: {interval} minutes / 間隔：{interval} 分鐘")
