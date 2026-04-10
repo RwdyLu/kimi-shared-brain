@@ -46,8 +46,8 @@ class MonitorService:
     
     def _read_log_lines(self) -> List[str]:
         """
-        Read log file lines with proper file handling
-        讀取日誌檔案行數，確保檔案正確處理
+        Read log file lines with proper file handling (limited to recent 2000 lines)
+        讀取日誌檔案行數，確保檔案正確處理（限制最近 2000 行）
         """
         try:
             if not self.log_file.exists():
@@ -64,7 +64,10 @@ class MonitorService:
                 if file_size == 0:
                     return []
                 
-                return f.readlines()
+                lines = f.readlines()
+                # Limit to last 2000 lines for performance (covers ~7 days of runs at 5min intervals)
+                # 為效能限制最近 2000 行（涵蓋約 7 天的執行記錄，以 5 分鐘間隔計算）
+                return lines[-2000:] if len(lines) > 2000 else lines
         except Exception as e:
             print(f"Error reading log file: {e}")
             return []
@@ -360,7 +363,7 @@ class MonitorService:
             if not lines:
                 return runs
             
-            # Find completed runs
+            # Find completed runs - process from most recent
             run_info = {}
             for line in reversed(lines):
                 timestamp_match = re.match(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]', line)
@@ -384,6 +387,9 @@ class MonitorService:
                             "confirmed": 0,
                             "watch_only": 0
                         }
+                        # Stop once we have enough runs
+                        if len(run_info) >= count:
+                            break
                 
                 # Extract signal counts - match the run that needs signal info
                 signals_match = re.search(r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line)
@@ -400,25 +406,22 @@ class MonitorService:
             runs = list(run_info.values())
             runs.sort(key=lambda x: x["run_id"], reverse=True)
             
-            # Pre-load daemon log once for all runs to improve performance
-            # 預先載入 daemon log 一次以提升效能
-            daemon_lines = self._read_daemon_log_lines()
+            # Only get symbol breakdown for runs that will be displayed
+            if runs:
+                daemon_lines = self._read_daemon_log_lines()
+                for run in runs:
+                    try:
+                        run_timestamp = datetime.strptime(run["timestamp"], "%Y-%m-%d %H:%M:%S")
+                        symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp, daemon_lines)
+                        run["symbols_checked"] = symbol_breakdown.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
+                        run["symbols_with_signals"] = symbol_breakdown.get("symbols_with_signals", [])
+                        run["symbol_summary"] = symbol_breakdown.get("symbol_summary", "Symbols: 2/2")
+                    except Exception:
+                        run["symbols_checked"] = ["BTCUSDT", "ETHUSDT"]
+                        run["symbols_with_signals"] = []
+                        run["symbol_summary"] = "Symbols: 2/2"
             
-            # Add symbol breakdown for each run
-            for run in runs:
-                try:
-                    run_timestamp = datetime.strptime(run["timestamp"], "%Y-%m-%d %H:%M:%S")
-                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp, daemon_lines)
-                    run["symbols_checked"] = symbol_breakdown.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
-                    run["symbols_with_signals"] = symbol_breakdown.get("symbols_with_signals", [])
-                    run["symbol_summary"] = symbol_breakdown.get("symbol_summary", "Symbols: 2/2")
-                except Exception:
-                    # Fallback if symbol breakdown fails
-                    run["symbols_checked"] = ["BTCUSDT", "ETHUSDT"]
-                    run["symbols_with_signals"] = []
-                    run["symbol_summary"] = "Symbols: 2/2"
-            
-            return runs[:count]
+            return runs
             
         except Exception as e:
             return [{"error": str(e)}]
