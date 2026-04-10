@@ -1012,7 +1012,7 @@
       "task_id": "T-047",
       "title": "Make Recent Run History Auto-Update On Every New Run",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "修復 Dashboard 的 Recent Run History，讓它在每次 scheduler 完成新 run 後自動更新最新一筆，而不是停留在舊資料",
@@ -1021,7 +1021,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-046"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T20:31:00+08:00"
+      "last_updated": "2026-04-10T20:35:00+08:00",
+      "completed_at": "2026-04-10T20:35:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
