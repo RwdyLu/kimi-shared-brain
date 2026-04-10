@@ -68,6 +68,44 @@ class MonitorService:
             print(f"Error reading log file: {e}")
             return []
     
+    def _is_recent_run_active(self, max_minutes: int = 10) -> bool:
+        """
+        Check if there's a recent run in the log (within max_minutes)
+        檢查日誌中是否有最近的 run（在 max_minutes 分鐘內）
+        
+        This is a fallback method when PID check fails but scheduler is still running
+        這是當 PID 檢查失敗但 scheduler 仍在運行時的備用方法
+        
+        Args:
+            max_minutes: Maximum minutes since last run to consider "active"
+            
+        Returns:
+            True if recent run found
+        """
+        try:
+            lines = self._read_log_lines()
+            if not lines:
+                return False
+            
+            # Find the last completed run
+            for line in reversed(lines):
+                if "Run #" in line and "completed" in line:
+                    # Parse timestamp
+                    timestamp_match = re.match(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]', line)
+                    if timestamp_match:
+                        timestamp_str = timestamp_match.group(1)
+                        last_run_time = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                        time_diff = datetime.now() - last_run_time
+                        
+                        # Check if within threshold
+                        if time_diff.total_seconds() <= max_minutes * 60:
+                            return True
+                    break
+            
+            return False
+        except Exception:
+            return False
+    
     def get_scheduler_status(self) -> Dict[str, Any]:
         """
         Get scheduler status
@@ -84,19 +122,36 @@ class MonitorService:
         }
         
         try:
+            # Primary check: PID file
             if self.pid_file.exists():
                 with open(self.pid_file, 'r') as f:
                     pid = f.read().strip()
                     try:
                         pid_int = int(pid)
                         os.kill(pid_int, 0)
+                        # PID is valid and process is running
                         status["running"] = True
                         status["pid"] = pid
                         status["status_text"] = "Running / 執行中"
                         status["status_color"] = "success"
+                        return status
                     except (OSError, ValueError):
-                        status["status_text"] = "Stale PID / 過期 PID"
-                        status["status_color"] = "warning"
+                        # PID file exists but process not running
+                        # Fall through to secondary check
+                        pass
+            
+            # Secondary check: Recent log activity
+            # This handles the case where PID file has stale PID but scheduler is actually running
+            if self._is_recent_run_active(max_minutes=10):
+                status["running"] = True
+                status["pid"] = "Unknown (from log)"
+                status["status_text"] = "Running (active) / 執行中 (活躍)"
+                status["status_color"] = "success"
+            elif self.pid_file.exists():
+                # PID file exists but no recent activity
+                status["status_text"] = "Stale PID / 過期 PID"
+                status["status_color"] = "warning"
+                
         except Exception as e:
             status["error"] = str(e)
         
