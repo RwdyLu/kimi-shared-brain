@@ -927,7 +927,7 @@
       "task_id": "T-042",
       "title": "Fix Navbar Status Badge Sync",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "修復 UI 頂部 navbar 的 status badge，讓其與 Dashboard / System 使用相同的 live scheduler status source",
@@ -936,7 +936,24 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-040"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T18:22:00+08:00"
+      "last_updated": "2026-04-10T18:28:00+08:00",
+      "completed_at": "2026-04-10T18:28:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-043",
+      "title": "Fix Dashboard Recent Runs Sync",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "patch",
+      "goal": "修復 Dashboard 上方 Last Run 與下方 Recent Runs 表格不同步的問題，讓表格顯示最新 run 資料",
+      "output_file": "outputs/T-043_recent_runs_sync_fix.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 的 Recent Runs 表格與 Last Run 狀態一致，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-042"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-10T18:47:00+08:00"
     }
   ]
 }
