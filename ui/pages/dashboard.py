@@ -344,9 +344,13 @@ def update_recent_runs(n):
         for run in runs:
             run_id = run.get("run_id", "--")
             timestamp = run.get("timestamp", "--")
+            time_ago = run.get("time_ago", "")
             signals = run.get("signals", 0)
             confirmed = run.get("confirmed", 0)
             watch = run.get("watch_only", 0)
+            
+            # Format time display: show time_ago if available, otherwise timestamp
+            time_display = f"{timestamp} ({time_ago})" if time_ago else timestamp
             
             # Signal badge color
             if signals > 0:
@@ -363,7 +367,7 @@ def update_recent_runs(n):
             rows.append(
                 html.Tr([
                     html.Td(f"#{run_id}"),
-                    html.Td(timestamp),
+                    html.Td(time_display),
                     html.Td(dbc.Badge(badge_text, color=badge_color)),
                 ])
             )

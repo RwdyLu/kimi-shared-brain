@@ -8,8 +8,8 @@ BTC/ETH 監測系統 - UI 服務層
 This module provides services for querying monitoring system status.
 本模組提供查詢監測系統狀態的服務。
 
-Version: 1.0.0
-Date: 2026-04-07
+Version: 1.1.0
+Date: 2026-04-10
 """
 
 import os
@@ -39,9 +39,34 @@ class MonitorService:
             base_path: Base path to monitoring system (default: auto-detected)
         """
         self.base_path = Path(base_path) if base_path else PROJECT_ROOT
-        self.log_file = LOGS_DIR / "scheduler.log"
-        self.pid_file = STATE_DIR / ".monitor.pid"
+        self.log_file = self.base_path / "logs" / "scheduler.log"
+        self.pid_file = self.base_path / ".monitor.pid"
         self.alerts_dir = self.base_path / "alerts"
+    
+    def _read_log_lines(self) -> List[str]:
+        """
+        Read log file lines with proper file handling
+        讀取日誌檔案行數，確保檔案正確處理
+        """
+        try:
+            if not self.log_file.exists():
+                return []
+            
+            # Force read from disk, not cache
+            # 強制從磁碟讀取，而非快取
+            with open(self.log_file, 'r', encoding='utf-8') as f:
+                # Seek to end first to ensure fresh read
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                f.seek(0)  # Seek back to beginning
+                
+                if file_size == 0:
+                    return []
+                
+                return f.readlines()
+        except Exception as e:
+            print(f"Error reading log file: {e}")
+            return []
     
     def get_scheduler_status(self) -> Dict[str, Any]:
         """
@@ -96,11 +121,9 @@ class MonitorService:
         }
         
         try:
-            if not self.log_file.exists():
+            lines = self._read_log_lines()
+            if not lines:
                 return result
-            
-            with open(self.log_file, 'r') as f:
-                lines = f.readlines()
             
             # Find the last completed run
             last_run_line = None
@@ -165,11 +188,9 @@ class MonitorService:
         runs = []
         
         try:
-            if not self.log_file.exists():
+            lines = self._read_log_lines()
+            if not lines:
                 return runs
-            
-            with open(self.log_file, 'r') as f:
-                lines = f.readlines()
             
             # Find completed runs
             run_info = {}
@@ -188,12 +209,15 @@ class MonitorService:
                         run_info[run_id] = {
                             "run_id": run_id,
                             "timestamp": timestamp_str,
+                            "time_ago": self._format_time_ago(
+                                datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                            ),
                             "signals": 0,
                             "confirmed": 0,
                             "watch_only": 0
                         }
                 
-                # Extract signal counts
+                # Extract signal counts - match the run that needs signal info
                 signals_match = re.search(r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line)
                 if signals_match and run_info:
                     # Find the most recent run without signal counts
@@ -204,7 +228,7 @@ class MonitorService:
                             run_info[run_id]["watch_only"] = int(signals_match.group(3))
                             break
             
-            # Convert to list and sort
+            # Convert to list and sort by run_id descending (most recent first)
             runs = list(run_info.values())
             runs.sort(key=lambda x: x["run_id"], reverse=True)
             return runs[:count]
@@ -227,13 +251,8 @@ class MonitorService:
         }
         
         try:
-            if not self.log_file.exists():
-                return result
-            
             today = datetime.now().strftime("%Y-%m-%d")
-            
-            with open(self.log_file, 'r') as f:
-                lines = f.readlines()
+            lines = self._read_log_lines()
             
             for line in lines:
                 if today in line and "Signals:" in line:
@@ -273,10 +292,8 @@ class MonitorService:
                         pass
             
             # If no alert files, parse from log (this is a simplified version)
-            if not signals and self.log_file.exists():
-                with open(self.log_file, 'r') as f:
-                    content = f.read()
-                
+            if not signals:
+                lines = self._read_log_lines()
                 # Look for signal-related log entries
                 # This would need more sophisticated parsing based on actual log format
                 
@@ -296,14 +313,10 @@ class MonitorService:
             Log content as string
         """
         try:
-            if not self.log_file.exists():
-                return "No log file found / 未找到日誌檔案"
-            
-            with open(self.log_file, 'r') as f:
-                lines = f.readlines()
+            lines = self._read_log_lines()
             
             if not lines:
-                return "Log file is empty / 日誌檔案為空"
+                return "No log file found or log is empty / 未找到日誌或日誌為空"
             
             return "".join(lines[-lines_count:])
             
@@ -323,11 +336,7 @@ class MonitorService:
             if not status.get("running", False):
                 return None  # Scheduler is stopped, no next run
             
-            if not self.log_file.exists():
-                return None
-            
-            with open(self.log_file, 'r') as f:
-                lines = f.readlines()
+            lines = self._read_log_lines()
             
             for line in reversed(lines):
                 match = re.search(r'Next run at ([\d:]+)', line)
@@ -376,40 +385,38 @@ class MonitorService:
         }
 
 
-# Convenience functions / 便利函數
-_service = MonitorService()
-
-
+# Create a new service instance for each call to avoid caching issues
+# 為每次呼叫建立新實例以避免快取問題
 def get_scheduler_status() -> Dict[str, Any]:
     """Get scheduler status"""
-    return _service.get_scheduler_status()
+    return MonitorService().get_scheduler_status()
 
 
 def get_last_run_info() -> Dict[str, Any]:
     """Get last run information"""
-    return _service.get_last_run_info()
+    return MonitorService().get_last_run_info()
 
 
 def get_today_signals() -> Dict[str, Any]:
     """Get today's signal counts"""
-    return _service.get_today_signals()
+    return MonitorService().get_today_signals()
 
 
 def get_recent_runs(count: int = 5) -> List[Dict[str, Any]]:
     """Get recent runs"""
-    return _service.get_recent_runs(count)
+    return MonitorService().get_recent_runs(count)
 
 
 def get_logs_preview(lines: int = 20) -> str:
     """Get logs preview"""
-    return _service.get_logs_preview(lines)
+    return MonitorService().get_logs_preview(lines)
 
 
 def get_next_run_time() -> Optional[str]:
     """Get next scheduled run time"""
-    return _service.get_next_run_time()
+    return MonitorService().get_next_run_time()
 
 
 def get_full_status() -> Dict[str, Any]:
     """Get full monitoring status"""
-    return _service.get_full_status()
+    return MonitorService().get_full_status()
