@@ -67,7 +67,10 @@ layout = dbc.Container(
                 dbc.Col(
                     dbc.Card(
                         [
-                            dbc.CardHeader("Last Run / 最後執行"),
+                            dbc.CardHeader([
+                                "Last Run (Live) / 最後執行 (即時)",
+                                html.Small(" 📍Current Session", className="text-muted ms-2")
+                            ]),
                             dbc.CardBody(
                                 [
                                     html.H3(id="dashboard-last-run", children="--"),
@@ -129,12 +132,17 @@ layout = dbc.Container(
             ]
         ),
         
-        # Recent Runs / 最近執行
+        # Recent Runs / 近期執行記錄
         dbc.Row(
             [
                 dbc.Col(
                     [
-                        html.H4("Recent Runs / 最近執行", className="mt-4 mb-3"),
+                        html.H4([
+                            "Recent Run History / 近期執行記錄",
+                            html.Small(" 📜From Log", className="text-muted ms-2")
+                        ], className="mt-4 mb-3"),
+                        html.P("Historical runs from scheduler log / 來自排程器日誌的歷史記錄", 
+                               className="text-muted small mb-2"),
                         dbc.Card(
                             dbc.CardBody(
                                 id="dashboard-recent-runs",
