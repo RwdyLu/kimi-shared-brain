@@ -25,7 +25,7 @@ def get_project_root() -> Path:
     
     Detection order:
     1. Check KIMI_SHARED_BRAIN_ROOT environment variable
-    2. Check if running from /tmp/kimi-shared-brain
+    2. Check if /tmp/kimi-shared-brain exists AND has config files
     3. Check current working directory
     4. Check script location
     5. Fallback to /tmp/kimi-shared-brain
@@ -38,24 +38,24 @@ def get_project_root() -> Path:
     if env_root and os.path.isdir(env_root):
         return Path(env_root).resolve()
     
-    # 2. Check if /tmp/kimi-shared-brain exists
-    default_path = Path("/tmp/kimi-shared-brain")
-    if default_path.exists() and default_path.is_dir():
-        return default_path
-    
-    # 3. Check current working directory
+    # 2. Check current working directory first
     cwd = Path.cwd()
-    if (cwd / "config").exists() and (cwd / "ui").exists():
+    if (cwd / "config" / "assets.json").exists():
         return cwd
     
-    # 4. Check script location (traverse up to find config/)
+    # 3. Check script location (traverse up to find config/ with assets.json)
     script_dir = Path(__file__).resolve().parent
     for parent in [script_dir, script_dir.parent, script_dir.parent.parent]:
-        if (parent / "config").exists() and (parent / "ui").exists():
+        if (parent / "config" / "assets.json").exists():
             return parent
     
-    # 5. Fallback to default
-    return default_path
+    # 4. Check if /tmp/kimi-shared-brain exists AND has config files
+    default_path = Path("/tmp/kimi-shared-brain")
+    if default_path.exists() and (default_path / "config" / "assets.json").exists():
+        return default_path
+    
+    # 5. Fallback to script location parent
+    return script_dir.parent
 
 
 def get_config_dir() -> Path:

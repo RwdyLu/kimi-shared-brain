@@ -39,8 +39,8 @@ class MonitorService:
             base_path: Base path to monitoring system (default: auto-detected)
         """
         self.base_path = Path(base_path) if base_path else PROJECT_ROOT
-        self.log_file = self.base_path / "logs" / "scheduler.log"
-        self.pid_file = self.base_path / ".monitor.pid"
+        self.log_file = LOGS_DIR / "scheduler.log"
+        self.pid_file = STATE_DIR / ".monitor.pid"
         self.alerts_dir = self.base_path / "alerts"
     
     def get_scheduler_status(self) -> Dict[str, Any]:
@@ -403,6 +403,11 @@ def get_recent_runs(count: int = 5) -> List[Dict[str, Any]]:
 def get_logs_preview(lines: int = 20) -> str:
     """Get logs preview"""
     return _service.get_logs_preview(lines)
+
+
+def get_next_run_time() -> Optional[str]:
+    """Get next scheduled run time"""
+    return _service.get_next_run_time()
 
 
 def get_full_status() -> Dict[str, Any]:
