@@ -990,6 +990,21 @@
       "last_updated": "2026-04-10T19:29:00+08:00",
       "completed_at": "2026-04-10T19:29:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-046",
+      "title": "Clarify Session Run vs Historical Run Labels",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "patch",
+      "goal": "釐清 Dashboard 上方 Last Run 與下方 Recent Runs 的 run 編號語意，避免使用者誤以為兩者應是同一套編號",
+      "output_file": "outputs/T-046_run_label_clarity.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 UI 文案已清楚區分 session run 與 historical run，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-045"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-10T19:59:00+08:00"
     }
   ]
 }
