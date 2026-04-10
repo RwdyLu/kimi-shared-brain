@@ -995,7 +995,7 @@
       "task_id": "T-046",
       "title": "Clarify Session Run vs Historical Run Labels",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "釐清 Dashboard 上方 Last Run 與下方 Recent Runs 的 run 編號語意，避免使用者誤以為兩者應是同一套編號",
@@ -1004,7 +1004,24 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-045"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T19:59:00+08:00"
+      "last_updated": "2026-04-10T20:08:00+08:00",
+      "completed_at": "2026-04-10T20:08:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-047",
+      "title": "Make Recent Run History Auto-Update On Every New Run",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "patch",
+      "goal": "修復 Dashboard 的 Recent Run History，讓它在每次 scheduler 完成新 run 後自動更新最新一筆，而不是停留在舊資料",
+      "output_file": "outputs/T-047_recent_run_history_autoupdate.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次新 run 完成後，Recent Run History 會自動新增最新一筆，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-046"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-10T20:31:00+08:00"
     }
   ]
 }
