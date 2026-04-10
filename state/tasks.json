@@ -956,6 +956,21 @@
       "last_updated": "2026-04-10T18:51:00+08:00",
       "completed_at": "2026-04-10T18:51:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-044",
+      "title": "Fix Dashboard System Status Card Sync",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "patch",
+      "goal": "修復 Dashboard 左上 System Status 卡片，讓其與 scheduler 實際運行狀態、Last Run、Recent Runs 使用一致的 live status source",
+      "output_file": "outputs/T-044_dashboard_status_card_fix.md",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard System Status 不再與 Last Run / Recent Runs 矛盾，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-043"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-10T18:57:00+08:00"
     }
   ]
 }
