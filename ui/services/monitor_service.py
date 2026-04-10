@@ -71,8 +71,8 @@ class MonitorService:
     
     def _read_daemon_log_lines(self) -> List[str]:
         """
-        Read daemon log file lines
-        讀取 daemon 日誌檔案行數
+        Read daemon log file lines (limited to recent 5000 lines for performance)
+        讀取 daemon 日誌檔案行數（限制最近 5000 行以提升效能）
         """
         try:
             if not self.daemon_log.exists():
@@ -86,7 +86,10 @@ class MonitorService:
                 if file_size == 0:
                     return []
                 
-                return f.readlines()
+                lines = f.readlines()
+                # Limit to last 5000 lines for performance
+                # 為效能限制最近 5000 行
+                return lines[-5000:] if len(lines) > 5000 else lines
         except Exception as e:
             print(f"Error reading daemon log file: {e}")
             return []
