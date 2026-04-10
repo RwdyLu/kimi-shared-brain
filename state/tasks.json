@@ -944,7 +944,7 @@
       "task_id": "T-043",
       "title": "Fix Dashboard Recent Runs Sync",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "修復 Dashboard 上方 Last Run 與下方 Recent Runs 表格不同步的問題，讓表格顯示最新 run 資料",
@@ -953,7 +953,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-042"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T18:47:00+08:00"
+      "last_updated": "2026-04-10T18:51:00+08:00",
+      "completed_at": "2026-04-10T18:51:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
