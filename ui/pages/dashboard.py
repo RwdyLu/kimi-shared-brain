@@ -348,6 +348,8 @@ def update_recent_runs(n):
             signals = run.get("signals", 0)
             confirmed = run.get("confirmed", 0)
             watch = run.get("watch_only", 0)
+            symbols_checked = run.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
+            symbols_with_signals = run.get("symbols_with_signals", [])
             
             # Format time display: show time_ago if available, otherwise timestamp
             time_display = f"{timestamp} ({time_ago})" if time_ago else timestamp
@@ -364,11 +366,26 @@ def update_recent_runs(n):
                 badge_color = "secondary"
                 badge_text = "0"
             
+            # Build symbols display with indicators
+            symbol_badges = []
+            for symbol in symbols_checked:
+                if symbol in symbols_with_signals:
+                    # Symbol has signal
+                    symbol_badges.append(
+                        dbc.Badge(symbol.replace("USDT", ""), color="warning", className="me-1", pill=True)
+                    )
+                else:
+                    # Symbol checked but no signal
+                    symbol_badges.append(
+                        dbc.Badge(symbol.replace("USDT", ""), color="light", text_color="secondary", className="me-1", pill=True)
+                    )
+            
             rows.append(
                 html.Tr([
                     html.Td(f"#{run_id}"),
                     html.Td(time_display),
                     html.Td(dbc.Badge(badge_text, color=badge_color)),
+                    html.Td(symbol_badges),
                 ])
             )
         
@@ -379,6 +396,7 @@ def update_recent_runs(n):
                         html.Th("Run"),
                         html.Th("Time / 時間"),
                         html.Th("Signals / 訊號"),
+                        html.Th("Symbols / 標的"),
                     ])
                 ),
                 html.Tbody(rows)

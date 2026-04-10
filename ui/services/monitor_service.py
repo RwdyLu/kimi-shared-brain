@@ -40,6 +40,7 @@ class MonitorService:
         """
         self.base_path = Path(base_path) if base_path else PROJECT_ROOT
         self.log_file = self.base_path / "logs" / "scheduler.log"
+        self.daemon_log = self.base_path / "logs" / "monitor_daemon.log"
         self.pid_file = self.base_path / ".monitor.pid"
         self.alerts_dir = self.base_path / "alerts"
     
@@ -68,6 +69,113 @@ class MonitorService:
             print(f"Error reading log file: {e}")
             return []
     
+    def _read_daemon_log_lines(self) -> List[str]:
+        """
+        Read daemon log file lines
+        讀取 daemon 日誌檔案行數
+        """
+        try:
+            if not self.daemon_log.exists():
+                return []
+            
+            with open(self.daemon_log, 'r', encoding='utf-8') as f:
+                f.seek(0, 2)
+                file_size = f.tell()
+                f.seek(0)
+                
+                if file_size == 0:
+                    return []
+                
+                return f.readlines()
+        except Exception as e:
+            print(f"Error reading daemon log file: {e}")
+            return []
+    
+    def _get_symbol_breakdown_for_run(self, run_timestamp: datetime) -> Dict[str, Any]:
+        """
+        Get symbol breakdown for a specific run from daemon log
+        從 daemon 日誌獲取特定 run 的 symbol breakdown
+        
+        Args:
+            run_timestamp: The timestamp of the run
+            
+        Returns:
+            Dict with symbols checked and their status
+        """
+        result = {
+            "symbols_checked": [],
+            "symbols_with_signals": [],
+            "symbol_summary": ""
+        }
+        
+        try:
+            lines = self._read_daemon_log_lines()
+            if not lines:
+                return result
+            
+            # Find the run section in daemon log (within ~2 minutes of the run timestamp)
+            run_start_time = run_timestamp
+            run_end_time = run_timestamp + timedelta(minutes=2)
+            
+            current_symbols = []
+            current_signals = []
+            in_run_section = False
+            
+            for line in lines:
+                # Try to parse timestamp from daemon log line
+                # Daemon log format varies, try different patterns
+                ts_match = re.search(r'(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2})', line)
+                if ts_match:
+                    try:
+                        line_ts_str = ts_match.group(1).replace('T', ' ')
+                        line_ts = datetime.strptime(line_ts_str, "%Y-%m-%d %H:%M:%S")
+                        
+                        # Check if this line is within our run window
+                        if run_start_time <= line_ts <= run_end_time:
+                            in_run_section = True
+                        elif line_ts > run_end_time:
+                            # We've passed the run window
+                            break
+                    except:
+                        pass
+                
+                if in_run_section:
+                    # Check for symbol monitoring completion
+                    btc_match = re.search(r'[✓✅]\s*BTCUSDT.*(?:monitoring complete|signal)', line, re.IGNORECASE)
+                    eth_match = re.search(r'[✓✅]\s*ETHUSDT.*(?:monitoring complete|signal)', line, re.IGNORECASE)
+                    
+                    if btc_match and "BTCUSDT" not in current_symbols:
+                        current_symbols.append("BTCUSDT")
+                    if eth_match and "ETHUSDT" not in current_symbols:
+                        current_symbols.append("ETHUSDT")
+                    
+                    # Check for signal mentions with symbol
+                    btc_signal = re.search(r'Symbol:\s*BTCUSDT', line, re.IGNORECASE)
+                    eth_signal = re.search(r'Symbol:\s*ETHUSDT', line, re.IGNORECASE)
+                    
+                    if btc_signal and "BTCUSDT" not in current_signals:
+                        current_signals.append("BTCUSDT")
+                    if eth_signal and "ETHUSDT" not in current_signals:
+                        current_signals.append("ETHUSDT")
+            
+            result["symbols_checked"] = current_symbols if current_symbols else ["BTCUSDT", "ETHUSDT"]
+            result["symbols_with_signals"] = current_signals
+            
+            # Build summary string
+            if result["symbols_checked"]:
+                if result["symbols_with_signals"]:
+                    result["symbol_summary"] = f"Checked: {', '.join(result['symbols_checked'])} | Signals: {', '.join(result['symbols_with_signals'])}"
+                else:
+                    result["symbol_summary"] = f"Checked: {', '.join(result['symbols_checked'])}"
+            else:
+                result["symbol_summary"] = "Symbols: 2/2"
+                
+        except Exception as e:
+            result["symbol_summary"] = f"Symbols: 2/2"
+            result["error"] = str(e)
+        
+        return result
+
     def _is_recent_run_active(self, max_minutes: int = 10) -> bool:
         """
         Check if there's a recent run in the log (within max_minutes)
@@ -286,6 +394,21 @@ class MonitorService:
             # Convert to list and sort by run_id descending (most recent first)
             runs = list(run_info.values())
             runs.sort(key=lambda x: x["run_id"], reverse=True)
+            
+            # Add symbol breakdown for each run
+            for run in runs:
+                try:
+                    run_timestamp = datetime.strptime(run["timestamp"], "%Y-%m-%d %H:%M:%S")
+                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp)
+                    run["symbols_checked"] = symbol_breakdown.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
+                    run["symbols_with_signals"] = symbol_breakdown.get("symbols_with_signals", [])
+                    run["symbol_summary"] = symbol_breakdown.get("symbol_summary", "Symbols: 2/2")
+                except Exception:
+                    # Fallback if symbol breakdown fails
+                    run["symbols_checked"] = ["BTCUSDT", "ETHUSDT"]
+                    run["symbols_with_signals"] = []
+                    run["symbol_summary"] = "Symbols: 2/2"
+            
             return runs[:count]
             
         except Exception as e:
