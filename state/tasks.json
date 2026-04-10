@@ -927,7 +927,7 @@
       "task_id": "T-042",
       "title": "Fix Navbar Status Badge Sync",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "修復 UI 頂部 navbar 的 status badge，讓其與 Dashboard / System 使用相同的 live scheduler status source",
@@ -936,7 +936,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-040"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T18:22:00+08:00"
+      "last_updated": "2026-04-10T18:28:00+08:00",
+      "completed_at": "2026-04-10T18:28:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
