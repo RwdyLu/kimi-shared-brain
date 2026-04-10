@@ -71,8 +71,8 @@ class MonitorService:
     
     def _read_daemon_log_lines(self) -> List[str]:
         """
-        Read daemon log file lines
-        讀取 daemon 日誌檔案行數
+        Read daemon log file lines (limited to recent 5000 lines for performance)
+        讀取 daemon 日誌檔案行數（限制最近 5000 行以提升效能）
         """
         try:
             if not self.daemon_log.exists():
@@ -86,18 +86,22 @@ class MonitorService:
                 if file_size == 0:
                     return []
                 
-                return f.readlines()
+                lines = f.readlines()
+                # Limit to last 5000 lines for performance
+                # 為效能限制最近 5000 行
+                return lines[-5000:] if len(lines) > 5000 else lines
         except Exception as e:
             print(f"Error reading daemon log file: {e}")
             return []
     
-    def _get_symbol_breakdown_for_run(self, run_timestamp: datetime) -> Dict[str, Any]:
+    def _get_symbol_breakdown_for_run(self, run_timestamp: datetime, daemon_lines: List[str] = None) -> Dict[str, Any]:
         """
         Get symbol breakdown for a specific run from daemon log
         從 daemon 日誌獲取特定 run 的 symbol breakdown
         
         Args:
             run_timestamp: The timestamp of the run
+            daemon_lines: Optional pre-loaded daemon log lines for performance
             
         Returns:
             Dict with symbols checked and their status
@@ -109,7 +113,8 @@ class MonitorService:
         }
         
         try:
-            lines = self._read_daemon_log_lines()
+            # Use provided lines or read from file
+            lines = daemon_lines if daemon_lines is not None else self._read_daemon_log_lines()
             if not lines:
                 return result
             
@@ -395,11 +400,15 @@ class MonitorService:
             runs = list(run_info.values())
             runs.sort(key=lambda x: x["run_id"], reverse=True)
             
+            # Pre-load daemon log once for all runs to improve performance
+            # 預先載入 daemon log 一次以提升效能
+            daemon_lines = self._read_daemon_log_lines()
+            
             # Add symbol breakdown for each run
             for run in runs:
                 try:
                     run_timestamp = datetime.strptime(run["timestamp"], "%Y-%m-%d %H:%M:%S")
-                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp)
+                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp, daemon_lines)
                     run["symbols_checked"] = symbol_breakdown.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
                     run["symbols_with_signals"] = symbol_breakdown.get("symbols_with_signals", [])
                     run["symbol_summary"] = symbol_breakdown.get("symbol_summary", "Symbols: 2/2")
