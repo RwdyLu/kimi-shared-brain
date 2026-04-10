@@ -978,7 +978,7 @@
       "task_id": "T-045",
       "title": "Fix Recent Runs Sync and Add Symbol Breakdown",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "修復 Dashboard Recent Runs 表格與 Last Run 的同步問題，並增加每輪 run 的 symbol breakdown，讓使用者能看出 BTCUSDT / ETHUSDT 各自結果",
@@ -987,7 +987,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-044"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-10T19:24:00+08:00"
+      "last_updated": "2026-04-10T19:29:00+08:00",
+      "completed_at": "2026-04-10T19:29:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
