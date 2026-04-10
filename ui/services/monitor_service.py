@@ -94,13 +94,14 @@ class MonitorService:
             print(f"Error reading daemon log file: {e}")
             return []
     
-    def _get_symbol_breakdown_for_run(self, run_timestamp: datetime) -> Dict[str, Any]:
+    def _get_symbol_breakdown_for_run(self, run_timestamp: datetime, daemon_lines: List[str] = None) -> Dict[str, Any]:
         """
         Get symbol breakdown for a specific run from daemon log
         從 daemon 日誌獲取特定 run 的 symbol breakdown
         
         Args:
             run_timestamp: The timestamp of the run
+            daemon_lines: Optional pre-loaded daemon log lines for performance
             
         Returns:
             Dict with symbols checked and their status
@@ -112,7 +113,8 @@ class MonitorService:
         }
         
         try:
-            lines = self._read_daemon_log_lines()
+            # Use provided lines or read from file
+            lines = daemon_lines if daemon_lines is not None else self._read_daemon_log_lines()
             if not lines:
                 return result
             
@@ -398,11 +400,15 @@ class MonitorService:
             runs = list(run_info.values())
             runs.sort(key=lambda x: x["run_id"], reverse=True)
             
+            # Pre-load daemon log once for all runs to improve performance
+            # 預先載入 daemon log 一次以提升效能
+            daemon_lines = self._read_daemon_log_lines()
+            
             # Add symbol breakdown for each run
             for run in runs:
                 try:
                     run_timestamp = datetime.strptime(run["timestamp"], "%Y-%m-%d %H:%M:%S")
-                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp)
+                    symbol_breakdown = self._get_symbol_breakdown_for_run(run_timestamp, daemon_lines)
                     run["symbols_checked"] = symbol_breakdown.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
                     run["symbols_with_signals"] = symbol_breakdown.get("symbols_with_signals", [])
                     run["symbol_summary"] = symbol_breakdown.get("symbol_summary", "Symbols: 2/2")
