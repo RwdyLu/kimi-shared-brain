@@ -1,0 +1,150 @@
+# BTC/ETH Correlation Analysis Report
+
+**Analysis Date**: April 12, 2026  
+**Timeframe**: 90 Days (4H candles)  
+**Data Points**: 540 observations
+
+---
+
+## Executive Summary
+
+BTC and ETH exhibit **very strong positive correlation** (0.9092) over the analyzed 90-day period. Both assets have experienced significant corrections, with ETH showing higher volatility (Beta = 1.22). The price relationship is remarkably stable with R² = 0.9833.
+
+---
+
+## Key Findings
+
+### 1. Correlation Analysis
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| **Correlation Coefficient** | 0.9092 | Very Strong Positive |
+| **Price Level Correlation** | 0.9916 | Extremely High |
+| **R-squared** | 0.9833 | Strong Linear Relationship |
+
+**Correlation Strength Classification**:
+- 0.80-1.00: Very Strong Positive ← **CURRENT**
+- 0.60-0.79: Strong Positive
+- 0.40-0.59: Moderate Positive
+- 0.20-0.39: Weak Positive
+- 0.00-0.19: Very Weak / No Correlation
+
+### 2. Beta Analysis
+
+| Metric | Value |
+|--------|-------|
+| **ETH Beta (vs BTC)** | 1.2248 |
+| **Interpretation** | When BTC moves 1%, ETH typically moves 1.22% |
+| **Volatility Status** | ETH is MORE volatile than BTC |
+
+**Beta Interpretation**:
+- β > 1.0: Asset amplifies market moves (higher risk/reward)
+- β = 1.0: Asset moves with market
+- β < 1.0: Asset dampens market moves (lower volatility)
+
+### 3. Price Performance (90 Days)
+
+| Asset | Current Price | 90d High | 90d Low | 90d Return | Volatility |
+|-------|--------------|----------|---------|------------|------------|
+| **BTC/USDT** | $71,599.99 | $97,924.49 | $60,000.00 | -21.89% | 1.08% |
+| **ETH/USDT** | $2,214.73 | $3,402.89 | $1,747.80 | -29.25% | 1.45% |
+
+**Performance Comparison**:
+- BTC outperformed ETH by 7.4% over the period
+- Both assets in correction phase from recent highs
+- ETH showed deeper drawdown (-35% vs -27%)
+
+---
+
+## Investment Implications
+
+### 1. Diversification Assessment
+
+⚠️ **LIMITED DIVERSIFICATION BENEFITS**
+
+- High correlation (0.91) means both assets move together most of the time
+- Portfolio risk reduction by holding both is minimal
+- Both face similar macro risks (regulation, liquidity, sentiment)
+
+### 2. Risk-Reward Profile
+
+| Aspect | Implication |
+|--------|-------------|
+| **Bull Markets** | ETH typically outperforms due to higher beta (1.22x) |
+| **Bear Markets** | ETH underperforms with larger drawdowns |
+| **Volatility** | ETH is 35% more volatile than BTC (1.45% vs 1.08% daily std) |
+| **Max Drawdown** | ETH experienced deeper corrections (-35% vs -27%) |
+
+### 3. Strategic Considerations
+
+**For Conservative Investors**:
+- BTC offers lower volatility with similar directional exposure
+- More mature institutional adoption
+- Better store of value characteristics
+
+**For Aggressive Investors**:
+- ETH provides leveraged exposure to crypto moves
+- Additional utility value from smart contract platform
+- Higher upside potential in risk-on environments
+
+**Portfolio Allocation**:
+- 70% BTC / 30% ETH: Balanced approach, reduces portfolio beta
+- 50% BTC / 50% ETH: Maximal crypto exposure with ETH leverage
+- 100% BTC: Conservative crypto allocation
+
+---
+
+## Technical Analysis Context
+
+### Current Market Conditions (April 12, 2026)
+
+| Indicator | BTC | ETH |
+|-----------|-----|-----|
+| Price vs 90d High | -27% | -35% |
+| Distance from 90d Low | +19% | +27% |
+| Trend | Correction | Deeper Correction |
+
+### Mean Reversion Potential
+
+- Both assets trading significantly below 90-day highs
+- Historical correlation suggests coordinated recovery likely
+- ETH's higher beta implies larger upside if market reverses
+
+---
+
+## Methodology
+
+### Data Sources
+- **Exchange**: Binance
+- **Timeframe**: 4-hour candles
+- **Period**: 90 days (540 data points)
+- **Metrics**: Pearson correlation, linear regression, rolling statistics
+
+### Calculations
+- **Correlation**: Pearson product-moment correlation coefficient
+- **Beta**: Covariance(BTC,ETH) / Variance(BTC)
+- **Volatility**: Standard deviation of daily returns
+- **R-squared**: Coefficient of determination from linear regression
+
+---
+
+## Limitations & Caveats
+
+1. **Historical Correlation ≠ Future Correlation**: Relationships can change during market stress
+2. **Sample Period**: 90-day window may not capture all market regimes
+3. **Rolling Correlation Varies**: Short-term correlations fluctuate significantly
+4. **External Factors**: Regulatory events can temporarily decouple prices
+
+---
+
+## Conclusion
+
+BTC and ETH maintain a **very strong positive correlation (0.91)** with ETH exhibiting **higher volatility (β = 1.22)**. This relationship has been remarkably stable with 98% of ETH price movement explained by BTC movement (R² = 0.98).
+
+**Key Takeaway**: For portfolio construction, treat BTC and ETH as highly correlated assets rather than true diversifiers. Allocation between them should reflect risk tolerance rather than diversification benefits.
+
+---
+
+*Report generated by: Kimi Claw*  
+*Analysis timestamp: 2026-04-12 17:20:16 UTC*  
+*Alert-Only System / No Trading Recommendations*
