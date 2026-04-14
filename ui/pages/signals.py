@@ -17,7 +17,7 @@ project_root = script_dir.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import monitor service / 匯入監測服務
-from ui.services.monitor_service import get_recent_runs, get_today_signals
+from ui.services.monitor_service import get_recent_runs, get_today_signals, get_latest_indicator_snapshots
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/signals", title="Signals")
@@ -167,7 +167,7 @@ layout = dbc.Container(
                 dbc.CardHeader(
                     [
                         html.H5("Run History / 執行歷史", className="mb-0"),
-                        html.Small("Recent monitoring runs with signal counts", className="text-muted")
+                        html.Small("Click a run to view indicator details / 點擊執行查看指標詳情", className="text-muted")
                     ]
                 ),
                 dbc.CardBody(
@@ -179,6 +179,20 @@ layout = dbc.Container(
             ],
             className="mb-4"
         ),
+        
+        # Run Detail Modal / 執行詳情彈窗
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Run Details / 執行詳情")),
+                dbc.ModalBody(id="run-detail-modal-body"),
+            ],
+            id="run-detail-modal",
+            size="lg",
+            is_open=False,
+        ),
+        
+        # Store for selected run / 儲存選中的執行
+        dcc.Store(id="selected-run-id"),
         
         # Signal Alert Info / 訊號提醒資訊
         dbc.Card(
@@ -291,9 +305,9 @@ def update_signals_page(n_intervals, n_clicks):
         # Get recent runs
         runs = get_recent_runs(10)
         
-        # Build run history table
+        # Build run history with clickable rows
         if runs:
-            rows = []
+            run_items = []
             for run in runs:
                 run_id = run.get("run_id", "--")
                 timestamp = run.get("timestamp", "--")
@@ -303,42 +317,50 @@ def update_signals_page(n_intervals, n_clicks):
                 
                 # Format signal display
                 if signals > 0:
-                    signal_text = f"{signals} total"
-                    signal_detail = f"({confirmed_count}✓, {watch_count}👁️)"
+                    signal_text = f"{signals} signals"
                     badge_color = "success" if confirmed_count > 0 else "info"
                 else:
                     signal_text = "No signals"
-                    signal_detail = ""
                     badge_color = "secondary"
                 
-                rows.append(
-                    html.Tr([
-                        html.Td(f"#{run_id}"),
-                        html.Td(timestamp),
-                        html.Td(
+                # Create clickable card for each run
+                run_card = dbc.Card(
+                    [
+                        dbc.CardBody(
                             [
-                                dbc.Badge(signal_text, color=badge_color, className="me-1"),
-                                html.Small(signal_detail, className="text-muted") if signal_detail else None
-                            ]
-                        ),
-                    ])
+                                dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            html.Strong(f"#{run_id}"),
+                                            width=2
+                                        ),
+                                        dbc.Col(
+                                            timestamp,
+                                            width=5
+                                        ),
+                                        dbc.Col(
+                                            dbc.Badge(signal_text, color=badge_color),
+                                            width=3
+                                        ),
+                                        dbc.Col(
+                                            html.Small("Click for details / 點擊查看", className="text-muted"),
+                                            width=2,
+                                            className="text-end"
+                                        ),
+                                    ],
+                                    className="align-items-center"
+                                )
+                            ],
+                            className="py-2"
+                        )
+                    ],
+                    id={"type": "run-row", "index": run_id},
+                    className="mb-2 hover-shadow",
+                    style={"cursor": "pointer"}
                 )
+                run_items.append(run_card)
             
-            run_history = dbc.Table(
-                [
-                    html.Thead(
-                        html.Tr([
-                            html.Th("Run / 執行"),
-                            html.Th("Time / 時間"),
-                            html.Th("Signals / 訊號"),
-                        ])
-                    ),
-                    html.Tbody(rows)
-                ],
-                bordered=True,
-                hover=True,
-                size="sm"
-            )
+            run_history = html.Div(run_items)
         else:
             run_history = html.P("No run history available", className="text-muted text-center py-3")
         
@@ -346,3 +368,127 @@ def update_signals_page(n_intervals, n_clicks):
         
     except Exception as e:
         return "--", "--", "--", dbc.Alert(f"Error loading data: {e}", color="danger")
+
+
+# T-052-D: Handle run row clicks and show modal with indicator details
+@callback(
+    Output("run-detail-modal", "is_open"),
+    Output("run-detail-modal-body", "children"),
+    Output("selected-run-id", "data"),
+    Input({"type": "run-row", "index": dash.ALL}, "n_clicks"),
+    Input("signals-interval", "n_intervals"),
+    State("run-detail-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_run_modal(n_clicks_list, n_intervals, is_open):
+    """Show modal with indicator details when a run is clicked"""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return False, html.Div(), None
+    
+    # Check if triggered by interval (refresh)
+    triggered_id = ctx.triggered[0]["prop_id"]
+    if "signals-interval" in triggered_id:
+        # Keep modal state as is during refresh
+        return dash.no_update, dash.no_update, dash.no_update
+    
+    # Find which run was clicked
+    clicked_run_id = None
+    for i, n_clicks in enumerate(n_clicks_list):
+        if n_clicks:
+            # Extract run_id from the pattern-matching ID
+            clicked_run_id = ctx.inputs_list[0][i]["id"]["index"]
+            break
+    
+    if not clicked_run_id:
+        return False, html.Div(), None
+    
+    # Get indicator snapshots for this run
+    try:
+        snapshots = get_latest_indicator_snapshots()
+        
+        # Build modal content
+        modal_content = []
+        
+        for symbol in ["BTCUSDT", "ETHUSDT"]:
+            if symbol in snapshots:
+                data = snapshots[symbol]
+                price = data.get("price")
+                ma5 = data.get("ma5")
+                ma20 = data.get("ma20")
+                ma5_pct = data.get("price_vs_ma5_pct")
+                ma20_pct = data.get("price_vs_ma20_pct")
+                
+                # Format values
+                price_str = f"${price:,.2f}" if price else "--"
+                ma5_str = f"${ma5:,.2f}" if ma5 else "--"
+                ma20_str = f"${ma20:,.2f}" if ma20 else "--"
+                
+                # Format percentages with colors
+                if ma5_pct is not None:
+                    ma5_pct_color = "success" if ma5_pct >= 0 else "danger"
+                    ma5_pct_str = html.Span(f"{ma5_pct:+.2f}%", className=f"text-{ma5_pct_color}")
+                else:
+                    ma5_pct_str = "--"
+                
+                if ma20_pct is not None:
+                    ma20_pct_color = "success" if ma20_pct >= 0 else "danger"
+                    ma20_pct_str = html.Span(f"{ma20_pct:+.2f}%", className=f"text-{ma20_pct_color}")
+                else:
+                    ma20_pct_str = "--"
+                
+                symbol_card = dbc.Card(
+                    [
+                        dbc.CardHeader(html.H5(symbol.replace("USDT", ""), className="mb-0")),
+                        dbc.CardBody(
+                            [
+                                dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            [
+                                                html.H6("Price / 現價", className="text-muted"),
+                                                html.H4(price_str, className="text-success")
+                                            ],
+                                            width=12,
+                                            md=4
+                                        ),
+                                        dbc.Col(
+                                            [
+                                                html.H6("MA5", className="text-muted"),
+                                                html.P(ma5_str),
+                                                html.Small(["Distance: ", ma5_pct_str], className="text-muted")
+                                            ],
+                                            width=12,
+                                            md=4
+                                        ),
+                                        dbc.Col(
+                                            [
+                                                html.H6("MA20", className="text-muted"),
+                                                html.P(ma20_str),
+                                                html.Small(["Distance: ", ma20_pct_str], className="text-muted")
+                                            ],
+                                            width=12,
+                                            md=4
+                                        ),
+                                    ]
+                                )
+                            ]
+                        )
+                    ],
+                    className="mb-3"
+                )
+                modal_content.append(symbol_card)
+            else:
+                # No data for this symbol
+                modal_content.append(
+                    dbc.Alert(
+                        f"{symbol}: Data unavailable / 資料不可用",
+                        color="secondary",
+                        className="mb-3"
+                    )
+                )
+        
+        return True, html.Div(modal_content), clicked_run_id
+        
+    except Exception as e:
+        return True, dbc.Alert(f"Error loading indicator data: {e}", color="danger"), clicked_run_id
