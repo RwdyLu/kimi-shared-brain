@@ -537,46 +537,38 @@ layout = dbc.Container(
             ]
         ),
 
-        # T-054-B: Price History Chart / 價格歷史圖表
+        # T-055: Check History Table / 檢查歷史表格
         html.Hr(),
-        html.H4("Price History / 價格歷史", className="mt-4 mb-3"),
-        dbc.Row(
+        html.H4([
+            "📋 Check History / 檢查歷史 ",
+            html.Small("Last 10 checks / 最近10次", className="text-muted")
+        ], className="mt-4 mb-3"),
+        dbc.Card(
             [
-                dbc.Col(
-                    dbc.Card(
+                dbc.CardHeader(
+                    dbc.Row(
                         [
-                            dbc.CardHeader("BTC/USDT 24h Price / 24小時價格"),
-                            dbc.CardBody(
-                                dcc.Graph(
-                                    id="btc-price-chart",
-                                    config={'displayModeBar': False},
-                                    style={'height': '300px'}
-                                )
-                            )
-                        ]
-                    ),
-                    width=12,
-                    md=6,
-                    className="mb-4"
+                            dbc.Col(html.Strong("Time / 時間"), width=3),
+                            dbc.Col(html.Strong("BTC/USDT"), width=3),
+                            dbc.Col(html.Strong("ETH/USDT"), width=3),
+                            dbc.Col(html.Strong("Signals / 訊號"), width=3),
+                        ],
+                        className="text-center"
+                    )
                 ),
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardHeader("ETH/USDT 24h Price / 24小時價格"),
-                            dbc.CardBody(
-                                dcc.Graph(
-                                    id="eth-price-chart",
-                                    config={'displayModeBar': False},
-                                    style={'height': '300px'}
-                                )
+                dbc.CardBody(
+                    id="check-history-table",
+                    children=[
+                        dbc.Row(
+                            dbc.Col(
+                                html.P("Loading check history... / 載入檢查歷史...", className="text-muted text-center py-3"),
+                                width=12
                             )
-                        ]
-                    ),
-                    width=12,
-                    md=6,
-                    className="mb-4"
-                ),
-            ]
+                        )
+                    ]
+                )
+            ],
+            className="mb-4"
         ),
     ],
     fluid=True
@@ -1183,167 +1175,149 @@ def _load_price_history(symbol: str, hours: int = 24) -> tuple:
 
 
 @callback(
-    Output("btc-price-chart", "figure"),
+    Output("check-history-table", "children"),
     Input("dashboard-interval", "n_intervals")
 )
-def update_btc_price_chart(n):
-    """Update BTC price history chart / 更新 BTC 價格歷史圖表"""
+def update_check_history_table(n):
+    """Update check history table / 更新檢查歷史表格 (T-055)"""
     try:
-        import plotly.graph_objects as go
+        check_history = _load_check_history(limit=10)
         
-        timestamps, prices, ma5 = _load_price_history("BTCUSDT", hours=24)
+        if not check_history:
+            return [
+                dbc.Row(
+                    dbc.Col(
+                        html.P("No check history yet / 暫無檢查歷史", className="text-muted text-center py-3"),
+                        width=12
+                    )
+                )
+            ]
         
-        if not timestamps:
-            # Return empty chart with message
-            return {
-                'data': [],
-                'layout': {
-                    'title': 'No data yet / 暫無資料',
-                    'xaxis': {'visible': False},
-                    'yaxis': {'visible': False},
-                    'paper_bgcolor': 'rgba(0,0,0,0)',
-                    'plot_bgcolor': 'rgba(0,0,0,0)'
-                }
-            }
+        rows = []
+        for i, check in enumerate(check_history):
+            # Format time
+            time_str = check.get("time", "--")
+            
+            # Get prices
+            btc_price = check.get("btc_price")
+            eth_price = check.get("eth_price")
+            
+            btc_display = f"${btc_price:,.0f}" if btc_price else "--"
+            eth_display = f"${eth_price:,.0f}" if eth_price else "--"
+            
+            # Get signals
+            signals_count = check.get("signals_count", 0)
+            confirmed = check.get("confirmed_signals", 0)
+            
+            if signals_count > 0:
+                if confirmed > 0:
+                    signal_display = html.Span(f"{signals_count} ({confirmed}✓)", className="text-success")
+                else:
+                    signal_display = html.Span(f"{signals_count} (👁️)", className="text-info")
+            else:
+                signal_display = html.Span("None", className="text-muted")
+            
+            # Highlight latest row
+            is_latest = (i == 0)
+            row_style = {"backgroundColor": "#d4edda"} if is_latest else {}
+            
+            row = dbc.Row(
+                [
+                    dbc.Col(html.Span(time_str, className="fw-bold" if is_latest else ""), width=3, className="text-center py-2"),
+                    dbc.Col(btc_display, width=3, className="text-center py-2"),
+                    dbc.Col(eth_display, width=3, className="text-center py-2"),
+                    dbc.Col(signal_display, width=3, className="text-center py-2"),
+                ],
+                className="border-bottom align-items-center",
+                style=row_style
+            )
+            rows.append(row)
         
-        fig = go.Figure()
-        
-        # Price line
-        fig.add_trace(go.Scatter(
-            x=timestamps,
-            y=prices,
-            mode='lines',
-            name='Price / 價格',
-            line=dict(color='#2ecc71', width=2),
-            hovertemplate='%{y:,.2f}<extra></extra>'
-        ))
-        
-        # MA5 line
-        if ma5 and any(m != p for m, p in zip(ma5, prices)):
-            fig.add_trace(go.Scatter(
-                x=timestamps,
-                y=ma5,
-                mode='lines',
-                name='MA5',
-                line=dict(color='#3498db', width=1, dash='dash'),
-                hovertemplate='%{y:,.2f}<extra></extra>'
-            ))
-        
-        fig.update_layout(
-            margin=dict(l=40, r=20, t=20, b=40),
-            xaxis=dict(
-                title='Time / 時間',
-                showgrid=True,
-                gridcolor='rgba(128,128,128,0.1)'
-            ),
-            yaxis=dict(
-                title='Price (USDT)',
-                showgrid=True,
-                gridcolor='rgba(128,128,128,0.1)',
-                tickformat=',.0f'
-            ),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(
-                orientation='h',
-                yanchor='bottom',
-                y=1.02,
-                xanchor='right',
-                x=1
-            ),
-            hovermode='x unified'
-        )
-        
-        return fig
+        return rows
         
     except Exception as e:
-        return {
-            'data': [],
-            'layout': {
-                'title': f'Error: {str(e)[:50]}',
-                'xaxis': {'visible': False},
-                'yaxis': {'visible': False}
-            }
-        }
+        return [
+            dbc.Row(
+                dbc.Col(
+                    html.P(f"Error loading history: {e}", className="text-danger text-center py-3"),
+                    width=12
+                )
+            )
+        ]
 
 
-@callback(
-    Output("eth-price-chart", "figure"),
-    Input("dashboard-interval", "n_intervals")
-)
-def update_eth_price_chart(n):
-    """Update ETH price history chart / 更新 ETH 價格歷史圖表"""
+def _load_check_history(limit: int = 10) -> list:
+    """
+    Load check history from indicator_snapshots.jsonl
+    從 indicator_snapshots.jsonl 載入檢查歷史
+    
+    Args:
+        limit: Maximum number of checks to return
+        
+    Returns:
+        List of check records with time, prices, and signals
+    """
     try:
-        import plotly.graph_objects as go
+        from config.paths import LOGS_DIR
+        import json
+        from collections import defaultdict
         
-        timestamps, prices, ma5 = _load_price_history("ETHUSDT", hours=24)
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
+            return []
         
-        if not timestamps:
-            return {
-                'data': [],
-                'layout': {
-                    'title': 'No data yet / 暫無資料',
-                    'xaxis': {'visible': False},
-                    'yaxis': {'visible': False},
-                    'paper_bgcolor': 'rgba(0,0,0,0)',
-                    'plot_bgcolor': 'rgba(0,0,0,0)'
-                }
-            }
+        # Group by run_id
+        runs = defaultdict(lambda: {"btc_price": None, "eth_price": None, "signals_count": 0, "confirmed_signals": 0})
         
-        fig = go.Figure()
+        with open(snapshot_file, 'r') as f:
+            for line in f:
+                try:
+                    record = json.loads(line.strip())
+                    run_id = str(record.get("run_id", ""))
+                    symbol = record.get("symbol")
+                    price = record.get("price")
+                    ts_str = record.get("timestamp", "")
+                    signals = record.get("signals_count", 0)
+                    
+                    if not run_id or not ts_str:
+                        continue
+                    
+                    # Parse timestamp
+                    try:
+                        ts = datetime.fromisoformat(ts_str)
+                        time_str = ts.strftime("%H:%M:%S")
+                    except:
+                        time_str = ts_str
+                    
+                    runs[run_id]["time"] = time_str
+                    runs[run_id]["timestamp"] = ts_str
+                    
+                    if symbol == "BTCUSDT" and price:
+                        runs[run_id]["btc_price"] = price
+                    elif symbol == "ETHUSDT" and price:
+                        runs[run_id]["eth_price"] = price
+                    
+                    runs[run_id]["signals_count"] = max(runs[run_id]["signals_count"], signals)
+                    
+                except Exception:
+                    continue
         
-        fig.add_trace(go.Scatter(
-            x=timestamps,
-            y=prices,
-            mode='lines',
-            name='Price / 價格',
-            line=dict(color='#9b59b6', width=2),
-            hovertemplate='%{y:,.2f}<extra></extra>'
-        ))
+        # Convert to list and sort by timestamp (newest first)
+        history = []
+        for run_id, data in runs.items():
+            if data.get("btc_price") or data.get("eth_price"):
+                history.append({
+                    "run_id": run_id,
+                    "time": data.get("time", "--"),
+                    "timestamp": data.get("timestamp", ""),
+                    "btc_price": data.get("btc_price"),
+                    "eth_price": data.get("eth_price"),
+                    "signals_count": data.get("signals_count", 0),
+                    "confirmed_signals": data.get("confirmed_signals", 0)
+                })
         
-        if ma5 and any(m != p for m, p in zip(ma5, prices)):
-            fig.add_trace(go.Scatter(
-                x=timestamps,
-                y=ma5,
-                mode='lines',
-                name='MA5',
-                line=dict(color='#3498db', width=1, dash='dash'),
-                hovertemplate='%{y:,.2f}<extra></extra>'
-            ))
+        history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return history[:limit]
         
-        fig.update_layout(
-            margin=dict(l=40, r=20, t=20, b=40),
-            xaxis=dict(
-                title='Time / 時間',
-                showgrid=True,
-                gridcolor='rgba(128,128,128,0.1)'
-            ),
-            yaxis=dict(
-                title='Price (USDT)',
-                showgrid=True,
-                gridcolor='rgba(128,128,128,0.1)',
-                tickformat=',.2f'
-            ),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(
-                orientation='h',
-                yanchor='bottom',
-                y=1.02,
-                xanchor='right',
-                x=1
-            ),
-            hovermode='x unified'
-        )
-        
-        return fig
-        
-    except Exception as e:
-        return {
-            'data': [],
-            'layout': {
-                'title': f'Error: {str(e)[:50]}',
-                'xaxis': {'visible': False},
-                'yaxis': {'visible': False}
-            }
-        }
+    except Exception:
+        return []
