@@ -1,4 +1,5 @@
-# Backtest Module / 回測模組
+"""
+Backtest Module / 回測模組
 
 BTC/ETH Strategy Backtesting System
 BTC/ETH 策略回測系統
@@ -21,12 +22,12 @@ from pathlib import Path
 # Import project paths
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config.paths import PROJECT_ROOT, DATA_DIR
+from config.paths import PROJECT_ROOT, STATE_DIR
 
-# Import monitoring components
+# Import monitoring components (function-based)
 from app.monitor_runner import MonitorRunner
 from data.fetcher import BinanceFetcher
-from indicators.calculator import IndicatorCalculator
+from indicators import calculator as indicator_calc
 from signals.engine import SignalEngine
 
 
