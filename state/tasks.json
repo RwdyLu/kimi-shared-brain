@@ -1163,7 +1163,7 @@
       "task_id": "T-053-A",
       "title": "Establish Backtest Data Storage Structure",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "建立回測數據儲存結構，創建 backtest/ 目錄與 backtest_results.jsonl，定義回測結果欄位格式",
@@ -1172,7 +1172,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-052-D"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T23:05:00+08:00"
+      "last_updated": "2026-04-14T23:14:00+08:00",
+      "completed_at": "2026-04-14T23:14:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-053-B",
