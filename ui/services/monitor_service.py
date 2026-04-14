@@ -8,8 +8,8 @@ BTC/ETH 監測系統 - UI 服務層
 This module provides services for querying monitoring system status.
 本模組提供查詢監測系統狀態的服務。
 
-Version: 1.1.0
-Date: 2026-04-10
+Version: 1.2.0
+Date: 2026-04-14
 """
 
 import os
@@ -610,3 +610,31 @@ def get_next_run_time() -> Optional[str]:
 def get_full_status() -> Dict[str, Any]:
     """Get full monitoring status"""
     return MonitorService().get_full_status()
+
+
+def get_current_prices() -> Dict[str, Any]:
+    """
+    Get current prices from state file
+    從狀態檔案取得當前價格
+    
+    Returns:
+        Dict with prices data:
+        {
+            "timestamp": str (ISO format),
+            "prices": {
+                "BTCUSDT": {"price": float, "timestamp": str},
+                "ETHUSDT": {"price": float, "timestamp": str}
+            }
+        }
+        or empty dict if no prices available
+    """
+    try:
+        prices_file = STATE_DIR / "prices.json"
+        if not prices_file.exists():
+            return {}
+        
+        with open(prices_file, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error reading prices: {e}")
+        return {}

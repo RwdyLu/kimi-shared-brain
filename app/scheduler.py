@@ -12,8 +12,8 @@ This module provides scheduling capabilities for the monitoring system.
 ⚠️  No auto-trading / 無自動交易
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-04-06
+Version: 1.1.0
+Date: 2026-04-14
 """
 
 import os
@@ -252,6 +252,36 @@ class MonitoringScheduler:
         except Exception as e:
             self._log(f"Notification error / 通知錯誤: {e}")
     
+    def _save_prices_to_state(self, results) -> None:
+        """
+        Save current prices to state file / 儲存當前價格到狀態檔案
+        
+        This allows the UI to display live prices / 這讓 UI 可以顯示即時價格
+        """
+        try:
+            prices_data = {
+                "timestamp": datetime.now().isoformat(),
+                "prices": {}
+            }
+            
+            for result in results:
+                if result.success and result.current_price:
+                    prices_data["prices"][result.symbol] = {
+                        "price": result.current_price,
+                        "timestamp": datetime.now().isoformat()
+                    }
+            
+            # Write to state file / 寫入狀態檔案
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            prices_file = STATE_DIR / "prices.json"
+            with open(prices_file, 'w') as f:
+                json.dump(prices_data, f, indent=2)
+            
+            self._log(f"  Prices saved: {list(prices_data['prices'].keys())}")
+            
+        except Exception as e:
+            self._log(f"  Price save error: {e}")
+    
     def _run_monitor(self) -> RunRecord:
         """
         Execute one monitoring run / 執行一次監測
@@ -275,6 +305,9 @@ class MonitoringScheduler:
         try:
             # Execute monitoring / 執行監測
             results, summary = self.runner.run_monitor_once()
+            
+            # Save current prices to state file / 儲存當前價格到狀態檔案
+            self._save_prices_to_state(results)
             
             # Record results / 記錄結果
             record.end_time = datetime.now()

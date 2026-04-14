@@ -22,7 +22,8 @@ from ui.services.monitor_service import (
     get_scheduler_status,
     get_last_run_info,
     get_today_signals,
-    get_recent_runs
+    get_recent_runs,
+    get_current_prices  # T-051: Add current prices / 新增當前價格
 )
 from config.loader import get_enabled_symbols
 
@@ -101,6 +102,32 @@ layout = dbc.Container(
                         ],
                         id="dashboard-signals-card",
                         color="warning",
+                        outline=True
+                    ),
+                    width=12,
+                    md=6,
+                    lg=4,
+                    className="mb-3"
+                ),
+                
+                # Current Prices Card / 當前價格卡片 (T-051)
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader([
+                                "Live Prices / 即時價格",
+                                html.Small(" 💰From Last Run", className="text-muted ms-2")
+                            ]),
+                            dbc.CardBody(
+                                [
+                                    html.Div(id="dashboard-prices", children=[
+                                        html.P("Loading prices...", className="text-muted")
+                                    ])
+                                ]
+                            )
+                        ],
+                        id="dashboard-prices-card",
+                        color="success",
                         outline=True
                     ),
                     width=12,
@@ -334,6 +361,57 @@ def update_signals_count(n):
         return str(total), breakdown, color
     except Exception as e:
         return "--", str(e), "secondary"
+
+
+@callback(
+    Output("dashboard-prices", "children"),
+    Output("dashboard-prices-card", "color"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_prices(n):
+    """Update current prices display / 更新當前價格顯示"""
+    try:
+        prices_data = get_current_prices()
+        
+        if not prices_data or not prices_data.get("prices"):
+            return html.P("No price data available / 無價格資料", className="text-muted"), "secondary"
+        
+        prices = prices_data.get("prices", {})
+        
+        # Build price display / 建立價格顯示
+        price_items = []
+        for symbol in ["BTCUSDT", "ETHUSDT"]:
+            if symbol in prices:
+                price = prices[symbol].get("price", 0)
+                # Format based on symbol
+                if symbol == "BTCUSDT":
+                    price_text = f"${price:,.2f}"
+                else:  # ETHUSDT
+                    price_text = f"${price:,.2f}"
+                
+                price_items.append(
+                    html.Div([
+                        html.Strong(symbol.replace("USDT", "") + ": ", className="me-2"),
+                        html.Span(price_text, className="text-success fs-5")
+                    ], className="mb-2")
+                )
+        
+        # Add timestamp / 添加時間戳
+        timestamp = prices_data.get("timestamp", "")
+        if timestamp:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(timestamp)
+                time_str = dt.strftime("%H:%M:%S")
+                price_items.append(
+                    html.Small(f"Updated: {time_str}", className="text-muted d-block mt-2")
+                )
+            except:
+                pass
+        
+        return html.Div(price_items), "success"
+    except Exception as e:
+        return html.P(f"Error loading prices: {e}", className="text-danger"), "danger"
 
 
 @callback(
