@@ -402,7 +402,140 @@ layout = dbc.Container(
         ),
         
         # Store for data / 資料儲存
-        dcc.Store(id="dashboard-store")
+        dcc.Store(id="dashboard-store"),
+        
+        # T-053-C: Backtest Summary Section / 回測摘要區塊
+        html.Hr(),
+        html.H4("Backtest Results / 回測結果", className="mt-4 mb-3"),
+        dbc.Row(
+            [
+                # Win Rate Card / 勝率卡片
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H5("Win Rate / 勝率", className="card-title text-muted"),
+                                    html.H2(
+                                        id="backtest-win-rate",
+                                        children="--",
+                                        className="text-info fw-bold"
+                                    ),
+                                    html.Small(
+                                        id="backtest-trade-count",
+                                        children="No backtests yet",
+                                        className="text-muted"
+                                    )
+                                ]
+                            )
+                        ],
+                        color="light",
+                        outline=True
+                    ),
+                    width=6,
+                    md=3,
+                    className="mb-3"
+                ),
+                
+                # Total Return Card / 總報酬卡片
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H5("Total Return / 總報酬", className="card-title text-muted"),
+                                    html.H2(
+                                        id="backtest-return",
+                                        children="--",
+                                        className="fw-bold"
+                                    ),
+                                    html.Small(
+                                        id="backtest-period",
+                                        children="--",
+                                        className="text-muted"
+                                    )
+                                ]
+                            )
+                        ],
+                        color="light",
+                        outline=True
+                    ),
+                    width=6,
+                    md=3,
+                    className="mb-3"
+                ),
+                
+                # Max Drawdown Card / 最大回撤卡片
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H5("Max Drawdown / 最大回撤", className="card-title text-muted"),
+                                    html.H2(
+                                        id="backtest-drawdown",
+                                        children="--",
+                                        className="text-danger fw-bold"
+                                    ),
+                                    html.Small(
+                                        "Risk metric / 風險指標",
+                                        className="text-muted"
+                                    )
+                                ]
+                            )
+                        ],
+                        color="light",
+                        outline=True
+                    ),
+                    width=6,
+                    md=3,
+                    className="mb-3"
+                ),
+                
+                # Latest Backtest ID / 最新回測 ID
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H5("Latest Run / 最新執行", className="card-title text-muted"),
+                                    html.H4(
+                                        id="backtest-latest-id",
+                                        children="--",
+                                        className="text-primary"
+                                    ),
+                                    html.Small(
+                                        id="backtest-symbols",
+                                        children="--",
+                                        className="text-muted"
+                                    )
+                                ]
+                            )
+                        ],
+                        color="light",
+                        outline=True
+                    ),
+                    width=6,
+                    md=3,
+                    className="mb-3"
+                ),
+            ]
+        ),
+        
+        # Backtest Action Button / 回測操作按鈕
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Button(
+                        "View Full Report / 查看完整報告",
+                        href="/backtest",
+                        color="primary",
+                        className="mt-2"
+                    ),
+                    width=12
+                )
+            ]
+        ),
     ],
     fluid=True
 )
@@ -856,3 +989,91 @@ def update_eth_strategy_distance(n):
         
     except Exception as e:
         return "--", "--", "--", "--", f"Error: {e}"
+
+
+# T-053-C: Backtest results callback / 回測結果回調
+@callback(
+    Output("backtest-win-rate", "children"),
+    Output("backtest-trade-count", "children"),
+    Output("backtest-return", "children"),
+    Output("backtest-return", "className"),
+    Output("backtest-period", "children"),
+    Output("backtest-drawdown", "children"),
+    Output("backtest-latest-id", "children"),
+    Output("backtest-symbols", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_backtest_summary(n):
+    """Update backtest summary cards / 更新回測摘要卡片"""
+    try:
+        from backtest import BacktestStorage
+
+        storage = BacktestStorage()
+        backtests = storage.get_latest_backtests(limit=1)
+
+        if not backtests:
+            return (
+                "--",
+                "No backtests yet / 尚無回測",
+                "--",
+                "fw-bold",
+                "--",
+                "--",
+                "--",
+                "Run a backtest to see results"
+            )
+
+        bt = backtests[0]
+
+        # Win rate
+        win_rate = bt.get("win_rate", 0)
+        win_rate_text = f"{win_rate:.1f}%"
+
+        # Trade count
+        total = bt.get("total_trades", 0)
+        winning = bt.get("winning_trades", 0)
+        trade_count = f"{total} trades ({winning} wins) / {total} 筆 ({winning} 勝)"
+
+        # Return
+        return_pct = bt.get("total_return_pct", 0)
+        return_text = f"{return_pct:+.2f}%"
+        return_class = "fw-bold text-success" if return_pct >= 0 else "fw-bold text-danger"
+
+        # Period
+        start = bt.get("start_date", "--")
+        end = bt.get("end_date", "--")
+        period = f"{start} ~ {end}"
+
+        # Drawdown
+        drawdown = bt.get("max_drawdown_pct", 0)
+        drawdown_text = f"{drawdown:.2f}%"
+
+        # Latest ID
+        bt_id = bt.get("backtest_id", "--")
+
+        # Symbols
+        symbols = bt.get("symbols", [])
+        symbols_text = ", ".join(symbols) if symbols else "--"
+
+        return (
+            win_rate_text,
+            trade_count,
+            return_text,
+            return_class,
+            period,
+            drawdown_text,
+            bt_id,
+            symbols_text
+        )
+
+    except Exception as e:
+        return (
+            "--",
+            f"Error: {str(e)[:30]}",
+            "--",
+            "fw-bold",
+            "--",
+            "--",
+            "--",
+            "Check backtest module"
+        )
