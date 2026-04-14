@@ -19,7 +19,7 @@ This is SINGLE-RUN ONLY (not a daemon).
 這僅為單次執行（非常駐服務）。
 
 Author: kimiclaw_bot
-Version: 1.2.0
+Version: 1.3.0
 Date: 2026-04-14
 """
 
@@ -205,6 +205,60 @@ class MonitorRunner:
             language="en"
         )
         return Notifier(config)
+    
+    def _save_indicator_snapshot(self, result: SymbolResult, run_id: Optional[int] = None) -> None:
+        """
+        Save indicator snapshot to JSONL file / 儲存指標快照到 JSONL 檔案
+        
+        T-052-B: Store indicator values after each run for UI display
+        """
+        try:
+            from config.paths import LOGS_DIR
+            import json
+            from pathlib import Path
+            
+            # Build snapshot data / 建立快照資料
+            snapshot = {
+                "run_id": f"#{run_id}" if run_id else f"#{int(time.time())}",
+                "timestamp": datetime.fromtimestamp(result.timestamp / 1000).isoformat(),
+                "symbol": result.symbol,
+                "price": result.current_price,
+                "ma5": result.ma5,
+                "ma20": result.ma20,
+                "ma240": result.ma240,
+                "volume_ratio": result.volume_ratio,
+            }
+            
+            # Calculate price vs MA percentages / 計算價格與 MA 的百分比
+            if result.current_price and result.ma5:
+                snapshot["price_vs_ma5_pct"] = round((result.current_price - result.ma5) / result.ma5 * 100, 2)
+            else:
+                snapshot["price_vs_ma5_pct"] = None
+                
+            if result.current_price and result.ma20:
+                snapshot["price_vs_ma20_pct"] = round((result.current_price - result.ma20) / result.ma20 * 100, 2)
+            else:
+                snapshot["price_vs_ma20_pct"] = None
+                
+            if result.current_price and result.ma240:
+                snapshot["price_vs_ma240_pct"] = round((result.current_price - result.ma240) / result.ma240 * 100, 2)
+            else:
+                snapshot["price_vs_ma240_pct"] = None
+            
+            # Add signals info / 添加訊號資訊
+            snapshot["signals_count"] = len(result.signals) if result.signals else 0
+            snapshot["signal_types"] = [s.signal_type.name for s in result.signals] if result.signals else []
+            
+            # Append to JSONL file / 附加到 JSONL 檔案
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+            snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+            
+            with open(snapshot_file, 'a') as f:
+                f.write(json.dumps(snapshot) + '\n')
+            
+        except Exception as e:
+            # Silent fail - don't break monitoring if snapshot fails / 靜默失敗
+            print(f"    ⚠️  Snapshot save skipped: {e}")
     
     def _fetch_data(self, symbol: str) -> Tuple[List[KlineData], List[KlineData], List[KlineData], Optional[str]]:
         """
@@ -394,6 +448,9 @@ class MonitorRunner:
             confirmed_signals=confirmed,
             watch_only_signals=watch_only
         )
+        
+        # Save indicator snapshot / 儲存指標快照 (T-052-B)
+        self._save_indicator_snapshot(result, run_id=None)
         
         print(f"✓ {symbol} monitoring complete")
         
