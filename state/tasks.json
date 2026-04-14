@@ -1095,7 +1095,7 @@
       "task_id": "T-052-B",
       "title": "Save Indicator Snapshots to JSONL",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "修改 app/monitor_runner.py，每次執行完畢後將指標數值（price, MA5/20/240, volume_ratio, price_vs_maX_pct）寫入 logs/indicator_snapshots.jsonl",
@@ -1104,13 +1104,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-051"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T19:51:00+08:00"
+      "last_updated": "2026-04-14T21:12:00+08:00",
+      "completed_at": "2026-04-14T21:12:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-052-A",
       "title": "Fix Dashboard Live Price Display",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "patch",
       "goal": "修改 ui/pages/dashboard.py，將價格卡片移到頁面最頂部、BTC/ETH 各獨立一個大卡片、顯示幣種名稱/現價/更新時間、自動刷新改為 15 秒",
@@ -1119,7 +1121,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-052-B"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T19:51:00+08:00"
+      "last_updated": "2026-04-14T21:12:00+08:00",
+      "completed_at": "2026-04-14T21:12:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-052-C",
