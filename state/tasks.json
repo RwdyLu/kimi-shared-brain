@@ -1090,6 +1090,66 @@
       "last_updated": "2026-04-14T19:21:00+08:00",
       "completed_at": "2026-04-14T19:21:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-052-B",
+      "title": "Save Indicator Snapshots to JSONL",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "修改 app/monitor_runner.py，每次執行完畢後將指標數值（price, MA5/20/240, volume_ratio, price_vs_maX_pct）寫入 logs/indicator_snapshots.jsonl",
+      "output_file": "app/monitor_runner.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次 run 後 indicator_snapshots.jsonl 有正確寫入資料，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-051"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T19:51:00+08:00"
+    },
+    {
+      "task_id": "T-052-A",
+      "title": "Fix Dashboard Live Price Display",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "patch",
+      "goal": "修改 ui/pages/dashboard.py，將價格卡片移到頁面最頂部、BTC/ETH 各獨立一個大卡片、顯示幣種名稱/現價/更新時間、自動刷新改為 15 秒",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 價格卡片在頂部正確顯示，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-052-B"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T19:51:00+08:00"
+    },
+    {
+      "task_id": "T-052-C",
+      "title": "Add Strategy Distance Panel to Dashboard",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "修改 ui/pages/dashboard.py，在 Recent Run History 上方新增 Strategy Distance 區塊，顯示現價、MA 距離進度條、策略觸發條件說明、最近訊號，資料來源為 indicator_snapshots.jsonl",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Strategy Distance 面板正確顯示並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-052-A"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T19:51:00+08:00"
+    },
+    {
+      "task_id": "T-052-D",
+      "title": "Add Indicator Values to Signals Page",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "修改 ui/pages/signals.py，在 Run History 表格展開時顯示每個 symbol 的現價、MA5、MA20 及距離百分比，資料來源為 indicator_snapshots.jsonl",
+      "output_file": "ui/pages/signals.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Signals 頁面正確顯示指標數值並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-052-C"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T19:51:00+08:00"
     }
   ]
 }
