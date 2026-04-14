@@ -19,8 +19,8 @@ This is SINGLE-RUN ONLY (not a daemon).
 這僅為單次執行（非常駐服務）。
 
 Author: kimiclaw_bot
-Version: 1.1.0
-Date: 2026-04-07
+Version: 1.2.0
+Date: 2026-04-14
 """
 
 import sys
@@ -127,6 +127,7 @@ class SymbolResult:
     ma240: Optional[float] = None
     volume_avg: Optional[float] = None
     volume_ratio: Optional[float] = None
+    current_price: Optional[float] = None  # Current price from latest candle / 最新K線的當前價格
     
     # Signals / 訊號
     signals: List[Signal] = None
@@ -346,6 +347,11 @@ class MonitorRunner:
         print(f"[2/4] Calculating indicators...")
         indicators = self._calculate_indicators(data_5m, data_1m)
         
+        # Get current price from latest 5m candle / 從最新 5m K 線取得當前價格
+        current_price = data_5m[-1].close if data_5m else None
+        if current_price:
+            print(f"    💰 Current Price: ${current_price:,.2f}")
+        
         print(f"    ✓ MA5: {indicators['ma5']:.2f}" if indicators['ma5'] else "    - MA5: N/A")
         print(f"    ✓ MA20: {indicators['ma20']:.2f}" if indicators['ma20'] else "    - MA20: N/A")
         print(f"    ✓ MA240: {indicators['ma240']:.2f}" if indicators['ma240'] else "    - MA240: N/A")
@@ -383,6 +389,7 @@ class MonitorRunner:
             ma240=indicators.get("ma240"),
             volume_avg=indicators.get("volume_avg"),
             volume_ratio=indicators.get("volume_ratio"),
+            current_price=current_price,  # Add current price / 添加當前價格
             signals=signals,
             confirmed_signals=confirmed,
             watch_only_signals=watch_only
@@ -423,6 +430,16 @@ class MonitorRunner:
         # Build summary / 建立摘要
         summary = self._build_run_summary(results)
         summary.errors = errors
+        
+        # Display current prices for all symbols / 顯示所有標的的當前價格
+        print("\n" + "-" * 70)
+        print("CURRENT PRICES / 當前價格")
+        print("-" * 70)
+        for result in results:
+            if result.success and result.current_price:
+                print(f"  {result.symbol}: ${result.current_price:,.2f}")
+            else:
+                print(f"  {result.symbol}: N/A")
         
         # Output summary / 輸出摘要
         self._output_summary(summary)
