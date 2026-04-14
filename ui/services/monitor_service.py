@@ -638,3 +638,38 @@ def get_current_prices() -> Dict[str, Any]:
     except Exception as e:
         print(f"Error reading prices: {e}")
         return {}
+
+
+def get_latest_indicator_snapshots() -> Dict[str, Any]:
+    """
+    Get latest indicator snapshots for each symbol
+    取得每個標的的最新指標快照
+    
+    Returns:
+        Dict with latest snapshot per symbol:
+        {
+            "BTCUSDT": {"price": X, "ma5": Y, "price_vs_ma5_pct": Z, ...},
+            "ETHUSDT": {...}
+        }
+    """
+    try:
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
+            return {}
+        
+        latest = {}
+        with open(snapshot_file, 'r') as f:
+            for line in f:
+                try:
+                    data = json.loads(line.strip())
+                    symbol = data.get("symbol")
+                    if symbol:
+                        # Keep only the latest for each symbol
+                        latest[symbol] = data
+                except json.JSONDecodeError:
+                    continue
+        
+        return latest
+    except Exception as e:
+        print(f"Error reading indicator snapshots: {e}")
+        return {}

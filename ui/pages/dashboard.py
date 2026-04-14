@@ -207,6 +207,112 @@ layout = dbc.Container(
             ]
         ),
         
+        # Strategy Distance Panel / 策略距離面板 (T-052-C)
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H4("Strategy Distance / 策略距離", className="mt-4 mb-3"),
+                        html.P("Current price position relative to strategy triggers / 當前價格相對於策略觸發點的位置", 
+                               className="text-muted small mb-2"),
+                        dbc.Row(
+                            [
+                                # BTC Strategy Distance Card
+                                dbc.Col(
+                                    dbc.Card(
+                                        [
+                                            dbc.CardHeader([
+                                                html.Strong("BTC Strategy Distance / BTC 策略距離"),
+                                            ]),
+                                            dbc.CardBody(
+                                                [
+                                                    # Price Section
+                                                    html.H5("Current Price / 現價", className="text-muted mb-2"),
+                                                    html.H3(id="btc-strategy-price", children="--", className="text-success mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # MA Distance Section
+                                                    html.H6("MA Distance / MA 距離", className="text-muted mb-2"),
+                                                    html.Div(id="btc-ma5-distance", children="--", className="mb-1"),
+                                                    html.Div(id="btc-ma20-distance", children="--", className="mb-1"),
+                                                    html.Div(id="btc-ma240-distance", children="--", className="mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # Strategy Conditions
+                                                    html.H6("Trigger Conditions / 觸發條件", className="text-muted mb-2"),
+                                                    html.Small([
+                                                        html.Div("• Trend Long: MA5 cross above MA20 + volume", className="text-muted"),
+                                                        html.Div("• Trend Short: MA5 cross below MA20", className="text-muted"),
+                                                        html.Div("• Contrarian Oversold: 4 red candles + low volume", className="text-muted"),
+                                                        html.Div("• Contrarian Overbought: 4 green candles + high volume", className="text-muted"),
+                                                    ], className="d-block mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # Recent Signal
+                                                    html.H6("Recent Signal / 最近訊號", className="text-muted mb-2"),
+                                                    html.Div(id="btc-recent-signal", children="No recent signals / 無近期訊號"),
+                                                ]
+                                            )
+                                        ],
+                                        className="h-100"
+                                    ),
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                                
+                                # ETH Strategy Distance Card
+                                dbc.Col(
+                                    dbc.Card(
+                                        [
+                                            dbc.CardHeader([
+                                                html.Strong("ETH Strategy Distance / ETH 策略距離"),
+                                            ]),
+                                            dbc.CardBody(
+                                                [
+                                                    # Price Section
+                                                    html.H5("Current Price / 現價", className="text-muted mb-2"),
+                                                    html.H3(id="eth-strategy-price", children="--", className="text-success mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # MA Distance Section
+                                                    html.H6("MA Distance / MA 距離", className="text-muted mb-2"),
+                                                    html.Div(id="eth-ma5-distance", children="--", className="mb-1"),
+                                                    html.Div(id="eth-ma20-distance", children="--", className="mb-1"),
+                                                    html.Div(id="eth-ma240-distance", children="--", className="mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # Strategy Conditions
+                                                    html.H6("Trigger Conditions / 觸發條件", className="text-muted mb-2"),
+                                                    html.Small([
+                                                        html.Div("• Trend Long: MA5 cross above MA20 + volume", className="text-muted"),
+                                                        html.Div("• Trend Short: MA5 cross below MA20", className="text-muted"),
+                                                        html.Div("• Contrarian Oversold: 4 red candles + low volume", className="text-muted"),
+                                                        html.Div("• Contrarian Overbought: 4 green candles + high volume", className="text-muted"),
+                                                    ], className="d-block mb-3"),
+                                                    html.Hr(),
+                                                    
+                                                    # Recent Signal
+                                                    html.H6("Recent Signal / 最近訊號", className="text-muted mb-2"),
+                                                    html.Div(id="eth-recent-signal", children="No recent signals / 無近期訊號"),
+                                                ]
+                                            )
+                                        ],
+                                        className="h-100"
+                                    ),
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                            ]
+                        )
+                    ],
+                    width=12,
+                    className="mb-4"
+                )
+            ]
+        ),
+        
         # Recent Runs / 近期執行記錄
         dbc.Row(
             [
@@ -611,3 +717,142 @@ def update_recent_signals(n):
         )
     except Exception as e:
         return html.P(f"Error loading signals: {e}", className="text-danger")
+
+
+# T-052-C: Strategy Distance callbacks / 策略距離回調
+def _format_ma_distance(value: float) -> tuple:
+    """Format MA distance with color indicator / 格式化 MA 距離並帶顏色指示"""
+    if value is None:
+        return "--", "secondary"
+    
+    sign = "+" if value >= 0 else ""
+    color = "success" if value >= 0 else "danger"
+    text = f"{sign}{value:.2f}%"
+    
+    return text, color
+
+
+@callback(
+    Output("btc-strategy-price", "children"),
+    Output("btc-ma5-distance", "children"),
+    Output("btc-ma20-distance", "children"),
+    Output("btc-ma240-distance", "children"),
+    Output("btc-recent-signal", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_btc_strategy_distance(n):
+    """Update BTC strategy distance display / 更新 BTC 策略距離顯示"""
+    try:
+        from ui.services.monitor_service import get_latest_indicator_snapshots
+        
+        snapshots = get_latest_indicator_snapshots()
+        
+        if not snapshots or "BTCUSDT" not in snapshots:
+            return "--", "--", "--", "--", "Data unavailable / 資料不可用"
+        
+        data = snapshots["BTCUSDT"]
+        
+        # Price
+        price = data.get("price")
+        price_text = f"${price:,.2f}" if price else "--"
+        
+        # MA Distances
+        ma5_pct = data.get("price_vs_ma5_pct")
+        ma5_text, ma5_color = _format_ma_distance(ma5_pct)
+        ma5_display = html.Span([
+            "MA5: ",
+            html.Span(ma5_text, className=f"text-{ma5_color}")
+        ])
+        
+        ma20_pct = data.get("price_vs_ma20_pct")
+        ma20_text, ma20_color = _format_ma_distance(ma20_pct)
+        ma20_display = html.Span([
+            "MA20: ",
+            html.Span(ma20_text, className=f"text-{ma20_color}")
+        ])
+        
+        ma240_pct = data.get("price_vs_ma240_pct")
+        ma240_text, ma240_color = _format_ma_distance(ma240_pct)
+        ma240_display = html.Span([
+            "MA240: ",
+            html.Span(ma240_text, className=f"text-{ma240_color}")
+        ])
+        
+        # Recent signal
+        signal_types = data.get("signal_types", [])
+        signal_count = data.get("signals_count", 0)
+        if signal_count > 0 and signal_types:
+            recent_signal = html.Div([
+                html.Span(f"{signal_count} signal(s) / {signal_count} 個訊號", className="text-warning"),
+                html.Div([html.Small(f"• {s}") for s in signal_types], className="text-muted")
+            ])
+        else:
+            recent_signal = "No signals / 無訊號"
+        
+        return price_text, ma5_display, ma20_display, ma240_display, recent_signal
+        
+    except Exception as e:
+        return "--", "--", "--", "--", f"Error: {e}"
+
+
+@callback(
+    Output("eth-strategy-price", "children"),
+    Output("eth-ma5-distance", "children"),
+    Output("eth-ma20-distance", "children"),
+    Output("eth-ma240-distance", "children"),
+    Output("eth-recent-signal", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_eth_strategy_distance(n):
+    """Update ETH strategy distance display / 更新 ETH 策略距離顯示"""
+    try:
+        from ui.services.monitor_service import get_latest_indicator_snapshots
+        
+        snapshots = get_latest_indicator_snapshots()
+        
+        if not snapshots or "ETHUSDT" not in snapshots:
+            return "--", "--", "--", "--", "Data unavailable / 資料不可用"
+        
+        data = snapshots["ETHUSDT"]
+        
+        # Price
+        price = data.get("price")
+        price_text = f"${price:,.2f}" if price else "--"
+        
+        # MA Distances
+        ma5_pct = data.get("price_vs_ma5_pct")
+        ma5_text, ma5_color = _format_ma_distance(ma5_pct)
+        ma5_display = html.Span([
+            "MA5: ",
+            html.Span(ma5_text, className=f"text-{ma5_color}")
+        ])
+        
+        ma20_pct = data.get("price_vs_ma20_pct")
+        ma20_text, ma20_color = _format_ma_distance(ma20_pct)
+        ma20_display = html.Span([
+            "MA20: ",
+            html.Span(ma20_text, className=f"text-{ma20_color}")
+        ])
+        
+        ma240_pct = data.get("price_vs_ma240_pct")
+        ma240_text, ma240_color = _format_ma_distance(ma240_pct)
+        ma240_display = html.Span([
+            "MA240: ",
+            html.Span(ma240_text, className=f"text-{ma240_color}")
+        ])
+        
+        # Recent signal
+        signal_types = data.get("signal_types", [])
+        signal_count = data.get("signals_count", 0)
+        if signal_count > 0 and signal_types:
+            recent_signal = html.Div([
+                html.Span(f"{signal_count} signal(s) / {signal_count} 個訊號", className="text-warning"),
+                html.Div([html.Small(f"• {s}") for s in signal_types], className="text-muted")
+            ])
+        else:
+            recent_signal = "No signals / 無訊號"
+        
+        return price_text, ma5_display, ma20_display, ma240_display, recent_signal
+        
+    except Exception as e:
+        return "--", "--", "--", "--", f"Error: {e}"
