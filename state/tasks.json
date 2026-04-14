@@ -1214,7 +1214,7 @@
       "task_id": "T-053-D",
       "title": "Backtest Report Page",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "新增 ui/pages/backtest.py 回測報告頁面，顯示詳細回測結果、每筆交易記錄、權益曲線",
@@ -1223,7 +1223,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-053-C"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T23:05:00+08:00"
+      "last_updated": "2026-04-14T23:37:00+08:00",
+      "completed_at": "2026-04-14T23:37:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
