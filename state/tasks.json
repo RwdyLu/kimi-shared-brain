@@ -1277,6 +1277,21 @@
       "last_updated": "2026-04-15T05:43:00+08:00",
       "completed_at": "2026-04-15T05:43:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-055",
+      "title": "Dashboard Check History Table with Prices",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "在 Dashboard 新增檢查歷史表格，清晰顯示每次檢查的時間、BTC價格、ETH價格，並突顯實時價格",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "second bot 驗收 Dashboard 正確顯示檢查歷史表格，包含時間、BTC/ETH價格",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-054-B"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-15T05:47:00+08:00"
     }
   ]
 }
