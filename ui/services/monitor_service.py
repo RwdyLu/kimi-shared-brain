@@ -420,11 +420,82 @@ class MonitorService:
                         run["symbols_checked"] = ["BTCUSDT", "ETHUSDT"]
                         run["symbols_with_signals"] = []
                         run["symbol_summary"] = "Symbols: 2/2"
+                    
+                    # T-054-C: Get prices from indicator_snapshots.jsonl
+                    try:
+                        run["prices"] = self._get_prices_for_run(run.get("run_id"), run["timestamp"])
+                    except Exception:
+                        run["prices"] = {}
             
             return runs
             
         except Exception as e:
             return [{"error": str(e)}]
+    
+    def _get_prices_for_run(self, run_id: Any, timestamp_str: str) -> Dict[str, float]:
+        """
+        Get prices for a specific run from indicator_snapshots.jsonl
+        T-054-C: 從 indicator_snapshots.jsonl 取得特定執行的價格
+        
+        Args:
+            run_id: The run ID
+            timestamp_str: Run timestamp string
+            
+        Returns:
+            Dict mapping symbol to price
+        """
+        prices = {}
+        
+        try:
+            from config.paths import LOGS_DIR
+            from datetime import datetime, timedelta
+            import json
+            
+            snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+            if not snapshot_file.exists():
+                return prices
+            
+            # Parse run timestamp and create a window (±30 seconds)
+            run_ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+            window_start = run_ts - timedelta(seconds=30)
+            window_end = run_ts + timedelta(seconds=30)
+            
+            # Also match by run_id if available
+            run_id_str = str(run_id)
+            
+            with open(snapshot_file, 'r') as f:
+                for line in f:
+                    try:
+                        record = json.loads(line.strip())
+                        
+                        # Match by run_id or timestamp
+                        record_run_id = str(record.get("run_id", ""))
+                        ts_str = record.get("timestamp", "")
+                        
+                        matched = False
+                        if record_run_id and record_run_id == run_id_str:
+                            matched = True
+                        elif ts_str:
+                            try:
+                                record_ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00').replace('+00:00', ''))
+                                if window_start <= record_ts <= window_end:
+                                    matched = True
+                            except:
+                                pass
+                        
+                        if matched:
+                            symbol = record.get("symbol")
+                            price = record.get("price")
+                            if symbol and price is not None:
+                                prices[symbol] = price
+                                
+                    except Exception:
+                        continue
+                        
+        except Exception:
+            pass
+        
+        return prices
     
     def get_today_signals(self) -> Dict[str, Any]:
         """

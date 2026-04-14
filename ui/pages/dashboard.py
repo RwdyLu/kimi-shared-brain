@@ -536,6 +536,48 @@ layout = dbc.Container(
                 )
             ]
         ),
+
+        # T-054-B: Price History Chart / 價格歷史圖表
+        html.Hr(),
+        html.H4("Price History / 價格歷史", className="mt-4 mb-3"),
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader("BTC/USDT 24h Price / 24小時價格"),
+                            dbc.CardBody(
+                                dcc.Graph(
+                                    id="btc-price-chart",
+                                    config={'displayModeBar': False},
+                                    style={'height': '300px'}
+                                )
+                            )
+                        ]
+                    ),
+                    width=12,
+                    md=6,
+                    className="mb-4"
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader("ETH/USDT 24h Price / 24小時價格"),
+                            dbc.CardBody(
+                                dcc.Graph(
+                                    id="eth-price-chart",
+                                    config={'displayModeBar': False},
+                                    style={'height': '300px'}
+                                )
+                            )
+                        ]
+                    ),
+                    width=12,
+                    md=6,
+                    className="mb-4"
+                ),
+            ]
+        ),
     ],
     fluid=True
 )
@@ -1077,3 +1119,231 @@ def update_backtest_summary(n):
             "--",
             "Check backtest module"
         )
+
+
+# T-054-B: Price History Chart Callbacks / 價格歷史圖表回調
+
+def _load_price_history(symbol: str, hours: int = 24) -> tuple:
+    """
+    Load price history from indicator_snapshots.jsonl
+    從 indicator_snapshots.jsonl 載入價格歷史
+    
+    Args:
+        symbol: Symbol to load (e.g., "BTCUSDT")
+        hours: Number of hours to look back
+        
+    Returns:
+        Tuple of (timestamps, prices, ma5_values)
+    """
+    try:
+        from config.paths import LOGS_DIR
+        import json
+        from datetime import datetime, timedelta
+        
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
+            return [], [], []
+        
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        
+        timestamps = []
+        prices = []
+        ma5_values = []
+        
+        with open(snapshot_file, 'r') as f:
+            for line in f:
+                try:
+                    record = json.loads(line.strip())
+                    if record.get("symbol") != symbol:
+                        continue
+                    
+                    ts_str = record.get("timestamp", "")
+                    if not ts_str:
+                        continue
+                    
+                    ts = datetime.fromisoformat(ts_str)
+                    if ts < cutoff_time:
+                        continue
+                    
+                    price = record.get("price")
+                    ma5 = record.get("ma5")
+                    
+                    if price is not None:
+                        timestamps.append(ts.strftime("%H:%M"))
+                        prices.append(price)
+                        ma5_values.append(ma5 if ma5 is not None else price)
+                        
+                except Exception:
+                    continue
+        
+        return timestamps, prices, ma5_values
+        
+    except Exception:
+        return [], [], []
+
+
+@callback(
+    Output("btc-price-chart", "figure"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_btc_price_chart(n):
+    """Update BTC price history chart / 更新 BTC 價格歷史圖表"""
+    try:
+        import plotly.graph_objects as go
+        
+        timestamps, prices, ma5 = _load_price_history("BTCUSDT", hours=24)
+        
+        if not timestamps:
+            # Return empty chart with message
+            return {
+                'data': [],
+                'layout': {
+                    'title': 'No data yet / 暫無資料',
+                    'xaxis': {'visible': False},
+                    'yaxis': {'visible': False},
+                    'paper_bgcolor': 'rgba(0,0,0,0)',
+                    'plot_bgcolor': 'rgba(0,0,0,0)'
+                }
+            }
+        
+        fig = go.Figure()
+        
+        # Price line
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=prices,
+            mode='lines',
+            name='Price / 價格',
+            line=dict(color='#2ecc71', width=2),
+            hovertemplate='%{y:,.2f}<extra></extra>'
+        ))
+        
+        # MA5 line
+        if ma5 and any(m != p for m, p in zip(ma5, prices)):
+            fig.add_trace(go.Scatter(
+                x=timestamps,
+                y=ma5,
+                mode='lines',
+                name='MA5',
+                line=dict(color='#3498db', width=1, dash='dash'),
+                hovertemplate='%{y:,.2f}<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            margin=dict(l=40, r=20, t=20, b=40),
+            xaxis=dict(
+                title='Time / 時間',
+                showgrid=True,
+                gridcolor='rgba(128,128,128,0.1)'
+            ),
+            yaxis=dict(
+                title='Price (USDT)',
+                showgrid=True,
+                gridcolor='rgba(128,128,128,0.1)',
+                tickformat=',.0f'
+            ),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1
+            ),
+            hovermode='x unified'
+        )
+        
+        return fig
+        
+    except Exception as e:
+        return {
+            'data': [],
+            'layout': {
+                'title': f'Error: {str(e)[:50]}',
+                'xaxis': {'visible': False},
+                'yaxis': {'visible': False}
+            }
+        }
+
+
+@callback(
+    Output("eth-price-chart", "figure"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_eth_price_chart(n):
+    """Update ETH price history chart / 更新 ETH 價格歷史圖表"""
+    try:
+        import plotly.graph_objects as go
+        
+        timestamps, prices, ma5 = _load_price_history("ETHUSDT", hours=24)
+        
+        if not timestamps:
+            return {
+                'data': [],
+                'layout': {
+                    'title': 'No data yet / 暫無資料',
+                    'xaxis': {'visible': False},
+                    'yaxis': {'visible': False},
+                    'paper_bgcolor': 'rgba(0,0,0,0)',
+                    'plot_bgcolor': 'rgba(0,0,0,0)'
+                }
+            }
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=prices,
+            mode='lines',
+            name='Price / 價格',
+            line=dict(color='#9b59b6', width=2),
+            hovertemplate='%{y:,.2f}<extra></extra>'
+        ))
+        
+        if ma5 and any(m != p for m, p in zip(ma5, prices)):
+            fig.add_trace(go.Scatter(
+                x=timestamps,
+                y=ma5,
+                mode='lines',
+                name='MA5',
+                line=dict(color='#3498db', width=1, dash='dash'),
+                hovertemplate='%{y:,.2f}<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            margin=dict(l=40, r=20, t=20, b=40),
+            xaxis=dict(
+                title='Time / 時間',
+                showgrid=True,
+                gridcolor='rgba(128,128,128,0.1)'
+            ),
+            yaxis=dict(
+                title='Price (USDT)',
+                showgrid=True,
+                gridcolor='rgba(128,128,128,0.1)',
+                tickformat=',.2f'
+            ),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1
+            ),
+            hovermode='x unified'
+        )
+        
+        return fig
+        
+    except Exception as e:
+        return {
+            'data': [],
+            'layout': {
+                'title': f'Error: {str(e)[:50]}',
+                'xaxis': {'visible': False},
+                'yaxis': {'visible': False}
+            }
+        }

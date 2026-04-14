@@ -305,7 +305,7 @@ def update_signals_page(n_intervals, n_clicks):
         # Get recent runs
         runs = get_recent_runs(10)
         
-        # Build run history with clickable rows
+        # Build run history with clickable rows and prices
         if runs:
             run_items = []
             for run in runs:
@@ -314,6 +314,22 @@ def update_signals_page(n_intervals, n_clicks):
                 signals = run.get("signals", 0)
                 confirmed_count = run.get("confirmed", 0)
                 watch_count = run.get("watch_only", 0)
+                symbols_checked = run.get("symbols_checked", ["BTCUSDT", "ETHUSDT"])
+                
+                # T-054-C: Get prices for this run / 取得此執行的價格
+                prices = run.get("prices", {})
+                price_display = []
+                
+                if prices:
+                    for symbol in symbols_checked:
+                        price = prices.get(symbol)
+                        if price:
+                            price_display.append(
+                                html.Span(
+                                    f"{symbol.replace('USDT', '')}: ${price:,.0f}",
+                                    className="me-2 small"
+                                )
+                            )
                 
                 # Format signal display
                 if signals > 0:
@@ -332,19 +348,29 @@ def update_signals_page(n_intervals, n_clicks):
                                     [
                                         dbc.Col(
                                             html.Strong(f"#{run_id}"),
-                                            width=2
+                                            width=2,
+                                            md=1
                                         ),
                                         dbc.Col(
                                             timestamp,
-                                            width=5
+                                            width=4,
+                                            md=3
+                                        ),
+                                        # T-054-C: Price display column / 價格顯示欄
+                                        dbc.Col(
+                                            html.Div(price_display) if price_display else html.Small("Prices N/A", className="text-muted"),
+                                            width=6,
+                                            md=4
                                         ),
                                         dbc.Col(
                                             dbc.Badge(signal_text, color=badge_color),
-                                            width=3
+                                            width=3,
+                                            md=2
                                         ),
                                         dbc.Col(
-                                            html.Small("Click for details / 點擊查看", className="text-muted"),
-                                            width=2,
+                                            html.Small("Click / 點擊", className="text-muted"),
+                                            width=3,
+                                            md=2,
                                             className="text-end"
                                         ),
                                     ],
@@ -357,6 +383,9 @@ def update_signals_page(n_intervals, n_clicks):
                     id={"type": "run-row", "index": run_id},
                     className="mb-2 hover-shadow",
                     style={"cursor": "pointer"}
+                )
+                
+                run_items.append(run_card)
                 )
                 run_items.append(run_card)
             
