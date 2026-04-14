@@ -64,6 +64,7 @@ navbar = dbc.Navbar(
                 [
                     dbc.NavItem(dbc.NavLink("Dashboard", href="/")),
                     dbc.NavItem(dbc.NavLink("Signals", href="/signals")),
+                    dbc.NavItem(dbc.NavLink("Backtest", href="/backtest")),
                     dbc.NavItem(dbc.NavLink("Parameters", href="/parameters")),
                     dbc.NavItem(dbc.NavLink("Strategies", href="/strategies")),
                     dbc.NavItem(dbc.NavLink("Actions", href="/actions")),
