@@ -1078,7 +1078,7 @@
       "task_id": "T-051",
       "title": "Display Live Prices on UI Dashboard",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "讓 UI Dashboard 即時顯示 BTC/ETH 當前價格，每次 scheduler run 後自動更新價格卡片",
@@ -1087,7 +1087,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-050"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T19:00:00+08:00"
+      "last_updated": "2026-04-14T19:21:00+08:00",
+      "completed_at": "2026-04-14T19:21:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
