@@ -1061,7 +1061,7 @@
       "task_id": "T-050",
       "title": "Add Current Price Display to Signal Checks",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "enhancement",
       "goal": "修改監測系統，讓每次檢查訊號時都能顯示 BTC/ETH 當前價格，方便即時追蹤市場狀態",
@@ -1070,7 +1070,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-049"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T18:41:00+08:00"
+      "last_updated": "2026-04-14T18:55:00+08:00",
+      "completed_at": "2026-04-14T18:55:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
