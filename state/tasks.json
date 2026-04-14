@@ -1029,7 +1029,7 @@
       "task_id": "T-048",
       "title": "Analyze ETH and BTC Correlation",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "analysis",
       "goal": "分析 ETH 和 BTC 的相關性，包括價格走勢、波動率、以及短期內的投資價值評估",
@@ -1038,8 +1038,39 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-047"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-12T17:15:00+08:00",
-      "deadline": "2026-04-12T19:15:00+08:00"
+      "last_updated": "2026-04-12T17:25:00+08:00",
+      "completed_at": "2026-04-12T17:25:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-049",
+      "title": "Add UI Health Timestamp",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "patch",
+      "goal": "在 Dashboard 最上方加入「最後更新時間」與「系統運行時間」顯示，若超過 10 分鐘無更新則標示紅色警示，讓停機問題能即時被發現",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 已顯示健康時間戳與超時警示，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-047"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-13T20:08:00+08:00"
+    },
+    {
+      "task_id": "T-050",
+      "title": "Add Current Price Display to Signal Checks",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "enhancement",
+      "goal": "修改監測系統，讓每次檢查訊號時都能顯示 BTC/ETH 當前價格，方便即時追蹤市場狀態",
+      "output_file": "signals/engine.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次 run 都顯示當前價格，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-049"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T18:41:00+08:00"
     }
   ]
 }
