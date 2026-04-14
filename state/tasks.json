@@ -1158,6 +1158,66 @@
       "last_updated": "2026-04-14T21:31:00+08:00",
       "completed_at": "2026-04-14T21:31:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-053-A",
+      "title": "Establish Backtest Data Storage Structure",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "建立回測數據儲存結構，創建 backtest/ 目錄與 backtest_results.jsonl，定義回測結果欄位格式",
+      "output_file": "backtest/README.md, backtest/__init__.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 backtest 目錄結構正確並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-052-D"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T23:05:00+08:00"
+    },
+    {
+      "task_id": "T-053-B",
+      "title": "Implement Backtest Execution Engine",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "實現回測執行引擎 backtest_runner.py，支援指定日期範圍執行策略回測，計算勝率、報酬率、最大回撤等指標",
+      "output_file": "backtest/runner.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認回測引擎可正常執行並產出結果到 backtest_results.jsonl",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-053-A"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T23:05:00+08:00"
+    },
+    {
+      "task_id": "T-053-C",
+      "title": "Dashboard Backtest Results Visualization",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "修改 ui/pages/dashboard.py，新增回測結果視覺化區塊，顯示勝率、累積報酬、最大回撤圖表",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 正確顯示回測視覺化圖表",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-053-B"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T23:05:00+08:00"
+    },
+    {
+      "task_id": "T-053-D",
+      "title": "Backtest Report Page",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "新增 ui/pages/backtest.py 回測報告頁面，顯示詳細回測結果、每筆交易記錄、權益曲線",
+      "output_file": "ui/pages/backtest.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認回測報告頁面可正常瀏覽所有詳細資料",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-053-C"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T23:05:00+08:00"
     }
   ]
 }
