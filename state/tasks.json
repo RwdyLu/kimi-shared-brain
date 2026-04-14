@@ -1061,7 +1061,7 @@
       "task_id": "T-050",
       "title": "Add Current Price Display to Signal Checks",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "enhancement",
       "goal": "修改監測系統，讓每次檢查訊號時都能顯示 BTC/ETH 當前價格，方便即時追蹤市場狀態",
@@ -1070,7 +1070,24 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-049"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T18:41:00+08:00"
+      "last_updated": "2026-04-14T18:55:00+08:00",
+      "completed_at": "2026-04-14T18:55:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-051",
+      "title": "Display Live Prices on UI Dashboard",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "讓 UI Dashboard 即時顯示 BTC/ETH 當前價格，每次 scheduler run 後自動更新價格卡片",
+      "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 顯示即時價格卡片，並更新 state/tasks.json 為 completed",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-050"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-14T19:00:00+08:00"
     }
   ]
 }
