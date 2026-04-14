@@ -1129,7 +1129,7 @@
       "task_id": "T-052-C",
       "title": "Add Strategy Distance Panel to Dashboard",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "修改 ui/pages/dashboard.py，在 Recent Run History 上方新增 Strategy Distance 區塊，顯示現價、MA 距離進度條、策略觸發條件說明、最近訊號，資料來源為 indicator_snapshots.jsonl",
@@ -1138,7 +1138,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-052-A"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-14T19:51:00+08:00"
+      "last_updated": "2026-04-14T21:23:00+08:00",
+      "completed_at": "2026-04-14T21:23:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-052-D",
