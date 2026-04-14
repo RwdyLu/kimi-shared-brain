@@ -39,6 +39,80 @@ layout = dbc.Container(
         
         html.Hr(),
         
+        # Live Prices Section (Moved to top) / 即時價格區塊 (移到頂部)
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H4("Live Prices / 即時價格", className="mb-3"),
+                        dbc.Row(
+                            [
+                                # BTC Price Card / BTC 價格卡片
+                                dbc.Col(
+                                    dbc.Card(
+                                        [
+                                            dbc.CardBody(
+                                                [
+                                                    html.H5("Bitcoin", className="card-title text-muted"),
+                                                    html.H2(
+                                                        id="btc-price-display", 
+                                                        children="--",
+                                                        className="text-success fw-bold"
+                                                    ),
+                                                    html.Small(
+                                                        id="btc-price-time",
+                                                        children="Waiting for data...",
+                                                        className="text-muted"
+                                                    )
+                                                ]
+                                            )
+                                        ],
+                                        color="light",
+                                        outline=True,
+                                        className="h-100 border-success"
+                                    ),
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                                
+                                # ETH Price Card / ETH 價格卡片
+                                dbc.Col(
+                                    dbc.Card(
+                                        [
+                                            dbc.CardBody(
+                                                [
+                                                    html.H5("Ethereum", className="card-title text-muted"),
+                                                    html.H2(
+                                                        id="eth-price-display", 
+                                                        children="--",
+                                                        className="text-success fw-bold"
+                                                    ),
+                                                    html.Small(
+                                                        id="eth-price-time",
+                                                        children="Waiting for data...",
+                                                        className="text-muted"
+                                                    )
+                                                ]
+                                            )
+                                        ],
+                                        color="light",
+                                        outline=True,
+                                        className="h-100 border-success"
+                                    ),
+                                    width=12,
+                                    md=6,
+                                    className="mb-3"
+                                ),
+                            ]
+                        )
+                    ],
+                    width=12,
+                    className="mb-4"
+                )
+            ]
+        ),
+        
         # Status cards / 狀態卡片
         dbc.Row(
             [
@@ -102,32 +176,6 @@ layout = dbc.Container(
                         ],
                         id="dashboard-signals-card",
                         color="warning",
-                        outline=True
-                    ),
-                    width=12,
-                    md=6,
-                    lg=4,
-                    className="mb-3"
-                ),
-                
-                # Current Prices Card / 當前價格卡片 (T-051)
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardHeader([
-                                "Live Prices / 即時價格",
-                                html.Small(" 💰From Last Run", className="text-muted ms-2")
-                            ]),
-                            dbc.CardBody(
-                                [
-                                    html.Div(id="dashboard-prices", children=[
-                                        html.P("Loading prices...", className="text-muted")
-                                    ])
-                                ]
-                            )
-                        ],
-                        id="dashboard-prices-card",
-                        color="success",
                         outline=True
                     ),
                     width=12,
@@ -243,7 +291,7 @@ layout = dbc.Container(
         # Auto-refresh interval / 自動刷新間隔
         dcc.Interval(
             id="dashboard-interval",
-            interval=10*1000,  # 10 seconds / 10 秒
+            interval=15*1000,  # 15 seconds / 15 秒 (T-052-A)
             n_intervals=0
         ),
         
@@ -363,55 +411,77 @@ def update_signals_count(n):
         return "--", str(e), "secondary"
 
 
+# T-052-A: New BTC/ETH price callbacks / 新的 BTC/ETH 價格回調
 @callback(
-    Output("dashboard-prices", "children"),
-    Output("dashboard-prices-card", "color"),
+    Output("btc-price-display", "children"),
+    Output("btc-price-time", "children"),
     Input("dashboard-interval", "n_intervals")
 )
-def update_prices(n):
-    """Update current prices display / 更新當前價格顯示"""
+def update_btc_price(n):
+    """Update BTC price display / 更新 BTC 價格顯示"""
     try:
         prices_data = get_current_prices()
         
         if not prices_data or not prices_data.get("prices"):
-            return html.P("No price data available / 無價格資料", className="text-muted"), "secondary"
+            return "--", "No data / 無資料"
         
         prices = prices_data.get("prices", {})
         
-        # Build price display / 建立價格顯示
-        price_items = []
-        for symbol in ["BTCUSDT", "ETHUSDT"]:
-            if symbol in prices:
-                price = prices[symbol].get("price", 0)
-                # Format based on symbol
-                if symbol == "BTCUSDT":
-                    price_text = f"${price:,.2f}"
-                else:  # ETHUSDT
-                    price_text = f"${price:,.2f}"
-                
-                price_items.append(
-                    html.Div([
-                        html.Strong(symbol.replace("USDT", "") + ": ", className="me-2"),
-                        html.Span(price_text, className="text-success fs-5")
-                    ], className="mb-2")
-                )
-        
-        # Add timestamp / 添加時間戳
-        timestamp = prices_data.get("timestamp", "")
-        if timestamp:
-            try:
-                from datetime import datetime
-                dt = datetime.fromisoformat(timestamp)
-                time_str = dt.strftime("%H:%M:%S")
-                price_items.append(
-                    html.Small(f"Updated: {time_str}", className="text-muted d-block mt-2")
-                )
-            except:
-                pass
-        
-        return html.Div(price_items), "success"
+        if "BTCUSDT" in prices:
+            price = prices["BTCUSDT"].get("price", 0)
+            price_text = f"${price:,.2f}"
+            
+            # Format timestamp
+            timestamp = prices_data.get("timestamp", "")
+            time_text = ""
+            if timestamp:
+                try:
+                    dt = datetime.fromisoformat(timestamp)
+                    time_text = f"Updated {dt.strftime('%H:%M:%S')}"
+                except:
+                    time_text = "Updated recently"
+            
+            return price_text, time_text
+        else:
+            return "--", "No BTC data"
     except Exception as e:
-        return html.P(f"Error loading prices: {e}", className="text-danger"), "danger"
+        return "Error", str(e)
+
+
+@callback(
+    Output("eth-price-display", "children"),
+    Output("eth-price-time", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_eth_price(n):
+    """Update ETH price display / 更新 ETH 價格顯示"""
+    try:
+        prices_data = get_current_prices()
+        
+        if not prices_data or not prices_data.get("prices"):
+            return "--", "No data / 無資料"
+        
+        prices = prices_data.get("prices", {})
+        
+        if "ETHUSDT" in prices:
+            price = prices["ETHUSDT"].get("price", 0)
+            price_text = f"${price:,.2f}"
+            
+            # Format timestamp
+            timestamp = prices_data.get("timestamp", "")
+            time_text = ""
+            if timestamp:
+                try:
+                    dt = datetime.fromisoformat(timestamp)
+                    time_text = f"Updated {dt.strftime('%H:%M:%S')}"
+                except:
+                    time_text = "Updated recently"
+            
+            return price_text, time_text
+        else:
+            return "--", "No ETH data"
+    except Exception as e:
+        return "Error", str(e)
 
 
 @callback(
