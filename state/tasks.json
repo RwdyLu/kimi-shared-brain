@@ -1333,7 +1333,7 @@
       "task_id": "T-059-A",
       "title": "Increase Price Update Frequency to 10s",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "提高價格更新頻率至 10 秒，直接從 Binance API 取得即時價格而非等待 monitor 5 分鐘快照",
@@ -1342,13 +1342,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-058"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-15T19:30:00+08:00"
+      "last_updated": "2026-04-15T19:30:00+08:00",
+      "completed_at": "2026-04-15T20:40:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-059-B",
       "title": "Dashboard Strategy Status Panel",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "改版 Strategy Distance 區塊，顯示 BTC/ETH 各策略狀態、觸發距離、顏色標示",
@@ -1357,7 +1359,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-058"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-15T19:30:00+08:00"
+      "last_updated": "2026-04-15T19:30:00+08:00",
+      "completed_at": "2026-04-15T20:40:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
