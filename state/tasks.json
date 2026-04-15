@@ -1316,7 +1316,7 @@
       "task_id": "T-058",
       "title": "Add Relative Time to Dashboard Live Prices",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "enhancement",
       "goal": "修改 Dashboard Live Prices 區塊，在時間戳後方顯示相對時間（例如 Updated 17:39:39 · 32s ago）",
@@ -1325,7 +1325,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-057"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-15T17:48:00+08:00"
+      "last_updated": "2026-04-15T17:48:00+08:00",
+      "completed_at": "2026-04-15T17:58:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
