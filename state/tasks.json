@@ -1328,6 +1328,36 @@
       "last_updated": "2026-04-15T17:48:00+08:00",
       "completed_at": "2026-04-15T17:58:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-059-A",
+      "title": "Increase Price Update Frequency to 10s",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "提高價格更新頻率至 10 秒，直接從 Binance API 取得即時價格而非等待 monitor 5 分鐘快照",
+      "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
+      "success_condition": "價格每 10 秒更新一次，從 Binance API 直接取得 BTC/ETH 即時價格",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-058"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-15T19:30:00+08:00"
+    },
+    {
+      "task_id": "T-059-B",
+      "title": "Dashboard Strategy Status Panel",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "改版 Strategy Distance 區塊，顯示 BTC/ETH 各策略狀態、觸發距離、顏色標示",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "每個策略有顏色標示（綠/黃/紅）和距離觸發的百分比",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-058"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-15T19:30:00+08:00"
     }
   ]
 }
