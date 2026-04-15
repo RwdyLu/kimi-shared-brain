@@ -685,8 +685,8 @@ def get_full_status() -> Dict[str, Any]:
 
 def get_current_prices() -> Dict[str, Any]:
     """
-    Get current prices from indicator_snapshots.jsonl
-    從指標快照檔案取得當前價格 (T-056 fix)
+    Get current prices from Binance API (real-time)
+    從 Binance API 取得即時價格 (T-059-A)
     
     Returns:
         Dict with prices data:
@@ -700,6 +700,60 @@ def get_current_prices() -> Dict[str, Any]:
         or empty dict if no prices available
     """
     try:
+        import urllib.request
+        import json
+        from datetime import datetime
+        
+        prices = {}
+        timestamp = datetime.now().isoformat()
+        
+        # Fetch BTC price
+        try:
+            btc_url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+            with urllib.request.urlopen(btc_url, timeout=5) as response:
+                btc_data = json.loads(response.read().decode())
+                if btc_data and "price" in btc_data:
+                    prices["BTCUSDT"] = {
+                        "price": float(btc_data["price"]),
+                        "timestamp": timestamp
+                    }
+        except Exception as e:
+            print(f"Error fetching BTC price: {e}")
+        
+        # Fetch ETH price
+        try:
+            eth_url = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT"
+            with urllib.request.urlopen(eth_url, timeout=5) as response:
+                eth_data = json.loads(response.read().decode())
+                if eth_data and "price" in eth_data:
+                    prices["ETHUSDT"] = {
+                        "price": float(eth_data["price"]),
+                        "timestamp": timestamp
+                    }
+        except Exception as e:
+            print(f"Error fetching ETH price: {e}")
+        
+        if not prices:
+            # Fallback to snapshot if API fails
+            return _get_prices_from_snapshot()
+        
+        return {
+            "timestamp": timestamp,
+            "prices": prices
+        }
+        
+    except Exception as e:
+        print(f"Error fetching prices from API: {e}")
+        # Fallback to snapshot
+        return _get_prices_from_snapshot()
+
+
+def _get_prices_from_snapshot() -> Dict[str, Any]:
+    """
+    Fallback: Get prices from indicator_snapshots.jsonl
+    備援：從指標快照檔案取得價格
+    """
+    try:
         from config.paths import LOGS_DIR
         import json
         from datetime import datetime
@@ -708,7 +762,6 @@ def get_current_prices() -> Dict[str, Any]:
         if not snapshot_file.exists():
             return {}
         
-        # Read all records and find latest for each symbol
         latest_prices = {}
         latest_timestamp = None
         
@@ -723,17 +776,14 @@ def get_current_prices() -> Dict[str, Any]:
                     if not symbol or price is None or not ts_str:
                         continue
                     
-                    # Parse timestamp for comparison
                     try:
                         ts = datetime.fromisoformat(ts_str)
                     except:
                         continue
                     
-                    # Keep track of overall latest timestamp
                     if latest_timestamp is None or ts > latest_timestamp:
                         latest_timestamp = ts
                     
-                    # Update if this is the latest for this symbol
                     if symbol not in latest_prices:
                         latest_prices[symbol] = {"price": price, "timestamp": ts_str}
                     else:
@@ -750,13 +800,10 @@ def get_current_prices() -> Dict[str, Any]:
         if not latest_prices:
             return {}
         
-        # Format result
-        result = {
+        return {
             "timestamp": latest_timestamp.isoformat() if latest_timestamp else "",
             "prices": latest_prices
         }
-        
-        return result
         
     except Exception as e:
         print(f"Error reading prices from snapshots: {e}")

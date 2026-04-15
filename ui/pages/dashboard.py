@@ -217,40 +217,56 @@ layout = dbc.Container(
                                className="text-muted small mb-2"),
                         dbc.Row(
                             [
-                                # BTC Strategy Distance Card
+                                # BTC Strategy Status Card (T-059-B)
                                 dbc.Col(
                                     dbc.Card(
                                         [
                                             dbc.CardHeader([
-                                                html.Strong("BTC Strategy Distance / BTC 策略距離"),
+                                                html.Strong("BTC / 策略狀態"),
                                             ]),
                                             dbc.CardBody(
                                                 [
-                                                    # Price Section
-                                                    html.H5("Current Price / 現價", className="text-muted mb-2"),
-                                                    html.H3(id="btc-strategy-price", children="--", className="text-success mb-3"),
+                                                    # Price Header
+                                                    html.Div([
+                                                        html.Span(id="btc-strategy-price", children="--", className="h3 text-success"),
+                                                        html.Span(id="btc-price-change", children="", className="ms-2 small"),
+                                                    ], className="mb-3"),
                                                     html.Hr(),
                                                     
-                                                    # MA Distance Section
-                                                    html.H6("MA Distance / MA 距離", className="text-muted mb-2"),
-                                                    html.Div(id="btc-ma5-distance", children="--", className="mb-1"),
-                                                    html.Div(id="btc-ma20-distance", children="--", className="mb-1"),
-                                                    html.Div(id="btc-ma240-distance", children="--", className="mb-3"),
-                                                    html.Hr(),
+                                                    # Strategy Status List
+                                                    html.H6("策略狀態", className="text-muted mb-2"),
                                                     
-                                                    # Strategy Conditions
-                                                    html.H6("Trigger Conditions / 觸發條件", className="text-muted mb-2"),
-                                                    html.Small([
-                                                        html.Div("• Trend Long: MA5 cross above MA20 + volume", className="text-muted"),
-                                                        html.Div("• Trend Short: MA5 cross below MA20", className="text-muted"),
-                                                        html.Div("• Contrarian Oversold: 4 red candles + low volume", className="text-muted"),
-                                                        html.Div("• Contrarian Overbought: 4 green candles + high volume", className="text-muted"),
-                                                    ], className="d-block mb-3"),
-                                                    html.Hr(),
+                                                    # MA Cross Long
+                                                    html.Div([
+                                                        html.Span(id="btc-long-status", children="🔴", className="me-2"),
+                                                        html.Strong("MA Cross Long", className="me-2"),
+                                                        html.Span(id="btc-long-distance", children="--", className="small"),
+                                                        html.Div(id="btc-long-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
                                                     
-                                                    # Recent Signal
-                                                    html.H6("Recent Signal / 最近訊號", className="text-muted mb-2"),
-                                                    html.Div(id="btc-recent-signal", children="No recent signals / 無近期訊號"),
+                                                    # MA Cross Short
+                                                    html.Div([
+                                                        html.Span(id="btc-short-status", children="🔴", className="me-2"),
+                                                        html.Strong("MA Cross Short", className="me-2"),
+                                                        html.Span(id="btc-short-distance", children="--", className="small"),
+                                                        html.Div(id="btc-short-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
+                                                    
+                                                    # Contrarian Oversold
+                                                    html.Div([
+                                                        html.Span(id="btc-oversold-status", children="🔴", className="me-2"),
+                                                        html.Strong("Contrarian Oversold", className="me-2"),
+                                                        html.Span(id="btc-oversold-distance", children="--", className="small"),
+                                                        html.Div(id="btc-oversold-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
+                                                    
+                                                    # Contrarian Overbought
+                                                    html.Div([
+                                                        html.Span(id="btc-overbought-status", children="🔴", className="me-2"),
+                                                        html.Strong("Contrarian Overbought", className="me-2"),
+                                                        html.Span(id="btc-overbought-distance", children="--", className="small"),
+                                                        html.Div(id="btc-overbought-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
                                                 ]
                                             )
                                         ],
@@ -261,40 +277,56 @@ layout = dbc.Container(
                                     className="mb-3"
                                 ),
                                 
-                                # ETH Strategy Distance Card
+                                # ETH Strategy Status Card (T-059-B)
                                 dbc.Col(
                                     dbc.Card(
                                         [
                                             dbc.CardHeader([
-                                                html.Strong("ETH Strategy Distance / ETH 策略距離"),
+                                                html.Strong("ETH / 策略狀態"),
                                             ]),
                                             dbc.CardBody(
                                                 [
-                                                    # Price Section
-                                                    html.H5("Current Price / 現價", className="text-muted mb-2"),
-                                                    html.H3(id="eth-strategy-price", children="--", className="text-success mb-3"),
+                                                    # Price Header
+                                                    html.Div([
+                                                        html.Span(id="eth-strategy-price", children="--", className="h3 text-success"),
+                                                        html.Span(id="eth-price-change", children="", className="ms-2 small"),
+                                                    ], className="mb-3"),
                                                     html.Hr(),
                                                     
-                                                    # MA Distance Section
-                                                    html.H6("MA Distance / MA 距離", className="text-muted mb-2"),
-                                                    html.Div(id="eth-ma5-distance", children="--", className="mb-1"),
-                                                    html.Div(id="eth-ma20-distance", children="--", className="mb-1"),
-                                                    html.Div(id="eth-ma240-distance", children="--", className="mb-3"),
-                                                    html.Hr(),
+                                                    # Strategy Status List
+                                                    html.H6("策略狀態", className="text-muted mb-2"),
                                                     
-                                                    # Strategy Conditions
-                                                    html.H6("Trigger Conditions / 觸發條件", className="text-muted mb-2"),
-                                                    html.Small([
-                                                        html.Div("• Trend Long: MA5 cross above MA20 + volume", className="text-muted"),
-                                                        html.Div("• Trend Short: MA5 cross below MA20", className="text-muted"),
-                                                        html.Div("• Contrarian Oversold: 4 red candles + low volume", className="text-muted"),
-                                                        html.Div("• Contrarian Overbought: 4 green candles + high volume", className="text-muted"),
-                                                    ], className="d-block mb-3"),
-                                                    html.Hr(),
+                                                    # MA Cross Long
+                                                    html.Div([
+                                                        html.Span(id="eth-long-status", children="🔴", className="me-2"),
+                                                        html.Strong("MA Cross Long", className="me-2"),
+                                                        html.Span(id="eth-long-distance", children="--", className="small"),
+                                                        html.Div(id="eth-long-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
                                                     
-                                                    # Recent Signal
-                                                    html.H6("Recent Signal / 最近訊號", className="text-muted mb-2"),
-                                                    html.Div(id="eth-recent-signal", children="No recent signals / 無近期訊號"),
+                                                    # MA Cross Short
+                                                    html.Div([
+                                                        html.Span(id="eth-short-status", children="🔴", className="me-2"),
+                                                        html.Strong("MA Cross Short", className="me-2"),
+                                                        html.Span(id="eth-short-distance", children="--", className="small"),
+                                                        html.Div(id="eth-short-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
+                                                    
+                                                    # Contrarian Oversold
+                                                    html.Div([
+                                                        html.Span(id="eth-oversold-status", children="🔴", className="me-2"),
+                                                        html.Strong("Contrarian Oversold", className="me-2"),
+                                                        html.Span(id="eth-oversold-distance", children="--", className="small"),
+                                                        html.Div(id="eth-oversold-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
+                                                    
+                                                    # Contrarian Overbought
+                                                    html.Div([
+                                                        html.Span(id="eth-overbought-status", children="🔴", className="me-2"),
+                                                        html.Strong("Contrarian Overbought", className="me-2"),
+                                                        html.Span(id="eth-overbought-distance", children="--", className="small"),
+                                                        html.Div(id="eth-overbought-detail", children="--", className="small text-muted ms-4"),
+                                                    ], className="mb-2"),
                                                 ]
                                             )
                                         ],
@@ -397,7 +429,7 @@ layout = dbc.Container(
         # Auto-refresh interval / 自動刷新間隔
         dcc.Interval(
             id="dashboard-interval",
-            interval=15*1000,  # 15 seconds / 15 秒 (T-052-A)
+            interval=10*1000,  # 10 seconds / 10 秒 (T-059-A)
             n_intervals=0
         ),
         
@@ -931,128 +963,204 @@ def _format_ma_distance(value: float) -> tuple:
 
 @callback(
     Output("btc-strategy-price", "children"),
-    Output("btc-ma5-distance", "children"),
-    Output("btc-ma20-distance", "children"),
-    Output("btc-ma240-distance", "children"),
-    Output("btc-recent-signal", "children"),
+    Output("btc-price-change", "children"),
+    Output("btc-long-status", "children"),
+    Output("btc-long-distance", "children"),
+    Output("btc-long-detail", "children"),
+    Output("btc-short-status", "children"),
+    Output("btc-short-distance", "children"),
+    Output("btc-short-detail", "children"),
+    Output("btc-oversold-status", "children"),
+    Output("btc-oversold-distance", "children"),
+    Output("btc-oversold-detail", "children"),
+    Output("btc-overbought-status", "children"),
+    Output("btc-overbought-distance", "children"),
+    Output("btc-overbought-detail", "children"),
     Input("dashboard-interval", "n_intervals")
 )
-def update_btc_strategy_distance(n):
-    """Update BTC strategy distance display / 更新 BTC 策略距離顯示"""
+def update_btc_strategy_status(n):
+    """Update BTC strategy status display / 更新 BTC 策略狀態顯示 (T-059-B)"""
     try:
-        from ui.services.monitor_service import get_latest_indicator_snapshots
+        from ui.services.monitor_service import get_latest_indicator_snapshots, get_last_run_info
         
         snapshots = get_latest_indicator_snapshots()
+        last_run = get_last_run_info()
         
         if not snapshots or "BTCUSDT" not in snapshots:
-            return "--", "--", "--", "--", "Data unavailable / 資料不可用"
+            return (["--"] + ["--"] * 12)
         
         data = snapshots["BTCUSDT"]
         
         # Price
-        price = data.get("price")
+        price = data.get("price", 0)
         price_text = f"${price:,.2f}" if price else "--"
         
-        # MA Distances
-        ma5_pct = data.get("price_vs_ma5_pct")
-        ma5_text, ma5_color = _format_ma_distance(ma5_pct)
-        ma5_display = html.Span([
-            "MA5: ",
-            html.Span(ma5_text, className=f"text-{ma5_color}")
-        ])
+        # 24h change (placeholder - would need historical data)
+        change_text = ""
         
-        ma20_pct = data.get("price_vs_ma20_pct")
-        ma20_text, ma20_color = _format_ma_distance(ma20_pct)
-        ma20_display = html.Span([
-            "MA20: ",
-            html.Span(ma20_text, className=f"text-{ma20_color}")
-        ])
+        # MA values
+        ma5 = data.get("ma5", 0)
+        ma20 = data.get("ma20", 0)
         
-        ma240_pct = data.get("price_vs_ma240_pct")
-        ma240_text, ma240_color = _format_ma_distance(ma240_pct)
-        ma240_display = html.Span([
-            "MA240: ",
-            html.Span(ma240_text, className=f"text-{ma240_color}")
-        ])
+        # Calculate MA distances
+        long_distance = ((ma20 - price) / price * 100) if price and ma20 else None
+        short_distance = ((price - ma20) / price * 100) if price and ma20 else None
+        ma5_vs_ma20 = ((ma5 - ma20) / ma20 * 100) if ma5 and ma20 else None
         
-        # Recent signal
-        signal_types = data.get("signal_types", [])
-        signal_count = data.get("signals_count", 0)
-        if signal_count > 0 and signal_types:
-            recent_signal = html.Div([
-                html.Span(f"{signal_count} signal(s) / {signal_count} 個訊號", className="text-warning"),
-                html.Div([html.Small(f"• {s}") for s in signal_types], className="text-muted")
-            ])
-        else:
-            recent_signal = "No signals / 無訊號"
+        # Color coding: 🟢 triggered, 🟡 <0.5%, 🔴 >=0.5%
+        def get_status_color(distance, triggered):
+            if triggered:
+                return "🟢"
+            elif distance is None:
+                return "⚪"
+            elif abs(distance) < 0.5:
+                return "🟡"
+            else:
+                return "🔴"
         
-        return price_text, ma5_display, ma20_display, ma240_display, recent_signal
+        # MA Cross Long
+        long_triggered = data.get("ma_cross_long", False)
+        long_color = get_status_color(long_distance, long_triggered)
+        long_dist_text = f"{abs(long_distance):.2f}%" if long_distance else "--"
+        long_detail = f"MA5 ${ma5:,.0f} 需上穿 MA20 ${ma20:,.0f}" if ma5 and ma20 else "--"
+        
+        # MA Cross Short
+        short_triggered = data.get("ma_cross_short", False)
+        short_color = get_status_color(short_distance, short_triggered)
+        short_dist_text = f"{abs(short_distance):.2f}%" if short_distance else "--"
+        short_detail = f"MA5 ${ma5:,.0f} 需下穿 MA20 ${ma20:,.0f}" if ma5 and ma20 else "--"
+        
+        # Contrarian strategies - get candle counts from last run
+        run_data = last_run.get("data", {}) if last_run else {}
+        symbol_data = run_data.get("BTCUSDT", {}) if isinstance(run_data, dict) else {}
+        
+        # Red candles (for oversold)
+        red_candles = symbol_data.get("red_candles", 0) if isinstance(symbol_data, dict) else 0
+        oversold_triggered = red_candles >= 4
+        oversold_distance = max(0, 4 - red_candles)
+        oversold_color = "🟢" if oversold_triggered else ("🟡" if oversold_distance <= 1 else "🔴")
+        oversold_dist_text = f"差 {oversold_distance} 根" if not oversold_triggered else "已觸發"
+        oversold_detail = f"連續 {red_candles}/4 根紅 K"
+        
+        # Green candles (for overbought)
+        green_candles = symbol_data.get("green_candles", 0) if isinstance(symbol_data, dict) else 0
+        overbought_triggered = green_candles >= 4
+        overbought_distance = max(0, 4 - green_candles)
+        overbought_color = "🟢" if overbought_triggered else ("🟡" if overbought_distance <= 1 else "🔴")
+        overbought_dist_text = f"差 {overbought_distance} 根" if not overbought_triggered else "已觸發"
+        overbought_detail = f"連續 {green_candles}/4 根綠 K"
+        
+        return (
+            price_text, change_text,
+            long_color, f"{long_dist_text}", long_detail,
+            short_color, f"{short_dist_text}", short_detail,
+            oversold_color, f"{oversold_dist_text}", oversold_detail,
+            overbought_color, f"{overbought_dist_text}", overbought_detail
+        )
         
     except Exception as e:
-        return "--", "--", "--", "--", f"Error: {e}"
+        return (["Error"] + ["--"] * 12)
 
 
 @callback(
     Output("eth-strategy-price", "children"),
-    Output("eth-ma5-distance", "children"),
-    Output("eth-ma20-distance", "children"),
-    Output("eth-ma240-distance", "children"),
-    Output("eth-recent-signal", "children"),
+    Output("eth-price-change", "children"),
+    Output("eth-long-status", "children"),
+    Output("eth-long-distance", "children"),
+    Output("eth-long-detail", "children"),
+    Output("eth-short-status", "children"),
+    Output("eth-short-distance", "children"),
+    Output("eth-short-detail", "children"),
+    Output("eth-oversold-status", "children"),
+    Output("eth-oversold-distance", "children"),
+    Output("eth-oversold-detail", "children"),
+    Output("eth-overbought-status", "children"),
+    Output("eth-overbought-distance", "children"),
+    Output("eth-overbought-detail", "children"),
     Input("dashboard-interval", "n_intervals")
 )
-def update_eth_strategy_distance(n):
-    """Update ETH strategy distance display / 更新 ETH 策略距離顯示"""
+def update_eth_strategy_status(n):
+    """Update ETH strategy status display / 更新 ETH 策略狀態顯示 (T-059-B)"""
     try:
-        from ui.services.monitor_service import get_latest_indicator_snapshots
+        from ui.services.monitor_service import get_latest_indicator_snapshots, get_last_run_info
         
         snapshots = get_latest_indicator_snapshots()
+        last_run = get_last_run_info()
         
         if not snapshots or "ETHUSDT" not in snapshots:
-            return "--", "--", "--", "--", "Data unavailable / 資料不可用"
+            return (["--"] + ["--"] * 12)
         
         data = snapshots["ETHUSDT"]
         
         # Price
-        price = data.get("price")
+        price = data.get("price", 0)
         price_text = f"${price:,.2f}" if price else "--"
         
-        # MA Distances
-        ma5_pct = data.get("price_vs_ma5_pct")
-        ma5_text, ma5_color = _format_ma_distance(ma5_pct)
-        ma5_display = html.Span([
-            "MA5: ",
-            html.Span(ma5_text, className=f"text-{ma5_color}")
-        ])
+        # 24h change (placeholder)
+        change_text = ""
         
-        ma20_pct = data.get("price_vs_ma20_pct")
-        ma20_text, ma20_color = _format_ma_distance(ma20_pct)
-        ma20_display = html.Span([
-            "MA20: ",
-            html.Span(ma20_text, className=f"text-{ma20_color}")
-        ])
+        # MA values
+        ma5 = data.get("ma5", 0)
+        ma20 = data.get("ma20", 0)
         
-        ma240_pct = data.get("price_vs_ma240_pct")
-        ma240_text, ma240_color = _format_ma_distance(ma240_pct)
-        ma240_display = html.Span([
-            "MA240: ",
-            html.Span(ma240_text, className=f"text-{ma240_color}")
-        ])
+        # Calculate MA distances
+        long_distance = ((ma20 - price) / price * 100) if price and ma20 else None
+        short_distance = ((price - ma20) / price * 100) if price and ma20 else None
+        ma5_vs_ma20 = ((ma5 - ma20) / ma20 * 100) if ma5 and ma20 else None
         
-        # Recent signal
-        signal_types = data.get("signal_types", [])
-        signal_count = data.get("signals_count", 0)
-        if signal_count > 0 and signal_types:
-            recent_signal = html.Div([
-                html.Span(f"{signal_count} signal(s) / {signal_count} 個訊號", className="text-warning"),
-                html.Div([html.Small(f"• {s}") for s in signal_types], className="text-muted")
-            ])
-        else:
-            recent_signal = "No signals / 無訊號"
+        # Color coding: 🟢 triggered, 🟡 <0.5%, 🔴 >=0.5%
+        def get_status_color(distance, triggered):
+            if triggered:
+                return "🟢"
+            elif distance is None:
+                return "⚪"
+            elif abs(distance) < 0.5:
+                return "🟡"
+            else:
+                return "🔴"
         
-        return price_text, ma5_display, ma20_display, ma240_display, recent_signal
+        # MA Cross Long
+        long_triggered = data.get("ma_cross_long", False)
+        long_color = get_status_color(long_distance, long_triggered)
+        long_dist_text = f"{abs(long_distance):.2f}%" if long_distance else "--"
+        long_detail = f"MA5 ${ma5:,.0f} 需上穿 MA20 ${ma20:,.0f}" if ma5 and ma20 else "--"
+        
+        # MA Cross Short
+        short_triggered = data.get("ma_cross_short", False)
+        short_color = get_status_color(short_distance, short_triggered)
+        short_dist_text = f"{abs(short_distance):.2f}%" if short_distance else "--"
+        short_detail = f"MA5 ${ma5:,.0f} 需下穿 MA20 ${ma20:,.0f}" if ma5 and ma20 else "--"
+        
+        # Contrarian strategies - get candle counts from last run
+        run_data = last_run.get("data", {}) if last_run else {}
+        symbol_data = run_data.get("ETHUSDT", {}) if isinstance(run_data, dict) else {}
+        
+        # Red candles (for oversold)
+        red_candles = symbol_data.get("red_candles", 0) if isinstance(symbol_data, dict) else 0
+        oversold_triggered = red_candles >= 4
+        oversold_distance = max(0, 4 - red_candles)
+        oversold_color = "🟢" if oversold_triggered else ("🟡" if oversold_distance <= 1 else "🔴")
+        oversold_dist_text = f"差 {oversold_distance} 根" if not oversold_triggered else "已觸發"
+        oversold_detail = f"連續 {red_candles}/4 根紅 K"
+        
+        # Green candles (for overbought)
+        green_candles = symbol_data.get("green_candles", 0) if isinstance(symbol_data, dict) else 0
+        overbought_triggered = green_candles >= 4
+        overbought_distance = max(0, 4 - green_candles)
+        overbought_color = "🟢" if overbought_triggered else ("🟡" if overbought_distance <= 1 else "🔴")
+        overbought_dist_text = f"差 {overbought_distance} 根" if not overbought_triggered else "已觸發"
+        overbought_detail = f"連續 {green_candles}/4 根綠 K"
+        
+        return (
+            price_text, change_text,
+            long_color, f"{long_dist_text}", long_detail,
+            short_color, f"{short_dist_text}", short_detail,
+            oversold_color, f"{oversold_dist_text}", oversold_detail,
+            overbought_color, f"{overbought_dist_text}", overbought_detail
+        )
         
     except Exception as e:
-        return "--", "--", "--", "--", f"Error: {e}"
+        return (["Error"] + ["--"] * 12)
 
 
 # T-053-C: Backtest results callback / 回測結果回調
