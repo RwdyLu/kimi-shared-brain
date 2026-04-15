@@ -685,6 +685,42 @@ def update_signals_count(n):
 
 
 # T-052-A: New BTC/ETH price callbacks / 新的 BTC/ETH 價格回調
+
+def format_update_time(timestamp_str: str) -> str:
+    """
+    Format timestamp with relative time (T-058)
+    格式化時間戳並顯示相對時間
+    
+    Args:
+        timestamp_str: ISO format timestamp or HH:MM:SS
+        
+    Returns:
+        Formatted string like "Updated 17:39:39 · 32s ago"
+    """
+    try:
+        # Parse timestamp
+        if 'T' in timestamp_str:
+            t = datetime.fromisoformat(timestamp_str)
+        else:
+            today = datetime.now().strftime('%Y-%m-%d')
+            t = datetime.fromisoformat(f"{today}T{timestamp_str}")
+        
+        # Calculate difference
+        diff = int((datetime.now() - t).total_seconds())
+        
+        # Format relative time
+        if diff < 60:
+            ago = f"{diff}s ago"
+        elif diff < 3600:
+            ago = f"{diff//60}m ago"
+        else:
+            ago = f"{diff//3600}h ago"
+        
+        return f"Updated {t.strftime('%H:%M:%S')} · {ago}"
+    except:
+        return f"Updated {timestamp_str}"
+
+
 @callback(
     Output("btc-price-display", "children"),
     Output("btc-price-time", "children"),
@@ -704,15 +740,12 @@ def update_btc_price(n):
             price = prices["BTCUSDT"].get("price", 0)
             price_text = f"${price:,.2f}"
             
-            # Format timestamp
+            # Format timestamp with relative time (T-058)
             timestamp = prices_data.get("timestamp", "")
-            time_text = ""
             if timestamp:
-                try:
-                    dt = datetime.fromisoformat(timestamp)
-                    time_text = f"Updated {dt.strftime('%H:%M:%S')}"
-                except:
-                    time_text = "Updated recently"
+                time_text = format_update_time(timestamp)
+            else:
+                time_text = "Updated recently"
             
             return price_text, time_text
         else:
@@ -740,15 +773,12 @@ def update_eth_price(n):
             price = prices["ETHUSDT"].get("price", 0)
             price_text = f"${price:,.2f}"
             
-            # Format timestamp
+            # Format timestamp with relative time (T-058)
             timestamp = prices_data.get("timestamp", "")
-            time_text = ""
             if timestamp:
-                try:
-                    dt = datetime.fromisoformat(timestamp)
-                    time_text = f"Updated {dt.strftime('%H:%M:%S')}"
-                except:
-                    time_text = "Updated recently"
+                time_text = format_update_time(timestamp)
+            else:
+                time_text = "Updated recently"
             
             return price_text, time_text
         else:
