@@ -6,7 +6,7 @@ Signal history and alert viewing.
 """
 
 import dash
-from dash import dcc, html, callback, Output, Input
+from dash import dcc, html, callback, Output, Input, State
 import dash_bootstrap_components as dbc
 import sys
 from pathlib import Path
@@ -385,8 +385,6 @@ def update_signals_page(n_intervals, n_clicks):
                     style={"cursor": "pointer"}
                 )
                 
-                run_items.append(run_card)
-                )
                 run_items.append(run_card)
             
             run_history = html.Div(run_items)
