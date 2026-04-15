@@ -1294,6 +1294,38 @@
       "last_updated": "2026-04-15T05:52:00+08:00",
       "completed_at": "2026-04-15T05:52:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-057",
+      "title": "Verify Dashboard Live Prices Display",
+      "assigned_to": "kimiclaw_bot",
+      "status": "completed",
+      "priority": "high",
+      "type": "validation",
+      "goal": "確認 Dashboard Live Prices 正常顯示，驗證 get_current_prices() 正確回傳 BTC/ETH 價格",
+      "output_file": "outputs/T-057_verification_report.md",
+      "success_condition": "UI process 存在、get_current_prices() 回傳非空價格、curl 有回應、Cloudflare tunnel 存在",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-055"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-15T17:30:00+08:00",
+      "completed_at": "2026-04-15T17:30:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-058",
+      "title": "Add Relative Time to Dashboard Live Prices",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "enhancement",
+      "goal": "修改 Dashboard Live Prices 區塊，在時間戳後方顯示相對時間（例如 Updated 17:39:39 · 32s ago）",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "BTC 和 ETH 價格卡片都顯示類似 Updated 17:39:39 · 32s ago 的格式",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-057"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-15T17:48:00+08:00"
     }
   ]
 }
