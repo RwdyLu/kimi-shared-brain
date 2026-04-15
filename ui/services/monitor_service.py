@@ -685,8 +685,8 @@ def get_full_status() -> Dict[str, Any]:
 
 def get_current_prices() -> Dict[str, Any]:
     """
-    Get current prices from state file
-    從狀態檔案取得當前價格
+    Get current prices from indicator_snapshots.jsonl
+    從指標快照檔案取得當前價格 (T-056 fix)
     
     Returns:
         Dict with prices data:
@@ -700,14 +700,66 @@ def get_current_prices() -> Dict[str, Any]:
         or empty dict if no prices available
     """
     try:
-        prices_file = STATE_DIR / "prices.json"
-        if not prices_file.exists():
+        from config.paths import LOGS_DIR
+        import json
+        from datetime import datetime
+        
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
             return {}
         
-        with open(prices_file, 'r') as f:
-            return json.load(f)
+        # Read all records and find latest for each symbol
+        latest_prices = {}
+        latest_timestamp = None
+        
+        with open(snapshot_file, 'r') as f:
+            for line in f:
+                try:
+                    record = json.loads(line.strip())
+                    symbol = record.get("symbol")
+                    price = record.get("price")
+                    ts_str = record.get("timestamp", "")
+                    
+                    if not symbol or price is None or not ts_str:
+                        continue
+                    
+                    # Parse timestamp for comparison
+                    try:
+                        ts = datetime.fromisoformat(ts_str)
+                    except:
+                        continue
+                    
+                    # Keep track of overall latest timestamp
+                    if latest_timestamp is None or ts > latest_timestamp:
+                        latest_timestamp = ts
+                    
+                    # Update if this is the latest for this symbol
+                    if symbol not in latest_prices:
+                        latest_prices[symbol] = {"price": price, "timestamp": ts_str}
+                    else:
+                        existing_ts = latest_prices[symbol]["timestamp"]
+                        try:
+                            if ts > datetime.fromisoformat(existing_ts):
+                                latest_prices[symbol] = {"price": price, "timestamp": ts_str}
+                        except:
+                            pass
+                            
+                except Exception:
+                    continue
+        
+        if not latest_prices:
+            return {}
+        
+        # Format result
+        result = {
+            "timestamp": latest_timestamp.isoformat() if latest_timestamp else "",
+            "prices": latest_prices
+        }
+        
+        return result
+        
     except Exception as e:
-        print(f"Error reading prices: {e}")
+        print(f"Error reading prices from snapshots: {e}")
         return {}
 
 
