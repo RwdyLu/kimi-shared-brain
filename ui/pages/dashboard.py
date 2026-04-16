@@ -34,8 +34,19 @@ dash.register_page(__name__, path="/", title="Dashboard")
 layout = dbc.Container(
     [
         # Header / 標題
-        html.H2("Dashboard", className="mb-4"),
-        html.P("System overview and quick status / 系統概覽與快速狀態", className="text-muted"),
+        dbc.Row([
+            dbc.Col([
+                html.H2("Dashboard", className="mb-4"),
+                html.P("System overview and quick status / 系統概覽與快速狀態", className="text-muted"),
+            ], width=8),
+            # T-061: Health Timestamp Display
+            dbc.Col([
+                html.Div([
+                    html.Small("最後更新 / Last Update:", className="text-muted d-block"),
+                    html.Span(id="health-timestamp", children="--", className="badge bg-secondary")
+                ], className="text-end mt-2")
+            ], width=4)
+        ]),
         
         html.Hr(),
         
@@ -784,6 +795,82 @@ def update_btc_price(n):
             return "--", "No BTC data"
     except Exception as e:
         return "Error", str(e)
+
+
+# T-061: Health Timestamp Callback / 健康時間戳回調
+@callback(
+    Output("health-timestamp", "children"),
+    Output("health-timestamp", "className"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_health_timestamp(n):
+    """Update health timestamp display / 更新健康時間戳顯示 (T-061)"""
+    try:
+        from datetime import datetime
+        
+        now = datetime.now()
+        time_str = now.strftime("%H:%M:%S")
+        
+        # Store last update time in a file for persistence
+        last_update_file = Path("/tmp/kimi-shared-brain/.last_dashboard_update")
+        last_update_file.write_text(now.isoformat())
+        
+        return time_str, "badge bg-success"
+        
+    except Exception as e:
+        return "--", "badge bg-danger"
+
+
+# T-061: Health Status Check / 健康狀態檢查
+def get_health_status():
+    """Check if dashboard has been updated within 10 minutes / 檢查儀表板是否在 10 分鐘內更新"""
+    try:
+        from datetime import datetime, timedelta
+        
+        last_update_file = Path("/tmp/kimi-shared-brain/.last_dashboard_update")
+        if not last_update_file.exists():
+            return "--", "badge bg-secondary"
+        
+        last_update_str = last_update_file.read_text().strip()
+        last_update = datetime.fromisoformat(last_update_str)
+        now = datetime.now()
+        
+        diff_minutes = (now - last_update).total_seconds() / 60
+        time_str = last_update.strftime("%H:%M:%S")
+        
+        if diff_minutes > 10:
+            return time_str, "badge bg-danger"  # Red if > 10 min
+        else:
+            return time_str, "badge bg-success"  # Green if <= 10 min
+            
+    except Exception:
+        return "--", "badge bg-secondary"
+
+
+# T-061: Health Status Check / 健康狀態檢查
+def get_health_status():
+    """Check if dashboard has been updated within 10 minutes / 檢查儀表板是否在 10 分鐘內更新"""
+    try:
+        from datetime import datetime, timedelta
+        
+        last_update_file = Path("/tmp/kimi-shared-brain/.last_dashboard_update")
+        if not last_update_file.exists():
+            return "--", "badge bg-secondary"
+        
+        last_update_str = last_update_file.read_text().strip()
+        last_update = datetime.fromisoformat(last_update_str)
+        now = datetime.now()
+        
+        diff_minutes = (now - last_update).total_seconds() / 60
+        time_str = last_update.strftime("%H:%M:%S")
+        
+        if diff_minutes > 10:
+            return time_str, "badge bg-danger"  # Red if > 10 min
+        else:
+            return time_str, "badge bg-success"  # Green if <= 10 min
+            
+    except Exception:
+        return "--", "badge bg-secondary"
 
 
 @callback(
