@@ -1046,7 +1046,7 @@
       "task_id": "T-049",
       "title": "Add UI Health Timestamp",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "在 Dashboard 最上方加入「最後更新時間」與「系統運行時間」顯示，若超過 10 分鐘無更新則標示紅色警示，讓停機問題能即時被發現",
@@ -1401,7 +1401,7 @@
       "task_id": "T-062",
       "title": "Pine Script Strategy Backtest File",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "documentation",
       "goal": "將 4 個策略寫成 TradingView Pine Script v5，輸出到 outbox/T-062_strategies.pine",
@@ -1418,7 +1418,7 @@
       "task_id": "T-063",
       "title": "Second Bot Periodic Task Cleanup",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "maintenance",
       "goal": "修改 second bot 定期任務規則，只檢查進行中任務，移除已完成任務的重複檢查",
@@ -1427,7 +1427,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-062"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-16T05:40:00+08:00"
+      "last_updated": "2026-04-16T14:30:00+08:00",
+      "completed_at": "2026-04-16T14:30:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
