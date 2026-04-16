@@ -1333,7 +1333,7 @@
       "task_id": "T-059-A",
       "title": "Increase Price Update Frequency to 10s",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "提高價格更新頻率至 10 秒，直接從 Binance API 取得即時價格而非等待 monitor 5 分鐘快照",
@@ -1342,13 +1342,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-058"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-15T19:30:00+08:00"
+      "last_updated": "2026-04-15T19:30:00+08:00",
+      "completed_at": "2026-04-15T20:40:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-059-B",
       "title": "Dashboard Strategy Status Panel",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "改版 Strategy Distance 區塊，顯示 BTC/ETH 各策略狀態、觸發距離、顏色標示",
@@ -1357,7 +1359,69 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-058"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-15T19:30:00+08:00"
+      "last_updated": "2026-04-15T19:30:00+08:00",
+      "completed_at": "2026-04-15T20:40:00+08:00",
+      "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "T-060",
+      "title": "Fix Strategy Panel Colors and Real-time Prices",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "critical",
+      "type": "bugfix",
+      "goal": "修復策略面板顏色邏輯和確保價格真正從 Binance API 即時抓取",
+      "output_file": "ui/services/monitor_service.py, ui/pages/dashboard.py",
+      "success_condition": "get_current_prices() 真正呼叫 Binance API，策略面板顯示正確顏色和距離數字",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-059-B"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-16T05:40:00+08:00"
+    },
+    {
+      "task_id": "T-061",
+      "title": "Add UI Health Timestamp",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "enhancement",
+      "goal": "在 Dashboard navbar 顯示最後更新時間戳，超過 10 分鐘變紅色警示",
+      "output_file": "ui/pages/dashboard.py",
+      "success_condition": "Navbar 顯示『最後更新：HH:MM:SS』，超時紅色警示",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-060"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-16T05:40:00+08:00"
+    },
+    {
+      "task_id": "T-062",
+      "title": "Pine Script Strategy Backtest File",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "documentation",
+      "goal": "將 4 個策略寫成 TradingView Pine Script v5，輸出到 outbox/T-062_strategies.pine",
+      "output_file": "outbox/T-062_strategies.pine",
+      "success_condition": "Pine Script 檔案包含 MA Cross 和 Contrarian 策略，可在 TradingView 運行",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-061"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-16T05:40:00+08:00"
+    },
+    {
+      "task_id": "T-063",
+      "title": "Second Bot Periodic Task Cleanup",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "medium",
+      "type": "maintenance",
+      "goal": "修改 second bot 定期任務規則，只檢查進行中任務，移除已完成任務的重複檢查",
+      "output_file": "AGENTS.md or internal config",
+      "success_condition": "每 30 分鐘只檢查 assigned/in_progress 任務，無任務時靜默",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-062"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-16T05:40:00+08:00"
     }
   ]
 }
