@@ -1046,7 +1046,7 @@
       "task_id": "T-049",
       "title": "Add UI Health Timestamp",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "patch",
       "goal": "在 Dashboard 最上方加入「最後更新時間」與「系統運行時間」顯示，若超過 10 分鐘無更新則標示紅色警示，讓停機問題能即時被發現",
@@ -1367,7 +1367,7 @@
       "task_id": "T-060",
       "title": "Fix Strategy Panel Colors and Real-time Prices",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "critical",
       "type": "bugfix",
       "goal": "修復策略面板顏色邏輯和確保價格真正從 Binance API 即時抓取",
@@ -1376,13 +1376,15 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-059-B"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-16T05:40:00+08:00"
+      "last_updated": "2026-04-16T14:30:00+08:00",
+      "completed_at": "2026-04-16T14:30:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-061",
       "title": "Add UI Health Timestamp",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "enhancement",
       "goal": "在 Dashboard navbar 顯示最後更新時間戳，超過 10 分鐘變紅色警示",
@@ -1391,7 +1393,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-060"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-16T05:40:00+08:00"
+      "last_updated": "2026-04-16T14:30:00+08:00",
+      "completed_at": "2026-04-16T14:30:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-062",
@@ -1408,13 +1412,17 @@
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
+<<<<<<< HEAD
       "reviewed_by": "kimiclaw_bot"
+=======
+      "reviewed_by": "second_bot"
+>>>>>>> 66cb7b0942f2734ec4d5c78be6112716c8adfa0d
     },
     {
       "task_id": "T-063",
       "title": "Second Bot Periodic Task Cleanup",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "medium",
       "type": "maintenance",
       "goal": "修改 second bot 定期任務規則，只檢查進行中任務，移除已完成任務的重複檢查",
@@ -1423,7 +1431,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": ["T-062"],
       "report_to": "second_bot",
-      "last_updated": "2026-04-16T05:40:00+08:00"
+      "last_updated": "2026-04-16T14:30:00+08:00",
+      "completed_at": "2026-04-16T14:30:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
