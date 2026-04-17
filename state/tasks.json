@@ -1435,7 +1435,7 @@
       "task_id": "T-071",
       "title": "Add backtest/runner.py",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "feature",
       "goal": "新增 backtest/runner.py，實作回測執行引擎，串接 data.fetcher → signals.engine → 績效計算",
@@ -1452,7 +1452,9 @@
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-17T19:15:00+08:00"
+      "last_updated": "2026-04-17T19:25:00+08:00",
+      "completed_at": "2026-04-17T19:25:00+08:00",
+      "reviewed_by": "kimiclaw_bot"
     },
     {
       "task_id": "T-072",
