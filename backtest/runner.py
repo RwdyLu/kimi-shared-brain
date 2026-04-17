@@ -25,7 +25,7 @@ import pandas as pd
 import numpy as np
 
 from backtest import (
-    BacktestConfig, BacktestSummary, BacktestStorage, 
+    BacktestConfig, BacktestSummary, BacktestStorage,
     TradeRecord, TradeDirection, TradeResult
 )
 from data.fetcher import BinanceFetcher
@@ -33,21 +33,30 @@ from indicators import calculator as indicator_calc
 from signals.engine import SignalEngine
 from config.paths import PROJECT_ROOT
 
+# Import plotly for chart generation / 匯入 plotly 生成圖表
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    print("⚠️  plotly not available, charts will be skipped")
+
 
 class BacktestRunner:
     """
     Backtest execution engine
     回測執行引擎
     """
-    
+
     def __init__(self, config: BacktestConfig):
         self.config = config
         self.storage = BacktestStorage()
-        
+
         # Initialize components
         self.fetcher = BinanceFetcher()
         self.signal_engine = SignalEngine()
-        
+
         # State tracking
         self.active_trades: Dict[str, TradeRecord] = {}  # symbol -> TradeRecord
         self.closed_trades: List[TradeRecord] = []
@@ -56,10 +65,10 @@ class BacktestRunner:
         self.peak_equity: float = config.initial_capital
         self.max_drawdown: float = 0.0
         self.drawdown_start: Optional[str] = None
-        
+
         # Generate backtest ID
         self.backtest_id = f"BT{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
+
     def run(self) -> BacktestSummary:
         """
         Execute the backtest
@@ -73,11 +82,11 @@ class BacktestRunner:
         print(f"Symbols: {', '.join(self.config.symbols)}")
         print(f"Initial Capital: ${self.config.initial_capital:,.2f}")
         print(f"{'='*70}\n")
-        
+
         # Process each symbol
         for symbol in self.config.symbols:
             self._backtest_symbol(symbol)
-        
+
         # Close any remaining open trades at end of test
         self._close_all_trades("end_of_test")
         
@@ -85,75 +94,87 @@ class BacktestRunner:
         summary = self._build_summary()
         self.storage.save_backtest_result(summary)
         
+        # Build and save equity chart (T-071)
+        if PLOTLY_AVAILABLE:
+            chart = self.build_equity_chart(summary)
+            if chart:
+                self.save_equity_chart(chart)
+        
         # Print results
         self._print_results(summary)
         
         return summary
-    
+
     def _backtest_symbol(self, symbol: str) -> None:
         """
         Run backtest for a single symbol
         對單一標的執行回測
         """
         print(f"\n📊 Processing {symbol}...")
-        
+
         # Fetch historical data
         try:
-            df = self._fetch_historical_data(symbol)
+            df = self._fetch_historical_data(symbol, interval="5m", limit=500)  # T-071: 500 bars of 5m
             if df is None or len(df) == 0:
                 print(f"   ⚠️ No data available for {symbol}")
                 return
-            print(f"   ✓ Loaded {len(df)} candles")
+            print(f"   ✓ Loaded {len(df)} candles (5m interval)")
         except Exception as e:
             print(f"   ✗ Error fetching data: {e}")
             return
-        
+
         # Process each candle
         for idx, row in df.iterrows():
             timestamp = idx.strftime('%Y-%m-%d %H:%M')
             current_price = row['close']
-            
+
             # Check for exit conditions on active trade
             if symbol in self.active_trades:
                 self._check_exit_conditions(symbol, timestamp, current_price, row)
-            
+
             # Check for entry signals (only if no active trade)
             if symbol not in self.active_trades:
                 self._check_entry_signals(symbol, timestamp, current_price, row)
-            
+
             # Update equity curve
             self._update_equity_curve(timestamp)
-    
-    def _fetch_historical_data(self, symbol: str) -> Optional[pd.DataFrame]:
+
+    def _fetch_historical_data(self, symbol: str, interval: str = "5m", limit: int = 500) -> Optional[pd.DataFrame]:
         """
         Fetch historical kline data
         取得歷史 K 線資料
+
+        Args:
+            symbol: Trading pair symbol (e.g., BTCUSDT)
+            interval: Kline interval (default: 5m for backtesting)
+            limit: Number of candles to fetch (default: 500)
         """
         # Convert dates to timestamps
         start_dt = datetime.strptime(self.config.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(self.config.end_date, '%Y-%m-%d') + timedelta(days=1)
-        
+
         start_ms = int(start_dt.timestamp() * 1000)
         end_ms = int(end_dt.timestamp() * 1000)
-        
+
         # Fetch from Binance
         klines = self.fetcher.get_historical_klines(
             symbol=symbol,
-            interval="4h",  # Default to 4h for consistency with live monitoring
+            interval=interval,  # T-071: Use 5m for backtesting
             start_time=start_ms,
-            end_time=end_ms
+            end_time=end_ms,
+            limit=limit  # T-071: Fetch 500 bars
         )
-        
+
         if not klines:
             return None
-        
+
         # Convert to DataFrame
         df = pd.DataFrame(klines, columns=[
             'timestamp', 'open', 'high', 'low', 'close', 'volume',
             'close_time', 'quote_volume', 'trades', 'taker_buy_base',
             'taker_buy_quote', 'ignore'
         ])
-        
+
         # Convert types
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df.set_index('timestamp', inplace=True)
@@ -162,14 +183,14 @@ class BacktestRunner:
         df['low'] = df['low'].astype(float)
         df['close'] = df['close'].astype(float)
         df['volume'] = df['volume'].astype(float)
-        
+
         # Calculate indicators using module functions
         df['MA5'] = indicator_calc.calculate_ma5(df['close'].tolist())
         df['MA20'] = indicator_calc.calculate_ma20(df['close'].tolist())
         df['MA240'] = indicator_calc.calculate_ma240(df['close'].tolist())
-        
+
         return df
-    
+
     def _check_entry_signals(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
         """
         Check for entry signals and open trades
@@ -183,15 +204,15 @@ class BacktestRunner:
             'volume': row.get('volume'),
             'volume_MA20': row.get('volume_MA20')
         }
-        
+
         # Get signals from engine
         signals = self.signal_engine.generate_signals(indicators)
-        
+
         for signal in signals:
             if signal.status.value == "confirmed":
                 # Open trade
                 direction = TradeDirection.LONG if "LONG" in signal.signal_type.name else TradeDirection.SHORT
-                
+
                 trade = TradeRecord(
                     trade_id=f"{self.backtest_id}_{symbol}_{len(self.closed_trades)}",
                     symbol=symbol,
@@ -200,24 +221,24 @@ class BacktestRunner:
                     entry_price=price,
                     quantity=1.0
                 )
-                
+
                 self.active_trades[symbol] = trade
                 self.storage.save_trade(trade)
-                
+
                 print(f"   ➡️  ENTRY: {direction.value.upper()} @ ${price:,.2f} ({timestamp})")
                 break
-    
+
     def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
         """
         Check for exit conditions and close trades
         檢查出場條件並平倉
         """
         trade = self.active_trades[symbol]
-        
+
         exit_triggered = False
         exit_price = price
         exit_reason = "signal"
-        
+
         # Check stop loss
         if self.config.stop_loss_pct:
             if trade.direction == "long":
@@ -232,7 +253,7 @@ class BacktestRunner:
                     exit_triggered = True
                     exit_price = stop_price
                     exit_reason = "stop_loss"
-        
+
         # Check take profit
         if not exit_triggered and self.config.take_profit_pct:
             if trade.direction == "long":
@@ -247,7 +268,7 @@ class BacktestRunner:
                     exit_triggered = True
                     exit_price = tp_price
                     exit_reason = "take_profit"
-        
+
         # Check reverse signal (optional exit)
         if not exit_triggered:
             indicators = {
@@ -256,7 +277,7 @@ class BacktestRunner:
                 'MA240': row.get('MA240'),
             }
             signals = self.signal_engine.generate_signals(indicators)
-            
+
             for signal in signals:
                 # Close on opposite direction signal
                 is_long_signal = "LONG" in signal.signal_type.name
@@ -265,44 +286,44 @@ class BacktestRunner:
                     exit_triggered = True
                     exit_reason = "reverse_signal"
                     break
-        
+
         if exit_triggered:
             self._close_trade(symbol, timestamp, exit_price, exit_reason)
-    
+
     def _close_trade(self, symbol: str, exit_time: str, exit_price: float, reason: str) -> None:
         """
         Close an active trade
         平倉
         """
         trade = self.active_trades.pop(symbol)
-        
+
         trade.exit_time = exit_time
         trade.exit_price = exit_price
         trade.exit_reason = reason
-        
+
         # Calculate P&L
         if trade.direction == "long":
             trade.pnl_pct = ((exit_price - trade.entry_price) / trade.entry_price) * 100
         else:  # short
             trade.pnl_pct = ((trade.entry_price - exit_price) / trade.entry_price) * 100
-        
+
         trade.pnl_amount = (trade.pnl_pct / 100) * self.config.initial_capital * (self.config.position_size_pct / 100)
-        
+
         if trade.pnl_pct >= 0:
             trade.result = TradeResult.CLOSED_PROFIT.value
             emoji = "✅"
         else:
             trade.result = TradeResult.CLOSED_LOSS.value
             emoji = "❌"
-        
+
         self.closed_trades.append(trade)
         self.storage.save_trade(trade)
-        
+
         # Update equity
         self.current_equity += trade.pnl_amount
-        
+
         print(f"   {emoji} EXIT: ${exit_price:,.2f} | P&L: {trade.pnl_pct:+.2f}% ({reason})")
-    
+
     def _close_all_trades(self, reason: str) -> None:
         """
         Close all active trades at end of backtest
@@ -311,7 +332,7 @@ class BacktestRunner:
         for symbol in list(self.active_trades.keys()):
             trade = self.active_trades[symbol]
             self._close_trade(symbol, "end_of_test", trade.entry_price, reason)
-    
+
     def _update_equity_curve(self, timestamp: str) -> None:
         """
         Update equity curve tracking
@@ -321,7 +342,7 @@ class BacktestRunner:
             "timestamp": timestamp,
             "equity": self.current_equity
         })
-        
+
         # Track drawdown
         if self.current_equity > self.peak_equity:
             self.peak_equity = self.current_equity
@@ -332,7 +353,7 @@ class BacktestRunner:
                 self.max_drawdown = drawdown
                 if self.drawdown_start is None:
                     self.drawdown_start = timestamp
-    
+
     def _build_summary(self) -> BacktestSummary:
         """
         Build backtest summary statistics
@@ -341,11 +362,11 @@ class BacktestRunner:
         total_trades = len(self.closed_trades)
         winning_trades = sum(1 for t in self.closed_trades if t.pnl_pct and t.pnl_pct > 0)
         losing_trades = total_trades - winning_trades
-        
+
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
-        
+
         total_return = ((self.current_equity - self.config.initial_capital) / self.config.initial_capital) * 100
-        
+
         # Symbol breakdown
         symbol_stats = {}
         for symbol in self.config.symbols:
@@ -356,7 +377,7 @@ class BacktestRunner:
                     "winning_trades": sum(1 for t in symbol_trades if t.pnl_pct and t.pnl_pct > 0),
                     "total_pnl_pct": sum(t.pnl_pct for t in symbol_trades if t.pnl_pct)
                 }
-        
+
         return BacktestSummary(
             backtest_id=self.backtest_id,
             start_date=self.config.start_date,
@@ -374,7 +395,135 @@ class BacktestRunner:
             symbol_stats=symbol_stats,
             equity_curve=self.equity_curve
         )
-    
+
+    def build_equity_chart(self, summary: Optional[BacktestSummary] = None) -> Optional[go.Figure]:
+        """
+        Build equity curve and drawdown chart using plotly
+        使用 plotly 建立權益曲線和回撤圖表
+
+        Args:
+            summary: BacktestSummary object (uses self._build_summary() if not provided)
+
+        Returns:
+            plotly Figure object with equity curve and drawdown subplots
+        """
+        if not PLOTLY_AVAILABLE:
+            print("⚠️  plotly not available, cannot build chart")
+            return None
+
+        # Build summary if not provided
+        if summary is None:
+            summary = self._build_summary()
+
+        # Prepare data
+        if not self.equity_curve or len(self.equity_curve) == 0:
+            print("⚠️  No equity curve data available")
+            return None
+
+        timestamps = [point["timestamp"] for point in self.equity_curve]
+        equities = [point["equity"] for point in self.equity_curve]
+
+        # Calculate drawdown series
+        peak = self.config.initial_capital
+        drawdowns = []
+        for eq in equities:
+            if eq > peak:
+                peak = eq
+            drawdown = ((peak - eq) / peak) * 100
+            drawdowns.append(drawdown)
+
+        # Create subplots
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.1,
+            subplot_titles=(
+                f"Equity Curve / 權益曲線 - {summary.backtest_id}",
+                f"Drawdown / 回撤 - Max: {summary.max_drawdown_pct:.2f}%"
+            ),
+            row_heights=[0.7, 0.3]
+        )
+
+        # Add equity curve
+        fig.add_trace(
+            go.Scatter(
+                x=timestamps,
+                y=equities,
+                mode='lines',
+                name='Equity',
+                line=dict(color='#2ecc71', width=2),
+                fill='tozeroy',
+                fillcolor='rgba(46, 204, 113, 0.1)'
+            ),
+            row=1, col=1
+        )
+
+        # Add initial capital reference line
+        fig.add_hline(
+            y=self.config.initial_capital,
+            line_dash="dash",
+            line_color="gray",
+            annotation_text="Initial Capital",
+            row=1, col=1
+        )
+
+        # Add drawdown chart
+        fig.add_trace(
+            go.Scatter(
+                x=timestamps,
+                y=drawdowns,
+                mode='lines',
+                name='Drawdown %',
+                line=dict(color='#e74c3c', width=1.5),
+                fill='tozeroy',
+                fillcolor='rgba(231, 76, 60, 0.2)'
+            ),
+            row=2, col=1
+        )
+
+        # Update layout
+        fig.update_layout(
+            title_text=f"Backtest Results: {', '.join(summary.symbols)} | Return: {summary.total_return_pct:+.2f}% | Win Rate: {summary.win_rate:.1f}%",
+            title_x=0.5,
+            height=600,
+            showlegend=True,
+            hovermode='x unified',
+            template='plotly_white'
+        )
+
+        # Update y-axes labels
+        fig.update_yaxes(title_text="Equity ($)", row=1, col=1)
+        fig.update_yaxes(title_text="Drawdown (%)", row=2, col=1)
+        fig.update_xaxes(title_text="Time", row=2, col=1)
+
+        return fig
+
+    def save_equity_chart(self, fig: go.Figure, filename: Optional[str] = None) -> str:
+        """
+        Save equity chart to HTML file
+        儲存權益圖表為 HTML
+
+        Args:
+            fig: plotly Figure object
+            filename: Output filename (default: auto-generated)
+
+        Returns:
+            Path to saved file
+        """
+        if fig is None:
+            return ""
+
+        if filename is None:
+            filename = f"equity_chart_{self.backtest_id}.html"
+
+        output_path = PROJECT_ROOT / "outbox" / filename
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        fig.write_html(str(output_path))
+        print(f"📈 Chart saved: {output_path}")
+
+        return str(output_path)
+
     def _print_results(self, summary: BacktestSummary) -> None:
         """
         Print backtest results to console
@@ -386,25 +535,25 @@ class BacktestRunner:
         print(f"Backtest ID: {summary.backtest_id}")
         print(f"Period: {summary.start_date} ~ {summary.end_date}")
         print(f"{'='*70}")
-        
+
         print(f"\n💰 PERFORMANCE / 績效")
         print(f"   Initial Capital: ${self.config.initial_capital:,.2f}")
         print(f"   Final Equity:    ${self.current_equity:,.2f}")
         print(f"   Total Return:    {summary.total_return_pct:+.2f}%")
-        
+
         print(f"\n📈 TRADE STATISTICS / 交易統計")
         print(f"   Total Trades:    {summary.total_trades}")
         print(f"   Winning Trades:  {summary.winning_trades}")
         print(f"   Losing Trades:   {summary.losing_trades}")
         print(f"   Win Rate:        {summary.win_rate:.1f}%")
-        
+
         print(f"\n⚠️  RISK METRICS / 風險指標")
         print(f"   Max Drawdown:    {summary.max_drawdown_pct:.2f}%")
-        
+
         print(f"\n📊 SYMBOL BREAKDOWN / 標的明細")
         for symbol, stats in summary.symbol_stats.items():
             print(f"   {symbol}: {stats['total_trades']} trades, {stats['total_pnl_pct']:+.2f}%")
-        
+
         print(f"\n{'='*70}")
         print(f"✅ BACKTEST COMPLETE / 回測完成")
         print(f"{'='*70}\n")
@@ -421,7 +570,7 @@ def run_backtest(
     """
     Convenience function to run a backtest
     執行回測的便捷函數
-    
+
     Args:
         symbols: List of symbols to test (default: ["BTCUSDT", "ETHUSDT"])
         start_date: Start date (YYYY-MM-DD, default: 30 days ago)
@@ -429,20 +578,20 @@ def run_backtest(
         initial_capital: Starting capital
         stop_loss_pct: Stop loss percentage (e.g., 5.0 for 5%)
         take_profit_pct: Take profit percentage (e.g., 10.0 for 10%)
-    
+
     Returns:
         BacktestSummary with results
     """
     # Set defaults
     if symbols is None:
         symbols = ["BTCUSDT", "ETHUSDT"]
-    
+
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
-    
+
     if start_date is None:
         start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-    
+
     # Create config
     config = BacktestConfig(
         symbols=symbols,
@@ -452,7 +601,7 @@ def run_backtest(
         stop_loss_pct=stop_loss_pct,
         take_profit_pct=take_profit_pct
     )
-    
+
     # Run backtest
     runner = BacktestRunner(config)
     return runner.run()
@@ -468,5 +617,5 @@ if __name__ == "__main__":
         stop_loss_pct=5.0,
         take_profit_pct=10.0
     )
-    
+
     print(f"\nBacktest saved with ID: {summary.backtest_id}")
