@@ -1412,11 +1412,24 @@
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
-<<<<<<< HEAD
-      "reviewed_by": "kimiclaw_bot"
-=======
       "reviewed_by": "second_bot"
->>>>>>> 66cb7b0942f2734ec4d5c78be6112716c8adfa0d
+    },
+    {
+      "task_id": "T-070",
+      "title": "Fix missing import json in scheduler.py",
+      "assigned_to": "kimiclaw_bot",
+      "status": "completed",
+      "priority": "high",
+      "type": "bugfix",
+      "goal": "Add \"import json\" to app/scheduler.py to fix recurring error \"Price save error: name 'json' is not defined\"",
+      "output_file": "outbox/T-070_result.json",
+      "success_condition": "app/scheduler.py includes import json, no more Price save error",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-17T18:58:00+08:00",
+      "completed_at": "2026-04-17T18:58:00+08:00",
+      "reviewed_by": "kimiclaw_bot"
     },
     {
       "task_id": "T-063",
