@@ -1412,30 +1412,67 @@
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
-<<<<<<< HEAD
-      "reviewed_by": "kimiclaw_bot"
-=======
       "reviewed_by": "second_bot"
->>>>>>> 66cb7b0942f2734ec4d5c78be6112716c8adfa0d
     },
     {
-      "task_id": "T-063",
-      "title": "Second Bot Periodic Task Cleanup",
+      "task_id": "T-070",
+      "title": "Fix missing import json in scheduler.py",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
-      "priority": "medium",
-      "type": "maintenance",
-      "goal": "修改 second bot 定期任務規則，只檢查進行中任務，移除已完成任務的重複檢查",
-      "output_file": "AGENTS.md or internal config",
-      "success_condition": "每 30 分鐘只檢查 assigned/in_progress 任務，無任務時靜默",
+      "priority": "high",
+      "type": "bugfix",
+      "goal": "Add \"import json\" to app/scheduler.py to fix recurring error \"Price save error: name 'json' is not defined\"",
+      "output_file": "outbox/T-070_result.json",
+      "success_condition": "app/scheduler.py includes import json, no more Price save error",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-062"],
+      "depends_on": [],
       "report_to": "second_bot",
-      "last_updated": "2026-04-16T14:30:00+08:00",
-      "completed_at": "2026-04-16T14:30:00+08:00",
-      "reviewed_by": "second_bot"
+      "last_updated": "2026-04-17T18:58:00+08:00",
+      "completed_at": "2026-04-17T18:58:00+08:00",
+      "reviewed_by": "kimiclaw_bot"
+    },
+    {
+      "task_id": "T-071",
+      "title": "Add backtest/runner.py",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "feature",
+      "goal": "新增 backtest/runner.py，實作回測執行引擎，串接 data.fetcher → signals.engine → 績效計算",
+      "output_file": "outbox/T-071_result.json",
+      "details": {
+        "file": "backtest/runner.py",
+        "class": "BacktestRunner",
+        "methods": ["run(config)", "_run_symbol()", "_build_summary()", "build_equity_chart()"],
+        "dependencies": ["data.fetcher", "signals.engine", "backtest.BacktestStorage"],
+        "data": "500 根 5m K 線",
+        "chart": "plotly equity curve + drawdown 子圖"
+      },
+      "success_condition": "backtest/runner.py 建立完成，可執行回測並產出績效指標",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": [],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-17T19:15:00+08:00"
+    },
+    {
+      "task_id": "T-072",
+      "title": "Update ui/pages/backtest.py",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "feature",
+      "goal": "更新 backtest 頁面，加入 Run Backtest 按鈕、績效指標卡片、equity curve 圖表、交易明細表",
+      "output_file": "outbox/T-072_result.json",
+      "details": {
+        "file": "ui/pages/backtest.py",
+        "ui_components": ["Dropdown 選標的", "止損%輸入", "本金輸入", "Run Backtest 按鈕"],
+        "display": ["勝率 Card", "總報酬% Card", "最大回撤% Card", "總交易次數 Card", "equity curve (dcc.Graph)", "最近 20 筆交易 table"]
+      },
+      "success_condition": "backtest 頁面可執行回測並顯示績效指標與圖表",
+      "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
+      "depends_on": ["T-071"],
+      "report_to": "second_bot",
+      "last_updated": "2026-04-17T19:15:00+08:00"
     }
-  ]
-}
   ]
 }
