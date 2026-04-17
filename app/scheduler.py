@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 import threading
+import json
 
 # Import dynamic path resolver / 匯入動態路徑解析器
 import sys
