@@ -1646,7 +1646,8 @@
       ],
       "goal": "Show kimiclaw_bot and second_bot status from tasks.json",
       "output_file": "outbox/T-075_result.json",
-      "completed_at": "2026-04-19T05:10:25.171446"
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-076",
@@ -1660,7 +1661,8 @@
       ],
       "goal": "Show strategy performance ranking from backtest results",
       "output_file": "outbox/T-076_result.json",
-      "completed_at": "2026-04-19T05:10:25.171446"
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-077",
@@ -1674,7 +1676,8 @@
       ],
       "goal": "Show watch signals and last 7 backtest summaries",
       "output_file": "outbox/T-077_result.json",
-      "completed_at": "2026-04-19T05:10:25.171446"
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-078",
@@ -1688,7 +1691,8 @@
       ],
       "goal": "Show completed but unaccepted tasks in center panel",
       "output_file": "outbox/T-078_result.json",
-      "completed_at": "2026-04-19T05:10:25.171446"
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-079",
@@ -1702,13 +1706,14 @@
       ],
       "goal": "Show today signal count badge below center panel",
       "output_file": "outbox/T-079_result.json",
-      "completed_at": "2026-04-19T05:10:25.171446"
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-080",
       "title": "Restart UI server final",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "high",
       "type": "ops",
       "depends_on": [
