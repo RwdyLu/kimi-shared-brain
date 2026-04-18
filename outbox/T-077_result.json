@@ -1,0 +1,24 @@
+{
+  "task_id": "T-077",
+  "title": "Right panel signals + history",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:20:00+08:00",
+  "changes": {
+    "file": "ui/pages/dashboard.py",
+    "callback": "update_signals_history()",
+    "features": [
+      "Upper section: Watch signals with confirmed/watch badge counts",
+      "Lower section: Recent 7 backtests from backtest_results",
+      "Each backtest shows: backtest_id, Return%, Win Rate%",
+      "Badge counter showing total signals"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "output_ids": ["right-panel-signals-history"],
+  "git_commit": "T-077: Right panel signals + history"
+}

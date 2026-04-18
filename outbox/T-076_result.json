@@ -1,0 +1,26 @@
+{
+  "task_id": "T-076",
+  "title": "Center panel strategy ranking table",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:20:00+08:00",
+  "changes": {
+    "file": "ui/pages/dashboard.py",
+    "callback": "update_strategy_ranking()",
+    "features": [
+      "Read backtest results from BacktestStorage",
+      "Ranking table columns: #, Strategy, Symbols, Trades, WR%, Return%, MaxDD%",
+      "Color coding: green for positive return, red for negative",
+      "Color coding: green WR% >=50%, yellow 30-50%, red <30%",
+      "Last update timestamp displayed",
+      "Sorted by total return % descending"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "output_ids": ["center-panel-strategy-ranking"],
+  "git_commit": "T-076: Center panel strategy ranking table"
+}

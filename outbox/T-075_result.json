@@ -1,0 +1,25 @@
+{
+  "task_id": "T-075",
+  "title": "Left panel agent status",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:20:00+08:00",
+  "changes": {
+    "file": "ui/pages/dashboard.py",
+    "callback": "update_agent_status()",
+    "features": [
+      "Read state/tasks.json for agent task assignments",
+      "Display kimiclaw_bot status: WORKING/IDLE badge + current task IDs",
+      "Display second_bot status: WORKING/IDLE badge + current task IDs",
+      "Task summary with completed/in_progress/assigned counts",
+      "30-second auto-refresh via dashboard-interval"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "output_ids": ["left-panel-agent-status"],
+  "git_commit": "T-075: Left panel agent status"
+}

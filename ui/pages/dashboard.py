@@ -1091,3 +1091,267 @@ def _load_check_history(limit: int = 10) -> list:
         
     except Exception:
         return []
+
+
+# ============================================================================
+# T-075, T-076, T-077, T-078, T-079: New Dashboard Panel Callbacks
+# ============================================================================
+
+# T-075: Left Panel Agent Status Callback / 左欄 Agent 狀態回調
+@callback(
+    Output("left-panel-agent-status", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_agent_status(n):
+    """Update left panel agent status / 更新左欄 Agent 狀態 (T-075)"""
+    try:
+        import json
+        from pathlib import Path
+        
+        tasks_file = Path("/tmp/kimi-shared-brain/state/tasks.json")
+        if not tasks_file.exists():
+            return html.P("Tasks file not found", className="text-muted")
+        
+        with open(tasks_file, 'r') as f:
+            data = json.load(f)
+        
+        tasks = data.get("tasks", [])
+        
+        # Count by status
+        completed = sum(1 for t in tasks if t.get("status") == "completed")
+        in_progress = sum(1 for t in tasks if t.get("status") == "in_progress")
+        assigned = sum(1 for t in tasks if t.get("status") == "assigned")
+        
+        # Find current tasks per agent
+        kimiclaw_tasks = [t for t in tasks if t.get("assigned_to") == "kimiclaw_bot" and t.get("status") in ["in_progress", "assigned"]]
+        second_bot_tasks = [t for t in tasks if t.get("assigned_to") == "second_bot" and t.get("status") in ["in_progress", "assigned"]]
+        
+        # Build status cards
+        return html.Div([
+            # Kimiclaw Bot Status
+            html.Div([
+                html.H6("🤖 kimiclaw_bot", className="fw-bold text-info mb-2"),
+                html.Div([
+                    dbc.Badge("WORKING" if kimiclaw_tasks else "IDLE", 
+                             color="success" if kimiclaw_tasks else "secondary", 
+                             className="me-2")
+                ], className="mb-2"),
+                html.Small(
+                    f"Current: {', '.join(t.get('task_id', 'None') for t in kimiclaw_tasks[:3])}" if kimiclaw_tasks else "No active tasks",
+                    className="text-muted d-block"
+                )
+            ], className="mb-4 pb-3 border-bottom border-secondary"),
+            
+            # Second Bot Status
+            html.Div([
+                html.H6("🤖 second_bot", className="fw-bold text-info mb-2"),
+                html.Div([
+                    dbc.Badge("WORKING" if second_bot_tasks else "IDLE", 
+                             color="success" if second_bot_tasks else "secondary", 
+                             className="me-2")
+                ], className="mb-2"),
+                html.Small(
+                    f"Current: {', '.join(t.get('task_id', 'None') for t in second_bot_tasks[:3])}" if second_bot_tasks else "No active tasks",
+                    className="text-muted d-block"
+                )
+            ], className="mb-4 pb-3 border-bottom border-secondary"),
+            
+            # Task Summary
+            html.Div([
+                html.H6("📊 Task Summary", className="fw-bold mb-2"),
+                html.Div([
+                    dbc.Badge(f"{completed}", color="success", className="me-1"),
+                    html.Small("Completed", className="text-muted")
+                ], className="mb-1"),
+                html.Div([
+                    dbc.Badge(f"{in_progress}", color="warning", className="me-1"),
+                    html.Small("In Progress", className="text-muted")
+                ], className="mb-1"),
+                html.Div([
+                    dbc.Badge(f"{assigned}", color="primary", className="me-1"),
+                    html.Small("Assigned", className="text-muted")
+                ], className="mb-1")
+            ])
+        ])
+        
+    except Exception as e:
+        return html.P(f"Error loading agent status: {str(e)[:50]}", className="text-danger")
+
+
+# T-076: Center Panel Strategy Ranking Callback / 中欄策略排名回調
+@callback(
+    Output("center-panel-strategy-ranking", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_strategy_ranking(n):
+    """Update center panel strategy ranking / 更新中欄策略排名 (T-076)"""
+    try:
+        from backtest import BacktestStorage
+        
+        storage = BacktestStorage()
+        backtests = storage.get_latest_backtests(limit=20)
+        
+        if not backtests:
+            return html.Div([
+                html.P("No backtest data available", className="text-muted text-center"),
+                html.Small("Run a backtest to see rankings", className="text-muted d-block text-center")
+            ])
+        
+        # Build ranking table
+        rows = []
+        for i, bt in enumerate(backtests[:10], 1):  # Top 10
+            strategy = bt.get("strategy", "Unknown")
+            symbols = ", ".join(bt.get("symbols", []))[:15]
+            total_trades = bt.get("total_trades", 0)
+            win_rate = bt.get("win_rate", 0)
+            total_return = bt.get("total_return_pct", 0)
+            max_dd = bt.get("max_drawdown_pct", 0)
+            
+            # Color coding
+            return_color = "text-success" if total_return >= 0 else "text-danger"
+            winrate_color = "text-success" if win_rate >= 50 else "text-warning" if win_rate >= 30 else "text-danger"
+            
+            rows.append(html.Tr([
+                html.Td(f"#{i}", className="text-muted"),
+                html.Td(f"{strategy[:15]}", className="fw-bold"),
+                html.Td(symbols, className="small text-muted"),
+                html.Td(f"{total_trades}"),
+                html.Td(f"{win_rate:.1f}%", className=winrate_color),
+                html.Td(f"{total_return:+.2f}%", className=return_color),
+                html.Td(f"{max_dd:.2f}%", className="text-danger")
+            ]))
+        
+        return html.Div([
+            html.Div([
+                html.Small(f"Last updated: {datetime.now().strftime('%H:%M:%S')}", className="text-muted")
+            ], className="text-end mb-2"),
+            dbc.Table(
+                [
+                    html.Thead(html.Tr([
+                        html.Th("#"), html.Th("Strategy"), html.Th("Symbols"),
+                        html.Th("Trades"), html.Th("WR%"), html.Th("Return%"), html.Th("MaxDD%")
+                    ]))
+                ] + [html.Tbody(rows)],
+                bordered=False,
+                hover=True,
+                size="sm"
+            )
+        ])
+        
+    except Exception as e:
+        return html.P(f"Error loading rankings: {str(e)[:50]}", className="text-danger")
+
+
+# T-077: Right Panel Signals + History Callback / 右欄訊號與歷史回調
+@callback(
+    Output("right-panel-signals-history", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_signals_history(n):
+    """Update right panel signals and history / 更新右欄訊號與歷史 (T-077)"""
+    try:
+        from backtest import BacktestStorage
+        from ui.services.monitor_service import get_today_signals
+        
+        # Get watch signals
+        signals = get_today_signals()
+        watch_signals = []  # Placeholder - would filter for watch-only
+        
+        # Get backtest history
+        storage = BacktestStorage()
+        backtests = storage.get_latest_backtests(limit=7)
+        
+        return html.Div([
+            # Watch Signals Section
+            html.Div([
+                html.H6(f"🔔 Watch Signals ({signals.get('total', 0)})", className="fw-bold mb-2"),
+                html.Hr(className="my-2"),
+                
+                # Signal count badge
+                html.Div([
+                    dbc.Badge(f"{signals.get('confirmed', 0)} Confirmed", color="success", className="me-2"),
+                    dbc.Badge(f"{signals.get('watch_only', 0)} Watch", color="warning")
+                ], className="mb-3"),
+                
+                # Signal list placeholder (would show actual signals)
+                html.Small("Signals from last run displayed here", className="text-muted d-block")
+            ], className="mb-4 pb-3 border-bottom border-secondary"),
+            
+            # Backtest History Section
+            html.Div([
+                html.H6("📈 Recent Backtests (7)", className="fw-bold mb-2"),
+                html.Hr(className="my-2"),
+                
+                # Backtest list
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.Small(f"{bt.get('backtest_id', '--')[:20]}", className="fw-bold d-block"),
+                            html.Small(
+                                f"Return: {bt.get('total_return_pct', 0):+.1f}% | WR: {bt.get('win_rate', 0):.0f}%",
+                                className="text-muted"
+                            )
+                        ], className="mb-2 pb-2 border-bottom border-secondary")
+                        for bt in backtests[:7]
+                    ]) if backtests else html.Small("No backtest history", className="text-muted")
+                ])
+            ])
+        ])
+        
+    except Exception as e:
+        return html.P(f"Error loading signals/history: {str(e)[:50]}", className="text-danger")
+
+
+# T-078: FT Block Callback / 待確認任務回調
+@callback(
+    Output("center-panel-ft-block", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_ft_block(n):
+    """Update FT block with pending acceptance tasks / 更新待確認任務區塊 (T-078)"""
+    try:
+        import json
+        from pathlib import Path
+        
+        tasks_file = Path("/tmp/kimi-shared-brain/state/tasks.json")
+        if not tasks_file.exists():
+            return html.P("No pending tasks", className="text-muted")
+        
+        with open(tasks_file, 'r') as f:
+            data = json.load(f)
+        
+        # Find completed but not reviewed tasks
+        pending = [t for t in data.get("tasks", []) 
+                   if t.get("status") == "completed" and not t.get("reviewed_by")]
+        
+        if not pending:
+            return html.P("No pending acceptance tasks", className="text-muted text-center")
+        
+        return html.Div([
+            html.Div([
+                html.Div([
+                    html.Small(f"📋 {t.get('task_id', '--')}: {t.get('title', 'No title')[:30]}...", 
+                              className="d-block fw-bold"),
+                    html.Small(f"Completed: {t.get('completed_at', '--')}", className="text-muted")
+                ], className="mb-2 pb-2 border-bottom border-secondary")
+                for t in pending[:5]
+            ])
+        ])
+        
+    except Exception as e:
+        return html.P(f"Error: {str(e)[:30]}", className="text-danger")
+
+
+# T-079: Discovery Count Badge Callback / 探索計數徽章回調
+@callback(
+    Output("discovery-count-badge", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_discovery_count(n):
+    """Update discovery count badge / 更新探索計數徽章 (T-079)"""
+    try:
+        from ui.services.monitor_service import get_today_signals
+        signals = get_today_signals()
+        return str(signals.get("total", 0))
+    except Exception:
+        return "0"
