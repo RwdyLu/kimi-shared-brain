@@ -1624,18 +1624,20 @@
       "task_id": "T-074",
       "title": "Dark theme + 3-column layout",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "feature",
       "depends_on": [],
       "goal": "Change ui/app.py to DARKLY theme and 3-col layout",
-      "output_file": "outbox/T-074_result.json"
+      "output_file": "outbox/T-074_result.json",
+      "completed_at": "2026-04-18T21:03:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-075",
       "title": "Left panel agent status",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "high",
       "type": "feature",
       "depends_on": [
@@ -1648,7 +1650,7 @@
       "task_id": "T-076",
       "title": "Center panel strategy ranking table",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "high",
       "type": "feature",
       "depends_on": [
@@ -1661,7 +1663,7 @@
       "task_id": "T-077",
       "title": "Right panel signals + history",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "high",
       "type": "feature",
       "depends_on": [
