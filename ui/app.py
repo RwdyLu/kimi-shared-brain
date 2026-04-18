@@ -35,7 +35,7 @@ from ui.services.monitor_service import get_scheduler_status
 app = dash.Dash(
     __name__,
     use_pages=True,  # Enable multi-page support / 啟用多頁支援
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.DARKLY],  # T-074: Dark theme
     suppress_callback_exceptions=True,
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"}

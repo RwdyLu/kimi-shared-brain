@@ -43,6 +43,110 @@ layout = dbc.Container(
         
         html.Hr(),
         
+        # T-074: Three Column Layout / 三欄布局
+        dbc.Row(
+            [
+                # Left Column - Agent Status (T-075 placeholder) / 左欄 - Agent 狀態
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader("🤖 Agent Status / 代理狀態", className="fw-bold"),
+                            dbc.CardBody(
+                                id="left-panel-agent-status",
+                                children=[
+                                    html.P("Loading agent status...", className="text-muted")
+                                ]
+                            )
+                        ],
+                        color="dark",
+                        outline=True
+                    ),
+                    width=12,
+                    md=3,
+                    className="mb-4"
+                ),
+                
+                # Center Column - Strategy Ranking (T-076 placeholder) / 中欄 - 策略排名
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader("📊 Strategy Ranking / 策略排名", className="fw-bold"),
+                                dbc.CardBody(
+                                    id="center-panel-strategy-ranking",
+                                    children=[
+                                        html.P("Loading strategy data...", className="text-muted")
+                                    ]
+                                )
+                            ],
+                            color="dark",
+                            outline=True,
+                            className="mb-3"
+                        ),
+                        
+                        # T-078: FT Block / 待確認任務區塊
+                        dbc.Card(
+                            [
+                                dbc.CardHeader("⏳ Pending Acceptance / 待確認", className="fw-bold"),
+                                dbc.CardBody(
+                                    id="center-panel-ft-block",
+                                    children=[
+                                        html.P("No pending tasks", className="text-muted")
+                                    ]
+                                )
+                            ],
+                            color="warning",
+                            outline=True,
+                            className="mb-3"
+                        ),
+                        
+                        # T-079: Discovery Count Badge / 探索計數徽章
+                        dbc.Card(
+                            [
+                                dbc.CardBody(
+                                    [
+                                        html.Div(
+                                            [
+                                                html.Span("📡 Today Signals / 今日訊號: ", className="fw-bold"),
+                                                html.Span(id="discovery-count-badge", children="0", className="badge bg-info ms-2")
+                                            ],
+                                            className="text-center"
+                                        )
+                                    ]
+                                )
+                            ],
+                            color="info",
+                            outline=True
+                        )
+                    ],
+                    width=12,
+                    md=6,
+                    className="mb-4"
+                ),
+                
+                # Right Column - Signals + History (T-077 placeholder) / 右欄 - 訊號與歷史
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader("🔔 Signals & History / 訊號與歷史", className="fw-bold"),
+                            dbc.CardBody(
+                                id="right-panel-signals-history",
+                                children=[
+                                    html.P("Loading signals...", className="text-muted")
+                                ]
+                            )
+                        ],
+                        color="dark",
+                        outline=True
+                    ),
+                    width=12,
+                    md=3,
+                    className="mb-4"
+                )
+            ],
+            className="mb-4"
+        ),
+        
         # Live Prices Section (Moved to top) / 即時價格區塊 (移到頂部)
         dbc.Row(
             [
