@@ -495,7 +495,9 @@
       "output_file": "indicators/calculator.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 indicator 模組已建立、函式切分清楚、可支援 T-022 設計規格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-023"],
+      "depends_on": [
+        "T-023"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T11:32:00+08:00",
       "completed_at": "2026-04-06T11:32:00+08:00",
@@ -512,7 +514,9 @@
       "output_file": "signals/engine.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 signal engine 模組已建立、訊號邏輯符合 T-022 規格、未擴充成下單系統，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-024"],
+      "depends_on": [
+        "T-024"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T11:48:00+08:00",
       "completed_at": "2026-04-06T11:48:00+08:00",
@@ -529,7 +533,9 @@
       "output_file": "notifications/notifier.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 notification 模組已建立、提醒格式清楚、watch only 標示明確、未擴充成下單系統，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-025"],
+      "depends_on": [
+        "T-025"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T11:56:00+08:00",
       "completed_at": "2026-04-06T11:56:00+08:00",
@@ -546,7 +552,9 @@
       "output_file": "app/monitor_runner.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 runner 已建立、可串接四層模組、可產生單次執行輸出 preview，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-026"],
+      "depends_on": [
+        "T-026"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T21:31:00+08:00",
       "completed_at": "2026-04-06T21:31:00+08:00",
@@ -563,7 +571,9 @@
       "output_file": "outputs/T-028_local_validation_report.md",
       "success_condition": "second bot 完成 git pull 驗收，確認測試執行報告已建立、驗證內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-027"],
+      "depends_on": [
+        "T-027"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T21:56:00+08:00",
       "completed_at": "2026-04-06T21:56:00+08:00",
@@ -580,7 +590,9 @@
       "output_file": "notifications/channels.py",
       "success_condition": "second bot 完成 git pull 驗收，確認通知渠道模組已建立、支援 webhook 與 fallback、未超出 alert-only 範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-028"],
+      "depends_on": [
+        "T-028"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T22:07:00+08:00",
       "completed_at": "2026-04-06T22:07:00+08:00",
@@ -597,7 +609,9 @@
       "output_file": "app/scheduler.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 scheduler 模組與執行說明已建立、排程邏輯清楚、未超出提醒系統範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-029"],
+      "depends_on": [
+        "T-029"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-06T22:17:00+08:00",
       "completed_at": "2026-04-06T22:17:00+08:00",
@@ -614,7 +628,9 @@
       "output_file": "outputs/T-031_signal_quality_review.md",
       "success_condition": "second bot 完成 git pull 驗收，確認審查報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-030"],
+      "depends_on": [
+        "T-030"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T15:55:00+08:00",
       "completed_at": "2026-04-07T15:55:00+08:00",
@@ -631,7 +647,9 @@
       "output_file": "signals/engine.py",
       "success_condition": "second bot 完成 git pull 驗收，確認兩項安全微調已完成、未超出 patch 範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-031"],
+      "depends_on": [
+        "T-031"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T16:51:00+08:00",
       "completed_at": "2026-04-07T16:51:00+08:00",
@@ -648,7 +666,9 @@
       "output_file": "outputs/T-033_deployment_readiness.md",
       "success_condition": "second bot 完成 git pull 驗收，確認啟動前檢查已完成、啟動步驟已執行、監控已開始或明確指出最後阻塞點，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-032"],
+      "depends_on": [
+        "T-032"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T17:15:00+08:00",
       "completed_at": "2026-04-07T17:15:00+08:00",
@@ -665,7 +685,9 @@
       "output_file": "tasks/archive/tasks_001_100.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 archive 結構、規格文件與 task schema 更新完成，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-033"],
+      "depends_on": [
+        "T-033"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T17:36:00+08:00",
       "completed_at": "2026-04-07T17:36:00+08:00",
@@ -682,7 +704,9 @@
       "output_file": "outputs/T-035_realtime_data_verification.md",
       "success_condition": "second bot 完成 git pull 驗收，確認即時資料驗證報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-034"],
+      "depends_on": [
+        "T-034"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T18:13:00+08:00",
       "completed_at": "2026-04-07T18:13:00+08:00",
@@ -699,7 +723,9 @@
       "output_file": "notifications/formatter.py",
       "success_condition": "second bot 完成 git pull 驗收，確認中文提醒格式已更新、範例文件已建立，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-035"],
+      "depends_on": [
+        "T-035"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T19:41:00+08:00",
       "completed_at": "2026-04-07T19:41:00+08:00",
@@ -716,7 +742,9 @@
       "output_file": "outputs/T-037_signal_condition_trace.md",
       "success_condition": "second bot 完成 git pull 驗收，確認條件診斷報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-036"],
+      "depends_on": [
+        "T-036"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T20:27:00+08:00",
       "completed_at": "2026-04-07T20:27:00+08:00",
@@ -733,7 +761,9 @@
       "output_file": "rules/OPERATING_RULES.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 anti-timeout 規則已寫入文件並更新相關規格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-037"],
+      "depends_on": [
+        "T-037"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T20:35:00+08:00",
       "completed_at": "2026-04-07T20:35:00+08:00",
@@ -750,14 +780,16 @@
       "output_file": "ui/UI_MASTER_PLAN.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 UI master plan、phase 拆分、實作起始任務與 UI 雛形已建立或啟動，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-038"],
+      "depends_on": [
+        "T-038"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-07T21:05:00+08:00",
       "completed_at": "2026-04-08T05:45:00+08:00",
       "reviewed_by": "second_bot",
       "phases": [
         "T-039-01: UI Master Plan",
-        "T-039-02: Config Centralization", 
+        "T-039-02: Config Centralization",
         "T-039-03: Dash App Skeleton",
         "T-039-04: Connect Monitoring Status",
         "T-039-05: Parameter Panel MVP",
@@ -776,7 +808,9 @@
       "output_file": "ui/UI_MASTER_PLAN.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 UI master plan 已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039"],
+      "depends_on": [
+        "T-039"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 1,
@@ -794,7 +828,9 @@
       "output_file": "config/monitoring_params.json",
       "success_condition": "second bot 完成 git pull 驗收，確認 config 檔案已建立且現有程式已更新",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-01"],
+      "depends_on": [
+        "T-039-01"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 2,
@@ -812,7 +848,9 @@
       "output_file": "ui/app.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dash app skeleton 已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-02"],
+      "depends_on": [
+        "T-039-02"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 3,
@@ -830,7 +868,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 完成 git pull 驗收，確認監測狀態已接入 UI",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-03"],
+      "depends_on": [
+        "T-039-03"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 4,
@@ -848,7 +888,9 @@
       "output_file": "ui/pages/parameters.py",
       "success_condition": "second bot 完成 git pull 驗收，確認參數面板已可用",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-04"],
+      "depends_on": [
+        "T-039-04"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 5,
@@ -866,7 +908,9 @@
       "output_file": "ui/pages/actions.py",
       "success_condition": "second bot 完成 git pull 驗收，確認人工決策頁已可用",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-05"],
+      "depends_on": [
+        "T-039-05"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 6,
@@ -884,7 +928,9 @@
       "output_file": "outputs/T-039-07_ui_mvp_review.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 review 報告已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-06"],
+      "depends_on": [
+        "T-039-06"
+      ],
       "report_to": "second_bot",
       "phase_of": "T-039",
       "phase_number": 7,
@@ -902,7 +948,9 @@
       "output_file": "ui/services/action_service.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Action Queue 功能保留、檔案結構補正完成，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-06"],
+      "depends_on": [
+        "T-039-06"
+      ],
       "report_to": "second_bot",
       "completed_at": "2026-04-09T19:17:00+08:00",
       "reviewed_by": "second_bot"
@@ -918,7 +966,9 @@
       "output_file": "outputs/T-040_ui_fix_summary.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 config 路徑修正完成、scheduler 狀態顯示一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-039-06-patch"],
+      "depends_on": [
+        "T-039-06-patch"
+      ],
       "report_to": "second_bot",
       "completed_at": "2026-04-09T20:27:00+08:00",
       "reviewed_by": "second_bot"
@@ -934,7 +984,9 @@
       "output_file": "outputs/T-042_navbar_status_badge_fix.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 navbar badge 與 Dashboard/System 狀態一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-040"],
+      "depends_on": [
+        "T-040"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T18:28:00+08:00",
       "completed_at": "2026-04-10T18:28:00+08:00",
@@ -951,7 +1003,9 @@
       "output_file": "outputs/T-043_recent_runs_sync_fix.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 的 Recent Runs 表格與 Last Run 狀態一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-042"],
+      "depends_on": [
+        "T-042"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T18:51:00+08:00",
       "completed_at": "2026-04-10T18:51:00+08:00",
@@ -968,7 +1022,9 @@
       "output_file": "outputs/T-044_dashboard_status_card_fix.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard System Status 不再與 Last Run / Recent Runs 矛盾，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-043"],
+      "depends_on": [
+        "T-043"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T19:03:00+08:00",
       "completed_at": "2026-04-10T19:03:00+08:00",
@@ -985,7 +1041,9 @@
       "output_file": "outputs/T-045_recent_runs_symbol_breakdown.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 Recent Runs 顯示最新 run，且能區分 BTC / ETH，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-044"],
+      "depends_on": [
+        "T-044"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T19:29:00+08:00",
       "completed_at": "2026-04-10T19:29:00+08:00",
@@ -1002,7 +1060,9 @@
       "output_file": "outputs/T-046_run_label_clarity.md",
       "success_condition": "second bot 完成 git pull 驗收，確認 UI 文案已清楚區分 session run 與 historical run，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-045"],
+      "depends_on": [
+        "T-045"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T20:08:00+08:00",
       "completed_at": "2026-04-10T20:08:00+08:00",
@@ -1019,7 +1079,9 @@
       "output_file": "outputs/T-047_recent_run_history_autoupdate.md",
       "success_condition": "second bot 完成 git pull 驗收，確認每次新 run 完成後，Recent Run History 會自動新增最新一筆，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-046"],
+      "depends_on": [
+        "T-046"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-10T20:35:00+08:00",
       "completed_at": "2026-04-10T20:35:00+08:00",
@@ -1036,7 +1098,9 @@
       "output_file": "outputs/T-048_eth_btc_correlation_analysis.md",
       "success_condition": "second bot 完成 git pull 驗收，確認分析報告已生成並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-047"],
+      "depends_on": [
+        "T-047"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-12T17:25:00+08:00",
       "completed_at": "2026-04-12T17:25:00+08:00",
@@ -1053,7 +1117,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 已顯示健康時間戳與超時警示，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-047"],
+      "depends_on": [
+        "T-047"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-13T20:08:00+08:00"
     },
@@ -1068,7 +1134,9 @@
       "output_file": "signals/engine.py",
       "success_condition": "second bot 完成 git pull 驗收，確認每次 run 都顯示當前價格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-049"],
+      "depends_on": [
+        "T-049"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T18:55:00+08:00",
       "completed_at": "2026-04-14T18:55:00+08:00",
@@ -1085,7 +1153,9 @@
       "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 顯示即時價格卡片，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-050"],
+      "depends_on": [
+        "T-050"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T19:21:00+08:00",
       "completed_at": "2026-04-14T19:21:00+08:00",
@@ -1102,7 +1172,9 @@
       "output_file": "app/monitor_runner.py",
       "success_condition": "second bot 完成 git pull 驗收，確認每次 run 後 indicator_snapshots.jsonl 有正確寫入資料，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-051"],
+      "depends_on": [
+        "T-051"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T21:12:00+08:00",
       "completed_at": "2026-04-14T21:12:00+08:00",
@@ -1119,7 +1191,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 價格卡片在頂部正確顯示，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-052-B"],
+      "depends_on": [
+        "T-052-B"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T21:12:00+08:00",
       "completed_at": "2026-04-14T21:12:00+08:00",
@@ -1136,7 +1210,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Strategy Distance 面板正確顯示並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-052-A"],
+      "depends_on": [
+        "T-052-A"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T21:23:00+08:00",
       "completed_at": "2026-04-14T21:23:00+08:00",
@@ -1153,7 +1229,9 @@
       "output_file": "ui/pages/signals.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Signals 頁面正確顯示指標數值並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-052-C"],
+      "depends_on": [
+        "T-052-C"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T21:31:00+08:00",
       "completed_at": "2026-04-14T21:31:00+08:00",
@@ -1170,7 +1248,9 @@
       "output_file": "backtest/README.md, backtest/__init__.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 backtest 目錄結構正確並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-052-D"],
+      "depends_on": [
+        "T-052-D"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T23:14:00+08:00",
       "completed_at": "2026-04-14T23:14:00+08:00",
@@ -1187,7 +1267,9 @@
       "output_file": "backtest/runner.py",
       "success_condition": "second bot 完成 git pull 驗收，確認回測引擎可正常執行並產出結果到 backtest_results.jsonl",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-053-A"],
+      "depends_on": [
+        "T-053-A"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T23:25:00+08:00",
       "completed_at": "2026-04-14T23:25:00+08:00",
@@ -1204,7 +1286,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 正確顯示回測視覺化圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-053-B"],
+      "depends_on": [
+        "T-053-B"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T23:31:00+08:00",
       "completed_at": "2026-04-14T23:31:00+08:00",
@@ -1221,7 +1305,9 @@
       "output_file": "ui/pages/backtest.py",
       "success_condition": "second bot 完成 git pull 驗收，確認回測報告頁面可正常瀏覽所有詳細資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-053-C"],
+      "depends_on": [
+        "T-053-C"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-14T23:37:00+08:00",
       "completed_at": "2026-04-14T23:37:00+08:00",
@@ -1238,7 +1324,9 @@
       "output_file": "logs/indicator_snapshots.jsonl",
       "success_condition": "second bot 確認 Scheduler 重啟後，indicator_snapshots.jsonl 開始記錄每次 run 的價格資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-053-D"],
+      "depends_on": [
+        "T-053-D"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T05:33:00+08:00",
       "completed_at": "2026-04-15T05:33:00+08:00",
@@ -1255,7 +1343,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 驗收 Dashboard 正確顯示價格歷史圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-054-A"],
+      "depends_on": [
+        "T-054-A"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T05:43:00+08:00",
       "completed_at": "2026-04-15T05:43:00+08:00",
@@ -1272,7 +1362,9 @@
       "output_file": "ui/pages/signals.py",
       "success_condition": "second bot 驗收 Signals 頁面正確顯示每個 run 的價格資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-054-A"],
+      "depends_on": [
+        "T-054-A"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T05:43:00+08:00",
       "completed_at": "2026-04-15T05:43:00+08:00",
@@ -1289,7 +1381,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "second bot 驗收 Dashboard 正確顯示檢查歷史表格，包含時間、BTC/ETH價格",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-054-B"],
+      "depends_on": [
+        "T-054-B"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T05:52:00+08:00",
       "completed_at": "2026-04-15T05:52:00+08:00",
@@ -1306,7 +1400,9 @@
       "output_file": "outputs/T-057_verification_report.md",
       "success_condition": "UI process 存在、get_current_prices() 回傳非空價格、curl 有回應、Cloudflare tunnel 存在",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-055"],
+      "depends_on": [
+        "T-055"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T17:30:00+08:00",
       "completed_at": "2026-04-15T17:30:00+08:00",
@@ -1323,7 +1419,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "BTC 和 ETH 價格卡片都顯示類似 Updated 17:39:39 · 32s ago 的格式",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-057"],
+      "depends_on": [
+        "T-057"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T17:48:00+08:00",
       "completed_at": "2026-04-15T17:58:00+08:00",
@@ -1340,7 +1438,9 @@
       "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
       "success_condition": "價格每 10 秒更新一次，從 Binance API 直接取得 BTC/ETH 即時價格",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-058"],
+      "depends_on": [
+        "T-058"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T19:30:00+08:00",
       "completed_at": "2026-04-15T20:40:00+08:00",
@@ -1357,7 +1457,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "每個策略有顏色標示（綠/黃/紅）和距離觸發的百分比",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-058"],
+      "depends_on": [
+        "T-058"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-15T19:30:00+08:00",
       "completed_at": "2026-04-15T20:40:00+08:00",
@@ -1374,7 +1476,9 @@
       "output_file": "ui/services/monitor_service.py, ui/pages/dashboard.py",
       "success_condition": "get_current_prices() 真正呼叫 Binance API，策略面板顯示正確顏色和距離數字",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-059-B"],
+      "depends_on": [
+        "T-059-B"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
@@ -1391,7 +1495,9 @@
       "output_file": "ui/pages/dashboard.py",
       "success_condition": "Navbar 顯示『最後更新：HH:MM:SS』，超時紅色警示",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-060"],
+      "depends_on": [
+        "T-060"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
@@ -1408,7 +1514,9 @@
       "output_file": "outbox/T-062_strategies.pine",
       "success_condition": "Pine Script 檔案包含 MA Cross 和 Contrarian 策略，可在 TradingView 運行",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-061"],
+      "depends_on": [
+        "T-061"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-16T14:30:00+08:00",
       "completed_at": "2026-04-16T14:30:00+08:00",
@@ -1443,8 +1551,17 @@
       "details": {
         "file": "backtest/runner.py",
         "class": "BacktestRunner",
-        "methods": ["run(config)", "_run_symbol()", "_build_summary()", "build_equity_chart()"],
-        "dependencies": ["data.fetcher", "signals.engine", "backtest.BacktestStorage"],
+        "methods": [
+          "run(config)",
+          "_run_symbol()",
+          "_build_summary()",
+          "build_equity_chart()"
+        ],
+        "dependencies": [
+          "data.fetcher",
+          "signals.engine",
+          "backtest.BacktestStorage"
+        ],
         "data": "500 根 5m K 線",
         "chart": "plotly equity curve + drawdown 子圖"
       },
@@ -1467,16 +1584,130 @@
       "output_file": "outbox/T-072_result.json",
       "details": {
         "file": "ui/pages/backtest.py",
-        "ui_components": ["Dropdown 選標的", "止損%輸入", "本金輸入", "Run Backtest 按鈕"],
-        "display": ["勝率 Card", "總報酬% Card", "最大回撤% Card", "總交易次數 Card", "equity curve (dcc.Graph)", "最近 20 筆交易 table"]
+        "ui_components": [
+          "Dropdown 選標的",
+          "止損%輸入",
+          "本金輸入",
+          "Run Backtest 按鈕"
+        ],
+        "display": [
+          "勝率 Card",
+          "總報酬% Card",
+          "最大回撤% Card",
+          "總交易次數 Card",
+          "equity curve (dcc.Graph)",
+          "最近 20 筆交易 table"
+        ]
       },
       "success_condition": "backtest 頁面可執行回測並顯示績效指標與圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "depends_on": ["T-071"],
+      "depends_on": [
+        "T-071"
+      ],
       "report_to": "second_bot",
       "last_updated": "2026-04-18T05:40:00+08:00",
       "completed_at": "2026-04-18T05:40:00+08:00",
       "reviewed_by": "kimiclaw_bot"
+    },
+    {
+      "task_id": "T-073",
+      "title": "Restart UI server to load new backtest.py",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "ops",
+      "depends_on": [],
+      "goal": "git pull then restart Dash UI server",
+      "output_file": "outbox/T-073_result.json"
+    },
+    {
+      "task_id": "T-074",
+      "title": "Dark theme + 3-column layout",
+      "assigned_to": "kimiclaw_bot",
+      "status": "assigned",
+      "priority": "high",
+      "type": "feature",
+      "depends_on": [],
+      "goal": "Change ui/app.py to DARKLY theme and 3-col layout",
+      "output_file": "outbox/T-074_result.json"
+    },
+    {
+      "task_id": "T-075",
+      "title": "Left panel agent status",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "feature",
+      "depends_on": [
+        "T-074"
+      ],
+      "goal": "Show kimiclaw_bot and second_bot status from tasks.json",
+      "output_file": "outbox/T-075_result.json"
+    },
+    {
+      "task_id": "T-076",
+      "title": "Center panel strategy ranking table",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "feature",
+      "depends_on": [
+        "T-074"
+      ],
+      "goal": "Show strategy performance ranking from backtest results",
+      "output_file": "outbox/T-076_result.json"
+    },
+    {
+      "task_id": "T-077",
+      "title": "Right panel signals + history",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "feature",
+      "depends_on": [
+        "T-074"
+      ],
+      "goal": "Show watch signals and last 7 backtest summaries",
+      "output_file": "outbox/T-077_result.json"
+    },
+    {
+      "task_id": "T-078",
+      "title": "Commit to FT block",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "medium",
+      "type": "feature",
+      "depends_on": [
+        "T-076"
+      ],
+      "goal": "Show completed but unaccepted tasks in center panel",
+      "output_file": "outbox/T-078_result.json"
+    },
+    {
+      "task_id": "T-079",
+      "title": "Discovery count badge",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "medium",
+      "type": "feature",
+      "depends_on": [
+        "T-076"
+      ],
+      "goal": "Show today signal count badge below center panel",
+      "output_file": "outbox/T-079_result.json"
+    },
+    {
+      "task_id": "T-080",
+      "title": "Restart UI server final",
+      "assigned_to": "kimiclaw_bot",
+      "status": "pending",
+      "priority": "high",
+      "type": "ops",
+      "depends_on": [
+        "T-077"
+      ],
+      "goal": "git pull and restart Dash server after all UI tasks done",
+      "output_file": "outbox/T-080_result.json"
     }
   ]
 }
