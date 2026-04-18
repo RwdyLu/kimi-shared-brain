@@ -1637,72 +1637,82 @@
       "task_id": "T-075",
       "title": "Left panel agent status",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "feature",
       "depends_on": [
         "T-074"
       ],
       "goal": "Show kimiclaw_bot and second_bot status from tasks.json",
-      "output_file": "outbox/T-075_result.json"
+      "output_file": "outbox/T-075_result.json",
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-076",
       "title": "Center panel strategy ranking table",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "feature",
       "depends_on": [
         "T-074"
       ],
       "goal": "Show strategy performance ranking from backtest results",
-      "output_file": "outbox/T-076_result.json"
+      "output_file": "outbox/T-076_result.json",
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-077",
       "title": "Right panel signals + history",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "feature",
       "depends_on": [
         "T-074"
       ],
       "goal": "Show watch signals and last 7 backtest summaries",
-      "output_file": "outbox/T-077_result.json"
+      "output_file": "outbox/T-077_result.json",
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-078",
       "title": "Commit to FT block",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "feature",
       "depends_on": [
         "T-076"
       ],
       "goal": "Show completed but unaccepted tasks in center panel",
-      "output_file": "outbox/T-078_result.json"
+      "output_file": "outbox/T-078_result.json",
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-079",
       "title": "Discovery count badge",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "medium",
       "type": "feature",
       "depends_on": [
         "T-076"
       ],
       "goal": "Show today signal count badge below center panel",
-      "output_file": "outbox/T-079_result.json"
+      "output_file": "outbox/T-079_result.json",
+      "completed_at": "2026-04-18T21:20:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "T-080",
       "title": "Restart UI server final",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "high",
       "type": "ops",
       "depends_on": [
