@@ -1,0 +1,9 @@
+{
+  "task_id": "T-080",
+  "description": "Restart UI server in /tmp/kimi-shared-brain/",
+  "old_pids": [284492],
+  "new_pid": 284496,
+  "http_status": 200,
+  "status": "success",
+  "timestamp": "2026-04-19T11:07:00+08:00"
+}
