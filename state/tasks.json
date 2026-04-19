@@ -1713,14 +1713,15 @@
       "task_id": "T-080",
       "title": "Restart UI server final",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "high",
       "type": "ops",
       "depends_on": [
         "T-077"
       ],
       "goal": "git pull and restart Dash server after all UI tasks done",
-      "output_file": "outbox/T-080_result.json"
+      "output_file": "outbox/T-080_result.json",
+      "completed_at": "2026-04-19T11:09:43.889386"
     }
   ]
 }
