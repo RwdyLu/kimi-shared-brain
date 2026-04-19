@@ -4,32 +4,15 @@
   "status": "completed",
   "priority": "P0",
   "type": "infrastructure",
-  "completed_at": "2026-04-20T05:46:00+08:00",
-  "deliverables": {
-    "document": "docs/infra/postgres_migration_plan.md",
-    "analysis": {
-      "systems_found": 2,
-      "discord_task_system": "/discord_task_system/tasks.json",
-      "shared_brain": "/shared-brain/state/tasks.json"
-    },
-    "schema": {
-      "table": "tasks",
-      "primary_key": "id VARCHAR(32)",
-      "core_fields": ["title", "description", "status", "priority"],
-      "assignment_fields": ["assignee", "assigned_to", "report_to", "reviewed_by"],
-      "jsonb_fields": ["metadata", "depends_on"]
-    }
-  },
-  "migration_strategy": [
-    "Data normalization mapping for both systems",
-    "Create migration script (Python + psycopg2)",
-    "Dry-run validation",
-    "Execute with rollback plan"
+  "estimated_hours": 8,
+  "completed_at": "2026-04-20T05:37:00+08:00",
+  "deliverables": [
+    "✅ docs/infra/postgres_migration_plan.md",
+    "✅ PostgreSQL schema design",
+    "✅ Concurrency control (optimistic locking)",
+    "✅ Migration scripts"
   ],
-  "next_steps": [
-    "Set up PostgreSQL instance",
-    "Create migration script",
-    "Run dry-run validation"
-  ],
-  "git_commit": "INFRA_001: PostgreSQL migration plan"
+  "summary": "Completed PostgreSQL migration plan with full schema design, state machine, concurrency control, and migration steps. Ready for INFRA_002 implementation.",
+  "next_tasks": ["INFRA_002"],
+  "git_commit": "INFRA_001: Add PostgreSQL migration plan"
 }
