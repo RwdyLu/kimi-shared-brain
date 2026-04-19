@@ -1,0 +1,35 @@
+{
+  "task_id": "INFRA_001",
+  "title": "分析 tasks.json 結構並規劃 PostgreSQL 遷移",
+  "status": "completed",
+  "priority": "P0",
+  "type": "infrastructure",
+  "completed_at": "2026-04-20T05:46:00+08:00",
+  "deliverables": {
+    "document": "docs/infra/postgres_migration_plan.md",
+    "analysis": {
+      "systems_found": 2,
+      "discord_task_system": "/discord_task_system/tasks.json",
+      "shared_brain": "/shared-brain/state/tasks.json"
+    },
+    "schema": {
+      "table": "tasks",
+      "primary_key": "id VARCHAR(32)",
+      "core_fields": ["title", "description", "status", "priority"],
+      "assignment_fields": ["assignee", "assigned_to", "report_to", "reviewed_by"],
+      "jsonb_fields": ["metadata", "depends_on"]
+    }
+  },
+  "migration_strategy": [
+    "Data normalization mapping for both systems",
+    "Create migration script (Python + psycopg2)",
+    "Dry-run validation",
+    "Execute with rollback plan"
+  ],
+  "next_steps": [
+    "Set up PostgreSQL instance",
+    "Create migration script",
+    "Run dry-run validation"
+  ],
+  "git_commit": "INFRA_001: PostgreSQL migration plan"
+}
