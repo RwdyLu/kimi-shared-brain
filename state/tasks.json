@@ -1728,7 +1728,7 @@
       "task_id": "INFRA_001",
       "title": "分析 tasks.json 結構並規劃 PostgreSQL 遷移",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 8,
@@ -1741,13 +1741,15 @@
       ],
       "depends_on": [],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-20T05:37:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "INFRA_002",
       "title": "搭建 PostgreSQL 環境",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 4,
