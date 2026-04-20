@@ -1907,7 +1907,7 @@
       "task_id": "EXEC_005",
       "title": "訂單失敗重試機制與告警",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 5,
@@ -1922,7 +1922,9 @@
         "EXEC_004"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-21T05:45:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "STRATEGY_001",

@@ -1,0 +1,25 @@
+{
+  "task_id": "EXEC_005",
+  "title": "訂單失敗重試機制與告警",
+  "status": "completed",
+  "priority": "P0",
+  "type": "execution",
+  "estimated_hours": 5,
+  "completed_at": "2026-04-21T05:45:00+08:00",
+  "deliverables": [
+    "app/order_retry.py - 訂單重試與告警系統",
+    "指數退避重試 (Exponential Backoff with Jitter)",
+    "多通道告警管理 (INFO/WARNING/ERROR/CRITICAL)",
+    "可重試錯誤分類",
+    "重試統計追蹤"
+  ],
+  "features": [
+    "Automatic retry with configurable max attempts",
+    "Exponential backoff with jitter",
+    "Retryable vs non-retryable error classification",
+    "Multi-level alert system with rate limiting",
+    "Real-time retry statistics",
+    "Active retry tracking and cancellation"
+  ],
+  "git_commit": "EXEC_005: Implement order retry mechanism and alert system"
+}
