@@ -1833,14 +1833,14 @@
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "report_to": "second_bot",
-      "completed_at": "2026-04-20T17:30:00+08:00",
+      "completed_at": "2026-04-20T17:40:00+08:00",
       "reviewed_by": "second_bot"
     },
     {
       "task_id": "EXEC_002",
       "title": "訂單驗證與 Binance API 確認機制",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 6,
