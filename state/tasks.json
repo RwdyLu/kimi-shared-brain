@@ -1794,7 +1794,7 @@
       "task_id": "INFRA_004",
       "title": "實現並發控制",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 6,
