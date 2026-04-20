@@ -1,0 +1,26 @@
+{
+  "task_id": "EXEC_003",
+  "title": "Position Sizing Engine",
+  "status": "completed",
+  "priority": "P0",
+  "type": "execution",
+  "estimated_hours": 5,
+  "completed_at": "2026-04-20T20:45:00+08:00",
+  "deliverables": [
+    "app/position_sizing.py - 動態倉位規模計算引擎",
+    "風險額度計算 (2% max risk per trade)",
+    "最大持倉限制 (10% max position)",
+    "多種風險模型: Fixed Risk, Kelly, Half-Kelly, Fixed Fractional",
+    "波動率調整",
+    "績效追蹤與自動更新"
+  ],
+  "features": [
+    "Dynamic position sizing based on risk parameters",
+    "Kelly criterion with performance tracking",
+    "Volatility-adjusted position sizes",
+    "Leverage calculation",
+    "Stop-loss and take-profit integration",
+    "Confidence-based position scaling"
+  ],
+  "git_commit": "EXEC_003: Implement Position Sizing Engine"
+}

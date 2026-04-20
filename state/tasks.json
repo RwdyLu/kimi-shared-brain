@@ -1863,7 +1863,7 @@
       "task_id": "EXEC_003",
       "title": "Position Sizing Engine",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 5,
@@ -1877,7 +1877,9 @@
         "EXEC_002"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-20T20:45:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "EXEC_004",
