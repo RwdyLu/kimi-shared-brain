@@ -1,0 +1,26 @@
+{
+  "task": "listen_github_issues",
+  "mode": "webhook",
+  "port": 5000,
+  "status": "running",
+  "pid": 303687,
+  "completed_at": "2026-04-20T20:23:00+08:00",
+  "deliverables": [
+    "app/github_webhook.py - Flask webhook server",
+    "scripts/webhook.sh - Start/stop script",
+    "Webhook endpoint: http://localhost:5000/webhook",
+    "Health check: http://localhost:5000/health"
+  ],
+  "features": [
+    "Receives GitHub Issues events (opened, closed, reopened, labeled)",
+    "Signature verification support (X-Hub-Signature-256)",
+    "Ping endpoint for webhook setup testing",
+    "Auto-start via scripts/webhook.sh"
+  ],
+  "configuration": {
+    "github_webhook_url": "http://YOUR_SERVER_IP:5000/webhook",
+    "content_type": "application/json",
+    "events": ["issues"],
+    "secret": "Set GITHUB_WEBHOOK_SECRET env variable"
+  }
+}
