@@ -1816,7 +1816,7 @@
       "task_id": "EXEC_001",
       "title": "Pre-Trade 風險檢查",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 8,
@@ -1831,7 +1831,9 @@
         "INFRA_004"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-20T17:30:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "EXEC_002",

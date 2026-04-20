@@ -1,0 +1,49 @@
+{
+  "task_id": "EXEC_001",
+  "title": "Pre-Trade 風險檢查",
+  "status": "completed",
+  "priority": "P0",
+  "type": "execution",
+  "estimated_hours": 8,
+  "completed_at": "2026-04-20T17:30:00+08:00",
+  "deliverables": [
+    "app/risk_checks.py",
+    "6 項風險檢查實現",
+    "檢查結果報告",
+    "單元測試框架"
+  ],
+  "checks": [
+    {
+      "name": "Balance Check",
+      "description": "帳戶餘額檢查，確保足夠資金",
+      "threshold": "min_balance_usdt: 10.0"
+    },
+    {
+      "name": "API Limit Check",
+      "description": "API 速率限制檢查",
+      "threshold": "max_weight: 1200/min"
+    },
+    {
+      "name": "Liquidity Check",
+      "description": "訂單簿深度檢查",
+      "threshold": "min_order_book_depth: 10000 USDT"
+    },
+    {
+      "name": "Slippage Check",
+      "description": "滑點估計檢查",
+      "threshold": "max_slippage_pct: 0.5%"
+    },
+    {
+      "name": "Volume Check",
+      "description": "24小時交易量檢查",
+      "threshold": "min_volume_24h: 1000000 USDT"
+    },
+    {
+      "name": "Volatility Check",
+      "description": "波動率檢查",
+      "threshold": "max_volatility_pct: 5.0%"
+    }
+  ],
+  "summary": "實現了完整的 Pre-Trade 風險檢查系統，包含6項檢查：餘額、API限制、流動性、滑點、交易量、波動率。所有檢查通過才允許下單。",
+  "git_commit": "EXEC_001: Implement Pre-Trade risk checks"
+}
