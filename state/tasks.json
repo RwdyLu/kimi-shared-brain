@@ -2,11 +2,11 @@
   "tasks": [
     {
       "task_id": "T-001",
-      "title": "\u6e2c\u8a66\u5171\u4eab repo \u5de5\u4f5c\u6d41\u7a0b",
+      "title": "測試共享 repo 工作流程",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
-      "next_action": "\u5df2\u7531 second_bot \u5be9\u67e5\u5b8c\u6210\uff0c\u5de5\u4f5c\u6d41\u7a0b\u9a57\u8b49\u6210\u529f",
+      "next_action": "已由 second_bot 審查完成，工作流程驗證成功",
       "depends_on": [],
       "report_to": "second_bot",
       "last_updated": "2026-04-05T13:25:00+08:00",
@@ -15,11 +15,11 @@
     },
     {
       "task_id": "T-002",
-      "title": "\u6e2c\u8a66 JSON \u683c\u5f0f outbox \u63d0\u4ea4\u6d41\u7a0b",
+      "title": "測試 JSON 格式 outbox 提交流程",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
-      "next_action": "\u5df2\u7531 second_bot \u5be9\u67e5\u5b8c\u6210\uff0cJSON \u683c\u5f0f\u63d0\u4ea4\u6d41\u7a0b\u9a57\u8b49\u6210\u529f",
+      "next_action": "已由 second_bot 審查完成，JSON 格式提交流程驗證成功",
       "depends_on": [],
       "report_to": "second_bot",
       "last_updated": "2026-04-05T13:35:00+08:00",
@@ -28,14 +28,14 @@
     },
     {
       "task_id": "T-003",
-      "title": "\u6e2c\u8a66 Discord \u4efb\u52d9\u5165\u53e3",
+      "title": "測試 Discord 任務入口",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "workflow_test",
-      "goal": "\u8b80\u53d6 rules \u8207 state\uff0c\u7136\u5f8c\u63d0\u4ea4 outbox/T-003_result.json",
+      "goal": "讀取 rules 與 state，然後提交 outbox/T-003_result.json",
       "output_file": "outbox/T-003_result.json",
-      "success_condition": "second bot \u5b8c\u6210\u9a57\u6536\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成驗收並更新 state/tasks.json",
       "depends_on": [],
       "report_to": "second_bot",
       "last_updated": "2026-04-05T13:52:00+08:00",
@@ -44,14 +44,14 @@
     },
     {
       "task_id": "T-004",
-      "title": "\u6e2c\u8a66 GitHub-only \u57f7\u884c\u6d41\u7a0b",
+      "title": "測試 GitHub-only 執行流程",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "workflow_test",
-      "goal": "\u50c5\u900f\u904e GitHub repo \u5b8c\u6210\u4e00\u6b21\u5b8c\u6574\u4efb\u52d9\u6d41\u7a0b\uff0c\u4e0d\u4f7f\u7528\u672c\u5730\u8def\u5f91 fallback",
+      "goal": "僅透過 GitHub repo 完成一次完整任務流程，不使用本地路徑 fallback",
       "output_file": "outbox/T-004_result.json",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -61,14 +61,14 @@
     },
     {
       "task_id": "T-005",
-      "title": "\u5efa\u7acb Discord \u4efb\u52d9\u5165\u53e3\u898f\u683c\u6587\u4ef6",
+      "title": "建立 Discord 任務入口規格文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `rules/DISCORD_TASK_INTAKE.md`\uff0c\u5b9a\u7fa9 Discord \u4e0b\u6307\u4ee4\u5230 GitHub-only workflow \u7684\u6a19\u6e96\u683c\u5f0f\u8207\u6d41\u7a0b",
+      "goal": "建立 `rules/DISCORD_TASK_INTAKE.md`，定義 Discord 下指令到 GitHub-only workflow 的標準格式與流程",
       "output_file": "rules/DISCORD_TASK_INTAKE.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -78,14 +78,14 @@
     },
     {
       "task_id": "T-006",
-      "title": "\u5efa\u7acb Blocker Report \u898f\u683c\u6587\u4ef6",
+      "title": "建立 Blocker Report 規格文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `rules/BLOCKER_REPORT_FORMAT.md`\uff0c\u5b9a\u7fa9\u963b\u585e\u56de\u5831\u7684\u6a19\u6e96\u683c\u5f0f\u3001\u6b04\u4f4d\u3001\u5347\u7d1a\u898f\u5247\u8207\u7bc4\u4f8b",
+      "goal": "建立 `rules/BLOCKER_REPORT_FORMAT.md`，定義阻塞回報的標準格式、欄位、升級規則與範例",
       "output_file": "rules/BLOCKER_REPORT_FORMAT.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -95,14 +95,14 @@
     },
     {
       "task_id": "T-007",
-      "title": "\u5efa\u7acb Task Schema \u898f\u683c\u6587\u4ef6",
+      "title": "建立 Task Schema 規格文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `rules/TASK_SCHEMA.md`\uff0c\u5b9a\u7fa9 `state/tasks.json` \u7684\u6b04\u4f4d\u3001\u72c0\u614b\u3001\u8f49\u63db\u898f\u5247\u3001\u5beb\u5165\u6b0a\u9650\u8207\u7bc4\u4f8b",
+      "goal": "建立 `rules/TASK_SCHEMA.md`，定義 `state/tasks.json` 的欄位、狀態、轉換規則、寫入權限與範例",
       "output_file": "rules/TASK_SCHEMA.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -112,14 +112,14 @@
     },
     {
       "task_id": "T-008",
-      "title": "\u5efa\u7acb Command Templates \u898f\u683c\u6587\u4ef6",
+      "title": "建立 Command Templates 規格文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `rules/COMMAND_TEMPLATES.md`\uff0c\u6574\u7406\u5e38\u7528 Discord \u6307\u4ee4\u6a21\u677f\uff0c\u4f9b\u5f8c\u7e8c\u76f4\u63a5\u8907\u88fd\u4f7f\u7528",
+      "goal": "建立 `rules/COMMAND_TEMPLATES.md`，整理常用 Discord 指令模板，供後續直接複製使用",
       "output_file": "rules/COMMAND_TEMPLATES.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -129,14 +129,14 @@
     },
     {
       "task_id": "T-009",
-      "title": "\u9a57\u8b49 kimiclaw bot \u6b77\u53f2\u5167\u5bb9\u4e26\u5efa\u7acb GitHub \u9077\u79fb\u5efa\u8b70\u6e05\u55ae",
+      "title": "驗證 kimiclaw bot 歷史內容並建立 GitHub 遷移建議清單",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "review_and_migration_planning",
-      "goal": "\u6aa2\u67e5 kimiclaw bot \u5148\u524d\u7522\u751f\u7684\u5167\u5bb9\uff0c\u5224\u65b7\u54ea\u4e9b\u503c\u5f97\u9577\u671f\u4fdd\u5b58\u5230 GitHub\uff0c\u4e26\u5efa\u7acb\u4e00\u4efd\u9077\u79fb\u5efa\u8b70\u6587\u4ef6",
+      "goal": "檢查 kimiclaw bot 先前產生的內容，判斷哪些值得長期保存到 GitHub，並建立一份遷移建議文件",
       "output_file": "outputs/T-009_kimiclaw_migration_review.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -146,14 +146,14 @@
     },
     {
       "task_id": "T-010",
-      "title": "\u5efa\u7acb\u76ee\u524d\u5167\u5bb9\u8cc7\u7522\u7e3d\u6e05\u55ae",
+      "title": "建立目前內容資產總清單",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "inventory_and_catalog",
-      "goal": "\u5148\u6574\u7406\u76ee\u524d\u6240\u6709\u9ad8\u50f9\u503c\u5167\u5bb9\u7684\u7e3d\u6e05\u55ae\uff0c\u4e4b\u5f8c\u518d\u4f9d\u6e05\u55ae\u5224\u65b7\u54ea\u4e9b\u8981\u642c\u5230 GitHub",
+      "goal": "先整理目前所有高價值內容的總清單，之後再依清單判斷哪些要搬到 GitHub",
       "output_file": "outputs/T-010_content_inventory.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6e05\u55ae\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認清單文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -163,14 +163,14 @@
     },
     {
       "task_id": "T-011",
-      "title": "\u5efa\u7acb Executor Report Template",
+      "title": "建立 Executor Report Template",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `templates/executor_report_template.md`\uff0c\u6b63\u5f0f\u6c89\u6fb1 kimiclaw bot \u7684\u6a19\u6e96\u57f7\u884c\u56de\u5831\u683c\u5f0f\uff0c\u4f9b\u5f8c\u7e8c\u4efb\u52d9\u76f4\u63a5\u6cbf\u7528",
+      "goal": "建立 `templates/executor_report_template.md`，正式沉澱 kimiclaw bot 的標準執行回報格式，供後續任務直接沿用",
       "output_file": "templates/executor_report_template.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -180,14 +180,14 @@
     },
     {
       "task_id": "T-012",
-      "title": "\u5efa\u7acb Supervisor Decision Template",
+      "title": "建立 Supervisor Decision Template",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `templates/supervisor_decision_template.md`\uff0c\u6b63\u5f0f\u6c89\u6fb1 second bot \u7684\u6a19\u6e96\u6c7a\u7b56\u8f38\u51fa\u683c\u5f0f\uff0c\u4f9b\u5f8c\u7e8c\u4efb\u52d9\u76f4\u63a5\u6cbf\u7528",
+      "goal": "建立 `templates/supervisor_decision_template.md`，正式沉澱 second bot 的標準決策輸出格式，供後續任務直接沿用",
       "output_file": "templates/supervisor_decision_template.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -197,14 +197,14 @@
     },
     {
       "task_id": "T-013",
-      "title": "\u64f4\u5145 README \u8aaa\u660e\u6587\u4ef6",
+      "title": "擴充 README 說明文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u64f4\u5145 `README.md`\uff0c\u8b93\u4f7f\u7528\u8005\u80fd\u5feb\u901f\u7406\u89e3 repo \u7d50\u69cb\u3001\u89d2\u8272\u5206\u5de5\u3001GitHub-only workflow \u8207\u5e38\u7528\u898f\u5247\u6587\u4ef6",
+      "goal": "擴充 `README.md`，讓使用者能快速理解 repo 結構、角色分工、GitHub-only workflow 與常用規則文件",
       "output_file": "README.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d README \u5df2\u66f4\u65b0\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 README 已更新且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -214,14 +214,14 @@
     },
     {
       "task_id": "T-014",
-      "title": "\u5efa\u7acb Git Conventions \u6587\u4ef6",
+      "title": "建立 Git Conventions 文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "medium",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `docs/git_conventions.md`\uff0c\u6b63\u5f0f\u6574\u7406 commit message\u3001branch \u4f7f\u7528\u3001pull/push \u9a57\u6536\u7fd2\u6163\u8207 GitHub-only workflow \u7684 Git \u898f\u7bc4",
+      "goal": "建立 `docs/git_conventions.md`，正式整理 commit message、branch 使用、pull/push 驗收習慣與 GitHub-only workflow 的 Git 規範",
       "output_file": "docs/git_conventions.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -231,14 +231,14 @@
     },
     {
       "task_id": "T-015",
-      "title": "\u5efa\u7acb Research Criteria \u6587\u4ef6",
+      "title": "建立 Research Criteria 文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `research/criteria.md`\uff0c\u6574\u7406\u4f7f\u7528\u8005\u5148\u524d\u660e\u78ba\u5b9a\u7fa9\u7684\u7814\u7a76\u6a19\u6e96\u3001\u6dd8\u6c70\u6a19\u6e96\u8207\u7b56\u7565\u8a55\u4f30\u539f\u5247",
+      "goal": "建立 `research/criteria.md`，整理使用者先前明確定義的研究標準、淘汰標準與策略評估原則",
       "output_file": "research/criteria.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -248,14 +248,14 @@
     },
     {
       "task_id": "T-016",
-      "title": "\u5efa\u7acb Risk Control Principles \u6587\u4ef6",
+      "title": "建立 Risk Control Principles 文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `research/risk_control.md`\uff0c\u6574\u7406\u4f7f\u7528\u8005\u5148\u524d\u5f62\u6210\u7684\u98a8\u63a7\u539f\u5247\u8207\u98a8\u96aa\u7d04\u675f",
+      "goal": "建立 `research/risk_control.md`，整理使用者先前形成的風控原則與風險約束",
       "output_file": "research/risk_control.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -265,14 +265,14 @@
     },
     {
       "task_id": "T-017",
-      "title": "\u5efa\u7acb BTC ETH Strategy Framework \u6587\u4ef6",
+      "title": "建立 BTC ETH Strategy Framework 文件",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `research/BTC_ETH_strategy_framework.md`\uff0c\u6574\u7406\u4f7f\u7528\u8005\u5148\u524d\u5b9a\u7fa9\u904e\u7684 BTC / ETH \u7814\u7a76\u6846\u67b6\u3001\u7b56\u7565\u985e\u578b\u3001\u8f38\u51fa\u5f62\u5f0f\u8207\u5de5\u4f5c\u6d41\u7a0b",
+      "goal": "建立 `research/BTC_ETH_strategy_framework.md`，整理使用者先前定義過的 BTC / ETH 研究框架、策略類型、輸出形式與工作流程",
       "output_file": "research/BTC_ETH_strategy_framework.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -282,14 +282,14 @@
     },
     {
       "task_id": "T-012-patch",
-      "title": "\u4fee\u6b63 Supervisor Decision Template",
+      "title": "修正 Supervisor Decision Template",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 templates/supervisor_decision_template.md\uff1a1) Discord ID \u6539\u70ba\u5360\u4f4d\u7b26 2) \u5b9a\u7fa9 needs_user_decision \u56fa\u5b9a\u683c\u5f0f 3) \u7cbe\u7c21\u904e\u9577\u7bc4\u4f8b",
+      "goal": "精準修正 templates/supervisor_decision_template.md：1) Discord ID 改為占位符 2) 定義 needs_user_decision 固定格式 3) 精簡過長範例",
       "output_file": "templates/supervisor_decision_template.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -299,14 +299,14 @@
     },
     {
       "task_id": "T-013-patch",
-      "title": "\u4fee\u6b63 README",
+      "title": "修正 README",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 README.md\uff1a1) Quick Start \u8f38\u51fa\u6a94\u540d\u6539\u70ba outbox/T-XXX_result.json 2) \u66f4\u805a\u7126\u7e3d\u89bd\uff0c\u79fb\u9664\u6613\u904e\u6642\u7d30\u7bc0 3) active projects \u52a0\u8a3b current examples / current focus",
+      "goal": "精準修正 README.md：1) Quick Start 輸出檔名改為 outbox/T-XXX_result.json 2) 更聚焦總覽，移除易過時細節 3) active projects 加註 current examples / current focus",
       "output_file": "README.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -316,14 +316,14 @@
     },
     {
       "task_id": "T-014-patch",
-      "title": "\u4fee\u6b63 Git Conventions",
+      "title": "修正 Git Conventions",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 docs/git_conventions.md\uff1a1) SSH key \u8def\u5f91\u6539\u70ba default example 2) main-only \u653f\u7b56\u52a0\u8a3b\u70ba current small-scale workflow policy 3) git add . \u6539\u70ba\u50c5\u5728 working tree fully reviewed \u6642\u4f7f\u7528",
+      "goal": "精準修正 docs/git_conventions.md：1) SSH key 路徑改為 default example 2) main-only 政策加註為 current small-scale workflow policy 3) git add . 改為僅在 working tree fully reviewed 時使用",
       "output_file": "docs/git_conventions.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -333,14 +333,14 @@
     },
     {
       "task_id": "T-015-patch",
-      "title": "\u4fee\u6b63 Research Criteria",
+      "title": "修正 Research Criteria",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 research/criteria.md\uff1a1) current research focus \u8207 permanent criteria \u5206\u958b 2) \u589e\u52a0 monitor/pause/eliminate \u6c7a\u7b56\u5206\u5c64 3) Strategy Card Template \u62c6\u51fa\u70ba\u7368\u7acb\u6a21\u677f\u5efa\u8b70 4) \u53ea\u4fdd\u7559 selection/elimination/evidence/anti-overfitting/stability",
+      "goal": "精準修正 research/criteria.md：1) current research focus 與 permanent criteria 分開 2) 增加 monitor/pause/eliminate 決策分層 3) Strategy Card Template 拆出為獨立模板建議 4) 只保留 selection/elimination/evidence/anti-overfitting/stability",
       "output_file": "research/criteria.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -350,14 +350,14 @@
     },
     {
       "task_id": "T-016-patch",
-      "title": "\u4fee\u6b63 Risk Control Principles",
+      "title": "修正 Risk Control Principles",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 research/risk_control.md\uff1a1) \u5340\u5206 capital allocation/risk at stop/exposure 2) \u6578\u5b57\u6539\u70ba draft guidelines / to be confirmed 3) \u5f37\u5316 research vs live execution boundary 4) stop/pause \u8207 failure protocol \u4e00\u81f4\u5316\u6574\u7406",
+      "goal": "精準修正 research/risk_control.md：1) 區分 capital allocation/risk at stop/exposure 2) 數字改為 draft guidelines / to be confirmed 3) 強化 research vs live execution boundary 4) stop/pause 與 failure protocol 一致化整理",
       "output_file": "research/risk_control.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -367,14 +367,14 @@
     },
     {
       "task_id": "T-017-patch",
-      "title": "\u4fee\u6b63 BTC ETH Strategy Framework",
+      "title": "修正 BTC ETH Strategy Framework",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u7cbe\u6e96\u4fee\u6b63 research/BTC_ETH_strategy_framework.md\uff1a1) framework \u5c64\u8207 active project status \u5206\u958b 2) \u9580\u6abb\u6578\u503c\u964d\u7d1a\u70ba\u9ad8\u5c64\u539f\u5247\uff0c\u7d30\u7bc0\u5f15\u7528 criteria.md 3) timeframe \u6539\u70ba current preferred 4) ETH \u5340\u584a\u6a19\u70ba provisional 5) output paths \u52a0\u8a3b proposed 6) \u4fee\u6b63 ETH \u7ae0\u7bc0\u7de8\u865f 7) \u8207 criteria/risk_control \u53bb\u91cd",
+      "goal": "精準修正 research/BTC_ETH_strategy_framework.md：1) framework 層與 active project status 分開 2) 門檻數值降級為高層原則，細節引用 criteria.md 3) timeframe 改為 current preferred 4) ETH 區塊標為 provisional 5) output paths 加註 proposed 6) 修正 ETH 章節編號 7) 與 criteria/risk_control 去重",
       "output_file": "research/BTC_ETH_strategy_framework.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4fee\u6b63\u5b8c\u6210\u4e26\u66f4\u65b0 state/tasks.json",
+      "success_condition": "second bot 完成 git pull 驗收，確認修正完成並更新 state/tasks.json",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -384,14 +384,14 @@
     },
     {
       "task_id": "T-018",
-      "title": "\u5efa\u7acb Strategy Card Template",
+      "title": "建立 Strategy Card Template",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `research/strategy_card_template.md`\uff0c\u4f5c\u70ba BTC/ETH \u7b56\u7565\u7814\u7a76\u7684\u6a19\u6e96\u7b56\u7565\u5361\u6a21\u677f\uff0c\u4f9b\u5f8c\u7e8c\u6240\u6709\u7b56\u7565\u5361\u76f4\u63a5\u6cbf\u7528",
+      "goal": "建立 `research/strategy_card_template.md`，作為 BTC/ETH 策略研究的標準策略卡模板，供後續所有策略卡直接沿用",
       "output_file": "research/strategy_card_template.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -401,14 +401,14 @@
     },
     {
       "task_id": "T-019",
-      "title": "\u5efa\u7acb BTC 4H Filter Strategy Card",
+      "title": "建立 BTC 4H Filter Strategy Card",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `strategies/BTC_4H_filter_card.md`\uff0c\u6839\u64da\u76ee\u524d\u5df2\u5efa\u7acb\u7684\u7814\u7a76\u6846\u67b6\u3001criteria\u3001risk control \u8207 strategy card template\uff0c\u7522\u51fa\u7b2c\u4e00\u5f35\u6b63\u5f0f\u7b56\u7565\u5361",
+      "goal": "建立 `strategies/BTC_4H_filter_card.md`，根據目前已建立的研究框架、criteria、risk control 與 strategy card template，產出第一張正式策略卡",
       "output_file": "strategies/BTC_4H_filter_card.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -418,14 +418,14 @@
     },
     {
       "task_id": "T-020",
-      "title": "\u5efa\u7acb Trade Plan Template",
+      "title": "建立 Trade Plan Template",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `research/trade_plan_template.md`\uff0c\u4f5c\u70ba BTC/ETH \u7b56\u7565\u7814\u7a76\u7684\u6a19\u6e96\u4ea4\u6613\u8a08\u756b\u6a21\u677f\uff0c\u4f9b\u5f8c\u7e8c\u6240\u6709 trade plan \u76f4\u63a5\u6cbf\u7528",
+      "goal": "建立 `research/trade_plan_template.md`，作為 BTC/ETH 策略研究的標準交易計畫模板，供後續所有 trade plan 直接沿用",
       "output_file": "research/trade_plan_template.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -435,14 +435,14 @@
     },
     {
       "task_id": "T-021",
-      "title": "\u5efa\u7acb BTC 4H Filter Trade Plan",
+      "title": "建立 BTC 4H Filter Trade Plan",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb `plans/BTC_4H_filter_trade_plan.md`\uff0c\u6839\u64da\u76ee\u524d\u5df2\u5efa\u7acb\u7684 BTC 4H Filter Strategy Card \u8207 Trade Plan Template\uff0c\u7522\u51fa\u7b2c\u4e00\u4efd\u6b63\u5f0f\u4ea4\u6613\u8a08\u756b",
+      "goal": "建立 `plans/BTC_4H_filter_trade_plan.md`，根據目前已建立的 BTC 4H Filter Strategy Card 與 Trade Plan Template，產出第一份正式交易計畫",
       "output_file": "plans/BTC_4H_filter_trade_plan.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6587\u4ef6\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認文件已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -452,14 +452,14 @@
     },
     {
       "task_id": "T-022",
-      "title": "\u5efa\u7acb BTC ETH \u76e3\u6e2c\u7cfb\u7d71\uff08\u63d0\u9192\u7528\uff0c\u4e0d\u81ea\u52d5\u4e0b\u55ae\uff09",
+      "title": "建立 BTC ETH 監測系統（提醒用，不自動下單）",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5efa\u7acb BTCUSDT / ETHUSDT \u76e3\u6e2c\u7cfb\u7d71\uff0c\u53ea\u505a\u8a0a\u865f\u63d0\u9192\u8207\u89c0\u5bdf\uff0c\u4e0d\u505a\u81ea\u52d5\u4e0b\u55ae",
+      "goal": "建立 BTCUSDT / ETHUSDT 監測系統，只做訊號提醒與觀察，不做自動下單",
       "output_file": "workflows/btc_eth_monitoring_system.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u7cfb\u7d71\u8a2d\u8a08\u6587\u4ef6\u3001phase \u7522\u51fa\u8207\u5be6\u4f5c\u898f\u5283\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認系統設計文件、phase 產出與實作規劃完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -474,9 +474,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5be6\u4f5c data/fetcher.py \u6a21\u7d44\uff0c\u5b8c\u6210 BTCUSDT / ETHUSDT \u7684 1m / 5m / 15m K \u7dda\u8cc7\u6599\u6293\u53d6\uff0c\u4f5c\u70ba\u76e3\u6e2c\u7cfb\u7d71\u7684\u8cc7\u6599\u5c64",
+      "goal": "實作 data/fetcher.py 模組，完成 BTCUSDT / ETHUSDT 的 1m / 5m / 15m K 線資料抓取，作為監測系統的資料層",
       "output_file": "data/fetcher.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d data fetcher \u6a21\u7d44\u5df2\u5efa\u7acb\u3001\u53ef\u8b80\u53d6 Binance API K \u7dda\u8cc7\u6599\u3001\u8f38\u51fa\u683c\u5f0f\u4e00\u81f4\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 data fetcher 模組已建立、可讀取 Binance API K 線資料、輸出格式一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -491,9 +491,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5be6\u4f5c indicators/calculator.py \u6a21\u7d44\uff0c\u5b8c\u6210 5m MA5 / MA20 / MA240\u30011m avg volume(20)\u3001\u4ea4\u53c9\u5224\u5b9a\u300115m \u56db\u9023\u7d05/\u56db\u9023\u7da0\u5224\u5b9a\uff0c\u4f5c\u70ba\u76e3\u6e2c\u7cfb\u7d71\u7684\u6307\u6a19\u5c64",
+      "goal": "實作 indicators/calculator.py 模組，完成 5m MA5 / MA20 / MA240、1m avg volume(20)、交叉判定、15m 四連紅/四連綠判定，作為監測系統的指標層",
       "output_file": "indicators/calculator.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d indicator \u6a21\u7d44\u5df2\u5efa\u7acb\u3001\u51fd\u5f0f\u5207\u5206\u6e05\u695a\u3001\u53ef\u652f\u63f4 T-022 \u8a2d\u8a08\u898f\u683c\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 indicator 模組已建立、函式切分清楚、可支援 T-022 設計規格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-023"
@@ -510,9 +510,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5be6\u4f5c signals/engine.py \u6a21\u7d44\uff0c\u5b8c\u6210 trend_long\u3001trend_short\u3001contrarian_watch \u8a0a\u865f\u5224\u5b9a\u908f\u8f2f\uff0c\u4f5c\u70ba\u76e3\u6e2c\u7cfb\u7d71\u7684\u8a0a\u865f\u5c64",
+      "goal": "實作 signals/engine.py 模組，完成 trend_long、trend_short、contrarian_watch 訊號判定邏輯，作為監測系統的訊號層",
       "output_file": "signals/engine.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d signal engine \u6a21\u7d44\u5df2\u5efa\u7acb\u3001\u8a0a\u865f\u908f\u8f2f\u7b26\u5408 T-022 \u898f\u683c\u3001\u672a\u64f4\u5145\u6210\u4e0b\u55ae\u7cfb\u7d71\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 signal engine 模組已建立、訊號邏輯符合 T-022 規格、未擴充成下單系統，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-024"
@@ -529,9 +529,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5be6\u4f5c notifications/formatter.py \u8207 notifications/notifier.py \u6a21\u7d44\uff0c\u5b8c\u6210\u76e3\u6e2c\u7cfb\u7d71\u7684\u63d0\u9192\u8f38\u51fa\u5c64\uff0c\u53ea\u7522\u751f\u63d0\u9192\u8a0a\u606f\uff0c\u4e0d\u505a\u81ea\u52d5\u4e0b\u55ae",
+      "goal": "實作 notifications/formatter.py 與 notifications/notifier.py 模組，完成監測系統的提醒輸出層，只產生提醒訊息，不做自動下單",
       "output_file": "notifications/notifier.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d notification \u6a21\u7d44\u5df2\u5efa\u7acb\u3001\u63d0\u9192\u683c\u5f0f\u6e05\u695a\u3001watch only \u6a19\u793a\u660e\u78ba\u3001\u672a\u64f4\u5145\u6210\u4e0b\u55ae\u7cfb\u7d71\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 notification 模組已建立、提醒格式清楚、watch only 標示明確、未擴充成下單系統，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-025"
@@ -548,9 +548,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5efa\u7acb app/monitor_runner.py\uff0c\u628a data / indicator / signal / notification \u56db\u5c64\u4e32\u8d77\u4f86\uff0c\u5b8c\u6210 BTCUSDT / ETHUSDT \u76e3\u6e2c\u7cfb\u7d71\u7684\u55ae\u6b21\u57f7\u884c\u5165\u53e3\uff08\u63d0\u9192\u7528\uff0c\u4e0d\u81ea\u52d5\u4e0b\u55ae\uff09",
+      "goal": "建立 app/monitor_runner.py，把 data / indicator / signal / notification 四層串起來，完成 BTCUSDT / ETHUSDT 監測系統的單次執行入口（提醒用，不自動下單）",
       "output_file": "app/monitor_runner.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d runner \u5df2\u5efa\u7acb\u3001\u53ef\u4e32\u63a5\u56db\u5c64\u6a21\u7d44\u3001\u53ef\u7522\u751f\u55ae\u6b21\u57f7\u884c\u8f38\u51fa preview\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 runner 已建立、可串接四層模組、可產生單次執行輸出 preview，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-026"
@@ -567,9 +567,9 @@
       "status": "completed",
       "priority": "high",
       "type": "validation",
-      "goal": "\u5c0d BTC / ETH \u76e3\u6e2c\u7cfb\u7d71\u9032\u884c\u672c\u5730\u55ae\u6b21\u6e2c\u8a66\u57f7\u884c\u8207\u9a57\u8b49\uff0c\u78ba\u8a8d\u4e94\u5c64\u4e32\u63a5\u6b63\u5e38\uff0c\u4e14\u8f38\u51fa\u7b26\u5408 alert-only \u8a2d\u8a08",
+      "goal": "對 BTC / ETH 監測系統進行本地單次測試執行與驗證，確認五層串接正常，且輸出符合 alert-only 設計",
       "output_file": "outputs/T-028_local_validation_report.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6e2c\u8a66\u57f7\u884c\u5831\u544a\u5df2\u5efa\u7acb\u3001\u9a57\u8b49\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認測試執行報告已建立、驗證內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-027"
@@ -586,9 +586,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5efa\u7acb notifications/channels.py\uff0c\u652f\u63f4 Discord webhook \u767c\u9001\u63d0\u9192\uff0c\u4e26\u5be6\u4f5c stdout fallback\uff0c\u8b93\u76e3\u6e2c\u7cfb\u7d71\u53ef\u5be6\u969b\u767c\u9001\u901a\u77e5",
+      "goal": "建立 notifications/channels.py，支援 Discord webhook 發送提醒，並實作 stdout fallback，讓監測系統可實際發送通知",
       "output_file": "notifications/channels.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u901a\u77e5\u6e20\u9053\u6a21\u7d44\u5df2\u5efa\u7acb\u3001\u652f\u63f4 webhook \u8207 fallback\u3001\u672a\u8d85\u51fa alert-only \u7bc4\u570d\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認通知渠道模組已建立、支援 webhook 與 fallback、未超出 alert-only 範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-028"
@@ -605,9 +605,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u70ba BTC / ETH \u76e3\u6e2c\u7cfb\u7d71\u5efa\u7acb scheduler / cron-ready \u57f7\u884c\u65b9\u6848\uff0c\u8b93\u76e3\u6e2c\u7cfb\u7d71\u53ef\u5b9a\u6642\u57f7\u884c\u63d0\u9192\u6d41\u7a0b",
+      "goal": "為 BTC / ETH 監測系統建立 scheduler / cron-ready 執行方案，讓監測系統可定時執行提醒流程",
       "output_file": "app/scheduler.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d scheduler \u6a21\u7d44\u8207\u57f7\u884c\u8aaa\u660e\u5df2\u5efa\u7acb\u3001\u6392\u7a0b\u908f\u8f2f\u6e05\u695a\u3001\u672a\u8d85\u51fa\u63d0\u9192\u7cfb\u7d71\u7bc4\u570d\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 scheduler 模組與執行說明已建立、排程邏輯清楚、未超出提醒系統範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-029"
@@ -624,9 +624,9 @@
       "status": "completed",
       "priority": "high",
       "type": "review_and_validation",
-      "goal": "\u6aa2\u67e5 BTC / ETH \u76e3\u6e2c\u7cfb\u7d71\u76ee\u524d\u7684\u63d0\u9192\u54c1\u8cea\u8207\u8f38\u51fa\u53ef\u7528\u6027\uff0c\u8a55\u4f30\u8a0a\u865f\u662f\u5426\u904e\u591a\u3001\u904e\u5c11\u3001\u6a21\u7cca\u6216\u4e0d\u5be6\u7528\uff0c\u4e26\u7522\u51fa\u4e00\u4efd\u6539\u9032\u5efa\u8b70\u5831\u544a",
+      "goal": "檢查 BTC / ETH 監測系統目前的提醒品質與輸出可用性，評估訊號是否過多、過少、模糊或不實用，並產出一份改進建議報告",
       "output_file": "outputs/T-031_signal_quality_review.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u5be9\u67e5\u5831\u544a\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認審查報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-030"
@@ -643,9 +643,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u6839\u64da T-031 \u5be9\u67e5\u7d50\u679c\uff0c\u5c0d BTC / ETH \u76e3\u6e2c\u7cfb\u7d71\u505a\u5169\u500b\u5b89\u5168\u5fae\u8abf\uff1a\u964d\u4f4e volume threshold\uff0c\u4e26\u5728\u63d0\u9192\u8f38\u51fa\u4e2d\u52a0\u5165 UTC + local timestamp",
+      "goal": "根據 T-031 審查結果，對 BTC / ETH 監測系統做兩個安全微調：降低 volume threshold，並在提醒輸出中加入 UTC + local timestamp",
       "output_file": "signals/engine.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u5169\u9805\u5b89\u5168\u5fae\u8abf\u5df2\u5b8c\u6210\u3001\u672a\u8d85\u51fa patch \u7bc4\u570d\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認兩項安全微調已完成、未超出 patch 範圍，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-031"
@@ -662,9 +662,9 @@
       "status": "completed",
       "priority": "high",
       "type": "deployment_readiness_and_start",
-      "goal": "\u5148\u5b8c\u6210\u76e3\u6e2c\u7cfb\u7d71\u555f\u52d5\u524d\u6aa2\u67e5\uff0c\u7136\u5f8c\u4ee5\u5b89\u5168\u6a21\u5f0f\u555f\u52d5 BTC / ETH \u6301\u7e8c\u76e3\u63a7\uff08\u63d0\u9192\u7528\uff0c\u4e0d\u81ea\u52d5\u4e0b\u55ae\uff09",
+      "goal": "先完成監測系統啟動前檢查，然後以安全模式啟動 BTC / ETH 持續監控（提醒用，不自動下單）",
       "output_file": "outputs/T-033_deployment_readiness.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u555f\u52d5\u524d\u6aa2\u67e5\u5df2\u5b8c\u6210\u3001\u555f\u52d5\u6b65\u9a5f\u5df2\u57f7\u884c\u3001\u76e3\u63a7\u5df2\u958b\u59cb\u6216\u660e\u78ba\u6307\u51fa\u6700\u5f8c\u963b\u585e\u9ede\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認啟動前檢查已完成、啟動步驟已執行、監控已開始或明確指出最後阻塞點，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-032"
@@ -676,14 +676,14 @@
     },
     {
       "task_id": "T-034",
-      "title": "\u5efa\u7acb Task Instruction Archive System",
+      "title": "建立 Task Instruction Archive System",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "high",
       "type": "documentation_and_structure",
-      "goal": "\u5efa\u7acb task \u539f\u59cb\u6307\u4ee4\u5c01\u5b58\u7cfb\u7d71\uff0c\u63a1\u7528\u6bcf 100 \u500b task \u4e00\u4efd archive \u7684\u65b9\u5f0f\u4fdd\u5b58\u4f7f\u7528\u8005\u539f\u59cb\u6307\u4ee4\uff0c\u4e26\u8b93 task state \u53ef\u8ffd\u6eaf\u5230\u5c0d\u61c9 instruction archive",
+      "goal": "建立 task 原始指令封存系統，採用每 100 個 task 一份 archive 的方式保存使用者原始指令，並讓 task state 可追溯到對應 instruction archive",
       "output_file": "tasks/archive/tasks_001_100.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d archive \u7d50\u69cb\u3001\u898f\u683c\u6587\u4ef6\u8207 task schema \u66f4\u65b0\u5b8c\u6210\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 archive 結構、規格文件與 task schema 更新完成，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-033"
@@ -700,9 +700,9 @@
       "status": "completed",
       "priority": "high",
       "type": "validation",
-      "goal": "\u9a57\u8b49 BTCUSDT / ETHUSDT \u76e3\u6e2c\u7cfb\u7d71\u76ee\u524d\u4f7f\u7528\u7684\u662f\u5426\u70ba\u5373\u6642\u8cc7\u6599\u4f86\u6e90\uff0c\u800c\u4e0d\u662f\u820a\u6a23\u672c\u3001placeholder \u6216\u672a\u66f4\u65b0\u8cc7\u6599",
+      "goal": "驗證 BTCUSDT / ETHUSDT 監測系統目前使用的是否為即時資料來源，而不是舊樣本、placeholder 或未更新資料",
       "output_file": "outputs/T-035_realtime_data_verification.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u5373\u6642\u8cc7\u6599\u9a57\u8b49\u5831\u544a\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認即時資料驗證報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-034"
@@ -719,9 +719,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u5c07\u76e3\u6e2c\u7cfb\u7d71\u63d0\u9192\u8a0a\u606f\u6539\u6210\u66f4\u5bb9\u6613\u95b1\u8b80\u7684\u4e2d\u6587\u89e3\u8b80\u683c\u5f0f\uff0c\u8b93\u4f7f\u7528\u8005\u5728 Discord \u4e00\u773c\u5c31\u770b\u61c2\u63d0\u9192\u5167\u5bb9",
+      "goal": "將監測系統提醒訊息改成更容易閱讀的中文解讀格式，讓使用者在 Discord 一眼就看懂提醒內容",
       "output_file": "notifications/formatter.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4e2d\u6587\u63d0\u9192\u683c\u5f0f\u5df2\u66f4\u65b0\u3001\u7bc4\u4f8b\u6587\u4ef6\u5df2\u5efa\u7acb\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認中文提醒格式已更新、範例文件已建立，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-035"
@@ -738,9 +738,9 @@
       "status": "completed",
       "priority": "high",
       "type": "validation_and_debug",
-      "goal": "\u91dd\u5c0d BTC / ETH \u76e3\u6e2c\u7cfb\u7d71\u505a\u8a0a\u865f\u689d\u4ef6\u8a3a\u65b7\uff0c\u78ba\u8a8d\u76ee\u524d\u6c92\u6709\u63d0\u9192\u6642\uff0c\u5230\u5e95\u662f\u54ea\u500b\u689d\u4ef6\u5361\u4f4f\uff0c\u4e26\u8f38\u51fa\u53ef\u8b80\u7684\u689d\u4ef6\u8ffd\u8e64\u5831\u544a",
+      "goal": "針對 BTC / ETH 監測系統做訊號條件診斷，確認目前沒有提醒時，到底是哪個條件卡住，並輸出可讀的條件追蹤報告",
       "output_file": "outputs/T-037_signal_condition_trace.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u689d\u4ef6\u8a3a\u65b7\u5831\u544a\u5df2\u5efa\u7acb\u4e14\u5167\u5bb9\u5b8c\u6574\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認條件診斷報告已建立且內容完整，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-036"
@@ -757,9 +757,9 @@
       "status": "completed",
       "priority": "high",
       "type": "documentation_and_rules",
-      "goal": "\u5c07 anti-timeout execution \u898f\u5247\u6b63\u5f0f\u5beb\u5165 repo \u898f\u5247\u6587\u4ef6\uff0c\u8b8a\u6210\u4e4b\u5f8c\u6d3e\u5de5\u7684\u9810\u8a2d\u898f\u5247",
+      "goal": "將 anti-timeout execution 規則正式寫入 repo 規則文件，變成之後派工的預設規則",
       "output_file": "rules/OPERATING_RULES.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d anti-timeout \u898f\u5247\u5df2\u5beb\u5165\u6587\u4ef6\u4e26\u66f4\u65b0\u76f8\u95dc\u898f\u683c\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 anti-timeout 規則已寫入文件並更新相關規格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-037"
@@ -776,9 +776,9 @@
       "status": "completed",
       "priority": "high",
       "type": "architecture_and_implementation_program",
-      "goal": "\u70ba\u76ee\u524d\u7684 BTC / ETH \u76e3\u6e2c\u8207\u7814\u7a76\u7cfb\u7d71\u5efa\u7acb\u53ef\u9577\u671f\u64f4\u5145\u7684 UI \u96db\u5f62\uff0c\u652f\u63f4\u672a\u4f86\u65b0\u589e\u80a1\u7968\u3001\u5e63\u5225\u3001\u7b56\u7565\u3001\u53ef\u8996\u5316\u53c3\u6578\u8abf\u6574\uff0c\u4ee5\u53ca\u4eba\u5de5\u6309\u9215\u6c7a\u5b9a\u662f\u5426\u4e0b\u55ae",
+      "goal": "為目前的 BTC / ETH 監測與研究系統建立可長期擴充的 UI 雛形，支援未來新增股票、幣別、策略、可視化參數調整，以及人工按鈕決定是否下單",
       "output_file": "ui/UI_MASTER_PLAN.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d UI master plan\u3001phase \u62c6\u5206\u3001\u5be6\u4f5c\u8d77\u59cb\u4efb\u52d9\u8207 UI \u96db\u5f62\u5df2\u5efa\u7acb\u6216\u555f\u52d5\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 UI master plan、phase 拆分、實作起始任務與 UI 雛形已建立或啟動，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-038"
@@ -804,9 +804,9 @@
       "status": "completed",
       "priority": "high",
       "type": "documentation",
-      "goal": "\u5efa\u7acb\u5b8c\u6574 UI \u898f\u683c\u6587\u4ef6\uff0c\u5305\u542b architecture overview\u3001page map\u3001data flow\u3001config design\u3001strategy extensibility design\u3001manual action queue design\u3001phased roadmap",
+      "goal": "建立完整 UI 規格文件，包含 architecture overview、page map、data flow、config design、strategy extensibility design、manual action queue design、phased roadmap",
       "output_file": "ui/UI_MASTER_PLAN.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d UI master plan \u5df2\u5efa\u7acb",
+      "success_condition": "second bot 完成 git pull 驗收，確認 UI master plan 已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039"
@@ -824,9 +824,9 @@
       "status": "completed",
       "priority": "high",
       "type": "refactoring",
-      "goal": "\u5efa\u7acb\u6216\u6574\u7406 config/monitoring_params.json\u3001config/strategies.json\u3001config/assets.json\uff0c\u4e26\u66f4\u65b0\u73fe\u6709\u7a0b\u5f0f\u4f7f\u5176\u9010\u6b65\u6539\u8b80 config",
+      "goal": "建立或整理 config/monitoring_params.json、config/strategies.json、config/assets.json，並更新現有程式使其逐步改讀 config",
       "output_file": "config/monitoring_params.json",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d config \u6a94\u6848\u5df2\u5efa\u7acb\u4e14\u73fe\u6709\u7a0b\u5f0f\u5df2\u66f4\u65b0",
+      "success_condition": "second bot 完成 git pull 驗收，確認 config 檔案已建立且現有程式已更新",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-01"
@@ -844,9 +844,9 @@
       "status": "completed",
       "priority": "high",
       "type": "implementation",
-      "goal": "\u5efa\u7acb\u6700\u5c0f\u591a\u9801 Dash app skeleton\uff0c\u5305\u542b ui/app.py\u3001ui/pages/dashboard.py\u3001ui/pages/signals.py\u3001ui/pages/parameters.py\u3001ui/pages/system.py",
+      "goal": "建立最小多頁 Dash app skeleton，包含 ui/app.py、ui/pages/dashboard.py、ui/pages/signals.py、ui/pages/parameters.py、ui/pages/system.py",
       "output_file": "ui/app.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dash app skeleton \u5df2\u5efa\u7acb",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dash app skeleton 已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-02"
@@ -864,9 +864,9 @@
       "status": "completed",
       "priority": "high",
       "type": "integration",
-      "goal": "\u5c07\u73fe\u6709\u76e3\u6e2c\u7cfb\u7d71\u72c0\u614b\u63a5\u5165 UI\uff0c\u986f\u793a scheduler status\u3001last run time\u3001recent signals\u3001current channel\u3001log summary",
+      "goal": "將現有監測系統狀態接入 UI，顯示 scheduler status、last run time、recent signals、current channel、log summary",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u76e3\u6e2c\u72c0\u614b\u5df2\u63a5\u5165 UI",
+      "success_condition": "second bot 完成 git pull 驗收，確認監測狀態已接入 UI",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-03"
@@ -884,9 +884,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "implementation",
-      "goal": "\u5efa\u7acb\u53ef\u8996\u5316\u53c3\u6578\u9762\u677f MVP\uff0c\u986f\u793a\u76ee\u524d\u53c3\u6578\u8207\u8aaa\u660e\uff0c\u5148\u652f\u63f4\u8b80\u53d6\u8207\u5448\u73fe",
+      "goal": "建立可視化參數面板 MVP，顯示目前參數與說明，先支援讀取與呈現",
       "output_file": "ui/pages/parameters.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u53c3\u6578\u9762\u677f\u5df2\u53ef\u7528",
+      "success_condition": "second bot 完成 git pull 驗收，確認參數面板已可用",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-04"
@@ -904,9 +904,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "implementation",
-      "goal": "\u5efa\u7acb\u4eba\u5de5\u6c7a\u7b56\u9801\u96db\u5f62\uff0c\u986f\u793a\u5efa\u8b70\u4e0b\u55ae / pending actions\uff0c\u63d0\u4f9b Approve/Reject/Snooze \u6309\u9215\uff0c\u53ea\u5beb\u5165 queue/state \u4e0d\u63a5\u4ea4\u6613 API",
+      "goal": "建立人工決策頁雛形，顯示建議下單 / pending actions，提供 Approve/Reject/Snooze 按鈕，只寫入 queue/state 不接交易 API",
       "output_file": "ui/pages/actions.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u4eba\u5de5\u6c7a\u7b56\u9801\u5df2\u53ef\u7528",
+      "success_condition": "second bot 完成 git pull 驗收，確認人工決策頁已可用",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-05"
@@ -924,9 +924,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "review",
-      "goal": "\u5efa\u7acb UI MVP review \u5831\u544a\uff0c\u8aaa\u660e what is usable now\u3001what remains placeholder\u3001what is ready for next phase",
+      "goal": "建立 UI MVP review 報告，說明 what is usable now、what remains placeholder、what is ready for next phase",
       "output_file": "outputs/T-039-07_ui_mvp_review.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d review \u5831\u544a\u5df2\u5efa\u7acb",
+      "success_condition": "second bot 完成 git pull 驗收，確認 review 報告已建立",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-06"
@@ -944,9 +944,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u88dc\u6b63 T-039-06 \u7684 Action Queue \u7d50\u69cb\uff0c\u5c07\u5167\u5d4c\u65bc ui/pages/actions.py \u7684 ActionQueueService \u62bd\u96e2\u70ba\u7368\u7acb service\uff0c\u4e26\u5efa\u7acb\u7f3a\u5c11\u7684\u521d\u59cb\u72c0\u614b\u6a94",
+      "goal": "補正 T-039-06 的 Action Queue 結構，將內嵌於 ui/pages/actions.py 的 ActionQueueService 抽離為獨立 service，並建立缺少的初始狀態檔",
       "output_file": "ui/services/action_service.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Action Queue \u529f\u80fd\u4fdd\u7559\u3001\u6a94\u6848\u7d50\u69cb\u88dc\u6b63\u5b8c\u6210\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Action Queue 功能保留、檔案結構補正完成，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-06"
@@ -962,9 +962,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 UI \u4e2d\u7684 config \u8def\u5f91\u8b80\u53d6\u554f\u984c\u8207 scheduler live status \u540c\u6b65\u554f\u984c\uff0c\u8b93 Dashboard / Parameters / Strategies / System \u9801\u9762\u80fd\u6b63\u78ba\u53cd\u6620\u76ee\u524d\u72c0\u614b",
+      "goal": "修復 UI 中的 config 路徑讀取問題與 scheduler live status 同步問題，讓 Dashboard / Parameters / Strategies / System 頁面能正確反映目前狀態",
       "output_file": "outputs/T-040_ui_fix_summary.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d config \u8def\u5f91\u4fee\u6b63\u5b8c\u6210\u3001scheduler \u72c0\u614b\u986f\u793a\u4e00\u81f4\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 config 路徑修正完成、scheduler 狀態顯示一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-039-06-patch"
@@ -980,9 +980,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 UI \u9802\u90e8 navbar \u7684 status badge\uff0c\u8b93\u5176\u8207 Dashboard / System \u4f7f\u7528\u76f8\u540c\u7684 live scheduler status source",
+      "goal": "修復 UI 頂部 navbar 的 status badge，讓其與 Dashboard / System 使用相同的 live scheduler status source",
       "output_file": "outputs/T-042_navbar_status_badge_fix.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d navbar badge \u8207 Dashboard/System \u72c0\u614b\u4e00\u81f4\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 navbar badge 與 Dashboard/System 狀態一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-040"
@@ -999,9 +999,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 Dashboard \u4e0a\u65b9 Last Run \u8207\u4e0b\u65b9 Recent Runs \u8868\u683c\u4e0d\u540c\u6b65\u7684\u554f\u984c\uff0c\u8b93\u8868\u683c\u986f\u793a\u6700\u65b0 run \u8cc7\u6599",
+      "goal": "修復 Dashboard 上方 Last Run 與下方 Recent Runs 表格不同步的問題，讓表格顯示最新 run 資料",
       "output_file": "outputs/T-043_recent_runs_sync_fix.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard \u7684 Recent Runs \u8868\u683c\u8207 Last Run \u72c0\u614b\u4e00\u81f4\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 的 Recent Runs 表格與 Last Run 狀態一致，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-042"
@@ -1018,9 +1018,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 Dashboard \u5de6\u4e0a System Status \u5361\u7247\uff0c\u8b93\u5176\u8207 scheduler \u5be6\u969b\u904b\u884c\u72c0\u614b\u3001Last Run\u3001Recent Runs \u4f7f\u7528\u4e00\u81f4\u7684 live status source",
+      "goal": "修復 Dashboard 左上 System Status 卡片，讓其與 scheduler 實際運行狀態、Last Run、Recent Runs 使用一致的 live status source",
       "output_file": "outputs/T-044_dashboard_status_card_fix.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard System Status \u4e0d\u518d\u8207 Last Run / Recent Runs \u77db\u76fe\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard System Status 不再與 Last Run / Recent Runs 矛盾，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-043"
@@ -1037,9 +1037,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 Dashboard Recent Runs \u8868\u683c\u8207 Last Run \u7684\u540c\u6b65\u554f\u984c\uff0c\u4e26\u589e\u52a0\u6bcf\u8f2a run \u7684 symbol breakdown\uff0c\u8b93\u4f7f\u7528\u8005\u80fd\u770b\u51fa BTCUSDT / ETHUSDT \u5404\u81ea\u7d50\u679c",
+      "goal": "修復 Dashboard Recent Runs 表格與 Last Run 的同步問題，並增加每輪 run 的 symbol breakdown，讓使用者能看出 BTCUSDT / ETHUSDT 各自結果",
       "output_file": "outputs/T-045_recent_runs_symbol_breakdown.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Recent Runs \u986f\u793a\u6700\u65b0 run\uff0c\u4e14\u80fd\u5340\u5206 BTC / ETH\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Recent Runs 顯示最新 run，且能區分 BTC / ETH，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-044"
@@ -1056,9 +1056,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u91d0\u6e05 Dashboard \u4e0a\u65b9 Last Run \u8207\u4e0b\u65b9 Recent Runs \u7684 run \u7de8\u865f\u8a9e\u610f\uff0c\u907f\u514d\u4f7f\u7528\u8005\u8aa4\u4ee5\u70ba\u5169\u8005\u61c9\u662f\u540c\u4e00\u5957\u7de8\u865f",
+      "goal": "釐清 Dashboard 上方 Last Run 與下方 Recent Runs 的 run 編號語意，避免使用者誤以為兩者應是同一套編號",
       "output_file": "outputs/T-046_run_label_clarity.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d UI \u6587\u6848\u5df2\u6e05\u695a\u5340\u5206 session run \u8207 historical run\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 UI 文案已清楚區分 session run 與 historical run，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-045"
@@ -1075,9 +1075,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u4fee\u5fa9 Dashboard \u7684 Recent Run History\uff0c\u8b93\u5b83\u5728\u6bcf\u6b21 scheduler \u5b8c\u6210\u65b0 run \u5f8c\u81ea\u52d5\u66f4\u65b0\u6700\u65b0\u4e00\u7b46\uff0c\u800c\u4e0d\u662f\u505c\u7559\u5728\u820a\u8cc7\u6599",
+      "goal": "修復 Dashboard 的 Recent Run History，讓它在每次 scheduler 完成新 run 後自動更新最新一筆，而不是停留在舊資料",
       "output_file": "outputs/T-047_recent_run_history_autoupdate.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6bcf\u6b21\u65b0 run \u5b8c\u6210\u5f8c\uff0cRecent Run History \u6703\u81ea\u52d5\u65b0\u589e\u6700\u65b0\u4e00\u7b46\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次新 run 完成後，Recent Run History 會自動新增最新一筆，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-046"
@@ -1094,9 +1094,9 @@
       "status": "completed",
       "priority": "high",
       "type": "analysis",
-      "goal": "\u5206\u6790 ETH \u548c BTC \u7684\u76f8\u95dc\u6027\uff0c\u5305\u62ec\u50f9\u683c\u8d70\u52e2\u3001\u6ce2\u52d5\u7387\u3001\u4ee5\u53ca\u77ed\u671f\u5167\u7684\u6295\u8cc7\u50f9\u503c\u8a55\u4f30",
+      "goal": "分析 ETH 和 BTC 的相關性，包括價格走勢、波動率、以及短期內的投資價值評估",
       "output_file": "outputs/T-048_eth_btc_correlation_analysis.md",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u5206\u6790\u5831\u544a\u5df2\u751f\u6210\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認分析報告已生成並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-047"
@@ -1113,9 +1113,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "patch",
-      "goal": "\u5728 Dashboard \u6700\u4e0a\u65b9\u52a0\u5165\u300c\u6700\u5f8c\u66f4\u65b0\u6642\u9593\u300d\u8207\u300c\u7cfb\u7d71\u904b\u884c\u6642\u9593\u300d\u986f\u793a\uff0c\u82e5\u8d85\u904e 10 \u5206\u9418\u7121\u66f4\u65b0\u5247\u6a19\u793a\u7d05\u8272\u8b66\u793a\uff0c\u8b93\u505c\u6a5f\u554f\u984c\u80fd\u5373\u6642\u88ab\u767c\u73fe",
+      "goal": "在 Dashboard 最上方加入「最後更新時間」與「系統運行時間」顯示，若超過 10 分鐘無更新則標示紅色警示，讓停機問題能即時被發現",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard \u5df2\u986f\u793a\u5065\u5eb7\u6642\u9593\u6233\u8207\u8d85\u6642\u8b66\u793a\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 已顯示健康時間戳與超時警示，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-047"
@@ -1130,9 +1130,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "enhancement",
-      "goal": "\u4fee\u6539\u76e3\u6e2c\u7cfb\u7d71\uff0c\u8b93\u6bcf\u6b21\u6aa2\u67e5\u8a0a\u865f\u6642\u90fd\u80fd\u986f\u793a BTC/ETH \u7576\u524d\u50f9\u683c\uff0c\u65b9\u4fbf\u5373\u6642\u8ffd\u8e64\u5e02\u5834\u72c0\u614b",
+      "goal": "修改監測系統，讓每次檢查訊號時都能顯示 BTC/ETH 當前價格，方便即時追蹤市場狀態",
       "output_file": "signals/engine.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6bcf\u6b21 run \u90fd\u986f\u793a\u7576\u524d\u50f9\u683c\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次 run 都顯示當前價格，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-049"
@@ -1149,9 +1149,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u8b93 UI Dashboard \u5373\u6642\u986f\u793a BTC/ETH \u7576\u524d\u50f9\u683c\uff0c\u6bcf\u6b21 scheduler run \u5f8c\u81ea\u52d5\u66f4\u65b0\u50f9\u683c\u5361\u7247",
+      "goal": "讓 UI Dashboard 即時顯示 BTC/ETH 當前價格，每次 scheduler run 後自動更新價格卡片",
       "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard \u986f\u793a\u5373\u6642\u50f9\u683c\u5361\u7247\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 顯示即時價格卡片，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-050"
@@ -1168,9 +1168,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 app/monitor_runner.py\uff0c\u6bcf\u6b21\u57f7\u884c\u5b8c\u7562\u5f8c\u5c07\u6307\u6a19\u6578\u503c\uff08price, MA5/20/240, volume_ratio, price_vs_maX_pct\uff09\u5beb\u5165 logs/indicator_snapshots.jsonl",
+      "goal": "修改 app/monitor_runner.py，每次執行完畢後將指標數值（price, MA5/20/240, volume_ratio, price_vs_maX_pct）寫入 logs/indicator_snapshots.jsonl",
       "output_file": "app/monitor_runner.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u6bcf\u6b21 run \u5f8c indicator_snapshots.jsonl \u6709\u6b63\u78ba\u5beb\u5165\u8cc7\u6599\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認每次 run 後 indicator_snapshots.jsonl 有正確寫入資料，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-051"
@@ -1187,9 +1187,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u4fee\u6539 ui/pages/dashboard.py\uff0c\u5c07\u50f9\u683c\u5361\u7247\u79fb\u5230\u9801\u9762\u6700\u9802\u90e8\u3001BTC/ETH \u5404\u7368\u7acb\u4e00\u500b\u5927\u5361\u7247\u3001\u986f\u793a\u5e63\u7a2e\u540d\u7a31/\u73fe\u50f9/\u66f4\u65b0\u6642\u9593\u3001\u81ea\u52d5\u5237\u65b0\u6539\u70ba 15 \u79d2",
+      "goal": "修改 ui/pages/dashboard.py，將價格卡片移到頁面最頂部、BTC/ETH 各獨立一個大卡片、顯示幣種名稱/現價/更新時間、自動刷新改為 15 秒",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard \u50f9\u683c\u5361\u7247\u5728\u9802\u90e8\u6b63\u78ba\u986f\u793a\uff0c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 價格卡片在頂部正確顯示，並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-052-B"
@@ -1206,9 +1206,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 ui/pages/dashboard.py\uff0c\u5728 Recent Run History \u4e0a\u65b9\u65b0\u589e Strategy Distance \u5340\u584a\uff0c\u986f\u793a\u73fe\u50f9\u3001MA \u8ddd\u96e2\u9032\u5ea6\u689d\u3001\u7b56\u7565\u89f8\u767c\u689d\u4ef6\u8aaa\u660e\u3001\u6700\u8fd1\u8a0a\u865f\uff0c\u8cc7\u6599\u4f86\u6e90\u70ba indicator_snapshots.jsonl",
+      "goal": "修改 ui/pages/dashboard.py，在 Recent Run History 上方新增 Strategy Distance 區塊，顯示現價、MA 距離進度條、策略觸發條件說明、最近訊號，資料來源為 indicator_snapshots.jsonl",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Strategy Distance \u9762\u677f\u6b63\u78ba\u986f\u793a\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Strategy Distance 面板正確顯示並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-052-A"
@@ -1225,9 +1225,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 ui/pages/signals.py\uff0c\u5728 Run History \u8868\u683c\u5c55\u958b\u6642\u986f\u793a\u6bcf\u500b symbol \u7684\u73fe\u50f9\u3001MA5\u3001MA20 \u53ca\u8ddd\u96e2\u767e\u5206\u6bd4\uff0c\u8cc7\u6599\u4f86\u6e90\u70ba indicator_snapshots.jsonl",
+      "goal": "修改 ui/pages/signals.py，在 Run History 表格展開時顯示每個 symbol 的現價、MA5、MA20 及距離百分比，資料來源為 indicator_snapshots.jsonl",
       "output_file": "ui/pages/signals.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Signals \u9801\u9762\u6b63\u78ba\u986f\u793a\u6307\u6a19\u6578\u503c\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Signals 頁面正確顯示指標數值並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-052-C"
@@ -1244,9 +1244,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u5efa\u7acb\u56de\u6e2c\u6578\u64da\u5132\u5b58\u7d50\u69cb\uff0c\u5275\u5efa backtest/ \u76ee\u9304\u8207 backtest_results.jsonl\uff0c\u5b9a\u7fa9\u56de\u6e2c\u7d50\u679c\u6b04\u4f4d\u683c\u5f0f",
+      "goal": "建立回測數據儲存結構，創建 backtest/ 目錄與 backtest_results.jsonl，定義回測結果欄位格式",
       "output_file": "backtest/README.md, backtest/__init__.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d backtest \u76ee\u9304\u7d50\u69cb\u6b63\u78ba\u4e26\u66f4\u65b0 state/tasks.json \u70ba completed",
+      "success_condition": "second bot 完成 git pull 驗收，確認 backtest 目錄結構正確並更新 state/tasks.json 為 completed",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-052-D"
@@ -1263,9 +1263,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u5be6\u73fe\u56de\u6e2c\u57f7\u884c\u5f15\u64ce backtest_runner.py\uff0c\u652f\u63f4\u6307\u5b9a\u65e5\u671f\u7bc4\u570d\u57f7\u884c\u7b56\u7565\u56de\u6e2c\uff0c\u8a08\u7b97\u52dd\u7387\u3001\u5831\u916c\u7387\u3001\u6700\u5927\u56de\u64a4\u7b49\u6307\u6a19",
+      "goal": "實現回測執行引擎 backtest_runner.py，支援指定日期範圍執行策略回測，計算勝率、報酬率、最大回撤等指標",
       "output_file": "backtest/runner.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u56de\u6e2c\u5f15\u64ce\u53ef\u6b63\u5e38\u57f7\u884c\u4e26\u7522\u51fa\u7d50\u679c\u5230 backtest_results.jsonl",
+      "success_condition": "second bot 完成 git pull 驗收，確認回測引擎可正常執行並產出結果到 backtest_results.jsonl",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-053-A"
@@ -1282,9 +1282,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 ui/pages/dashboard.py\uff0c\u65b0\u589e\u56de\u6e2c\u7d50\u679c\u8996\u89ba\u5316\u5340\u584a\uff0c\u986f\u793a\u52dd\u7387\u3001\u7d2f\u7a4d\u5831\u916c\u3001\u6700\u5927\u56de\u64a4\u5716\u8868",
+      "goal": "修改 ui/pages/dashboard.py，新增回測結果視覺化區塊，顯示勝率、累積報酬、最大回撤圖表",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d Dashboard \u6b63\u78ba\u986f\u793a\u56de\u6e2c\u8996\u89ba\u5316\u5716\u8868",
+      "success_condition": "second bot 完成 git pull 驗收，確認 Dashboard 正確顯示回測視覺化圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-053-B"
@@ -1301,9 +1301,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u65b0\u589e ui/pages/backtest.py \u56de\u6e2c\u5831\u544a\u9801\u9762\uff0c\u986f\u793a\u8a73\u7d30\u56de\u6e2c\u7d50\u679c\u3001\u6bcf\u7b46\u4ea4\u6613\u8a18\u9304\u3001\u6b0a\u76ca\u66f2\u7dda",
+      "goal": "新增 ui/pages/backtest.py 回測報告頁面，顯示詳細回測結果、每筆交易記錄、權益曲線",
       "output_file": "ui/pages/backtest.py",
-      "success_condition": "second bot \u5b8c\u6210 git pull \u9a57\u6536\uff0c\u78ba\u8a8d\u56de\u6e2c\u5831\u544a\u9801\u9762\u53ef\u6b63\u5e38\u700f\u89bd\u6240\u6709\u8a73\u7d30\u8cc7\u6599",
+      "success_condition": "second bot 完成 git pull 驗收，確認回測報告頁面可正常瀏覽所有詳細資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-053-C"
@@ -1320,9 +1320,9 @@
       "status": "completed",
       "priority": "high",
       "type": "patch",
-      "goal": "\u91cd\u555f Scheduler \u4ee5\u555f\u7528 T-052-B \u7684 indicator_snapshots.jsonl \u5beb\u5165\u529f\u80fd\uff0c\u78ba\u4fdd\u6bcf\u6b21 run \u90fd\u8a18\u9304\u50f9\u683c\u548c\u6307\u6a19",
+      "goal": "重啟 Scheduler 以啟用 T-052-B 的 indicator_snapshots.jsonl 寫入功能，確保每次 run 都記錄價格和指標",
       "output_file": "logs/indicator_snapshots.jsonl",
-      "success_condition": "second bot \u78ba\u8a8d Scheduler \u91cd\u555f\u5f8c\uff0cindicator_snapshots.jsonl \u958b\u59cb\u8a18\u9304\u6bcf\u6b21 run \u7684\u50f9\u683c\u8cc7\u6599",
+      "success_condition": "second bot 確認 Scheduler 重啟後，indicator_snapshots.jsonl 開始記錄每次 run 的價格資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-053-D"
@@ -1339,9 +1339,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u5728 Dashboard \u65b0\u589e\u50f9\u683c\u6b77\u53f2\u5716\u8868\u5340\u584a\uff0c\u986f\u793a BTC/ETH \u6700\u8fd1 24 \u5c0f\u6642\u50f9\u683c\u8d70\u52e2\uff0c\u8cc7\u6599\u4f86\u6e90\u70ba indicator_snapshots.jsonl",
+      "goal": "在 Dashboard 新增價格歷史圖表區塊，顯示 BTC/ETH 最近 24 小時價格走勢，資料來源為 indicator_snapshots.jsonl",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u9a57\u6536 Dashboard \u6b63\u78ba\u986f\u793a\u50f9\u683c\u6b77\u53f2\u5716\u8868",
+      "success_condition": "second bot 驗收 Dashboard 正確顯示價格歷史圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-054-A"
@@ -1358,9 +1358,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 Signals \u9801\u9762 Run History\uff0c\u9ede\u64ca\u5c55\u958b\u6642\u986f\u793a\u8a72\u6b21 run \u7684\u50f9\u683c\u548c\u6307\u6a19\u6b77\u53f2",
+      "goal": "修改 Signals 頁面 Run History，點擊展開時顯示該次 run 的價格和指標歷史",
       "output_file": "ui/pages/signals.py",
-      "success_condition": "second bot \u9a57\u6536 Signals \u9801\u9762\u6b63\u78ba\u986f\u793a\u6bcf\u500b run \u7684\u50f9\u683c\u8cc7\u6599",
+      "success_condition": "second bot 驗收 Signals 頁面正確顯示每個 run 的價格資料",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-054-A"
@@ -1377,9 +1377,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u5728 Dashboard \u65b0\u589e\u6aa2\u67e5\u6b77\u53f2\u8868\u683c\uff0c\u6e05\u6670\u986f\u793a\u6bcf\u6b21\u6aa2\u67e5\u7684\u6642\u9593\u3001BTC\u50f9\u683c\u3001ETH\u50f9\u683c\uff0c\u4e26\u7a81\u986f\u5be6\u6642\u50f9\u683c",
+      "goal": "在 Dashboard 新增檢查歷史表格，清晰顯示每次檢查的時間、BTC價格、ETH價格，並突顯實時價格",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "second bot \u9a57\u6536 Dashboard \u6b63\u78ba\u986f\u793a\u6aa2\u67e5\u6b77\u53f2\u8868\u683c\uff0c\u5305\u542b\u6642\u9593\u3001BTC/ETH\u50f9\u683c",
+      "success_condition": "second bot 驗收 Dashboard 正確顯示檢查歷史表格，包含時間、BTC/ETH價格",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-054-B"
@@ -1396,9 +1396,9 @@
       "status": "completed",
       "priority": "high",
       "type": "validation",
-      "goal": "\u78ba\u8a8d Dashboard Live Prices \u6b63\u5e38\u986f\u793a\uff0c\u9a57\u8b49 get_current_prices() \u6b63\u78ba\u56de\u50b3 BTC/ETH \u50f9\u683c",
+      "goal": "確認 Dashboard Live Prices 正常顯示，驗證 get_current_prices() 正確回傳 BTC/ETH 價格",
       "output_file": "outputs/T-057_verification_report.md",
-      "success_condition": "UI process \u5b58\u5728\u3001get_current_prices() \u56de\u50b3\u975e\u7a7a\u50f9\u683c\u3001curl \u6709\u56de\u61c9\u3001Cloudflare tunnel \u5b58\u5728",
+      "success_condition": "UI process 存在、get_current_prices() 回傳非空價格、curl 有回應、Cloudflare tunnel 存在",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-055"
@@ -1415,9 +1415,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "enhancement",
-      "goal": "\u4fee\u6539 Dashboard Live Prices \u5340\u584a\uff0c\u5728\u6642\u9593\u6233\u5f8c\u65b9\u986f\u793a\u76f8\u5c0d\u6642\u9593\uff08\u4f8b\u5982 Updated 17:39:39 \u00b7 32s ago\uff09",
+      "goal": "修改 Dashboard Live Prices 區塊，在時間戳後方顯示相對時間（例如 Updated 17:39:39 · 32s ago）",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "BTC \u548c ETH \u50f9\u683c\u5361\u7247\u90fd\u986f\u793a\u985e\u4f3c Updated 17:39:39 \u00b7 32s ago \u7684\u683c\u5f0f",
+      "success_condition": "BTC 和 ETH 價格卡片都顯示類似 Updated 17:39:39 · 32s ago 的格式",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-057"
@@ -1434,9 +1434,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u63d0\u9ad8\u50f9\u683c\u66f4\u65b0\u983b\u7387\u81f3 10 \u79d2\uff0c\u76f4\u63a5\u5f9e Binance API \u53d6\u5f97\u5373\u6642\u50f9\u683c\u800c\u975e\u7b49\u5f85 monitor 5 \u5206\u9418\u5feb\u7167",
+      "goal": "提高價格更新頻率至 10 秒，直接從 Binance API 取得即時價格而非等待 monitor 5 分鐘快照",
       "output_file": "ui/pages/dashboard.py, ui/services/monitor_service.py",
-      "success_condition": "\u50f9\u683c\u6bcf 10 \u79d2\u66f4\u65b0\u4e00\u6b21\uff0c\u5f9e Binance API \u76f4\u63a5\u53d6\u5f97 BTC/ETH \u5373\u6642\u50f9\u683c",
+      "success_condition": "價格每 10 秒更新一次，從 Binance API 直接取得 BTC/ETH 即時價格",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-058"
@@ -1453,9 +1453,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u6539\u7248 Strategy Distance \u5340\u584a\uff0c\u986f\u793a BTC/ETH \u5404\u7b56\u7565\u72c0\u614b\u3001\u89f8\u767c\u8ddd\u96e2\u3001\u984f\u8272\u6a19\u793a",
+      "goal": "改版 Strategy Distance 區塊，顯示 BTC/ETH 各策略狀態、觸發距離、顏色標示",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "\u6bcf\u500b\u7b56\u7565\u6709\u984f\u8272\u6a19\u793a\uff08\u7da0/\u9ec3/\u7d05\uff09\u548c\u8ddd\u96e2\u89f8\u767c\u7684\u767e\u5206\u6bd4",
+      "success_condition": "每個策略有顏色標示（綠/黃/紅）和距離觸發的百分比",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-058"
@@ -1472,9 +1472,9 @@
       "status": "completed",
       "priority": "critical",
       "type": "bugfix",
-      "goal": "\u4fee\u5fa9\u7b56\u7565\u9762\u677f\u984f\u8272\u908f\u8f2f\u548c\u78ba\u4fdd\u50f9\u683c\u771f\u6b63\u5f9e Binance API \u5373\u6642\u6293\u53d6",
+      "goal": "修復策略面板顏色邏輯和確保價格真正從 Binance API 即時抓取",
       "output_file": "ui/services/monitor_service.py, ui/pages/dashboard.py",
-      "success_condition": "get_current_prices() \u771f\u6b63\u547c\u53eb Binance API\uff0c\u7b56\u7565\u9762\u677f\u986f\u793a\u6b63\u78ba\u984f\u8272\u548c\u8ddd\u96e2\u6578\u5b57",
+      "success_condition": "get_current_prices() 真正呼叫 Binance API，策略面板顯示正確顏色和距離數字",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-059-B"
@@ -1491,9 +1491,9 @@
       "status": "completed",
       "priority": "high",
       "type": "enhancement",
-      "goal": "\u5728 Dashboard navbar \u986f\u793a\u6700\u5f8c\u66f4\u65b0\u6642\u9593\u6233\uff0c\u8d85\u904e 10 \u5206\u9418\u8b8a\u7d05\u8272\u8b66\u793a",
+      "goal": "在 Dashboard navbar 顯示最後更新時間戳，超過 10 分鐘變紅色警示",
       "output_file": "ui/pages/dashboard.py",
-      "success_condition": "Navbar \u986f\u793a\u300e\u6700\u5f8c\u66f4\u65b0\uff1aHH:MM:SS\u300f\uff0c\u8d85\u6642\u7d05\u8272\u8b66\u793a",
+      "success_condition": "Navbar 顯示『最後更新：HH:MM:SS』，超時紅色警示",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-060"
@@ -1510,9 +1510,9 @@
       "status": "completed",
       "priority": "medium",
       "type": "documentation",
-      "goal": "\u5c07 4 \u500b\u7b56\u7565\u5beb\u6210 TradingView Pine Script v5\uff0c\u8f38\u51fa\u5230 outbox/T-062_strategies.pine",
+      "goal": "將 4 個策略寫成 TradingView Pine Script v5，輸出到 outbox/T-062_strategies.pine",
       "output_file": "outbox/T-062_strategies.pine",
-      "success_condition": "Pine Script \u6a94\u6848\u5305\u542b MA Cross \u548c Contrarian \u7b56\u7565\uff0c\u53ef\u5728 TradingView \u904b\u884c",
+      "success_condition": "Pine Script 檔案包含 MA Cross 和 Contrarian 策略，可在 TradingView 運行",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-061"
@@ -1546,7 +1546,7 @@
       "status": "completed",
       "priority": "high",
       "type": "feature",
-      "goal": "\u65b0\u589e backtest/runner.py\uff0c\u5be6\u4f5c\u56de\u6e2c\u57f7\u884c\u5f15\u64ce\uff0c\u4e32\u63a5 data.fetcher \u2192 signals.engine \u2192 \u7e3e\u6548\u8a08\u7b97",
+      "goal": "新增 backtest/runner.py，實作回測執行引擎，串接 data.fetcher → signals.engine → 績效計算",
       "output_file": "outbox/T-071_result.json",
       "details": {
         "file": "backtest/runner.py",
@@ -1562,10 +1562,10 @@
           "signals.engine",
           "backtest.BacktestStorage"
         ],
-        "data": "500 \u6839 5m K \u7dda",
-        "chart": "plotly equity curve + drawdown \u5b50\u5716"
+        "data": "500 根 5m K 線",
+        "chart": "plotly equity curve + drawdown 子圖"
       },
-      "success_condition": "backtest/runner.py \u5efa\u7acb\u5b8c\u6210\uff0c\u53ef\u57f7\u884c\u56de\u6e2c\u4e26\u7522\u51fa\u7e3e\u6548\u6307\u6a19",
+      "success_condition": "backtest/runner.py 建立完成，可執行回測並產出績效指標",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [],
       "report_to": "second_bot",
@@ -1580,26 +1580,26 @@
       "status": "completed",
       "priority": "high",
       "type": "feature",
-      "goal": "\u66f4\u65b0 backtest \u9801\u9762\uff0c\u52a0\u5165 Run Backtest \u6309\u9215\u3001\u7e3e\u6548\u6307\u6a19\u5361\u7247\u3001equity curve \u5716\u8868\u3001\u4ea4\u6613\u660e\u7d30\u8868",
+      "goal": "更新 backtest 頁面，加入 Run Backtest 按鈕、績效指標卡片、equity curve 圖表、交易明細表",
       "output_file": "outbox/T-072_result.json",
       "details": {
         "file": "ui/pages/backtest.py",
         "ui_components": [
-          "Dropdown \u9078\u6a19\u7684",
-          "\u6b62\u640d%\u8f38\u5165",
-          "\u672c\u91d1\u8f38\u5165",
-          "Run Backtest \u6309\u9215"
+          "Dropdown 選標的",
+          "止損%輸入",
+          "本金輸入",
+          "Run Backtest 按鈕"
         ],
         "display": [
-          "\u52dd\u7387 Card",
-          "\u7e3d\u5831\u916c% Card",
-          "\u6700\u5927\u56de\u64a4% Card",
-          "\u7e3d\u4ea4\u6613\u6b21\u6578 Card",
+          "勝率 Card",
+          "總報酬% Card",
+          "最大回撤% Card",
+          "總交易次數 Card",
           "equity curve (dcc.Graph)",
-          "\u6700\u8fd1 20 \u7b46\u4ea4\u6613 table"
+          "最近 20 筆交易 table"
         ]
       },
-      "success_condition": "backtest \u9801\u9762\u53ef\u57f7\u884c\u56de\u6e2c\u4e26\u986f\u793a\u7e3e\u6548\u6307\u6a19\u8207\u5716\u8868",
+      "success_condition": "backtest 頁面可執行回測並顯示績效指標與圖表",
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
       "depends_on": [
         "T-071"
@@ -1726,18 +1726,18 @@
     },
     {
       "task_id": "INFRA_001",
-      "title": "\u5206\u6790 tasks.json \u7d50\u69cb\u4e26\u898f\u5283 PostgreSQL \u9077\u79fb",
+      "title": "分析 tasks.json 結構並規劃 PostgreSQL 遷移",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 8,
-      "goal": "\u5206\u6790\u73fe\u6709 tasks.json \u7d50\u69cb\uff0c\u898f\u5283 PostgreSQL \u8cc7\u6599\u5eab\u9077\u79fb\u65b9\u6848",
+      "goal": "分析現有 tasks.json 結構，規劃 PostgreSQL 資料庫遷移方案",
       "output_file": "docs/infra/postgres_migration_plan.md",
       "deliverables": [
-        "\u9077\u79fb\u65b9\u6848\u6587\u6a94",
-        "\u6a23\u672c\u9077\u79fb\u6e2c\u8a66",
-        "\u4e26\u767c\u63a7\u5236\u8a2d\u8a08"
+        "遷移方案文檔",
+        "樣本遷移測試",
+        "並發控制設計"
       ],
       "depends_on": [],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
@@ -1747,19 +1747,19 @@
     },
     {
       "task_id": "INFRA_002",
-      "title": "\u642d\u5efa PostgreSQL \u74b0\u5883",
+      "title": "搭建 PostgreSQL 環境",
       "assigned_to": "kimiclaw_bot",
       "status": "completed",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 4,
-      "goal": "\u642d\u5efa PostgreSQL \u74b0\u5883\uff08Alibaba Cloud \u6216 AWS RDS\uff09",
+      "goal": "搭建 PostgreSQL 環境（Alibaba Cloud 或 AWS RDS）",
       "output_file": "docs/infra/postgres_setup.md",
       "deliverables": [
-        "RDS \u5be6\u4f8b",
-        "\u7528\u6236\u8cec\u865f",
-        "\u5b89\u5168\u7d44\u914d\u7f6e",
-        "\u9023\u63a5\u5b57\u7b26\u4e32"
+        "RDS 實例",
+        "用戶賬號",
+        "安全組配置",
+        "連接字符串"
       ],
       "depends_on": [
         "INFRA_001"
@@ -1769,18 +1769,18 @@
     },
     {
       "task_id": "INFRA_003",
-      "title": "\u5be6\u73fe\u4efb\u52d9\u72c0\u614b\u6a5f",
+      "title": "實現任務狀態機",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "assigned",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 6,
-      "goal": "\u5be6\u73fe\u4efb\u52d9\u72c0\u614b\u6a5f\uff08PENDING \u2192 PROCESSING \u2192 VALIDATED \u2192 COMPLETED\uff09",
+      "goal": "實現任務狀態機（PENDING → PROCESSING → VALIDATED → COMPLETED）",
       "output_file": "app/state_machine.py",
       "deliverables": [
-        "\u72c0\u614b\u8f49\u79fb\u908f\u8f2f",
-        "\u8d85\u6642\u63a7\u5236",
-        "\u55ae\u5143\u6e2c\u8a66"
+        "狀態轉移邏輯",
+        "超時控制",
+        "單元測試"
       ],
       "depends_on": [
         "INFRA_002"
@@ -1790,18 +1790,18 @@
     },
     {
       "task_id": "INFRA_004",
-      "title": "\u5be6\u73fe\u4e26\u767c\u63a7\u5236",
+      "title": "實現並發控制",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "infrastructure",
       "estimated_hours": 6,
-      "goal": "\u5be6\u73fe\u4e26\u767c\u63a7\u5236\uff08\u6a02\u89c0\u9396\u6216\u60b2\u89c0\u9396\uff09",
+      "goal": "實現並發控制（樂觀鎖或悲觀鎖）",
       "output_file": "app/concurrency.py",
       "deliverables": [
-        "\u7248\u672c\u63a7\u5236",
-        "\u885d\u7a81\u6aa2\u6e2c",
-        "\u91cd\u8a66\u908f\u8f2f"
+        "版本控制",
+        "衝突檢測",
+        "重試邏輯"
       ],
       "depends_on": [
         "INFRA_003"
@@ -1811,18 +1811,18 @@
     },
     {
       "task_id": "EXEC_001",
-      "title": "Pre-Trade \u98a8\u96aa\u6aa2\u67e5",
+      "title": "Pre-Trade 風險檢查",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 8,
-      "goal": "Pre-Trade \u98a8\u96aa\u6aa2\u67e5\uff086 \u9805\u6aa2\u67e5\uff1a\u4f59\u984d\u3001API \u9650\u5236\u3001\u6d41\u52d5\u6027\u3001\u6ed1\u9ede\u3001\u4ea4\u6613\u91cf\u3001\u6ce2\u5e45\uff09",
+      "goal": "Pre-Trade 風險檢查（6 項檢查：余額、API 限制、流動性、滑點、交易量、波幅）",
       "output_file": "app/risk_checks.py",
       "deliverables": [
-        "6 \u9805\u98a8\u96aa\u6aa2\u67e5\u5be6\u73fe",
-        "\u6aa2\u67e5\u7d50\u679c\u5831\u544a",
-        "\u55ae\u5143\u6e2c\u8a66"
+        "6 項風險檢查實現",
+        "檢查結果報告",
+        "單元測試"
       ],
       "depends_on": [
         "INFRA_004"
@@ -1832,18 +1832,18 @@
     },
     {
       "task_id": "EXEC_002",
-      "title": "\u8a02\u55ae\u9a57\u8b49\u8207 Binance API \u78ba\u8a8d\u6a5f\u5236",
+      "title": "訂單驗證與 Binance API 確認機制",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 6,
-      "goal": "\u8a02\u55ae\u9a57\u8b49\u8207 Binance API \u78ba\u8a8d\u6a5f\u5236\uff08\u8f2a\u8a62\u3001\u8d85\u6642\u63a7\u5236\u3001\u624b\u7e8c\u8cbb\u8a08\u7b97\uff09",
+      "goal": "訂單驗證與 Binance API 確認機制（輪詢、超時控制、手續費計算）",
       "output_file": "app/order_verification.py",
       "deliverables": [
-        "\u8a02\u55ae\u8f2a\u8a62\u6a5f\u5236",
-        "\u8d85\u6642\u63a7\u5236",
-        "\u624b\u7e8c\u8cbb\u8a08\u7b97"
+        "訂單輪詢機制",
+        "超時控制",
+        "手續費計算"
       ],
       "depends_on": [
         "EXEC_001"
@@ -1859,11 +1859,11 @@
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 5,
-      "goal": "Position Sizing Engine\uff08\u52d5\u614b\u4f4d\u7f6e\u898f\u6a21\uff1a\u98a8\u96aa\u984d\u5ea6\u8a08\u7b97\u3001\u6700\u5927\u6301\u5009\u9650\u5236\uff09",
+      "goal": "Position Sizing Engine（動態位置規模：風險額度計算、最大持倉限制）",
       "output_file": "app/position_sizing.py",
       "deliverables": [
-        "\u98a8\u96aa\u984d\u5ea6\u8a08\u7b97",
-        "\u6700\u5927\u6301\u5009\u9650\u5236"
+        "風險額度計算",
+        "最大持倉限制"
       ],
       "depends_on": [
         "EXEC_002"
@@ -1873,17 +1873,17 @@
     },
     {
       "task_id": "EXEC_004",
-      "title": "\u81ea\u52d5\u6b62\u640d + \u6b62\u76c8\u8a02\u55ae",
+      "title": "自動止損 + 止盈訂單",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 6,
-      "goal": "\u81ea\u52d5\u6b62\u640d + \u6b62\u76c8\u8a02\u55ae\uff08OCO \u8a02\u55ae\u5c0d\uff1aOCO \u8a02\u55ae\u8a2d\u7f6e\u3001\u6210\u4ea4\u78ba\u8a8d\uff09",
+      "goal": "自動止損 + 止盈訂單（OCO 訂單對：OCO 訂單設置、成交確認）",
       "output_file": "app/oco_orders.py",
       "deliverables": [
-        "OCO \u8a02\u55ae\u8a2d\u7f6e",
-        "\u6210\u4ea4\u78ba\u8a8d\u6a5f\u5236"
+        "OCO 訂單設置",
+        "成交確認機制"
       ],
       "depends_on": [
         "EXEC_003"
@@ -1893,18 +1893,18 @@
     },
     {
       "task_id": "EXEC_005",
-      "title": "\u8a02\u55ae\u5931\u6557\u91cd\u8a66\u6a5f\u5236\u8207\u544a\u8b66",
+      "title": "訂單失敗重試機制與告警",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 5,
-      "goal": "\u8a02\u55ae\u5931\u6557\u91cd\u8a66\u6a5f\u5236\u8207\u544a\u8b66\uff08\u91cd\u8a66\u908f\u8f2f\u3001Discord \u544a\u8b66\u3001\u65e5\u8a8c\u8a18\u9304\uff09",
+      "goal": "訂單失敗重試機制與告警（重試邏輯、Discord 告警、日誌記錄）",
       "output_file": "app/order_retry.py",
       "deliverables": [
-        "\u91cd\u8a66\u908f\u8f2f",
-        "Discord \u544a\u8b66",
-        "\u65e5\u8a8c\u8a18\u9304"
+        "重試邏輯",
+        "Discord 告警",
+        "日誌記錄"
       ],
       "depends_on": [
         "EXEC_004"
@@ -1914,18 +1914,18 @@
     },
     {
       "task_id": "STRATEGY_001",
-      "title": "\u7b56\u7565\u9a57\u8b49\u671f\u8a08\u6642\u5668",
+      "title": "策略驗證期計時器",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 6,
-      "goal": "\u70ba 10 \u500b\u7b56\u7565\u5404\u5efa\u9a57\u8b49\u671f\u8a08\u6642\u5668\uff0830-60 \u5929\u8a66\u7528\u671f\uff1a\u9a57\u8b49\u671f\u8ffd\u8e64\u3001\u81ea\u52d5\u5347\u7d1a\u3001\u689d\u4ef6\u5224\u65b7\uff09",
+      "goal": "為 10 個策略各建驗證期計時器（30-60 天試用期：驗證期追蹤、自動升級、條件判斷）",
       "output_file": "app/strategy_validation.py",
       "deliverables": [
-        "\u9a57\u8b49\u671f\u8ffd\u8e64",
-        "\u81ea\u52d5\u5347\u7d1a",
-        "\u689d\u4ef6\u5224\u65b7"
+        "驗證期追蹤",
+        "自動升級",
+        "條件判斷"
       ],
       "depends_on": [
         "EXEC_005"
@@ -1935,19 +1935,19 @@
     },
     {
       "task_id": "STRATEGY_002",
-      "title": "\u5be6\u6642 metrics \u8a08\u7b97",
+      "title": "實時 metrics 計算",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 8,
-      "goal": "\u5be6\u73fe\u5be6\u6642 metrics \u8a08\u7b97\uff08Win Rate\u3001Sharpe Ratio\u3001Max Drawdown\uff1a\u6027\u80fd\u6307\u6a19\u8a08\u7b97\u3001\u6bcf\u65e5\u66f4\u65b0\uff09",
+      "goal": "實現實時 metrics 計算（Win Rate、Sharpe Ratio、Max Drawdown：性能指標計算、每日更新）",
       "output_file": "app/strategy_metrics.py",
       "deliverables": [
-        "Win Rate \u8a08\u7b97",
-        "Sharpe Ratio \u8a08\u7b97",
-        "Max Drawdown \u8a08\u7b97",
-        "\u6bcf\u65e5\u81ea\u52d5\u66f4\u65b0"
+        "Win Rate 計算",
+        "Sharpe Ratio 計算",
+        "Max Drawdown 計算",
+        "每日自動更新"
       ],
       "depends_on": [
         "STRATEGY_001"
@@ -1957,18 +1957,18 @@
     },
     {
       "task_id": "STRATEGY_003",
-      "title": "\u7b56\u7565\u4fe1\u865f\u8cea\u91cf\u8a55\u5206\u7cfb\u7d71",
+      "title": "策略信號質量評分系統",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 7,
-      "goal": "\u7b56\u7565\u4fe1\u865f\u8cea\u91cf\u8a55\u5206\u7cfb\u7d71\uff080-100 \u5206\uff1a\u8a55\u5206\u6f14\u7b97\u6cd5\u3001\u52d5\u614b\u66f4\u65b0\u3001\u6c7a\u7b56\u4f9d\u64da\uff09",
+      "goal": "策略信號質量評分系統（0-100 分：評分演算法、動態更新、決策依據）",
       "output_file": "app/signal_scoring.py",
       "deliverables": [
-        "\u8a55\u5206\u6f14\u7b97\u6cd5 (0-100)",
-        "\u52d5\u614b\u66f4\u65b0\u6a5f\u5236",
-        "\u6c7a\u7b56\u4f9d\u64da\u908f\u8f2f"
+        "評分演算法 (0-100)",
+        "動態更新機制",
+        "決策依據邏輯"
       ],
       "depends_on": [
         "STRATEGY_002"
@@ -1978,19 +1978,19 @@
     },
     {
       "task_id": "STRATEGY_004",
-      "title": "\u6df7\u5408\u81ea\u52d5\u5316\u6c7a\u7b56\u898f\u5247\u5f15\u64ce",
+      "title": "混合自動化決策規則引擎",
       "assigned_to": "kimiclaw_bot",
       "status": "pending",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 6,
-      "goal": "\u6df7\u5408\u81ea\u52d5\u5316\u6c7a\u7b56\u898f\u5247\u5f15\u64ce\uff08IF-THEN \u908f\u8f2f\u3001\u81ea\u52d5/\u8a62\u554f/\u8df3\u904e\u6c7a\u7b56\uff09",
+      "goal": "混合自動化決策規則引擎（IF-THEN 邏輯、自動/詢問/跳過決策）",
       "output_file": "app/decision_engine.py",
       "deliverables": [
-        "IF-THEN \u898f\u5247\u5f15\u64ce",
-        "\u81ea\u52d5\u6c7a\u7b56",
-        "\u8a62\u554f\u6c7a\u7b56",
-        "\u8df3\u904e\u6c7a\u7b56"
+        "IF-THEN 規則引擎",
+        "自動決策",
+        "詢問決策",
+        "跳過決策"
       ],
       "depends_on": [
         "STRATEGY_003"
