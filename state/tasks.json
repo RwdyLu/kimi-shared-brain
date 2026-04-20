@@ -1930,7 +1930,7 @@
       "task_id": "STRATEGY_001",
       "title": "策略驗證期計時器",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 6,
@@ -1945,7 +1945,9 @@
         "EXEC_005"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-21T05:45:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "STRATEGY_002",

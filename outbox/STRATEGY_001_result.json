@@ -1,0 +1,25 @@
+{
+  "task_id": "STRATEGY_001",
+  "title": "策略驗證期計時器",
+  "status": "completed",
+  "priority": "P0",
+  "type": "strategy",
+  "estimated_hours": 6,
+  "completed_at": "2026-04-21T05:45:00+08:00",
+  "deliverables": [
+    "app/strategy_validation.py - 策略驗證期計時器",
+    "30-60 天試用期追蹤",
+    "自動升級/降級機制",
+    "5 項驗證條件 (WinRate, ProfitFactor, Drawdown, ConsecutiveLosses, Sharpe)",
+    "狀態持久化 (JSON save/load)"
+  ],
+  "features": [
+    "10 strategies validation tracking",
+    "Configurable trial periods (30-60 days)",
+    "Automatic evaluation with pass/fail/extend logic",
+    "Performance metrics: win rate, profit factor, drawdown, Sharpe",
+    "Auto-promote validated strategies to production",
+    "State persistence to JSON"
+  ],
+  "git_commit": "STRATEGY_001: Implement strategy validation timer"
+}
