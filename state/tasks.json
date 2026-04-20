@@ -1885,7 +1885,7 @@
       "task_id": "EXEC_004",
       "title": "自動止損 + 止盈訂單",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "execution",
       "estimated_hours": 6,
@@ -1899,7 +1899,9 @@
         "EXEC_003"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-21T05:35:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "EXEC_005",
