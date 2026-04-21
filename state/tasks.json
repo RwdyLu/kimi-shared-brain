@@ -1953,7 +1953,7 @@
       "task_id": "STRATEGY_002",
       "title": "實時 metrics 計算",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 8,
@@ -1969,7 +1969,9 @@
         "STRATEGY_001"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-21T05:50:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "STRATEGY_003",

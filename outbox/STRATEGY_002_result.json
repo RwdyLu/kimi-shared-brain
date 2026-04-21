@@ -1,0 +1,29 @@
+{
+  "task_id": "STRATEGY_002",
+  "title": "實時 metrics 計算",
+  "status": "completed",
+  "priority": "P0",
+  "type": "strategy",
+  "estimated_hours": 8,
+  "completed_at": "2026-04-21T05:50:00+08:00",
+  "deliverables": [
+    "app/strategy_metrics.py - 實時策略 metrics 計算器",
+    "Win Rate / Loss Rate 計算",
+    "Sharpe Ratio (年化) 計算",
+    "Sortino Ratio (下行偏差) 計算",
+    "Max Drawdown / Drawdown % 計算",
+    "Profit Factor / Payoff Ratio",
+    "Consecutive Wins/Losses 追蹤",
+    "每日/每週摘要",
+    "多策略管理器"
+  ],
+  "features": [
+    "Real-time metric updates on each trade",
+    "Ring buffer for efficient memory usage",
+    "Comprehensive metrics: WinRate, Sharpe, Sortino, Calmar, Drawdown",
+    "Daily and weekly summaries",
+    "Multi-strategy metrics manager",
+    "State persistence to JSON"
+  ],
+  "git_commit": "STRATEGY_002: Implement real-time strategy metrics"
+}
