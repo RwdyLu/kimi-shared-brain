@@ -1,0 +1,22 @@
+{
+  "task_id": "P1_MONITOR_002",
+  "title": "System Health Monitor",
+  "status": "completed",
+  "priority": "P1",
+  "type": "monitoring",
+  "completed_at": "2026-04-23T05:42:00+08:00",
+  "deliverables": [
+    "app/health_monitor.py - 系統健康監控 (15.5KB)",
+    "CPU 使用率監控 (警告 70%, 危險 90%)",
+    "記憶體使用率監控 (警告 80%, 危險 95%)",
+    "磁碟使用率監控 (警告 85%, 危險 95%)",
+    "網路連線檢查",
+    "系統負載監控",
+    "關鍵進程檢查",
+    "自定義監控指標支援",
+    "連續監控迴圈 (async)",
+    "告警通知系統",
+    "歷史數據追蹤"
+  ],
+  "git_commit": "P1_MONITOR_002: Implement system health monitor"
+}
