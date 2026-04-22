@@ -1,0 +1,30 @@
+{
+  "task_id": "STRATEGY_003",
+  "title": "策略信號質量評分系統",
+  "status": "completed",
+  "priority": "P0",
+  "type": "strategy",
+  "estimated_hours": 7,
+  "completed_at": "2026-04-22T10:05:00+08:00",
+  "deliverables": [
+    "app/signal_scoring.py - 信號質量評分系統",
+    "5 維度評分: Trend, Momentum, Volatility, Volume, Sentiment",
+    "加權總分計算 (0-100)",
+    "信號強度分類: Strong/Moderate/Weak/Poor/Reject",
+    "自動建議生成 (EXECUTE/WAIT/SKIP/REJECT)",
+    "風險評估整合",
+    "信心度計算",
+    "批量評分支援"
+  ],
+  "features": [
+    "Multi-factor signal quality scoring (5 dimensions)",
+    "Configurable weights per factor",
+    "Signal strength classification with thresholds",
+    "Risk-adjusted recommendations",
+    "Confidence scoring based on consistency",
+    "Market condition description",
+    "Batch processing for multiple signals",
+    "Historical tracking and statistics"
+  ],
+  "git_commit": "STRATEGY_003: Implement signal quality scoring system"
+}

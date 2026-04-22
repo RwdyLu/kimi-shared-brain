@@ -1977,7 +1977,7 @@
       "task_id": "STRATEGY_003",
       "title": "策略信號質量評分系統",
       "assigned_to": "kimiclaw_bot",
-      "status": "assigned",
+      "status": "completed",
       "priority": "P0",
       "type": "strategy",
       "estimated_hours": 7,
@@ -1992,7 +1992,9 @@
         "STRATEGY_002"
       ],
       "repo_url": "git@github.com:RwdyLu/kimi-shared-brain.git",
-      "report_to": "second_bot"
+      "report_to": "second_bot",
+      "completed_at": "2026-04-22T10:05:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "STRATEGY_004",
