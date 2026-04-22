@@ -2073,7 +2073,7 @@
       "goal": "可配置告警規則引擎",
       "output_file": "app/alert_rules.py",
       "description": "閾值設定、條件組合、告警級別",
-      "completed_at": "2026-04-23T05:50:00+08:00",
+      "completed_at": "2026-04-23T05:49:00+08:00",
       "reviewed_by": "second_bot"
     },
     {
@@ -2081,8 +2081,8 @@
       "title": "Alert History & Analytics",
       "priority": "P1",
       "type": "alert",
-      "status": "pending",
-      "assigned_to": null,
+      "status": "assigned",
+      "assigned_to": "kimiclaw_bot",
       "estimated_hours": 5,
       "goal": "告警歷史記錄與分析",
       "output_file": "app/alert_analytics.py",
@@ -2099,7 +2099,7 @@
       "goal": "交易數據持久化存儲",
       "output_file": "app/trade_storage.py",
       "description": "PostgreSQL 交易記錄、查詢、備份",
-      "completed_at": "2026-04-23T05:56:00+08:00",
+      "completed_at": "2026-04-23T05:49:00+08:00",
       "reviewed_by": "second_bot"
     },
     {
@@ -2107,8 +2107,8 @@
       "title": "Historical Data Cache",
       "priority": "P1",
       "type": "data",
-      "status": "pending",
-      "assigned_to": null,
+      "status": "assigned",
+      "assigned_to": "kimiclaw_bot",
       "estimated_hours": 6,
       "goal": "歷史數據快取系統",
       "output_file": "app/data_cache.py",
@@ -2173,7 +2173,7 @@
       "goal": "交易監控儀表板",
       "output_file": "app/dashboard.py",
       "description": "即時交易狀態、盈虧顯示",
-      "completed_at": "2026-04-23T06:00:00+08:00",
+      "completed_at": "2026-04-23T05:49:00+08:00",
       "reviewed_by": "second_bot"
     },
     {
@@ -2181,8 +2181,8 @@
       "title": "Strategy Performance UI",
       "priority": "P1",
       "type": "monitoring",
-      "status": "pending",
-      "assigned_to": null,
+      "status": "assigned",
+      "assigned_to": "kimiclaw_bot",
       "estimated_hours": 8,
       "goal": "策略績效可視化",
       "output_file": "app/strategy_ui.py",
