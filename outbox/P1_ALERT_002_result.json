@@ -1,0 +1,18 @@
+{
+  "task_id": "P1_ALERT_002",
+  "title": "Alert Rules Engine",
+  "status": "completed",
+  "priority": "P1",
+  "type": "alert",
+  "completed_at": "2026-04-23T05:50:00+08:00",
+  "deliverables": [
+    "app/alert_rules.py - 可配置告警規則引擎 (18.4KB)",
+    "12 種運算子: EQ/NE/GT/GTE/LT/LTE/BETWEEN/CONTAINS/REGEX/CHANGED/INCREASED_BY/DECREASED_BY",
+    "3 種邏輯閘: AND / OR / NOT",
+    "速率限制: cooldown + 每小時上限",
+    "規則模板: 價格下跌 / 高成交量 / 低餘額 / 訂單失敗",
+    "規則匯入/匯出 JSON",
+    "歷史數據比較 (CHANGED/INCREASED_BY/DECREASED_BY)"
+  ],
+  "git_commit": "P1 batch: Alert rules + Trade storage + Dashboard"
+}

@@ -2067,12 +2067,14 @@
       "title": "Alert Rules Engine",
       "priority": "P1",
       "type": "alert",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 8,
       "goal": "可配置告警規則引擎",
       "output_file": "app/alert_rules.py",
-      "description": "閾值設定、條件組合、告警級別"
+      "description": "閾值設定、條件組合、告警級別",
+      "completed_at": "2026-04-23T05:50:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_ALERT_003",
@@ -2091,12 +2093,14 @@
       "title": "Trade Data Persistence",
       "priority": "P1",
       "type": "data",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 8,
       "goal": "交易數據持久化存儲",
       "output_file": "app/trade_storage.py",
-      "description": "PostgreSQL 交易記錄、查詢、備份"
+      "description": "PostgreSQL 交易記錄、查詢、備份",
+      "completed_at": "2026-04-23T05:56:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DATA_002",
@@ -2163,12 +2167,14 @@
       "title": "Trading Dashboard UI",
       "priority": "P1",
       "type": "monitoring",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 10,
       "goal": "交易監控儀表板",
       "output_file": "app/dashboard.py",
-      "description": "即時交易狀態、盈虧顯示"
+      "description": "即時交易狀態、盈虧顯示",
+      "completed_at": "2026-04-23T06:00:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_UI_002",

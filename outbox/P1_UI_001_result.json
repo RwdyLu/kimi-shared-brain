@@ -1,0 +1,20 @@
+{
+  "task_id": "P1_UI_001",
+  "title": "Trading Dashboard UI",
+  "status": "completed",
+  "priority": "P1",
+  "type": "ui",
+  "completed_at": "2026-04-23T06:00:00+08:00",
+  "deliverables": [
+    "app/dashboard.py - 交易監控儀表板 (13.7KB)",
+    "深色主題 HTML 儀表板",
+    "即時更新 (30s 間隔)",
+    "關鍵指標卡片: 今日盈虧 / 未平倉 P&L / 勝率 / 帳戶餘額",
+    "進行中交易表格",
+    "最近成交紀錄",
+    "策略績效表格",
+    "系統健康狀態",
+    "響應式網格布局"
+  ],
+  "git_commit": "P1 batch: Alert rules + Trade storage + Dashboard"
+}
