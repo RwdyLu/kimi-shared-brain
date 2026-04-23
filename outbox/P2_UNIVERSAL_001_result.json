@@ -1,0 +1,15 @@
+{
+  "task_id": "P2_UNIVERSAL_001",
+  "title": "Universal Asset Adapter",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:26:00+08:00",
+  "deliverables": [
+    "app/universal_asset_adapter.py - 通用資產適配 (3.5KB)",
+    "支援 Crypto/Stock/ETF/Forex/Futures",
+    "統一資產格式",
+    "數量標準化",
+    "價格格式化"
+  ]
+}

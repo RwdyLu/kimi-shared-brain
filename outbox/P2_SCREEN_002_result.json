@@ -1,0 +1,14 @@
+{
+  "task_id": "P2_SCREEN_002",
+  "title": "Taiwan Stock Data Connector",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:22:00+08:00",
+  "deliverables": [
+    "app/twse_connector.py - 台灣股市連接器 (5.9KB)",
+    "TWSE 股票報價",
+    "市場狀態查詢",
+    "快取機制"
+  ]
+}

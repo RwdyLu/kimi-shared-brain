@@ -1,0 +1,16 @@
+{
+  "task_id": "P2_RANKING_001",
+  "title": "Strategy Ranking & Selection",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:10:00+08:00",
+  "deliverables": [
+    "app/strategy_ranking.py - 策略排名系統 (9.8KB)",
+    "5 種排名方法: Sharpe/Return/Drawdown/Calmar/Composite",
+    "等級制度: S/A/B/C/D/F",
+    "5 維度加權評分 (Sharpe 30% + Return 25% + Drawdown 20% + WinRate 15% + ProfitFactor 10%)",
+    "自動淘汰低等級策略",
+    "策略比較報告"
+  ]
+}
