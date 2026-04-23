@@ -24,10 +24,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config.paths import PROJECT_ROOT, STATE_DIR
 
-# Import monitoring components (function-based)
-from app.monitor_runner import MonitorRunner
-from data.fetcher import BinanceFetcher
-from indicators import calculator as indicator_calc
+# Lazy imports to avoid circular dependency
+# from app.monitor_runner import MonitorRunner
+# from data.fetcher import BinanceFetcher
+# from indicators import calculator as indicator_calc
 from signals.engine import SignalEngine
 
 
