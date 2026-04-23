@@ -2,6 +2,7 @@
 Trading Dashboard UI
 Web-based trading monitoring dashboard with real-time updates.
 """
+
 import json
 import logging
 from typing import Dict, List, Optional, Any
@@ -13,22 +14,19 @@ class DashboardUI:
     Trading dashboard UI generator.
     Creates HTML dashboard with trading metrics and status.
     """
-    
+
     def __init__(self, title: str = "Trading Dashboard"):
         self.logger = logging.getLogger(__name__)
         self.title = title
         self.components: List[Dict] = []
         self.refresh_interval = 30  # seconds
-        
+
         self.logger.info("DashboardUI initialized")
-    
+
     def add_component(self, component_type: str, config: Dict):
         """Add dashboard component."""
-        self.components.append({
-            'type': component_type,
-            'config': config
-        })
-    
+        self.components.append({"type": component_type, "config": config})
+
     def generate_html(self) -> str:
         """Generate complete HTML dashboard."""
         html = f"""<!DOCTYPE html>
@@ -389,43 +387,43 @@ class DashboardUI:
     </script>
 </body>
 </html>"""
-        
+
         return html
-    
+
     def save_dashboard(self, filepath: str):
         """Save dashboard to HTML file."""
         html = self.generate_html()
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
+
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
-        
+
         self.logger.info(f"Dashboard saved to {filepath}")
-    
+
     def update_data(self, data: Dict):
         """Update dashboard with live data."""
         self.logger.info("Dashboard data updated")
         # In practice, this would update the dashboard components
         # For now, placeholder for future websocket integration
-    
+
     def get_dashboard_info(self) -> Dict:
         """Get dashboard configuration info."""
         return {
-            'title': self.title,
-            'components': len(self.components),
-            'refresh_interval': self.refresh_interval,
-            'last_updated': datetime.now().isoformat(),
+            "title": self.title,
+            "components": len(self.components),
+            "refresh_interval": self.refresh_interval,
+            "last_updated": datetime.now().isoformat(),
         }
 
 
 if __name__ == "__main__":
     # Example usage
     logging.basicConfig(level=logging.INFO)
-    
+
     dashboard = DashboardUI("Trading Dashboard")
-    
+
     # Generate and save
     dashboard.save_dashboard("dashboard.html")
-    
+
     print("Dashboard UI Demo")
     print("=" * 50)
     print(f"Title: {dashboard.title}")

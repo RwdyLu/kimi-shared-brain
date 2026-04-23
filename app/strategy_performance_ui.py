@@ -2,6 +2,7 @@
 Strategy Performance UI
 Displays strategy performance metrics and comparison dashboard.
 """
+
 import json
 import logging
 from typing import Dict, List, Optional, Any
@@ -13,21 +14,19 @@ class StrategyPerformanceUI:
     Strategy performance visualization UI.
     Generates HTML report for strategy comparison and analysis.
     """
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.logger.info("StrategyPerformanceUI initialized")
-    
-    def generate_report(self,
-                       strategies: List[Dict],
-                       period: str = "30d") -> str:
+
+    def generate_report(self, strategies: List[Dict], period: str = "30d") -> str:
         """
         Generate strategy performance HTML report.
-        
+
         Args:
             strategies: List of strategy performance data
             period: Reporting period
-            
+
         Returns:
             HTML string
         """
@@ -196,27 +195,27 @@ class StrategyPerformanceUI:
     </div>
 </body>
 </html>"""
-        
+
         return html
-    
+
     def _generate_rows(self, strategies: List[Dict]) -> str:
         """Generate table rows for strategies."""
         rows = []
-        
-        for s in sorted(strategies, key=lambda x: x.get('total_pnl', 0), reverse=True):
-            status = s.get('status', 'unknown')
+
+        for s in sorted(strategies, key=lambda x: x.get("total_pnl", 0), reverse=True):
+            status = s.get("status", "unknown")
             status_class = f"status-{status}"
             status_text = status.upper()
-            
-            pnl = s.get('total_pnl', 0)
-            pnl_class = 'positive' if pnl > 0 else 'negative'
-            
-            win_rate = s.get('win_rate', 0)
-            win_color = 'fill-green' if win_rate > 50 else 'fill-red'
-            
-            drawdown = s.get('max_drawdown', 0)
-            dd_color = 'fill-red' if drawdown > 20 else 'fill-yellow' if drawdown > 10 else 'fill-green'
-            
+
+            pnl = s.get("total_pnl", 0)
+            pnl_class = "positive" if pnl > 0 else "negative"
+
+            win_rate = s.get("win_rate", 0)
+            win_color = "fill-green" if win_rate > 50 else "fill-red"
+
+            drawdown = s.get("max_drawdown", 0)
+            dd_color = "fill-red" if drawdown > 20 else "fill-yellow" if drawdown > 10 else "fill-green"
+
             row = f"""
             <tr>
                 <td>
@@ -237,69 +236,69 @@ class StrategyPerformanceUI:
                 <td class="{pnl_class}">${pnl:,.2f}</td>
                 <td>{s.get('sharpe_ratio', 0):.2f}</td>
             </tr>"""
-            
+
             rows.append(row)
-        
+
         return "\n".join(rows)
-    
+
     def save_report(self, filepath: str, strategies: List[Dict], period: str = "30d"):
         """Save performance report to HTML file."""
         html = self.generate_report(strategies, period)
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
+
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
-        
+
         self.logger.info(f"Strategy report saved to {filepath}")
 
 
 if __name__ == "__main__":
     # Example usage
     logging.basicConfig(level=logging.INFO)
-    
+
     ui = StrategyPerformanceUI()
-    
+
     # Sample data
     strategies = [
         {
-            'name': 'BTC_4H_MA',
-            'symbol': 'BTCUSDT',
-            'timeframe': '4H',
-            'status': 'active',
-            'total_trades': 45,
-            'win_rate': 73.3,
-            'profit_factor': 2.1,
-            'max_drawdown': 8.5,
-            'total_pnl': 5230.50,
-            'sharpe_ratio': 1.8,
+            "name": "BTC_4H_MA",
+            "symbol": "BTCUSDT",
+            "timeframe": "4H",
+            "status": "active",
+            "total_trades": 45,
+            "win_rate": 73.3,
+            "profit_factor": 2.1,
+            "max_drawdown": 8.5,
+            "total_pnl": 5230.50,
+            "sharpe_ratio": 1.8,
         },
         {
-            'name': 'ETH_1H_RSI',
-            'symbol': 'ETHUSDT',
-            'timeframe': '1H',
-            'status': 'active',
-            'total_trades': 28,
-            'win_rate': 50.0,
-            'profit_factor': 1.2,
-            'max_drawdown': 15.2,
-            'total_pnl': -450.25,
-            'sharpe_ratio': 0.3,
+            "name": "ETH_1H_RSI",
+            "symbol": "ETHUSDT",
+            "timeframe": "1H",
+            "status": "active",
+            "total_trades": 28,
+            "win_rate": 50.0,
+            "profit_factor": 1.2,
+            "max_drawdown": 15.2,
+            "total_pnl": -450.25,
+            "sharpe_ratio": 0.3,
         },
         {
-            'name': 'SOL_1D_BB',
-            'symbol': 'SOLUSDT',
-            'timeframe': '1D',
-            'status': 'paused',
-            'total_trades': 12,
-            'win_rate': 41.7,
-            'profit_factor': 0.8,
-            'max_drawdown': 22.1,
-            'total_pnl': -1230.00,
-            'sharpe_ratio': -0.5,
+            "name": "SOL_1D_BB",
+            "symbol": "SOLUSDT",
+            "timeframe": "1D",
+            "status": "paused",
+            "total_trades": 12,
+            "win_rate": 41.7,
+            "profit_factor": 0.8,
+            "max_drawdown": 22.1,
+            "total_pnl": -1230.00,
+            "sharpe_ratio": -0.5,
         },
     ]
-    
+
     ui.save_report("strategy_performance.html", strategies)
-    
+
     print("Strategy Performance UI Demo")
     print("=" * 50)
     print(f"Strategies: {len(strategies)}")

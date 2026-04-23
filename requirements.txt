@@ -4,6 +4,7 @@
 numpy>=1.24.0
 pandas>=2.0.0
 python-binance>=1.0.19
+ccxt>=4.0.0
 requests>=2.31.0
 
 # Web Framework
