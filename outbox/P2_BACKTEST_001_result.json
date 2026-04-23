@@ -1,0 +1,19 @@
+{
+  "task_id": "P2_BACKTEST_001",
+  "title": "Automated Backtest Pipeline",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T10:45:00+08:00",
+  "deliverables": [
+    "app/backtest_pipeline.py - 自動回測流水線 (13.7KB)",
+    "BacktestResult 數據結構 (收益/夏普/回撤/勝率/盈虧比)",
+    "排程系統 (schedule/run/queue)",
+    "批量回測 (run_batch)",
+    "績效指標計算 (total_return/sharpe/max_drawdown/win_rate/profit_factor)",
+    "結果比較與排名",
+    "結果保存 JSON",
+    "報告匯出"
+  ],
+  "git_commit": "P2 batch: Strategy generator + Optimizer + Backtest pipeline + Crypto screener"
+}
