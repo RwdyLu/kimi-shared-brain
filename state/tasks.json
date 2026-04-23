@@ -2227,6 +2227,102 @@
       "goal": "建立支撐阻力位交易策略",
       "output_file": "app/strategy_snr.py",
       "description": "基於支撐位/阻力位的自動交易策略：偵測關鍵價格位、生成買賣訊號、回測驗證"
+    },
+    {
+      "task_id": "P2_STRATEGY_GEN_001",
+      "title": "Strategy Parameter Generator",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "策略參數自動生成與探索",
+      "output_file": "app/strategy_generator.py",
+      "description": "遺傳算法/隨機搜尋產生新策略參數組合"
+    },
+    {
+      "task_id": "P2_OPTIMIZE_001",
+      "title": "Parameter Optimization Engine",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "參數優化引擎",
+      "output_file": "app/parameter_optimizer.py",
+      "description": "網格搜索、Walk-forward 分析、參數穩健性測試"
+    },
+    {
+      "task_id": "P2_BACKTEST_001",
+      "title": "Automated Backtest Pipeline",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "自動回測流水線",
+      "output_file": "app/backtest_pipeline.py",
+      "description": "批量策略回測、結果自動收集、績效比較"
+    },
+    {
+      "task_id": "P2_RANKING_001",
+      "title": "Strategy Ranking & Selection",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "策略排名與淘汰機制",
+      "output_file": "app/strategy_ranking.py",
+      "description": "多維度評分、自動排名、劣汰機制"
+    },
+    {
+      "task_id": "P2_OVERFIT_001",
+      "title": "Overfitting Detection System",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "過度擬合檢測",
+      "output_file": "app/overfit_detector.py",
+      "description": "樣本外測試、Monte Carlo 模擬、參數敏感性分析"
+    },
+    {
+      "task_id": "P2_PAPER_001",
+      "title": "Paper Trading Simulator",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "紙上交易模擬器",
+      "output_file": "app/paper_trading.py",
+      "description": "模擬真實交易環境：滑點、延遲、手續費、流動性"
+    },
+    {
+      "task_id": "P2_PORTFOLIO_001",
+      "title": "Strategy Portfolio Manager",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "策略組合管理",
+      "output_file": "app/strategy_portfolio.py",
+      "description": "多策略資金配置、相關性分析、風險分散"
+    },
+    {
+      "task_id": "P2_AUTO_001",
+      "title": "Strategy Auto-Execution Loop",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "全自動策略執行循環",
+      "output_file": "app/auto_strategy_loop.py",
+      "description": "自動發現→回測→驗證→紙上交易→實盤的完整循環"
     }
   ]
 }
