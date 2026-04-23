@@ -1,0 +1,19 @@
+{
+  "task_id": "P1_DATA_002",
+  "title": "Historical Data Cache",
+  "status": "completed",
+  "priority": "P1",
+  "type": "data",
+  "completed_at": "2026-04-23T10:05:00+08:00",
+  "deliverables": [
+    "app/historical_cache.py - 歷史數據快取 (11.4KB)",
+    "CandleData OHLCV 結構",
+    "多時間框架支援 (1m/5m/1h/4h/1d)",
+    "記憶體管理 (max_candles 限制)",
+    "時間範圍查詢",
+    "快取命中率統計",
+    "磁碟持久化 (save/load)",
+"技術指標計算: SMA / EMA / RSI"
+  ],
+  "git_commit": "P1 batch: Alert history + Historical cache + Strategy UI"
+}

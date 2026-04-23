@@ -1,0 +1,18 @@
+{
+  "task_id": "P1_UI_002",
+  "title": "Strategy Performance UI",
+  "status": "completed",
+  "priority": "P1",
+  "type": "ui",
+  "completed_at": "2026-04-23T10:05:00+08:00",
+  "deliverables": [
+    "app/strategy_performance_ui.py - 策略績效 UI (9.7KB)",
+    "HTML 報告生成",
+    "深色主題設計",
+    "策略比較表格 (勝率/盈虧比/最大回撤/夏普比率)",
+    "視覺化進度條 (Win Rate / Drawdown)",
+    "狀態標籤 (Active/Paused/Stopped)",
+    "摘要卡片 (活躍策略/總P&L/平均勝率/總交易數)"
+  ],
+  "git_commit": "P1 batch: Alert history + Historical cache + Strategy UI"
+}

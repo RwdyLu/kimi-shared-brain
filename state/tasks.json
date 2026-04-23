@@ -2081,12 +2081,14 @@
       "title": "Alert History & Analytics",
       "priority": "P1",
       "type": "alert",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 5,
       "goal": "告警歷史記錄與分析",
       "output_file": "app/alert_analytics.py",
-      "description": "告警統計、趨勢分析、報告生成"
+      "description": "告警統計、趨勢分析、報告生成",
+      "completed_at": "2026-04-23T10:05:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DATA_001",
@@ -2107,12 +2109,14 @@
       "title": "Historical Data Cache",
       "priority": "P1",
       "type": "data",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 6,
       "goal": "歷史數據快取系統",
       "output_file": "app/data_cache.py",
-      "description": "Redis/Memory 快取，減少 API 調用"
+      "description": "Redis/Memory 快取，減少 API 調用",
+      "completed_at": "2026-04-23T10:05:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DATA_003",
@@ -2181,12 +2185,14 @@
       "title": "Strategy Performance UI",
       "priority": "P1",
       "type": "monitoring",
-      "status": "assigned",
+      "status": "completed",
       "assigned_to": "kimiclaw_bot",
       "estimated_hours": 8,
       "goal": "策略績效可視化",
       "output_file": "app/strategy_ui.py",
-      "description": "策略排名、歷史績效圖表"
+      "description": "策略排名、歷史績效圖表",
+      "completed_at": "2026-04-23T10:05:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_TEST_001",

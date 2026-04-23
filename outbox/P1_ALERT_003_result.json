@@ -1,0 +1,19 @@
+{
+  "task_id": "P1_ALERT_003",
+  "title": "Alert History & Analytics",
+  "status": "completed",
+  "priority": "P1",
+  "type": "alert",
+  "completed_at": "2026-04-23T10:05:00+08:00",
+  "deliverables": [
+    "app/alert_history.py - 告警歷史與分析 (14.8KB)",
+    "AlertHistory 數據結構 (觸發/解決/回應時間/可操作性)",
+    "告警統計 (總數/解決率/平均回應時間/噪音率)",
+    "每日趨勢分析",
+    "規則有效性評分 (actionable_rate / false_positive_rate)",
+    "噪音報告 (識別高頻低價值規則)",
+    "人類可讀報告生成",
+    "歷史匯出 JSON"
+  ],
+  "git_commit": "P1 batch: Alert history + Historical cache + Strategy UI"
+}
