@@ -320,17 +320,50 @@ class BinanceFetcher:
         """
         Get latest price data / 取得最新價格資料
         
-        TODO: Implement if needed for monitoring system
-        若監測系統需要則實作
-        
         Args:
             symbol: Trading pair / 交易對
             
         Returns:
             Latest price data / 最新價格資料
         """
-        # TODO: Implement using /api/v3/ticker/price or similar
-        raise NotImplementedError("get_latest_price is not yet implemented")
+        import requests
+        
+        try:
+            url = f"{self.base_url}/api/v3/ticker/24hr"
+            params = {"symbol": symbol}
+            
+            self._rate_limit()
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            return {
+                "symbol": symbol,
+                "price": float(data["lastPrice"]),
+                "volume": float(data["volume"]),
+                "price_change_24h": float(data["priceChangePercent"]),
+                "high_24h": float(data["highPrice"]),
+                "low_24h": float(data["lowPrice"])
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching price for {symbol}: {e}")
+            # Fallback to basic price endpoint
+            try:
+                url = f"{self.base_url}/api/v3/ticker/price"
+                params = {"symbol": symbol}
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                return {
+                    "symbol": symbol,
+                    "price": float(data["price"]),
+                    "volume": 0,
+                    "price_change_24h": 0,
+                    "high_24h": 0,
+                    "low_24h": 0
+                }
+            except Exception:
+                raise
 
 
 def create_fetcher() -> BinanceFetcher:
