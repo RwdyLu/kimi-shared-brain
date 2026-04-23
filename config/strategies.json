@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2026-04-07",
+  "version": "1.1.0",
+  "last_updated": "2026-04-23",
   "description": "Strategy registry / 策略註冊表",
   
   "strategies": [
@@ -91,12 +91,122 @@
       "signal_type": "contrarian_watch_oversold",
       "signal_level": "watch_only",
       "warning": "WATCH ONLY - NOT FOR EXECUTION / 僅觀察 - 非執行訊號"
+    },
+    {
+      "id": "hilbert_cycle",
+      "name": "Hilbert Cycle",
+      "name_zh": "希爾伯特週期",
+      "type": "cycle",
+      "enabled": true,
+      "description": "Hilbert Transform SineWave cycle detection (Open Source #1 Ranked)",
+      "description_zh": "希爾伯特轉換正弦波週期檢測（開源策略排名第1）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["1h", "4h"],
+      "indicators": ["HT_SINE", "TEMA"],
+      "conditions": [
+        "sine_cross_above_leadsine",
+        "tema_rising"
+      ],
+      "parameters": {
+        "tema_period": 9
+      },
+      "signal_type": "cycle",
+      "signal_level": "confirmed",
+      "backtest_rank": 1,
+      "backtest_score": 0.96,
+      "source": "freqtrade_open_source"
+    },
+    {
+      "id": "stochastic_breakout",
+      "name": "Stochastic Breakout",
+      "name_zh": "隨機指標突破",
+      "type": "breakout",
+      "enabled": true,
+      "description": "Stochastic fast crossover with trend confirmation (Open Source #2 Ranked)",
+      "description_zh": "快速隨機指標交叉搭配趨勢確認（開源策略排名第2）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m"],
+      "indicators": ["Stochastic", "SAR"],
+      "conditions": [
+        "fastk_cross_above_fastd",
+        "fastk_below_20",
+        "sar_below_price"
+      ],
+      "parameters": {
+        "fastk_period": 5,
+        "fastd_period": 3,
+        "sar_acceleration": 0.02,
+        "sar_maximum": 0.2
+      },
+      "signal_type": "breakout",
+      "signal_level": "confirmed",
+      "backtest_rank": 2,
+      "backtest_score": 0.71,
+      "source": "freqtrade_open_source"
+    },
+    {
+      "id": "rsi_trend",
+      "name": "RSI Trend",
+      "name_zh": "RSI趨勢策略",
+      "type": "momentum",
+      "enabled": true,
+      "description": "RSI crossover with TEMA and Bollinger Bands confirmation (Open Source #3 Ranked)",
+      "description_zh": "RSI交叉搭配TEMA和布林帶確認（開源策略排名第3）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m", "1h"],
+      "indicators": ["RSI", "TEMA", "BollingerBands"],
+      "conditions": [
+        "rsi_cross_above_30",
+        "tema_below_bb_middle",
+        "tema_rising"
+      ],
+      "parameters": {
+        "rsi_period": 14,
+        "tema_period": 9,
+        "bb_period": 20,
+        "bb_std": 2.0
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed",
+      "backtest_rank": 3,
+      "backtest_score": 0.62,
+      "source": "freqtrade_open_source"
+    },
+    {
+      "id": "bb_mean_reversion",
+      "name": "Bollinger Bands Mean Reversion",
+      "name_zh": "布林帶均值回歸",
+      "type": "mean_reversion",
+      "enabled": false,
+      "description": "Price touches BB bands and reverts to mean (Open Source #4 Ranked)",
+      "description_zh": "價格觸碰布林帶後回歸均值（開源策略排名第4）",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m"],
+      "indicators": ["BollingerBands", "RSI", "Volume"],
+      "conditions": [
+        "price_below_bb_lower",
+        "rsi_below_30",
+        "volume_spike"
+      ],
+      "parameters": {
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "rsi_period": 14,
+        "volume_threshold": 1.5
+      },
+      "signal_type": "mean_reversion",
+      "signal_level": "confirmed",
+      "backtest_rank": 4,
+      "backtest_score": 0.56,
+      "source": "freqtrade_open_source"
     }
   ],
   
   "registry_settings": {
     "auto_load": true,
     "validate_on_load": true,
-    "allow_duplicate_ids": false
+    "allow_duplicate_ids": false,
+    "backtest_all_on_load": false,
+    "ranking_metric": "composite_score"
   }
 }
