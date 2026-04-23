@@ -2325,6 +2325,78 @@
       "goal": "全自動策略執行循環",
       "output_file": "app/auto_strategy_loop.py",
       "description": "自動發現→回測→驗證→紙上交易→實盤的完整循環"
+    },
+    {
+      "task_id": "P2_SCREEN_001",
+      "title": "Crypto Screener - Promising Coins Filter",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "自動篩選有潛力的加密貨幣",
+      "output_file": "app/crypto_screener.py",
+      "description": "基於市值、成交量、波動率、趨勢強度、流動性篩選潛力幣種"
+    },
+    {
+      "task_id": "P2_SCREEN_002",
+      "title": "Taiwan Stock Data Connector",
+      "priority": "P2",
+      "type": "data",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "連接台灣股市數據",
+      "output_file": "app/twse_connector.py",
+      "description": "TWSE 台灣證交所數據連接、股票代號對應、盤中/盤後數據"
+    },
+    {
+      "task_id": "P2_SCREEN_003",
+      "title": "US Stock Data Connector",
+      "priority": "P2",
+      "type": "data",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "連接美國股市數據",
+      "output_file": "app/us_stock_connector.py",
+      "description": "Yahoo Finance / Alpaca / Polygon API 連接、美股數據獲取"
+    },
+    {
+      "task_id": "P2_UNIVERSAL_001",
+      "title": "Universal Asset Adapter",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 10,
+      "goal": "通用資產適配器",
+      "output_file": "app/universal_asset_adapter.py",
+      "description": "統一接口：加密貨幣、台股、美股共用策略框架"
+    },
+    {
+      "task_id": "P2_FUNDAMENTAL_001",
+      "title": "Stock Fundamental Data Fetcher",
+      "priority": "P2",
+      "type": "data",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 8,
+      "goal": "股票基本面數據獲取",
+      "output_file": "app/fundamental_data.py",
+      "description": "EPS、本益比、營收、財報數據獲取"
+    },
+    {
+      "task_id": "P2_MARKET_HOURS_001",
+      "title": "Multi-Market Trading Hours Manager",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "pending",
+      "assigned_to": null,
+      "estimated_hours": 6,
+      "goal": "多市場交易時段管理",
+      "output_file": "app/market_hours.py",
+      "description": "加密24H、台股09:00-13:30、美股09:30-16:00 ET 時段管理"
     }
   ]
 }
