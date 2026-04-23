@@ -1,0 +1,437 @@
+[
+  {
+    "timestamp": "2026-04-23T17:25:36.827420",
+    "total_coins": 20,
+    "top_picks": [
+      {
+        "symbol": "BTC",
+        "name": "BTC",
+        "price": 77550.87,
+        "volume_24h": 1363936495.533072,
+        "market_cap": 0,
+        "price_change_24h": -0.623,
+        "price_change_7d": 0,
+        "volatility": 2.6201769238694568,
+        "liquidity_score": 17.58763629,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "ETH",
+        "name": "ETH",
+        "price": 2321.15,
+        "volume_24h": 830361134.258825,
+        "market_cap": 0,
+        "price_change_24h": -2.928,
+        "price_change_7d": 0,
+        "volatility": 4.746354177885965,
+        "liquidity_score": 357.73695549999997,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "BNB",
+        "name": "BNB",
+        "price": 633.6,
+        "volume_24h": 78668517.9456,
+        "market_cap": 0,
+        "price_change_24h": -1.448,
+        "price_change_7d": 0,
+        "volatility": 3.4832702020202095,
+        "liquidity_score": 124.161171,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "SOL",
+        "name": "SOL",
+        "price": 85.49,
+        "volume_24h": 222488584.17449996,
+        "market_cap": 0,
+        "price_change_24h": -3.379,
+        "price_change_7d": 0,
+        "volatility": 4.760790735758561,
+        "liquidity_score": 2602.51005,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "XRP",
+        "name": "XRP",
+        "price": 1.4146,
+        "volume_24h": 109663836.90724002,
+        "market_cap": 0,
+        "price_change_24h": -2.609,
+        "price_change_7d": 0,
+        "volatility": 3.619397709599881,
+        "liquidity_score": 77522.8594,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      }
+    ],
+    "all_results": [
+      {
+        "symbol": "BTC",
+        "name": "BTC",
+        "price": 77550.87,
+        "volume_24h": 1363936495.533072,
+        "market_cap": 0,
+        "price_change_24h": -0.623,
+        "price_change_7d": 0,
+        "volatility": 2.6201769238694568,
+        "liquidity_score": 17.58763629,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "ETH",
+        "name": "ETH",
+        "price": 2321.15,
+        "volume_24h": 830361134.258825,
+        "market_cap": 0,
+        "price_change_24h": -2.928,
+        "price_change_7d": 0,
+        "volatility": 4.746354177885965,
+        "liquidity_score": 357.73695549999997,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "BNB",
+        "name": "BNB",
+        "price": 633.6,
+        "volume_24h": 78668517.9456,
+        "market_cap": 0,
+        "price_change_24h": -1.448,
+        "price_change_7d": 0,
+        "volatility": 3.4832702020202095,
+        "liquidity_score": 124.161171,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "SOL",
+        "name": "SOL",
+        "price": 85.49,
+        "volume_24h": 222488584.17449996,
+        "market_cap": 0,
+        "price_change_24h": -3.379,
+        "price_change_7d": 0,
+        "volatility": 4.760790735758561,
+        "liquidity_score": 2602.51005,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "XRP",
+        "name": "XRP",
+        "price": 1.4146,
+        "volume_24h": 109663836.90724002,
+        "market_cap": 0,
+        "price_change_24h": -2.609,
+        "price_change_7d": 0,
+        "volatility": 3.619397709599881,
+        "liquidity_score": 77522.8594,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "ADA",
+        "name": "ADA",
+        "price": 0.2459,
+        "volume_24h": 26640918.00745,
+        "market_cap": 0,
+        "price_change_24h": -3.72,
+        "price_change_7d": 0,
+        "volatility": 4.514030093533967,
+        "liquidity_score": 108340.4555,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "DOGE",
+        "name": "DOGE",
+        "price": 0.0956,
+        "volume_24h": 73487655.75680001,
+        "market_cap": 0,
+        "price_change_24h": -2.309,
+        "price_change_7d": 0,
+        "volatility": 3.472803347280324,
+        "liquidity_score": 768699.328,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "TRX",
+        "name": "TRX",
+        "price": 0.3285,
+        "volume_24h": 46041786.1854,
+        "market_cap": 0,
+        "price_change_24h": -1.144,
+        "price_change_7d": 0,
+        "volatility": 2.709284627092835,
+        "liquidity_score": 140157.64440000002,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "AVAX",
+        "name": "AVAX",
+        "price": 9.24,
+        "volume_24h": 22841600.9052,
+        "market_cap": 0,
+        "price_change_24h": -3.549,
+        "price_change_7d": 0,
+        "volatility": 4.653679653679651,
+        "liquidity_score": 2472.03473,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "LINK",
+        "name": "LINK",
+        "price": 9.18,
+        "volume_24h": 19233228.3138,
+        "market_cap": 0,
+        "price_change_24h": -3.673,
+        "price_change_7d": 0,
+        "volatility": 4.57516339869281,
+        "liquidity_score": 2095.12291,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "SUI",
+        "name": "SUI",
+        "price": 0.9347,
+        "volume_24h": 26589804.87605,
+        "market_cap": 0,
+        "price_change_24h": -3.5,
+        "price_change_7d": 0,
+        "volatility": 5.12463892157911,
+        "liquidity_score": 28447.4215,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "DOT",
+        "name": "DOT",
+        "price": 1.246,
+        "volume_24h": 6593816.175799999,
+        "market_cap": 0,
+        "price_change_24h": -4.958,
+        "price_change_7d": 0,
+        "volatility": 5.617977528089875,
+        "liquidity_score": 5291.9873,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "TON",
+        "name": "TON",
+        "price": 1.342,
+        "volume_24h": 11421769.83728,
+        "market_cap": 0,
+        "price_change_24h": -2.894,
+        "price_change_7d": 0,
+        "volatility": 3.2041728763040185,
+        "liquidity_score": 8511.00584,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "NEAR",
+        "name": "NEAR",
+        "price": 1.38,
+        "volume_24h": 11354747.502,
+        "market_cap": 0,
+        "price_change_24h": -2.748,
+        "price_change_7d": 0,
+        "volatility": 4.130434782608692,
+        "liquidity_score": 8228.0779,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "APT",
+        "name": "APT",
+        "price": 0.943,
+        "volume_24h": 11867074.0177,
+        "market_cap": 0,
+        "price_change_24h": -3.776,
+        "price_change_7d": 0,
+        "volatility": 7.741251325556718,
+        "liquidity_score": 12584.3839,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "LTC",
+        "name": "LTC",
+        "price": 55.06,
+        "volume_24h": 14761107.143180002,
+        "market_cap": 0,
+        "price_change_24h": -1.941,
+        "price_change_7d": 0,
+        "volatility": 2.9967308390846323,
+        "liquidity_score": 268.09130300000004,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "BCH",
+        "name": "BCH",
+        "price": 454.5,
+        "volume_24h": 9384375.104999999,
+        "market_cap": 0,
+        "price_change_24h": -3.585,
+        "price_change_7d": 0,
+        "volatility": 3.982398239823975,
+        "liquidity_score": 20.647689999999997,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "ETC",
+        "name": "ETC",
+        "price": 8.41,
+        "volume_24h": 2194255.9594,
+        "market_cap": 0,
+        "price_change_24h": -3.111,
+        "price_change_7d": 0,
+        "volatility": 4.875148632580263,
+        "liquidity_score": 260.91034,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "XLM",
+        "name": "XLM",
+        "price": 0.1756,
+        "volume_24h": 10046907.8172,
+        "market_cap": 0,
+        "price_change_24h": -2.118,
+        "price_change_7d": 0,
+        "volatility": 4.840546697038729,
+        "liquidity_score": 57214.737,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      },
+      {
+        "symbol": "UNI",
+        "name": "UNI",
+        "price": 3.228,
+        "volume_24h": 12027925.39908,
+        "market_cap": 0,
+        "price_change_24h": -5.059,
+        "price_change_7d": 0,
+        "volatility": 6.753407682775711,
+        "liquidity_score": 3726.12311,
+        "screen_score": 58.333333333333336,
+        "passed_filters": [
+          "volume",
+          "volatility",
+          "price_change"
+        ]
+      }
+    ],
+    "breakouts": [],
+    "trending": []
+  }
+]
