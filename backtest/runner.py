@@ -157,7 +157,7 @@ class BacktestRunner:
         end_ms = int(end_dt.timestamp() * 1000)
 
         # Fetch from Binance
-        klines = self.fetcher.get_historical_klines(
+        klines = self.fetcher.fetch_klines(
             symbol=symbol,
             interval=interval,  # T-071: Use 5m for backtesting
             start_time=start_ms,
