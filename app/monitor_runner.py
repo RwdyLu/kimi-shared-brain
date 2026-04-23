@@ -41,6 +41,9 @@ from notifications.notifier import Notifier, NotifierConfig, OutputChannel
 # Import config loader / 匯入配置載入器
 from config.loader import get_enabled_symbols, get_monitoring_params, get_indicator_params
 
+# Import strategy executor / 匯入策略執行器
+from app.strategy_executor import StrategyExecutor, StrategySignal
+
 
 # Default configuration (will be overridden by config files)
 # 預設配置（將被配置文件覆蓋）
@@ -185,6 +188,9 @@ class MonitorRunner:
         self.signal_engine = signal_engine or SignalEngine()
         self.notifier = notifier or self._create_default_notifier()
         self.formatter = NotificationFormatter(language="en")
+        
+        # Initialize strategy executor / 初始化策略執行器
+        self.strategy_executor = StrategyExecutor()
 
     def _create_default_notifier(self) -> Notifier:
         """Create default notifier / 建立預設通知器"""
@@ -373,13 +379,92 @@ class MonitorRunner:
         # Step 3: Generate Signals / 步驟 3：產生訊號
         print(f"[3/4] Generating signals...")
         signals = self.signal_engine.process_symbol(symbol, data_5m, data_1m, data_15m)
-
+        
+        # Step 3b: Execute Strategies / 步驟 3b：執行策略
+        print(f"[3b/4] Executing strategies...")
+        
+        # Prepare market data for strategy executor
+        market_data = {
+            "price": current_price,
+            "ma5": indicators.get("ma5"),
+            "ma20": indicators.get("ma20"),
+            "ma240": indicators.get("ma240"),
+            "volume_ratio": indicators.get("volume_ratio"),
+            "candles": [{"open": k.open, "high": k.high, "low": k.low, "close": k.close, "volume": k.volume} for k in data_5m] if data_5m else [],
+            "closes": [k.close for k in data_5m] if data_5m else [],
+        }
+        
+        # Add previous MA values for crossover detection
+        if len(data_5m) >= 2:
+            prev_closes = [k.close for k in data_5m[:-1]]
+            if len(prev_closes) >= 5:
+                from indicators.calculator import calculate_ma5
+                ma5_prev_list = calculate_ma5(prev_closes)
+                if ma5_prev_list:
+                    market_data["ma5_prev"] = ma5_prev_list[-1]
+            if len(prev_closes) >= 20:
+                from indicators.calculator import calculate_ma20
+                ma20_prev_list = calculate_ma20(prev_closes)
+                if ma20_prev_list:
+                    market_data["ma20_prev"] = ma20_prev_list[-1]
+        
+        # Execute strategies
+        strategy_signals = self.strategy_executor.execute_for_symbol(symbol, market_data)
+        
+        # Convert StrategySignal to Signal
+        for strat_sig in strategy_signals:
+            signal = Signal(
+                symbol=symbol,
+                signal_type=strat_sig.signal_type,
+                level=strat_sig.level,
+                reason=strat_sig.reason,
+                warning=strat_sig.warning,
+                timestamp=timestamp,
+                metadata={
+                    "strategy_id": strat_sig.strategy_id,
+                    "strategy_name": strat_sig.strategy_name,
+                    "strategy_type": strat_sig.strategy_type,
+                    "conditions_passed": strat_sig.conditions_passed,
+                    "conditions_total": strat_sig.conditions_total,
+                    "details": strat_sig.details,
+                }
+            )
+            signals.append(signal)
+        
         confirmed = [s for s in signals if s.level == SignalLevel.CONFIRMED]
         watch_only = [s for s in signals if s.level == SignalLevel.WATCH_ONLY]
 
         print(f"    ✓ Total signals: {len(signals)}")
         print(f"    ✓ Confirmed: {len(confirmed)}")
         print(f"    ✓ Watch Only: {len(watch_only)}")
+        
+        # Show strategy signals
+        if strategy_signals:
+            print(f"    ✓ Strategy signals: {len(strategy_signals)}")
+            for sig in strategy_signals:
+                level_icon = "✅" if sig.level == SignalLevel.CONFIRMED else "👁️"
+                print(f"      {level_icon} {sig.strategy_name}: {sig.reason[:80]}...")
+        else:
+            print(f"    - No strategy signals triggered")
+            
+        # Show strategy evaluation details (for debugging)
+        print(f"    📋 Strategy evaluation:")
+        for strategy in self.strategy_executor.enabled_strategies:
+            strat_id = strategy['id']
+            strat_name = strategy['name']
+            conditions = strategy.get('conditions', [])
+            
+            # Check conditions
+            from app.strategy_conditions import StrategyConditions
+            checker = StrategyConditions()
+            results = checker.check_all_conditions(conditions, market_data, strategy.get('parameters', {}))
+            
+            passed = sum(1 for r in results if r.result.value == 'passed')
+            failed = sum(1 for r in results if r.result.value == 'failed')
+            missing = sum(1 for r in results if r.result.value == 'missing_data')
+            
+            status_icon = "✅" if passed == len(conditions) and len(conditions) > 0 else "❌"
+            print(f"      {status_icon} {strat_name}: {passed}/{len(conditions)} passed, {failed} failed, {missing} missing")
 
         # Step 4: Output Notifications / 步驟 4：輸出通知
         print(f"[4/4] Outputting notifications...")
