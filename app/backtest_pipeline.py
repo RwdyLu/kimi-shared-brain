@@ -1,6 +1,6 @@
 """
 Automated Backtest Pipeline
-Runs strategy backtests automatically with reporting and comparison.
+Wraps the legacy backtest system for unified strategy evaluation.
 """
 
 import json
@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
+import sys
+
+# Import legacy backtest system
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from backtest.runner import BacktestRunner
+from backtest import BacktestConfig
 
 
 class BacktestStatus(Enum):
@@ -115,14 +121,14 @@ class BacktestPipeline:
 
         return backtest_id
 
-    def run_backtest(self, backtest_id: str, strategy_func: Callable, data: List[Dict]) -> BacktestResult:
+    def run_backtest(self, backtest_id: str, strategy_func: Callable = None, data: List[Dict] = None) -> BacktestResult:
         """
-        Execute a scheduled backtest.
+        Execute a scheduled backtest using legacy BacktestRunner.
 
         Args:
             backtest_id: Backtest to run
-            strategy_func: Function(data) -> signals
-            data: Historical price data
+            strategy_func: (optional) Legacy compatibility
+            data: (optional) Legacy compatibility
 
         Returns:
             BacktestResult
@@ -136,21 +142,28 @@ class BacktestPipeline:
         start_time = datetime.now()
 
         try:
-            # Run strategy on data
-            signals = strategy_func(data)
-
-            # Calculate performance
-            metrics = self._calculate_metrics(data, signals)
-
-            result.total_return = metrics["total_return"]
-            result.sharpe_ratio = metrics["sharpe_ratio"]
-            result.max_drawdown = metrics["max_drawdown"]
-            result.win_rate = metrics["win_rate"]
-            result.profit_factor = metrics["profit_factor"]
-            result.total_trades = metrics["total_trades"]
+            # Use legacy BacktestRunner
+            config = BacktestConfig(
+                symbol=result.symbol,
+                start_date=result.start_date,
+                end_date=result.end_date,
+                timeframe=result.timeframe,
+                initial_capital=10000.0
+            )
+            
+            runner = BacktestRunner(config)
+            legacy_result = runner.run()
+            
+            # Map legacy result to our format
+            result.total_return = legacy_result.get("total_return", 0.0)
+            result.sharpe_ratio = legacy_result.get("sharpe_ratio", 0.0)
+            result.max_drawdown = legacy_result.get("max_drawdown", 0.0)
+            result.win_rate = legacy_result.get("win_rate", 0.0)
+            result.profit_factor = legacy_result.get("profit_factor", 0.0)
+            result.total_trades = legacy_result.get("total_trades", 0)
             result.status = BacktestStatus.COMPLETED
 
-            self.logger.info(f"Backtest complete: {backtest_id} " f"return={result.total_return:.2f}%")
+            self.logger.info(f"Backtest complete: {backtest_id} return={result.total_return:.2f}%")
 
         except Exception as e:
             result.status = BacktestStatus.FAILED
