@@ -2123,48 +2123,56 @@
       "title": "Data Export & Backup",
       "priority": "P1",
       "type": "data",
-      "status": "pending",
+      "status": "completed",
       "assigned_to": null,
       "estimated_hours": 5,
       "goal": "數據導出與備份機制",
       "output_file": "app/data_export.py",
-      "description": "CSV/JSON 導出，自動備份排程"
+      "description": "CSV/JSON 導出，自動備份排程",
+      "completed_at": "2026-04-23T10:10:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DEPLOY_001",
       "title": "Docker Containerization",
       "priority": "P1",
       "type": "deploy",
-      "status": "pending",
+      "status": "completed",
       "assigned_to": null,
       "estimated_hours": 8,
       "goal": "Docker 容器化部署",
       "output_file": "Dockerfile",
-      "description": "應用容器化，環境隔離"
+      "description": "應用容器化，環境隔離",
+      "completed_at": "2026-04-23T10:12:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DEPLOY_002",
       "title": "CI/CD Pipeline",
       "priority": "P1",
       "type": "deploy",
-      "status": "pending",
+      "status": "completed",
       "assigned_to": null,
       "estimated_hours": 7,
       "goal": "自動化持續整合/部署",
       "output_file": ".github/workflows/ci.yml",
-      "description": "GitHub Actions 自動測試、建置、部署"
+      "description": "GitHub Actions 自動測試、建置、部署",
+      "completed_at": "2026-04-23T10:14:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_DEPLOY_003",
       "title": "Environment Configuration",
       "priority": "P1",
       "type": "deploy",
-      "status": "pending",
+      "status": "completed",
       "assigned_to": null,
       "estimated_hours": 5,
       "goal": "多環境配置管理",
       "output_file": "app/config_manager.py",
-      "description": "Dev/Staging/Prod 環境切換"
+      "description": "Dev/Staging/Prod 環境切換",
+      "completed_at": "2026-04-23T10:16:00+08:00",
+      "reviewed_by": "second_bot"
     },
     {
       "task_id": "P1_UI_001",
@@ -2199,12 +2207,14 @@
       "title": "Integration Test Suite",
       "priority": "P1",
       "type": "deploy",
-      "status": "pending",
+      "status": "completed",
       "assigned_to": null,
       "estimated_hours": 8,
       "goal": "端到端整合測試",
       "output_file": "tests/integration/",
-      "description": "全系統整合測試，模擬交易流程"
+      "description": "全系統整合測試，模擬交易流程",
+      "completed_at": "2026-04-23T10:18:00+08:00",
+      "reviewed_by": "second_bot"
     }
   ]
 }
