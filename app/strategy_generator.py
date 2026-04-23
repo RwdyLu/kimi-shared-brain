@@ -124,7 +124,7 @@ class StrategyGenerator:
             strategy = StrategyParams(
                 strategy_type=strategy_type,
                 symbol=symbol,
-                time frame=timeframe,
+                timeframe=timeframe,
                 params=params
             )
             strategies.append(strategy)
