@@ -2215,6 +2215,18 @@
       "description": "全系統整合測試，模擬交易流程",
       "completed_at": "2026-04-23T10:18:00+08:00",
       "reviewed_by": "second_bot"
+    },
+    {
+      "task_id": "P2_STRATEGY_SNR_001",
+      "title": "Implement SNR (Support & Resistance) Trading Strategy",
+      "priority": "P2",
+      "type": "strategy",
+      "status": "assigned",
+      "assigned_to": "kimiclaw_bot",
+      "estimated_hours": 8,
+      "goal": "建立支撐阻力位交易策略",
+      "output_file": "app/strategy_snr.py",
+      "description": "基於支撐位/阻力位的自動交易策略：偵測關鍵價格位、生成買賣訊號、回測驗證"
     }
   ]
 }
