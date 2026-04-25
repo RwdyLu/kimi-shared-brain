@@ -82,6 +82,7 @@ class Signal:
     conditions: Dict[str, bool]
     reason: str
     warning: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert signal to dictionary / 將訊號轉換為字典"""
@@ -93,7 +94,8 @@ class Signal:
             "price_data": self.price_data,
             "conditions": self.conditions,
             "reason": self.reason,
-            "warning": self.warning
+            "warning": self.warning,
+            "metadata": self.metadata
         }
 
 

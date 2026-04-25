@@ -420,6 +420,8 @@ class MonitorRunner:
                 reason=strat_sig.reason,
                 warning=strat_sig.warning,
                 timestamp=timestamp,
+                price_data={"close": current_price, "ma5": indicators.get("ma5"), "ma20": indicators.get("ma20"), "ma240": indicators.get("ma240")},
+                conditions={},
                 metadata={
                     "strategy_id": strat_sig.strategy_id,
                     "strategy_name": strat_sig.strategy_name,
