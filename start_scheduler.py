@@ -26,16 +26,16 @@ def main():
         prevent_overlap=True
     )
     
-    # Initialize trade executor for PAPER-TRADING
+    # Phase 2: Enable paper trading / 啟用模擬交易
     executor = TradeExecutor(initial_balance=10000, position_pct=0.1)
-    
-    scheduler = MonitoringScheduler(config, trade_executor=executor)
+    scheduler = MonitoringScheduler(config=config, trade_executor=executor)
     
     print(f"✓ Scheduler initialized")
     print(f"  Mode: {config.mode.value}")
     print(f"  Interval: {config.interval_minutes} minutes")
     print(f"  Trading: PAPER-TRADING ENABLED")
     print(f"  Price logging: ENABLED (T-052-B)")
+    print(f"  Paper trading: ENABLED (Phase 2)")
     print("="*70)
     
     # Start interval execution
