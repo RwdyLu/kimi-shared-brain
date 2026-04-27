@@ -54,11 +54,13 @@ class TradeExecutor:
         self,
         initial_balance: float = 10000.0,
         position_pct: float = 0.1,  # Use 10% of balance per trade
+        max_total_exposure_pct: float = 0.5,  # Max 50% of balance in open positions
         enable_trading: bool = True,
     ):
         self.logger = logging.getLogger(__name__)
         self.enable_trading = enable_trading
         self.position_pct = position_pct
+        self.max_total_exposure_pct = max_total_exposure_pct
 
         # Paper trading account
         self.paper = PaperTrading(
@@ -72,7 +74,7 @@ class TradeExecutor:
 
         self.logger.info(
             f"TradeExecutor initialized: balance=${initial_balance:,.2f}, "
-            f"position_pct={position_pct*100}%, enabled={enable_trading}"
+            f"position_pct={position_pct*100}%, max_exposure={max_total_exposure_pct*100}%, enabled={enable_trading}"
         )
 
     def execute_signals(
@@ -138,6 +140,22 @@ class TradeExecutor:
                 side=side.value,
                 status="skipped",
                 reason="Position already open",
+            )
+
+        # Check total exposure limit
+        open_exposure = sum(
+            pos["entry_price"] * pos["quantity"] for pos in self.open_positions.values()
+        )
+        max_exposure = self.paper.balance * self.max_total_exposure_pct
+        if open_exposure >= max_exposure:
+            self.logger.info(
+                f"Max total exposure reached ({open_exposure:.2f}/{max_exposure:.2f}), skipping {symbol}"
+            )
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="Max total exposure reached",
             )
 
         # Calculate position size
