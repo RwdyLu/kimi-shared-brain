@@ -301,6 +301,8 @@ class MonitorRunner:
 
         # Calculate MAs from 5m closes / 從 5m 收盤價計算 MA
         closes_5m = [k.close for k in data_5m]
+        highs_5m = [k.high for k in data_5m]
+        lows_5m = [k.low for k in data_5m]
 
         if len(closes_5m) >= 5:
             ma5_list = calculate_ma5(closes_5m)
@@ -327,6 +329,64 @@ class MonitorRunner:
             )
             result["volume_avg"] = vol_analysis.avg_volume
             result["volume_ratio"] = vol_analysis.ratio
+
+        # Calculate P2 strategy indicators / 計算 P2 策略指標
+        from indicators.calculator import (
+            calculate_rsi, calculate_tema, calculate_stochastic,
+            calculate_bollinger_bands, calculate_sar, calculate_ht_sine
+        )
+
+        # RSI
+        if len(closes_5m) >= 15:
+            rsi_list = calculate_rsi(closes_5m, period=14)
+            if rsi_list:
+                result["rsi"] = rsi_list[-1]
+                if len(rsi_list) >= 2:
+                    result["rsi_prev"] = rsi_list[-2]
+
+        # TEMA
+        if len(closes_5m) >= 27:
+            tema_list = calculate_tema(closes_5m, period=9)
+            if tema_list:
+                result["tema"] = tema_list[-1]
+                if len(tema_list) >= 2:
+                    result["tema_prev"] = tema_list[-2]
+
+        # Stochastic
+        if len(closes_5m) >= 8:
+            fastk_list, fastd_list = calculate_stochastic(
+                closes_5m, highs_5m, lows_5m, k_period=5, d_period=3
+            )
+            if fastk_list and fastd_list:
+                result["stoch_fastk"] = fastk_list[-1]
+                result["stoch_fastd"] = fastd_list[-1]
+                if len(fastk_list) >= 2 and len(fastd_list) >= 2:
+                    result["stoch_fastk_prev"] = fastk_list[-2]
+                    result["stoch_fastd_prev"] = fastd_list[-2]
+
+        # Bollinger Bands
+        if len(closes_5m) >= 20:
+            bb = calculate_bollinger_bands(closes_5m, period=20, std_dev=2.0)
+            if bb["middle"]:
+                result["bb_upper"] = bb["upper"][-1]
+                result["bb_middle"] = bb["middle"][-1]
+                result["bb_lower"] = bb["lower"][-1]
+
+        # SAR
+        if len(highs_5m) >= 2 and len(lows_5m) >= 2:
+            sar_list = calculate_sar(highs_5m, lows_5m, acceleration=0.02, maximum=0.2)
+            if sar_list:
+                result["sar"] = sar_list[-1]
+
+        # Hilbert Sine
+        if len(closes_5m) >= 20:
+            ht = calculate_ht_sine(closes_5m)
+            if ht["sine"]:
+                result["ht_sine"] = ht["sine"][-1]
+                result["ht_leadsine"] = ht["leadsine"][-1]
+                if len(ht["sine"]) >= 2 and len(ht["leadsine"]) >= 2:
+                    result["ht_sine_prev"] = ht["sine"][-2]
+                    result["ht_leadsine_prev"] = ht["leadsine"][-2]
 
         return result
 
@@ -392,6 +452,23 @@ class MonitorRunner:
             "volume_ratio": indicators.get("volume_ratio"),
             "candles": [{"open": k.open, "high": k.high, "low": k.low, "close": k.close, "volume": k.volume} for k in data_5m] if data_5m else [],
             "closes": [k.close for k in data_5m] if data_5m else [],
+            # P2 indicators
+            "rsi": indicators.get("rsi"),
+            "rsi_prev": indicators.get("rsi_prev"),
+            "tema": indicators.get("tema"),
+            "tema_prev": indicators.get("tema_prev"),
+            "stoch_fastk": indicators.get("stoch_fastk"),
+            "stoch_fastd": indicators.get("stoch_fastd"),
+            "stoch_fastk_prev": indicators.get("stoch_fastk_prev"),
+            "stoch_fastd_prev": indicators.get("stoch_fastd_prev"),
+            "bb_upper": indicators.get("bb_upper"),
+            "bb_middle": indicators.get("bb_middle"),
+            "bb_lower": indicators.get("bb_lower"),
+            "sar": indicators.get("sar"),
+            "ht_sine": indicators.get("ht_sine"),
+            "ht_leadsine": indicators.get("ht_leadsine"),
+            "ht_sine_prev": indicators.get("ht_sine_prev"),
+            "ht_leadsine_prev": indicators.get("ht_leadsine_prev"),
         }
         
         # Add previous MA values for crossover detection

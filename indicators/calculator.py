@@ -636,6 +636,299 @@ def get_latest_ma_values(
     }
 
 
+# =============================================================================
+# Advanced Indicators for P2 Strategies / P2 策略進階指標
+# =============================================================================
+
+def calculate_rsi(closes: List[float], period: int = 14) -> List[float]:
+    """
+    Calculate RSI / 計算 RSI
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        period: RSI period (default: 14) / RSI 週期（預設：14）
+        
+    Returns:
+        List of RSI values / RSI 值列表
+    """
+    if len(closes) < period + 1:
+        return []
+    
+    rsi_values = []
+    gains = []
+    losses = []
+    
+    for i in range(1, len(closes)):
+        delta = closes[i] - closes[i - 1]
+        gains.append(max(delta, 0))
+        losses.append(abs(min(delta, 0)))
+    
+    # First average gain/loss
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    
+    # First RSI
+    if avg_loss == 0:
+        rsi_values.append(100.0)
+    else:
+        rs = avg_gain / avg_loss
+        rsi_values.append(100.0 - (100.0 / (1 + rs)))
+    
+    # Smoothed RSI
+    for i in range(period, len(gains)):
+        gain = gains[i]
+        loss = losses[i]
+        avg_gain = (avg_gain * (period - 1) + gain) / period
+        avg_loss = (avg_loss * (period - 1) + loss) / period
+        
+        if avg_loss == 0:
+            rsi_values.append(100.0)
+        else:
+            rs = avg_gain / avg_loss
+            rsi_values.append(100.0 - (100.0 / (1 + rs)))
+    
+    return rsi_values
+
+
+def calculate_tema(closes: List[float], period: int = 9) -> List[float]:
+    """
+    Calculate TEMA (Triple Exponential Moving Average) / 計算 TEMA
+    
+    TEMA = 3*EMA1 - 3*EMA2 + EMA3
+    where EMA1 = EMA of closes, EMA2 = EMA of EMA1, EMA3 = EMA of EMA2
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        period: TEMA period (default: 9) / TEMA 週期（預設：9）
+        
+    Returns:
+        List of TEMA values / TEMA 值列表
+    """
+    def _ema(values: List[float], period: int) -> List[float]:
+        if len(values) < period:
+            return []
+        multiplier = 2.0 / (period + 1)
+        ema = [sum(values[:period]) / period]
+        for price in values[period:]:
+            ema.append((price - ema[-1]) * multiplier + ema[-1])
+        return ema
+    
+    if len(closes) < period * 3:
+        return []
+    
+    ema1 = _ema(closes, period)
+    if len(ema1) < period:
+        return []
+    
+    ema2 = _ema(ema1, period)
+    if len(ema2) < period:
+        return []
+    
+    ema3 = _ema(ema2, period)
+    if len(ema3) < 1:
+        return []
+    
+    # Align lengths - use last len(ema3) values from each
+    len_ema3 = len(ema3)
+    tema = []
+    for i in range(len_ema3):
+        e1 = ema1[-(len_ema3 - i)]
+        e2 = ema2[-(len_ema3 - i)]
+        e3 = ema3[i]
+        tema.append(3 * e1 - 3 * e2 + e3)
+    
+    return tema
+
+
+def calculate_stochastic(closes: List[float], highs: List[float], lows: List[float], 
+                         k_period: int = 5, d_period: int = 3) -> Tuple[List[float], List[float]]:
+    """
+    Calculate Stochastic Oscillator (Fast K & D) / 計算隨機指標
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        highs: List of high prices / 最高價列表
+        lows: List of low prices / 最低價列表
+        k_period: K period (default: 5) / K 週期
+        d_period: D period (default: 3) / D 週期
+        
+    Returns:
+        Tuple of (fastk_values, fastd_values) / (K值列表, D值列表)
+    """
+    if len(closes) < k_period or len(highs) < k_period or len(lows) < k_period:
+        return [], []
+    
+    fastk_values = []
+    for i in range(k_period - 1, len(closes)):
+        recent_highs = highs[i - k_period + 1:i + 1]
+        recent_lows = lows[i - k_period + 1:i + 1]
+        highest_high = max(recent_highs)
+        lowest_low = min(recent_lows)
+        
+        if highest_high == lowest_low:
+            fastk = 50.0
+        else:
+            fastk = ((closes[i] - lowest_low) / (highest_high - lowest_low)) * 100
+        fastk_values.append(fastk)
+    
+    # Fast D = SMA of Fast K
+    fastd_values = []
+    for i in range(d_period - 1, len(fastk_values)):
+        fastd = sum(fastk_values[i - d_period + 1:i + 1]) / d_period
+        fastd_values.append(fastd)
+    
+    return fastk_values, fastd_values
+
+
+def calculate_bollinger_bands(closes: List[float], period: int = 20, std_dev: float = 2.0) -> Dict[str, List[float]]:
+    """
+    Calculate Bollinger Bands / 計算布林帶
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        period: BB period (default: 20) / BB 週期
+        std_dev: Standard deviation multiplier (default: 2.0) / 標準差倍數
+        
+    Returns:
+        Dictionary with upper, middle, lower bands / 上中下轨字典
+    """
+    if len(closes) < period:
+        return {"upper": [], "middle": [], "lower": []}
+    
+    upper = []
+    middle = []
+    lower = []
+    
+    for i in range(period - 1, len(closes)):
+        window = closes[i - period + 1:i + 1]
+        sma = sum(window) / period
+        variance = sum((x - sma) ** 2 for x in window) / period
+        std = variance ** 0.5
+        
+        middle.append(sma)
+        upper.append(sma + std_dev * std)
+        lower.append(sma - std_dev * std)
+    
+    return {"upper": upper, "middle": middle, "lower": lower}
+
+
+def calculate_sar(highs: List[float], lows: List[float], 
+                  acceleration: float = 0.02, maximum: float = 0.2) -> List[float]:
+    """
+    Calculate Parabolic SAR / 計算拋物線 SAR
+    
+    Simplified implementation - works for trend confirmation.
+    簡化實作 - 適用於趨勢確認。
+    
+    Args:
+        highs: List of high prices / 最高價列表
+        lows: List of low prices / 最低價列表
+        acceleration: SAR acceleration factor / 加速因子
+        maximum: Maximum acceleration / 最大加速因子
+        
+    Returns:
+        List of SAR values / SAR 值列表
+    """
+    if len(highs) < 2 or len(lows) < 2:
+        return []
+    
+    sar_values = []
+    
+    # Initialize
+    af = acceleration
+    ep = highs[0]
+    sar = lows[0]
+    long = True
+    
+    for i in range(1, min(len(highs), len(lows))):
+        if long:
+            sar = sar + af * (ep - sar)
+            if lows[i] < sar:
+                long = False
+                sar = ep
+                ep = lows[i]
+                af = acceleration
+            else:
+                if highs[i] > ep:
+                    ep = highs[i]
+                    af = min(af + acceleration, maximum)
+        else:
+            sar = sar + af * (ep - sar)
+            if highs[i] > sar:
+                long = True
+                sar = ep
+                ep = highs[i]
+                af = acceleration
+            else:
+                if lows[i] < ep:
+                    ep = lows[i]
+                    af = min(af + acceleration, maximum)
+        
+        sar_values.append(sar)
+    
+    return sar_values
+
+
+def calculate_ht_sine(closes: List[float]) -> Dict[str, List[float]]:
+    """
+    Calculate Hilbert Transform SineWave / 計算希爾伯特轉換正弦波
+    
+    Simplified version using dominant cycle detection.
+    簡化版，使用主導週期檢測。
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        
+    Returns:
+        Dictionary with 'sine' and 'leadsine' lists / 包含 sine 和 leadsine 的字典
+    """
+    if len(closes) < 20:
+        return {"sine": [], "leadsine": []}
+    
+    # Use detrended price oscillator as proxy for cycle
+    # 使用去趨勢價格震盪器作為週期代理
+    detrended = []
+    for i in range(len(closes)):
+        if i < 4:
+            detrended.append(0)
+        else:
+            # 4-bar SMA detrender
+            sma4 = sum(closes[max(0, i-3):i+1]) / min(4, i+1)
+            detrended.append(closes[i] - sma4)
+    
+    # Generate sine wave from detrended values
+    sine = []
+    leadsine = []
+    
+    for i in range(len(detrended)):
+        if i < 6:
+            sine.append(0)
+            leadsine.append(0)
+            continue
+        
+        # Sine wave from smoothed detrended
+        window = detrended[max(0, i-5):i+1]
+        smoothed = sum(window) / len(window)
+        
+        # Normalize to -1 to 1 range
+        recent = detrended[max(0, i-10):i+1]
+        if recent:
+            max_val = max(abs(x) for x in recent) if any(recent) else 1
+            normalized = smoothed / max_val if max_val > 0 else 0
+        else:
+            normalized = 0
+        
+        sine.append(normalized)
+        
+        # Lead sine = phase shifted by ~45 degrees (1 bar ahead)
+        if i > 0:
+            leadsine.append((normalized + sine[i-1]) / 2 if sine[i-1] != 0 else normalized)
+        else:
+            leadsine.append(normalized)
+    
+    return {"sine": sine, "leadsine": leadsine}
+
+
 # Example usage / 使用範例
 if __name__ == "__main__":
     print("Indicator Calculator Module")
