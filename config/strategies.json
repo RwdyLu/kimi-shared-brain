@@ -2,7 +2,6 @@
   "version": "1.1.0",
   "last_updated": "2026-04-23",
   "description": "Strategy registry / 策略註冊表",
-  
   "strategies": [
     {
       "id": "ma_cross_trend",
@@ -12,8 +11,21 @@
       "enabled": true,
       "description": "Trend following strategy based on MA cross and volume confirmation",
       "description_zh": "基於MA交叉與成交量確認的順勢交易策略",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
       "conditions": [
         "close_vs_ma240",
         "ma5_cross_ma20",
@@ -34,8 +46,21 @@
       "enabled": true,
       "description": "Trend following short strategy based on MA cross and volume confirmation",
       "description_zh": "基於MA交叉與成交量確認的順勢做空策略",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
       "conditions": [
         "close_vs_ma240",
         "ma5_cross_below_ma20",
@@ -56,8 +81,21 @@
       "enabled": true,
       "description": "Contrarian watch for potentially overheated markets (consecutive green candles)",
       "description_zh": "逆勢觀察策略 - 偵測潛在過熱市場（連續上漲K線）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
       "conditions": [
         "close_above_ma240",
         "consecutive_green"
@@ -78,8 +116,21 @@
       "enabled": true,
       "description": "Contrarian watch for potentially oversold markets (consecutive red candles)",
       "description_zh": "逆勢觀察策略 - 偵測潛在超跌市場（連續下跌K線）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
       "conditions": [
         "close_below_ma240",
         "consecutive_red"
@@ -100,9 +151,26 @@
       "enabled": true,
       "description": "Hilbert Transform SineWave cycle detection (Open Source #1 Ranked)",
       "description_zh": "希爾伯特轉換正弦波週期檢測（開源策略排名第1）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["1h", "4h"],
-      "indicators": ["HT_SINE", "TEMA"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "1h",
+        "4h"
+      ],
+      "indicators": [
+        "HT_SINE",
+        "TEMA"
+      ],
       "conditions": [
         "sine_cross_above_leadsine",
         "tema_rising"
@@ -124,9 +192,26 @@
       "enabled": true,
       "description": "Stochastic fast crossover with trend confirmation (Open Source #2 Ranked)",
       "description_zh": "快速隨機指標交叉搭配趨勢確認（開源策略排名第2）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m", "15m"],
-      "indicators": ["Stochastic", "SAR"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "indicators": [
+        "Stochastic",
+        "SAR"
+      ],
       "conditions": [
         "fastk_cross_above_fastd",
         "fastk_below_20",
@@ -152,9 +237,28 @@
       "enabled": true,
       "description": "RSI crossover with TEMA and Bollinger Bands confirmation (Open Source #3 Ranked)",
       "description_zh": "RSI交叉搭配TEMA和布林帶確認（開源策略排名第3）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m", "15m", "1h"],
-      "indicators": ["RSI", "TEMA", "BollingerBands"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m",
+        "1h"
+      ],
+      "indicators": [
+        "RSI",
+        "TEMA",
+        "BollingerBands"
+      ],
       "conditions": [
         "rsi_cross_above_30",
         "tema_below_bb_middle",
@@ -180,9 +284,27 @@
       "enabled": false,
       "description": "Price touches BB bands and reverts to mean (Open Source #4 Ranked)",
       "description_zh": "價格觸碰布林帶後回歸均值（開源策略排名第4）",
-      "symbols": ["BTCUSDT", "ETHUSDT"],
-      "timeframes": ["5m", "15m"],
-      "indicators": ["BollingerBands", "RSI", "Volume"],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "indicators": [
+        "BollingerBands",
+        "RSI",
+        "Volume"
+      ],
       "conditions": [
         "price_below_bb_lower",
         "rsi_below_30",
@@ -201,7 +323,6 @@
       "source": "freqtrade_open_source"
     }
   ],
-  
   "registry_settings": {
     "auto_load": true,
     "validate_on_load": true,

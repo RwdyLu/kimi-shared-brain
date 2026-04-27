@@ -29,7 +29,10 @@ MAX_REQUESTS_PER_MINUTE = 1200
 REQUEST_INTERVAL = 60.0 / MAX_REQUESTS_PER_MINUTE  # Minimum interval between requests
 
 # Supported symbols / 支援的標的
-SUPPORTED_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+SUPPORTED_SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+    "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+]
 
 # Supported intervals / 支援的時間框架
 SUPPORTED_INTERVALS = ["1m", "5m", "15m"]

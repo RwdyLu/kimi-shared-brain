@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2026-04-07",
+  "version": "1.1.0",
+  "last_updated": "2026-04-27",
   "description": "Asset and symbol definitions / 資產與標的定義",
-  
+
   "assets": [
     {
       "symbol": "BTCUSDT",
@@ -15,17 +15,7 @@
       "enabled": true,
       "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
       "default_timeframe": "5m",
-      "priority": 1,
-      "display": {
-        "icon": "₿",
-        "color": "#F7931A",
-        "decimal_places": 2
-      },
-      "trading": {
-        "min_quantity": 0.001,
-        "quantity_step": 0.001,
-        "price_step": 0.01
-      }
+      "priority": 1
     },
     {
       "symbol": "ETHUSDT",
@@ -38,27 +28,121 @@
       "enabled": true,
       "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
       "default_timeframe": "5m",
-      "priority": 2,
-      "display": {
-        "icon": "Ξ",
-        "color": "#627EEA",
-        "decimal_places": 2
-      },
-      "trading": {
-        "min_quantity": 0.01,
-        "quantity_step": 0.01,
-        "price_step": 0.01
-      }
+      "priority": 2
+    },
+    {
+      "symbol": "BNBUSDT",
+      "name": "BNB",
+      "name_zh": "幣安幣",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 3
+    },
+    {
+      "symbol": "SOLUSDT",
+      "name": "Solana",
+      "name_zh": "索拉納",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 4
+    },
+    {
+      "symbol": "XRPUSDT",
+      "name": "XRP",
+      "name_zh": "瑞波幣",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 5
+    },
+    {
+      "symbol": "ADAUSDT",
+      "name": "Cardano",
+      "name_zh": "艾達幣",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 6
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "name": "Dogecoin",
+      "name_zh": "狗狗幣",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 7
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "name": "Avalanche",
+      "name_zh": "雪崩",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 8
+    },
+    {
+      "symbol": "LINKUSDT",
+      "name": "Chainlink",
+      "name_zh": "鏈環",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 9
+    },
+    {
+      "symbol": "DOTUSDT",
+      "name": "Polkadot",
+      "name_zh": "波卡",
+      "type": "crypto",
+      "subtype": "major",
+      "exchange": "binance",
+      "category": "cryptocurrency",
+      "enabled": true,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h", "1d"],
+      "default_timeframe": "5m",
+      "priority": 10
     }
   ],
-  
+
   "asset_groups": [
     {
       "id": "crypto_major",
       "name": "Major Cryptocurrencies",
       "name_zh": "主要加密貨幣",
       "description": "Top tier cryptocurrencies by market cap",
-      "assets": ["BTCUSDT", "ETHUSDT"],
+      "assets": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"],
       "enabled": true
     },
     {
@@ -66,19 +150,12 @@
       "name": "All Cryptocurrencies",
       "name_zh": "所有加密貨幣",
       "description": "All enabled cryptocurrency assets",
-      "assets": ["BTCUSDT", "ETHUSDT"],
+      "assets": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"],
       "enabled": true
     }
   ],
-  
+
   "future_extensions": [
-    {
-      "symbol": "SOLUSDT",
-      "name": "Solana",
-      "type": "crypto",
-      "enabled": false,
-      "planned": true
-    },
     {
       "symbol": "AAPL",
       "name": "Apple Inc.",
