@@ -2,18 +2,13 @@
 Monitoring Scheduler Module
 監測排程器模組
 
-BTC/ETH Monitoring System - Scheduler Layer
-BTC/ETH 監測系統 - 排程層
-
-This module provides scheduling capabilities for the monitoring system.
-本模組提供監測系統的排程功能。
-
-⚠️  ALERT-ONLY SYSTEM / 僅提醒系統
-⚠️  No auto-trading / 無自動交易
+Phase 2: Paper Trading Enabled / 模擬交易已啟用
+- Confirmed signals trigger paper trades / 確認訊號觸發模擬交易
+- No real exchange orders / 無真實交易所訂單
 
 Author: kimiclaw_bot
-Version: 1.1.0
-Date: 2026-04-14
+Version: 1.2.0
+Date: 2026-04-27
 """
 
 import os
@@ -36,6 +31,7 @@ from config.paths import PROJECT_ROOT, LOGS_DIR, STATE_DIR
 
 # Import monitoring system / 匯入監測系統
 from app.monitor_runner import MonitorRunner
+from app.trade_executor import TradeExecutor
 from notifications.channels import (
     create_console_channel,
     create_discord_channel,
@@ -194,6 +190,7 @@ class MonitoringScheduler:
         config: Optional[SchedulerConfig] = None,
         runner: Optional[MonitorRunner] = None,
         notification_channel: Optional[Any] = None,
+        trade_executor: Optional[TradeExecutor] = None,
     ):
         """
         Initialize scheduler / 初始化排程器
@@ -206,6 +203,7 @@ class MonitoringScheduler:
         self.config = config or SchedulerConfig()
         self.runner = runner or MonitorRunner()
         self.channel = notification_channel or create_console_channel()
+        self.trade_executor = trade_executor
 
         self._run_count = 0
         self._running = False
@@ -317,6 +315,37 @@ class MonitoringScheduler:
             record.success = True
             record.signals_generated = summary.total_signals
 
+            # Execute paper trades for confirmed signals / 對確認訊號執行模擬交易
+            trades_executed = 0
+            if self.trade_executor and summary.confirmed_count > 0:
+                self._log("  [Phase 2] Executing paper trades...")
+                
+                # Collect confirmed signals and current prices
+                confirmed_signals = []
+                current_prices = {}
+                for result in results:
+                    if result.success and result.current_price:
+                        current_prices[result.symbol] = result.current_price
+                        if result.confirmed_signals:
+                            confirmed_signals.extend(result.confirmed_signals)
+                
+                # Execute trades
+                trade_results = self.trade_executor.execute_signals(
+                    confirmed_signals, current_prices
+                )
+                trades_executed = len([t for t in trade_results if t.status == "executed"])
+                
+                for tr in trade_results:
+                    status_icon = "✅" if tr.status == "executed" else "⏭️"
+                    self._log(f"    {status_icon} {tr.symbol}: {tr.side.upper()} {tr.status}")
+                    if tr.trade_id:
+                        self._log(f"       qty={tr.quantity:.6f} @ ${tr.entry_price:,.2f}")
+                
+                # Log paper performance
+                perf = self.trade_executor.get_paper_performance()
+                if perf:
+                    self._log(f"  Paper Balance: ${perf.get('current_balance', 0):,.2f}")
+
             duration = (record.end_time - start_time).total_seconds()
 
             self._log(f"Run #{run_id} completed")
@@ -330,6 +359,8 @@ class MonitoringScheduler:
             if summary.total_signals > 0:
                 title = f"🚨 Monitoring Alert - {summary.total_signals} signals detected"
                 message = f"Run #{run_id}: {summary.confirmed_count} confirmed, {summary.watch_only_count} watch-only"
+                if trades_executed > 0:
+                    message += f", {trades_executed} paper trades executed"
                 self._send_notification(title, message)
 
         except Exception as e:
@@ -527,6 +558,6 @@ if __name__ == "__main__":
         "   python3 -c \"from app.scheduler import run_once_with_notification; run_once_with_notification('YOUR_WEBHOOK_URL')\""
     )
     print()
-    print("⚠️  This is an ALERT-ONLY system / 這是僅提醒系統")
-    print("⚠️  No automatic trading / 無自動交易")
+    print("⚠️  This is a PAPER TRADING system / 這是模擬交易系統")
+    print("⚠️  No real exchange orders / 無真實交易所訂單")
     print("=" * 60)

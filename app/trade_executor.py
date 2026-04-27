@@ -1,0 +1,232 @@
+"""
+Trade Executor / 交易執行器
+
+Phase 2: Connects strategy signals to paper trading execution.
+將策略訊號連接到模擬交易執行，從 ALERT-ONLY 升級到 PAPER-TRADING。
+
+Author: kimiclaw_bot
+Version: 1.0.0
+Date: 2026-04-27
+"""
+
+import logging
+from typing import Dict, List, Optional
+from datetime import datetime
+from dataclasses import dataclass, field
+
+from app.paper_trading import PaperTrading, TradeSide
+from signals.engine import SignalType, SignalLevel
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TradeResult:
+    """Result of a trade execution / 交易執行結果"""
+    symbol: str
+    side: str
+    status: str  # "executed", "skipped", "blocked", "pending_human"
+    trade_id: Optional[str] = None
+    quantity: Optional[float] = None
+    entry_price: Optional[float] = None
+    reason: str = ""
+    balance_after: Optional[float] = None
+
+
+class TradeExecutor:
+    """
+    Trade executor that bridges strategy signals to paper trading.
+    
+    Integrates with:
+    - MonitorRunner / StrategyExecutor (signal generation)
+    - PaperTrading (simulated execution)
+    
+    Mode: PAPER-TRADING ONLY (no real exchange orders)
+    """
+
+    # Signal type → trade side mapping
+    SIGNAL_TO_SIDE = {
+        SignalType.TREND_LONG: TradeSide.BUY,
+        SignalType.TREND_SHORT: TradeSide.SELL,
+    }
+
+    def __init__(
+        self,
+        initial_balance: float = 10000.0,
+        position_pct: float = 0.1,  # Use 10% of balance per trade
+        enable_trading: bool = True,
+    ):
+        self.logger = logging.getLogger(__name__)
+        self.enable_trading = enable_trading
+        self.position_pct = position_pct
+
+        # Paper trading account
+        self.paper = PaperTrading(
+            initial_balance=initial_balance,
+            slippage_pct=0.1,
+            commission_pct=0.1,
+        ) if enable_trading else None
+
+        # Track which symbols have open positions (simple single-position model)
+        self.open_positions: Dict[str, Dict] = {}
+
+        self.logger.info(
+            f"TradeExecutor initialized: balance=${initial_balance:,.2f}, "
+            f"position_pct={position_pct*100}%, enabled={enable_trading}"
+        )
+
+    def execute_signals(
+        self,
+        confirmed_signals: List,
+        current_prices: Dict[str, float],
+    ) -> List[TradeResult]:
+        """
+        Execute trading for confirmed signals.
+        
+        Args:
+            confirmed_signals: List of CONFIRMED Signal objects
+            current_prices: Dict of symbol → current price
+            
+        Returns:
+            List of TradeResult
+        """
+        results = []
+
+        if not self.enable_trading or not self.paper:
+            self.logger.info("Trading disabled, skipping execution")
+            return results
+
+        for signal in confirmed_signals:
+            result = self._process_signal(signal, current_prices)
+            if result:
+                results.append(result)
+
+        return results
+
+    def _process_signal(self, signal, current_prices: Dict[str, float]) -> Optional[TradeResult]:
+        """Process a single confirmed signal."""
+        symbol = signal.symbol
+        signal_type = signal.signal_type
+
+        # Map signal type to trade side
+        side = self.SIGNAL_TO_SIDE.get(signal_type)
+        if not side:
+            self.logger.info(f"Signal type {signal_type.name} not mapped to trade side, skipping")
+            return TradeResult(
+                symbol=symbol,
+                side="unknown",
+                status="skipped",
+                reason=f"Unmapped signal type: {signal_type.name}",
+            )
+
+        # Get current price
+        price = current_prices.get(symbol)
+        if not price or price <= 0:
+            self.logger.warning(f"No valid price for {symbol}, skipping")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="No valid price",
+            )
+
+        # Check if we already have an open position for this symbol
+        if symbol in self.open_positions:
+            self.logger.info(f"Already have open position for {symbol}, skipping new signal")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="Position already open",
+            )
+
+        # Calculate position size
+        position_value = self.paper.balance * self.position_pct
+        if position_value < 1.0:
+            self.logger.warning(f"Insufficient balance for trade: ${self.paper.balance:.2f}")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="Insufficient balance",
+            )
+
+        quantity = position_value / price
+
+        # Execute paper trade
+        try:
+            trade = self.paper.enter_position(
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                price=price,
+            )
+
+            # Track position
+            self.open_positions[symbol] = {
+                "side": side.value,
+                "quantity": quantity,
+                "entry_price": trade.entry_price,
+                "trade_id": trade.trade_id,
+                "entry_time": datetime.now().isoformat(),
+            }
+
+            self.logger.info(
+                f"✅ PAPER TRADE: {side.value.upper()} {quantity:.6f} {symbol} "
+                f"@ ${trade.entry_price:,.2f} (balance: ${self.paper.balance:,.2f})"
+            )
+
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="executed",
+                trade_id=trade.trade_id,
+                quantity=quantity,
+                entry_price=trade.entry_price,
+                balance_after=self.paper.balance,
+                reason=signal.reason,
+            )
+
+        except Exception as e:
+            self.logger.error(f"Trade execution failed for {symbol}: {e}")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason=f"Execution error: {e}",
+            )
+
+    def check_exit_signals(self, symbol: str, current_price: float) -> Optional[TradeResult]:
+        """
+        Check if an open position should be exited.
+        
+        Simple exit logic: exit on opposite signal or if position has been held.
+        This is a placeholder for more sophisticated exit rules (stop loss, take profit).
+        """
+        if symbol not in self.open_positions:
+            return None
+
+        position = self.open_positions[symbol]
+
+        # For now, positions are held until explicitly exited
+        # TODO: Implement stop-loss / take-profit exit rules
+        return None
+
+    def get_paper_performance(self) -> Optional[Dict]:
+        """Get paper trading performance summary."""
+        if not self.paper:
+            return None
+
+        perf = self.paper.get_performance()
+        if perf and "error" not in perf:
+            perf["open_positions"] = len(self.open_positions)
+            perf["open_position_symbols"] = list(self.open_positions.keys())
+
+        return perf
+
+    def reset(self):
+        """Reset paper trading account and positions."""
+        if self.paper:
+            self.paper.reset()
+        self.open_positions.clear()
+        self.logger.info("TradeExecutor reset")
