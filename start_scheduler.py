@@ -27,7 +27,7 @@ def main():
     )
     
     # Phase 2: Enable paper trading / 啟用模擬交易
-    executor = TradeExecutor(initial_balance=10000, position_pct=0.1)
+    executor = TradeExecutor(initial_balance=10000, position_pct=0.1, max_total_exposure_pct=0.5)
     scheduler = MonitoringScheduler(config=config, trade_executor=executor)
     
     print(f"✓ Scheduler initialized")
