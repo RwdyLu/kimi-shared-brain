@@ -12,10 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.scheduler import MonitoringScheduler, SchedulerConfig, SchedulerMode
+from app.trade_executor import TradeExecutor
 
 def main():
     print("="*70)
-    print("🔄 T-054-A: Starting Scheduler with Price Logging")
+    print("🔄 T-054-A: Starting Scheduler with Paper Trading")
     print("="*70)
     
     config = SchedulerConfig(
@@ -25,11 +26,15 @@ def main():
         prevent_overlap=True
     )
     
-    scheduler = MonitoringScheduler(config)
+    # Initialize trade executor for PAPER-TRADING
+    executor = TradeExecutor(initial_balance=10000, position_pct=0.1)
+    
+    scheduler = MonitoringScheduler(config, trade_executor=executor)
     
     print(f"✓ Scheduler initialized")
     print(f"  Mode: {config.mode.value}")
     print(f"  Interval: {config.interval_minutes} minutes")
+    print(f"  Trading: PAPER-TRADING ENABLED")
     print(f"  Price logging: ENABLED (T-052-B)")
     print("="*70)
     
