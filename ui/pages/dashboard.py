@@ -147,71 +147,13 @@ layout = dbc.Container(
             className="mb-4"
         ),
         
-        # Live Prices Section (Moved to top) / 即時價格區塊 (移到頂部)
+        # Live Prices Section / 即時價格區塊
         dbc.Row(
             [
                 dbc.Col(
                     [
                         html.H4("Live Prices / 即時價格", className="mb-3"),
-                        dbc.Row(
-                            [
-                                # BTC Price Card / BTC 價格卡片
-                                dbc.Col(
-                                    dbc.Card(
-                                        [
-                                            dbc.CardBody(
-                                                [
-                                                    html.H5("Bitcoin", className="card-title text-muted"),
-                                                    html.H2(
-                                                        id="btc-price-display", 
-                                                        children="--",
-                                                        className="text-primary fw-bold"
-                                                    ),
-                                                    html.P(
-                                                        id="btc-price-time",
-                                                        children="Loading...",
-                                                        className="text-muted small"
-                                                    )
-                                                ]
-                                            )
-                                        ],
-                                        color="light",
-                                        outline=True
-                                    ),
-                                    width=6,
-                                    md=3,
-                                    className="mb-3"
-                                ),
-                                
-                                # ETH Price Card / ETH 價格卡片
-                                dbc.Col(
-                                    dbc.Card(
-                                        [
-                                            dbc.CardBody(
-                                                [
-                                                    html.H5("Ethereum", className="card-title text-muted"),
-                                                    html.H2(
-                                                        id="eth-price-display",
-                                                        children="--",
-                                                        className="text-primary fw-bold"
-                                                    ),
-                                                    html.P(
-                                                        id="eth-price-time",
-                                                        children="Loading...",
-                                                        className="text-muted small"
-                                                    )
-                                                ]
-                                            )
-                                        ],
-                                        color="light",
-                                        outline=True
-                                    ),
-                                    width=6,
-                                    md=3,
-                                    className="mb-3"
-                                ),
-                            ]
-                        )
+                        dbc.Row(id="live-prices-row", children=[])
                     ],
                     width=12
                 )
@@ -628,7 +570,22 @@ def update_signals_count(n):
         return "--", str(e), "secondary"
 
 
-# T-052-A: New BTC/ETH price callbacks / 新的 BTC/ETH 價格回調
+# T-052-A: New Live Prices callback / 新的即時價格回調
+
+# All 10 symbols with display names / 全部 10 個幣種及其顯示名稱
+COIN_CONFIG = [
+    {"symbol": "BTC", "name": "Bitcoin"},
+    {"symbol": "ETH", "name": "Ethereum"},
+    {"symbol": "BNB", "name": "BNB"},
+    {"symbol": "SOL", "name": "Solana"},
+    {"symbol": "XRP", "name": "XRP"},
+    {"symbol": "ADA", "name": "Cardano"},
+    {"symbol": "DOGE", "name": "Dogecoin"},
+    {"symbol": "AVAX", "name": "Avalanche"},
+    {"symbol": "LINK", "name": "Chainlink"},
+    {"symbol": "DOT", "name": "Polkadot"},
+]
+
 
 def format_update_time(timestamp_str: str) -> str:
     """
@@ -665,37 +622,106 @@ def format_update_time(timestamp_str: str) -> str:
         return f"Updated {timestamp_str}"
 
 
+def format_price_display(price: float) -> str:
+    """Format price based on magnitude / 根據價格大小格式化"""
+    if price >= 1000:
+        return f"${price:,.2f}"
+    elif price >= 1:
+        return f"${price:.2f}"
+    else:
+        return f"${price:.4f}"
+
+
 @callback(
-    Output("btc-price-display", "children"),
-    Output("btc-price-time", "children"),
+    Output("live-prices-row", "children"),
     Input("dashboard-interval", "n_intervals")
 )
-def update_btc_price(n):
-    """Update BTC price display / 更新 BTC 價格顯示"""
+def update_live_prices(n):
+    """Update all 10 coin prices display / 更新全部 10 個幣種價格顯示"""
     try:
         prices_data = get_current_prices()
         
         if not prices_data or not prices_data.get("prices"):
-            return "--", "No data / 無資料"
+            return dbc.Col(
+                html.P("No price data available / 無價格資料", className="text-muted text-center"),
+                width=12
+            )
         
         prices = prices_data.get("prices", {})
+        timestamp = prices_data.get("timestamp", "")
+        time_text = format_update_time(timestamp) if timestamp else "Updated recently"
         
-        if "BTCUSDT" in prices:
-            price = prices["BTCUSDT"].get("price", 0)
-            price_text = f"${price:,.2f}"
+        cards = []
+        for coin in COIN_CONFIG:
+            symbol = coin["symbol"]
+            name = coin["name"]
+            key = f"{symbol}USDT"
             
-            # Format timestamp with relative time (T-058)
-            timestamp = prices_data.get("timestamp", "")
-            if timestamp:
-                time_text = format_update_time(timestamp)
+            if key in prices:
+                price = prices[key].get("price", 0)
+                change_pct = prices[key].get("change_24h_pct", 0)
+                price_text = format_price_display(price)
+                
+                # Format change with color
+                if change_pct > 0:
+                    change_text = f"+{change_pct:.2f}%"
+                    change_color = "text-success"
+                    arrow = "▲"
+                elif change_pct < 0:
+                    change_text = f"{change_pct:.2f}%"
+                    change_color = "text-danger"
+                    arrow = "▼"
+                else:
+                    change_text = "0.00%"
+                    change_color = "text-muted"
+                    arrow = "—"
             else:
-                time_text = "Updated recently"
+                price_text = "--"
+                change_text = "--"
+                change_color = "text-muted"
+                arrow = ""
             
-            return price_text, time_text
-        else:
-            return "--", "No BTC data"
+            # Determine price color based on presence
+            price_color = "text-primary" if key in prices else "text-muted"
+            
+            card = dbc.Col(
+                dbc.Card(
+                    [
+                        dbc.CardBody(
+                            [
+                                html.H5(name, className="card-title text-muted"),
+                                html.H2(
+                                    price_text,
+                                    className=f"{price_color} fw-bold mb-1"
+                                ),
+                                html.P(
+                                    [html.Span(arrow, className=f"{change_color} me-1"), html.Span(change_text, className=change_color)],
+                                    className="small mb-2"
+                                ),
+                                html.P(
+                                    time_text,
+                                    className="text-muted small"
+                                )
+                            ]
+                        )
+                    ],
+                    color="light",
+                    outline=True
+                ),
+                width=6,
+                md=3,
+                lg=2,
+                className="mb-3"
+            )
+            cards.append(card)
+        
+        return cards
+        
     except Exception as e:
-        return "Error", str(e)
+        return dbc.Col(
+            html.P(f"Error loading prices: {str(e)[:50]}", className="text-danger"),
+            width=12
+        )
 
 
 # T-061: Health Timestamp Callback / 健康時間戳回調
@@ -746,39 +772,6 @@ def get_health_status():
             
     except Exception:
         return "--", "badge bg-secondary"
-
-
-@callback(
-    Output("eth-price-display", "children"),
-    Output("eth-price-time", "children"),
-    Input("dashboard-interval", "n_intervals")
-)
-def update_eth_price(n):
-    """Update ETH price display / 更新 ETH 價格顯示"""
-    try:
-        prices_data = get_current_prices()
-        
-        if not prices_data or not prices_data.get("prices"):
-            return "--", "No data / 無資料"
-        
-        prices = prices_data.get("prices", {})
-        
-        if "ETHUSDT" in prices:
-            price = prices["ETHUSDT"].get("price", 0)
-            price_text = f"${price:,.2f}"
-            
-            # Format timestamp with relative time (T-058)
-            timestamp = prices_data.get("timestamp", "")
-            if timestamp:
-                time_text = format_update_time(timestamp)
-            else:
-                time_text = "Updated recently"
-            
-            return price_text, time_text
-        else:
-            return "--", "No ETH data"
-    except Exception as e:
-        return "Error", str(e)
 
 
 # T-052-C: Strategy Status callbacks / 策略狀態回調 (FIXED: emoji rendering)

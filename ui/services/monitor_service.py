@@ -693,8 +693,9 @@ def get_current_prices() -> Dict[str, Any]:
         {
             "timestamp": str (ISO format),
             "prices": {
-                "BTCUSDT": {"price": float, "timestamp": str},
-                "ETHUSDT": {"price": float, "timestamp": str}
+                "BTCUSDT": {"price": float, "timestamp": str, "change_24h_pct": float},
+                "ETHUSDT": {"price": float, "timestamp": str, "change_24h_pct": float},
+                ... (all 10 symbols)
             }
         }
         or empty dict if no prices available
@@ -707,31 +708,23 @@ def get_current_prices() -> Dict[str, Any]:
         prices = {}
         timestamp = datetime.now().isoformat()
         
-        # Fetch BTC price
-        try:
-            btc_url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-            with urllib.request.urlopen(btc_url, timeout=5) as response:
-                btc_data = json.loads(response.read().decode())
-                if btc_data and "price" in btc_data:
-                    prices["BTCUSDT"] = {
-                        "price": float(btc_data["price"]),
-                        "timestamp": timestamp
-                    }
-        except Exception as e:
-            print(f"Error fetching BTC price: {e}")
+        # All 10 symbols / 全部 10 個幣種
+        symbols = ["BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "AVAX", "LINK", "DOT"]
         
-        # Fetch ETH price
-        try:
-            eth_url = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT"
-            with urllib.request.urlopen(eth_url, timeout=5) as response:
-                eth_data = json.loads(response.read().decode())
-                if eth_data and "price" in eth_data:
-                    prices["ETHUSDT"] = {
-                        "price": float(eth_data["price"]),
-                        "timestamp": timestamp
-                    }
-        except Exception as e:
-            print(f"Error fetching ETH price: {e}")
+        # Use 24hr ticker for price + change in one request per symbol
+        for symbol in symbols:
+            try:
+                url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}USDT"
+                with urllib.request.urlopen(url, timeout=5) as response:
+                    data = json.loads(response.read().decode())
+                    if data and "lastPrice" in data:
+                        prices[f"{symbol}USDT"] = {
+                            "price": float(data["lastPrice"]),
+                            "timestamp": timestamp,
+                            "change_24h_pct": float(data.get("priceChangePercent", 0))
+                        }
+            except Exception as e:
+                print(f"Error fetching {symbol} price: {e}")
         
         if not prices:
             # Fallback to snapshot if API fails
