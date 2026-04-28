@@ -286,6 +286,72 @@ class MonitoringScheduler:
         except Exception as e:
             self._log(f"  Price save error: {e}")
 
+    def _update_live_ranking(self, results):
+        """Update live strategy ranking after each run / 每次執行後更新即時策略排名"""
+        try:
+            import json
+            from pathlib import Path
+
+            ranking = {"last_updated": datetime.now().isoformat(), "symbols": {}}
+            all_names = [
+                "rsi_trend", "volume_profile", "parabolic_sar_t",
+                "composite_multi", "hilbert_cycle", "mfi_volume",
+                "adx_trend_stren", "stochastic_brea", "bb_mean_reversi", "macd_momentum"
+            ]
+
+            for result in results:
+                if not result.success:
+                    continue
+                symbol = result.symbol
+                symbol_data = {"price": getattr(result, 'current_price', 0), "strategies": []}
+                confirmed = getattr(result, 'confirmed_signals', []) or []
+                watch_only = getattr(result, 'watch_only_signals', []) or []
+                scores = {}
+
+                for sig in confirmed:
+                    name = getattr(sig, 'strategy_name', 'Unknown')
+                    scores[name] = {
+                        "name": name,
+                        "status": "Confirmed",
+                        "score": 1.0,
+                        "conditions_passed": getattr(sig, 'conditions_passed', 0),
+                        "total_conditions": getattr(sig, 'total_conditions', 0)
+                    }
+
+                for sig in watch_only:
+                    name = getattr(sig, 'strategy_name', 'Unknown')
+                    if name not in scores:
+                        scores[name] = {
+                            "name": name,
+                            "status": "Watch",
+                            "score": 0.5,
+                            "conditions_passed": getattr(sig, 'conditions_passed', 0),
+                            "total_conditions": getattr(sig, 'total_conditions', 0)
+                        }
+
+                for name in all_names:
+                    if name not in scores:
+                        scores[name] = {
+                            "name": name,
+                            "status": "Idle",
+                            "score": 0.0,
+                            "conditions_passed": 0,
+                            "total_conditions": 0
+                        }
+
+                symbol_data["strategies"] = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
+                ranking["symbols"][symbol] = symbol_data
+
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            ranking_file = STATE_DIR / "live_strategy_ranking.json"
+            with open(ranking_file, 'w') as f:
+                json.dump(ranking, f, indent=2)
+
+            self._log(f"  Live ranking updated: {list(ranking['symbols'].keys())}")
+
+        except Exception as e:
+            self._log(f"  Live ranking update error: {e}")
+
     def _run_monitor(self) -> RunRecord:
         """
         Execute one monitoring run / 執行一次監測
@@ -345,6 +411,9 @@ class MonitoringScheduler:
                 perf = self.trade_executor.get_paper_performance()
                 if perf:
                     self._log(f"  Paper Balance: ${perf.get('current_balance', 0):,.2f}")
+
+            # Update live strategy ranking / 更新即時策略排名
+            self._update_live_ranking(results)
 
             duration = (record.end_time - start_time).total_seconds()
 
