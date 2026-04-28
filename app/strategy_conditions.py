@@ -56,6 +56,16 @@ class StrategyConditions:
             "consecutive_red": self._check_consecutive_red,
             "close_above_ma240": self._check_close_above_ma240,
             "close_below_ma240": self._check_close_below_ma240,
+            # P2 Strategy Conditions / P2 策略條件
+            "sine_cross_above_leadsine": self._check_sine_cross_above_leadsine,
+            "tema_rising": self._check_tema_rising,
+            "tema_below_bb_middle": self._check_tema_below_bb_middle,
+            "fastk_cross_above_fastd": self._check_fastk_cross_above_fastd,
+            "fastk_below_20": self._check_fastk_below_20,
+            "sar_below_price": self._check_sar_below_price,
+            "rsi_cross_above_30": self._check_rsi_cross_above_30,
+            "rsi_below_30": self._check_rsi_below_30,
+            "price_below_bb_lower": self._check_price_below_bb_lower,
         }
     
     def check_condition(
@@ -404,4 +414,297 @@ class StrategyConditions:
                 result=ConditionResult.FAILED,
                 details={"price": price, "ma240": ma240},
                 message=f"Price ${price:.2f} above MA240 ${ma240:.2f}"
+            )
+
+    # ===== P2 Strategy Conditions / P2 策略條件 =====
+
+    def _check_sine_cross_above_leadsine(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if HT Sine crossed above LeadSine / 檢查 Sine 是否上穿 LeadSine"""
+        sine = data.get("ht_sine")
+        leadsine = data.get("ht_leadsine")
+        sine_prev = data.get("ht_sine_prev")
+        leadsine_prev = data.get("ht_leadsine_prev")
+        
+        if sine is None or leadsine is None:
+            return ConditionCheck(
+                condition="sine_cross_above_leadsine",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing HT Sine/LeadSine data"
+            )
+        
+        current_cross = sine > leadsine
+        prev_cross = sine_prev is not None and leadsine_prev is not None and sine_prev < leadsine_prev
+        
+        if current_cross and prev_cross:
+            return ConditionCheck(
+                condition="sine_cross_above_leadsine",
+                result=ConditionResult.PASSED,
+                details={"sine": sine, "leadsine": leadsine},
+                message=f"Sine ({sine:.4f}) crossed above LeadSine ({leadsine:.4f})"
+            )
+        elif current_cross:
+            return ConditionCheck(
+                condition="sine_cross_above_leadsine",
+                result=ConditionResult.PASSED,
+                details={"sine": sine, "leadsine": leadsine},
+                message=f"Sine ({sine:.4f}) above LeadSine ({leadsine:.4f})"
+            )
+        else:
+            return ConditionCheck(
+                condition="sine_cross_above_leadsine",
+                result=ConditionResult.FAILED,
+                details={"sine": sine, "leadsine": leadsine},
+                message=f"Sine ({sine:.4f}) below LeadSine ({leadsine:.4f})"
+            )
+
+    def _check_tema_rising(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if TEMA is rising / 檢查 TEMA 是否上升"""
+        tema = data.get("tema")
+        tema_prev = data.get("tema_prev")
+        
+        if tema is None:
+            return ConditionCheck(
+                condition="tema_rising",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing TEMA data"
+            )
+        
+        if tema_prev is not None and tema > tema_prev:
+            return ConditionCheck(
+                condition="tema_rising",
+                result=ConditionResult.PASSED,
+                details={"tema": tema, "tema_prev": tema_prev},
+                message=f"TEMA rising: ${tema:.2f} > ${tema_prev:.2f}"
+            )
+        elif tema_prev is not None:
+            return ConditionCheck(
+                condition="tema_rising",
+                result=ConditionResult.FAILED,
+                details={"tema": tema, "tema_prev": tema_prev},
+                message=f"TEMA falling: ${tema:.2f} <= ${tema_prev:.2f}"
+            )
+        else:
+            return ConditionCheck(
+                condition="tema_rising",
+                result=ConditionResult.PASSED,
+                details={"tema": tema},
+                message=f"TEMA present: ${tema:.2f}"
+            )
+
+    def _check_tema_below_bb_middle(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if TEMA is below BB middle band / 檢查 TEMA 是否在布林帶中軌下方"""
+        tema = data.get("tema")
+        bb_middle = data.get("bb_middle")
+        
+        if tema is None or bb_middle is None:
+            return ConditionCheck(
+                condition="tema_below_bb_middle",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing TEMA or BB middle data"
+            )
+        
+        if tema < bb_middle:
+            return ConditionCheck(
+                condition="tema_below_bb_middle",
+                result=ConditionResult.PASSED,
+                details={"tema": tema, "bb_middle": bb_middle, "diff": bb_middle - tema},
+                message=f"TEMA ${tema:.2f} below BB middle ${bb_middle:.2f}"
+            )
+        else:
+            return ConditionCheck(
+                condition="tema_below_bb_middle",
+                result=ConditionResult.FAILED,
+                details={"tema": tema, "bb_middle": bb_middle},
+                message=f"TEMA ${tema:.2f} above BB middle ${bb_middle:.2f}"
+            )
+
+    def _check_fastk_cross_above_fastd(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if Stochastic FastK crossed above FastD / 檢查 FastK 是否上穿 FastD"""
+        fastk = data.get("stoch_fastk")
+        fastd = data.get("stoch_fastd")
+        fastk_prev = data.get("stoch_fastk_prev")
+        fastd_prev = data.get("stoch_fastd_prev")
+        
+        if fastk is None or fastd is None:
+            return ConditionCheck(
+                condition="fastk_cross_above_fastd",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing Stochastic data"
+            )
+        
+        current_cross = fastk > fastd
+        prev_cross = fastk_prev is not None and fastd_prev is not None and fastk_prev < fastd_prev
+        
+        if current_cross and prev_cross:
+            return ConditionCheck(
+                condition="fastk_cross_above_fastd",
+                result=ConditionResult.PASSED,
+                details={"fastk": fastk, "fastd": fastd},
+                message=f"FastK ({fastk:.2f}) crossed above FastD ({fastd:.2f})"
+            )
+        elif current_cross:
+            return ConditionCheck(
+                condition="fastk_cross_above_fastd",
+                result=ConditionResult.PASSED,
+                details={"fastk": fastk, "fastd": fastd},
+                message=f"FastK ({fastk:.2f}) above FastD ({fastd:.2f})"
+            )
+        else:
+            return ConditionCheck(
+                condition="fastk_cross_above_fastd",
+                result=ConditionResult.FAILED,
+                details={"fastk": fastk, "fastd": fastd},
+                message=f"FastK ({fastk:.2f}) below FastD ({fastd:.2f})"
+            )
+
+    def _check_fastk_below_20(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if FastK is below 20 (oversold) / 檢查 FastK 是否低於 20"""
+        fastk = data.get("stoch_fastk")
+        
+        if fastk is None:
+            return ConditionCheck(
+                condition="fastk_below_20",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing Stochastic FastK data"
+            )
+        
+        if fastk < 20:
+            return ConditionCheck(
+                condition="fastk_below_20",
+                result=ConditionResult.PASSED,
+                details={"fastk": fastk},
+                message=f"FastK {fastk:.2f} below 20 (oversold)"
+            )
+        else:
+            return ConditionCheck(
+                condition="fastk_below_20",
+                result=ConditionResult.FAILED,
+                details={"fastk": fastk},
+                message=f"FastK {fastk:.2f} not below 20"
+            )
+
+    def _check_sar_below_price(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if SAR is below price (bullish) / 檢查 SAR 是否在價格下方"""
+        price = data.get("price")
+        sar = data.get("sar")
+        
+        if price is None or sar is None:
+            return ConditionCheck(
+                condition="sar_below_price",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing SAR or price data"
+            )
+        
+        if sar < price:
+            return ConditionCheck(
+                condition="sar_below_price",
+                result=ConditionResult.PASSED,
+                details={"sar": sar, "price": price, "diff": price - sar},
+                message=f"SAR ${sar:.2f} below price ${price:.2f} (bullish)"
+            )
+        else:
+            return ConditionCheck(
+                condition="sar_below_price",
+                result=ConditionResult.FAILED,
+                details={"sar": sar, "price": price},
+                message=f"SAR ${sar:.2f} above price ${price:.2f} (bearish)"
+            )
+
+    def _check_rsi_cross_above_30(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if RSI crossed above 30 (exiting oversold) / 檢查 RSI 是否上穿 30"""
+        rsi = data.get("rsi")
+        rsi_prev = data.get("rsi_prev")
+        
+        if rsi is None:
+            return ConditionCheck(
+                condition="rsi_cross_above_30",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing RSI data"
+            )
+        
+        current_above = rsi > 30
+        prev_below = rsi_prev is not None and rsi_prev < 30
+        
+        if current_above and prev_below:
+            return ConditionCheck(
+                condition="rsi_cross_above_30",
+                result=ConditionResult.PASSED,
+                details={"rsi": rsi, "rsi_prev": rsi_prev},
+                message=f"RSI crossed above 30: {rsi:.2f} (was {rsi_prev:.2f})"
+            )
+        elif current_above:
+            return ConditionCheck(
+                condition="rsi_cross_above_30",
+                result=ConditionResult.PASSED,
+                details={"rsi": rsi},
+                message=f"RSI above 30: {rsi:.2f}"
+            )
+        else:
+            return ConditionCheck(
+                condition="rsi_cross_above_30",
+                result=ConditionResult.FAILED,
+                details={"rsi": rsi},
+                message=f"RSI below 30: {rsi:.2f}"
+            )
+
+    def _check_rsi_below_30(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if RSI is below 30 (oversold) / 檢查 RSI 是否低於 30"""
+        rsi = data.get("rsi")
+        
+        if rsi is None:
+            return ConditionCheck(
+                condition="rsi_below_30",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing RSI data"
+            )
+        
+        if rsi < 30:
+            return ConditionCheck(
+                condition="rsi_below_30",
+                result=ConditionResult.PASSED,
+                details={"rsi": rsi},
+                message=f"RSI {rsi:.2f} below 30 (oversold)"
+            )
+        else:
+            return ConditionCheck(
+                condition="rsi_below_30",
+                result=ConditionResult.FAILED,
+                details={"rsi": rsi},
+                message=f"RSI {rsi:.2f} not below 30"
+            )
+
+    def _check_price_below_bb_lower(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check if price is below BB lower band / 檢查價格是否低於布林帶下軌"""
+        price = data.get("price")
+        bb_lower = data.get("bb_lower")
+        
+        if price is None or bb_lower is None:
+            return ConditionCheck(
+                condition="price_below_bb_lower",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing price or BB lower data"
+            )
+        
+        if price < bb_lower:
+            return ConditionCheck(
+                condition="price_below_bb_lower",
+                result=ConditionResult.PASSED,
+                details={"price": price, "bb_lower": bb_lower, "diff": bb_lower - price},
+                message=f"Price ${price:.2f} below BB lower ${bb_lower:.2f}"
+            )
+        else:
+            return ConditionCheck(
+                condition="price_below_bb_lower",
+                result=ConditionResult.FAILED,
+                details={"price": price, "bb_lower": bb_lower},
+                message=f"Price ${price:.2f} above BB lower ${bb_lower:.2f}"
             )
