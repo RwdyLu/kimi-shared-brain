@@ -1217,7 +1217,7 @@ def update_strategy_ranking(n, selected_symbol):
         import json
         from pathlib import Path
         
-        ranking_file = Path("/tmp/kimi-shared-brain/state/live_strategy_ranking.json")
+        ranking_file = Path(__file__).resolve().parents[2] / "state" / "live_strategy_ranking.json"
         if not ranking_file.exists():
             # Fallback to backtest storage
             from backtest import BacktestStorage
@@ -1277,8 +1277,9 @@ def update_strategy_ranking(n, selected_symbol):
         with open(ranking_file, 'r') as f:
             ranking_data = json.load(f)
         
-        symbol_scores = ranking_data.get("symbol_scores", {})
-        symbol_data = symbol_scores.get(selected_symbol, [])
+        symbol_scores = ranking_data.get("symbols", {})
+        symbol_entry = symbol_scores.get(selected_symbol, {})
+        symbol_data = symbol_entry.get("strategies", [])
         
         if not symbol_data:
             return html.Div([
@@ -1289,8 +1290,8 @@ def update_strategy_ranking(n, selected_symbol):
         # Build ranking table from live data / 從即時資料建立排名表
         rows = []
         for i, item in enumerate(symbol_data, 1):
-            strategy = item.get("strategy", "Unknown")
-            score = item.get("score", 0)
+            strategy = item.get("name", "Unknown")
+            score = item.get("score", 0) * 100  # 0-1 → percentage
             
             # Color coding based on score / 根據分數顏色編碼
             if score >= 60:
