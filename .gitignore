@@ -42,6 +42,10 @@ venv.bak/
 logs/*.log
 logs/*.jsonl
 
+# Backtest runtime
+backtest/backtest_results.jsonl
+backtest/*.jsonl
+
 # Runtime state
 state/.monitor.pid
 state/prices.json
