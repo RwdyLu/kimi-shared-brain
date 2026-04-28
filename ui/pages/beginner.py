@@ -5,6 +5,10 @@ from datetime import datetime
 from pathlib import Path
 import json
 
+# Register page with Dash Pages
+# 使用 Dash Pages 註冊頁面
+dash.register_page(__name__, path="/beginner")
+
 # =============================================================================
 # Beginner-Friendly UI / 新手友善介面
 # =============================================================================
@@ -29,7 +33,7 @@ def get_coin_config():
 def load_live_ranking():
     """Load live strategy ranking data / 載入即時策略排名資料"""
     try:
-        ranking_file = Path("/tmp/kimi-shared-brain/state/live_strategy_ranking.json")
+        ranking_file = Path(__file__).parents[2] / "state" / "live_strategy_ranking.json"
         if not ranking_file.exists():
             return {}
         with open(ranking_file, 'r') as f:
@@ -41,7 +45,7 @@ def load_live_ranking():
 def load_prices():
     """Load current prices / 載入當前價格"""
     try:
-        prices_file = Path("/tmp/kimi-shared-brain/state/prices.json")
+        prices_file = Path(__file__).parents[2] / "state" / "prices.json"
         if not prices_file.exists():
             return {}
         with open(prices_file, 'r') as f:
