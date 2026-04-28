@@ -315,24 +315,24 @@ class MonitoringScheduler:
                 scores = {}
 
                 for sig in confirmed:
-                    name = getattr(sig, 'strategy_name', 'Unknown')
+                    name = sig.metadata.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
                     scores[name] = {
                         "name": name,
                         "status": "Confirmed",
                         "score": 1.0,
-                        "conditions_passed": getattr(sig, 'conditions_passed', 0),
-                        "total_conditions": getattr(sig, 'total_conditions', 0)
+                        "conditions_passed": sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0,
+                        "total_conditions": sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
                     }
 
                 for sig in watch_only:
-                    name = getattr(sig, 'strategy_name', 'Unknown')
+                    name = sig.metadata.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
                     if name not in scores:
                         scores[name] = {
                             "name": name,
                             "status": "Watch",
                             "score": 0.5,
-                            "conditions_passed": getattr(sig, 'conditions_passed', 0),
-                            "total_conditions": getattr(sig, 'total_conditions', 0)
+                            "conditions_passed": sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0,
+                            "total_conditions": sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
                         }
 
                 for name in all_strategy_names:
