@@ -1210,73 +1210,154 @@ def update_agent_status(n):
 def update_strategy_ranking(n, selected_symbol):
     """Update center panel strategy ranking / 更新中欄策略排名 (T-076)
     
-    Now filters by selected symbol / 現在根據選擇的幣種過濾
+    Uses live strategy ranking data for all symbols / 使用所有幣種的即時策略排名資料
     """
     try:
-        from backtest import BacktestStorage
+        # Load live strategy ranking / 載入即時策略排名
+        import json
+        from pathlib import Path
         
-        storage = BacktestStorage()
-        backtests = storage.get_latest_backtests(limit=100)
-        
-        if not backtests:
-            return html.Div([
-                html.P("No backtest data available", className="text-muted text-center"),
-                html.Small("Run a backtest to see rankings", className="text-muted d-block text-center")
-            ])
-        
-        # Filter by selected symbol / 根據選擇的幣種過濾
-        symbol_backtests = [
-            bt for bt in backtests
-            if selected_symbol in bt.get("symbols", [])
-        ]
-        
-        if not symbol_backtests:
-            return html.Div([
-                html.P(f"No backtest data for {selected_symbol}", className="text-muted text-center"),
-                html.Small("Backtests for this symbol will appear here", className="text-muted d-block text-center")
-            ])
-        
-        # Build ranking table
-        rows = []
-        for i, bt in enumerate(symbol_backtests[:10], 1):  # Top 10 for this symbol
-            strategy = bt.get("strategy", "Unknown")
-            total_trades = bt.get("total_trades", 0)
-            win_rate = bt.get("win_rate", 0)
-            total_return = bt.get("total_return_pct", 0)
-            max_dd = bt.get("max_drawdown_pct", 0)
+        ranking_file = Path("/tmp/kimi-shared-brain/state/live_strategy_ranking.json")
+        if not ranking_file.exists():
+            # Fallback to backtest storage
+            from backtest import BacktestStorage
+            storage = BacktestStorage()
+            backtests = storage.get_latest_backtests(limit=100)
             
-            # Color coding
-            return_color = "text-success" if total_return >= 0 else "text-danger"
-            winrate_color = "text-success" if win_rate >= 50 else "text-warning" if win_rate >= 30 else "text-danger"
+            if not backtests:
+                return html.Div([
+                    html.P("No strategy data available", className="text-muted text-center"),
+                    html.Small("Run monitoring to generate strategy rankings", className="text-muted d-block text-center")
+                ])
+            
+            symbol_backtests = [bt for bt in backtests if selected_symbol in bt.get("symbols", [])]
+            if not symbol_backtests:
+                return html.Div([
+                    html.P(f"No backtest data for {selected_symbol}", className="text-muted text-center"),
+                    html.Small("Backtests for this symbol will appear here", className="text-muted d-block text-center")
+                ])
+            
+            rows = []
+            for i, bt in enumerate(symbol_backtests[:10], 1):
+                strategy = bt.get("strategy", "Unknown")
+                total_trades = bt.get("total_trades", 0)
+                win_rate = bt.get("win_rate", 0)
+                total_return = bt.get("total_return_pct", 0)
+                max_dd = bt.get("max_drawdown_pct", 0)
+                
+                return_color = "text-success" if total_return >= 0 else "text-danger"
+                winrate_color = "text-success" if win_rate >= 50 else "text-warning" if win_rate >= 30 else "text-danger"
+                
+                rows.append(html.Tr([
+                    html.Td(f"#{i}", className="text-muted"),
+                    html.Td(f"{strategy[:15]}", className="fw-bold"),
+                    html.Td(f"{total_trades}"),
+                    html.Td(f"{win_rate:.1f}%", className=winrate_color),
+                    html.Td(f"{total_return:+.2f}%", className=return_color),
+                    html.Td(f"{max_dd:.2f}%", className="text-danger")
+                ]))
+            
+            return html.Div([
+                html.Div([
+                    html.Small(f"{selected_symbol} — Last updated: {datetime.now().strftime('%H:%M:%S')}", className="text-muted")
+                ], className="text-end mb-2"),
+                dbc.Table(
+                    [
+                        html.Thead(html.Tr([
+                            html.Th("#"), html.Th("Strategy"), html.Th("Trades"),
+                            html.Th("WR%"), html.Th("Return%"), html.Th("MaxDD%")
+                        ]))
+                    ] + [html.Tbody(rows)],
+                    bordered=False,
+                    hover=True,
+                    size="sm"
+                )
+            ])
+        
+        with open(ranking_file, 'r') as f:
+            ranking_data = json.load(f)
+        
+        symbol_scores = ranking_data.get("symbol_scores", {})
+        symbol_data = symbol_scores.get(selected_symbol, [])
+        
+        if not symbol_data:
+            return html.Div([
+                html.P(f"No live strategy data for {selected_symbol}", className="text-muted text-center"),
+                html.Small("Monitoring will populate data after next run", className="text-muted d-block text-center")
+            ])
+        
+        # Build ranking table from live data / 從即時資料建立排名表
+        rows = []
+        for i, item in enumerate(symbol_data, 1):
+            strategy = item.get("strategy", "Unknown")
+            score = item.get("score", 0)
+            
+            # Color coding based on score / 根據分數顏色編碼
+            if score >= 60:
+                score_color = "text-success fw-bold"
+                status_icon = "🟢"
+            elif score >= 40:
+                score_color = "text-warning"
+                status_icon = "🟡"
+            else:
+                score_color = "text-muted"
+                status_icon = "🔴"
             
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
-                html.Td(f"{strategy[:15]}", className="fw-bold"),
-                html.Td(f"{total_trades}"),
-                html.Td(f"{win_rate:.1f}%", className=winrate_color),
-                html.Td(f"{total_return:+.2f}%", className=return_color),
-                html.Td(f"{max_dd:.2f}%", className="text-danger")
+                html.Td(f"{strategy[:20]}", className="fw-bold"),
+                html.Td(f"{status_icon} {score:.1f}%", className=score_color),
             ]))
+        
+        # Also show best opportunities for this symbol / 也顯示該幣種的最佳機會
+        best_opps = ranking_data.get("best_opportunities", [])
+        symbol_opps = [o for o in best_opps if o.get("symbol") == selected_symbol]
+        
+        opp_section = html.Div()
+        if symbol_opps:
+            opp_rows = []
+            for opp in symbol_opps[:3]:
+                opp_rows.append(html.Tr([
+                    html.Td(f"{opp.get('strategy_name', 'Unknown')[:20]}", className="fw-bold small"),
+                    html.Td(f"Score: {opp.get('score', 0):.1f}%", className="text-info small"),
+                    html.Td(f"${opp.get('price', 0):,.2f}", className="text-muted small")
+                ]))
+            
+            opp_section = html.Div([
+                html.Hr(className="my-2"),
+                html.H6("🎯 Best Opportunities / 最佳機會", className="fw-bold mb-2"),
+                dbc.Table(
+                    [html.Thead(html.Tr([
+                        html.Th("Strategy"), html.Th("Score"), html.Th("Price")
+                    ]))] + [html.Tbody(opp_rows)],
+                    bordered=False,
+                    hover=True,
+                    size="sm"
+                )
+            ])
+        
+        timestamp = ranking_data.get("timestamp", "")
+        time_display = datetime.fromisoformat(timestamp).strftime('%H:%M:%S') if timestamp else "Recently"
         
         return html.Div([
             html.Div([
-                html.Small(f"{selected_symbol} — Last updated: {datetime.now().strftime('%H:%M:%S')}", className="text-muted")
+                html.Small(f"{selected_symbol} — Live @ {time_display}", className="text-muted")
             ], className="text-end mb-2"),
             dbc.Table(
                 [
                     html.Thead(html.Tr([
-                        html.Th("#"), html.Th("Strategy"), html.Th("Trades"),
-                        html.Th("WR%"), html.Th("Return%"), html.Th("MaxDD%")
+                        html.Th("#"), html.Th("Strategy"), html.Th("Score")
                     ]))
                 ] + [html.Tbody(rows)],
                 bordered=False,
                 hover=True,
                 size="sm"
-            )
+            ),
+            opp_section
         ])
         
     except Exception as e:
-        return html.P(f"Error loading rankings: {str(e)[:50]}", className="text-danger")
+        return html.P(f"Error loading rankings: {str(e)[:80]}", className="text-danger")
 
 
 # T-077: Right Panel Signals + History Callback / 右欄訊號與歷史回調
