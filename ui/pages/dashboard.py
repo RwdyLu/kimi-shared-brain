@@ -66,12 +66,42 @@ layout = dbc.Container(
                     className="mb-4"
                 ),
                 
-                # Center Column - Strategy Ranking (T-076 placeholder) / 中欄 - 策略排名
+                # Center Column - Strategy Ranking (T-076) / 中欄 - 策略排名
                 dbc.Col(
                     [
+                        # T-XXX: Symbol Selector / 幣種選擇器
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.H4("Strategy Ranking / 策略排名", className="mb-2"),
+                                        dcc.Dropdown(
+                                            id="symbol-selector",
+                                            options=[
+                                                {"label": "BTCUSDT", "value": "BTCUSDT"},
+                                                {"label": "ETHUSDT", "value": "ETHUSDT"},
+                                                {"label": "BNBUSDT", "value": "BNBUSDT"},
+                                                {"label": "SOLUSDT", "value": "SOLUSDT"},
+                                                {"label": "XRPUSDT", "value": "XRPUSDT"},
+                                                {"label": "ADAUSDT", "value": "ADAUSDT"},
+                                                {"label": "DOGEUSDT", "value": "DOGEUSDT"},
+                                                {"label": "AVAXUSDT", "value": "AVAXUSDT"},
+                                                {"label": "LINKUSDT", "value": "LINKUSDT"},
+                                                {"label": "DOTUSDT", "value": "DOTUSDT"},
+                                            ],
+                                            value="BTCUSDT",
+                                            clearable=False,
+                                            className="mb-3"
+                                        )
+                                    ],
+                                    width=12
+                                )
+                            ]
+                        ),
+                        
                         dbc.Card(
                             [
-                                dbc.CardHeader("📊 Strategy Ranking / 策略排名", className="fw-bold"),
+                                dbc.CardHeader("📊 Rankings / 排名", className="fw-bold"),
                                 dbc.CardBody(
                                     id="center-panel-strategy-ranking",
                                     children=[
@@ -1174,15 +1204,19 @@ def update_agent_status(n):
 # T-076: Center Panel Strategy Ranking Callback / 中欄策略排名回調
 @callback(
     Output("center-panel-strategy-ranking", "children"),
-    Input("dashboard-interval", "n_intervals")
+    Input("dashboard-interval", "n_intervals"),
+    Input("symbol-selector", "value")
 )
-def update_strategy_ranking(n):
-    """Update center panel strategy ranking / 更新中欄策略排名 (T-076)"""
+def update_strategy_ranking(n, selected_symbol):
+    """Update center panel strategy ranking / 更新中欄策略排名 (T-076)
+    
+    Now filters by selected symbol / 現在根據選擇的幣種過濾
+    """
     try:
         from backtest import BacktestStorage
         
         storage = BacktestStorage()
-        backtests = storage.get_latest_backtests(limit=20)
+        backtests = storage.get_latest_backtests(limit=100)
         
         if not backtests:
             return html.Div([
@@ -1190,11 +1224,22 @@ def update_strategy_ranking(n):
                 html.Small("Run a backtest to see rankings", className="text-muted d-block text-center")
             ])
         
+        # Filter by selected symbol / 根據選擇的幣種過濾
+        symbol_backtests = [
+            bt for bt in backtests
+            if selected_symbol in bt.get("symbols", [])
+        ]
+        
+        if not symbol_backtests:
+            return html.Div([
+                html.P(f"No backtest data for {selected_symbol}", className="text-muted text-center"),
+                html.Small("Backtests for this symbol will appear here", className="text-muted d-block text-center")
+            ])
+        
         # Build ranking table
         rows = []
-        for i, bt in enumerate(backtests[:10], 1):  # Top 10
+        for i, bt in enumerate(symbol_backtests[:10], 1):  # Top 10 for this symbol
             strategy = bt.get("strategy", "Unknown")
-            symbols = ", ".join(bt.get("symbols", []))[:15]
             total_trades = bt.get("total_trades", 0)
             win_rate = bt.get("win_rate", 0)
             total_return = bt.get("total_return_pct", 0)
@@ -1207,7 +1252,6 @@ def update_strategy_ranking(n):
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
                 html.Td(f"{strategy[:15]}", className="fw-bold"),
-                html.Td(symbols, className="small text-muted"),
                 html.Td(f"{total_trades}"),
                 html.Td(f"{win_rate:.1f}%", className=winrate_color),
                 html.Td(f"{total_return:+.2f}%", className=return_color),
@@ -1216,13 +1260,13 @@ def update_strategy_ranking(n):
         
         return html.Div([
             html.Div([
-                html.Small(f"Last updated: {datetime.now().strftime('%H:%M:%S')}", className="text-muted")
+                html.Small(f"{selected_symbol} — Last updated: {datetime.now().strftime('%H:%M:%S')}", className="text-muted")
             ], className="text-end mb-2"),
             dbc.Table(
                 [
                     html.Thead(html.Tr([
-                        html.Th("#"), html.Th("Strategy"), html.Th("Symbols"),
-                        html.Th("Trades"), html.Th("WR%"), html.Th("Return%"), html.Th("MaxDD%")
+                        html.Th("#"), html.Th("Strategy"), html.Th("Trades"),
+                        html.Th("WR%"), html.Th("Return%"), html.Th("MaxDD%")
                     ]))
                 ] + [html.Tbody(rows)],
                 bordered=False,
