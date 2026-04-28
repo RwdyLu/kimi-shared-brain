@@ -35,6 +35,8 @@ from ui.services.monitor_service import get_scheduler_status
 app = dash.Dash(
     __name__,
     use_pages=True,  # Enable multi-page support / 啟用多頁支援
+                     # Auto-discovers pages from ui/pages/ including strategy_detail.py
+                     # 自動發現 ui/pages/ 下的頁面，包含 strategy_detail.py (/strategy/<strategy_name>)
     external_stylesheets=[dbc.themes.DARKLY],  # T-074: Dark theme
     suppress_callback_exceptions=True,
     meta_tags=[

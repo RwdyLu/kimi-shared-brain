@@ -1305,7 +1305,7 @@ def update_strategy_ranking(n, selected_symbol):
             
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
-                html.Td(f"{strategy[:20]}", className="fw-bold"),
+                html.Td(dcc.Link(f"{strategy[:20]}", href=f"/strategy/{strategy}", className="fw-bold text-decoration-none")),
                 html.Td(f"{status_icon} {score:.1f}%", className=score_color),
             ]))
         
