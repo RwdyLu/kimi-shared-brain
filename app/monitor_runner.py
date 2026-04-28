@@ -611,6 +611,14 @@ class MonitorRunner:
         summary = self._build_run_summary(results)
         summary.errors = errors
 
+        # Generate live strategy ranking / 產生即時策略排行
+        try:
+            from scripts.live_strategy_ranking import generate_live_ranking
+            ranking = generate_live_ranking()
+            print(f"\n📊 Live strategy ranking generated: {ranking['total_strategies']} strategies x {ranking['total_symbols']} symbols")
+        except Exception as e:
+            print(f"\n⚠️ Live strategy ranking failed: {e}")
+
         # Display current prices for all symbols / 顯示所有標的的當前價格
         print("\n" + "-" * 70)
         print("CURRENT PRICES / 當前價格")
