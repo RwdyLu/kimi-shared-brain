@@ -294,9 +294,10 @@ class MonitoringScheduler:
 
             ranking = {"last_updated": datetime.now().isoformat(), "symbols": {}}
             all_strategy_names = [
-                "rsi_trend", "volume_profile", "parabolic_sar_t",
-                "composite_multi", "hilbert_cycle", "mfi_volume",
-                "adx_trend_stren", "stochastic_brea", "bb_mean_reversi", "macd_momentum",
+                "ma_cross_trend", "ma_cross_trend_short",
+                "contrarian_watch_overheated", "contrarian_watch_oversold",
+                "hilbert_cycle", "stochastic_breakout", "rsi_trend",
+                "bb_mean_reversion", "macd_momentum",
                 "ema_cross_fast", "rsi_mid_bounce", "volume_spike",
                 "price_channel_break", "momentum_divergence"
             ]
@@ -315,7 +316,10 @@ class MonitoringScheduler:
                 scores = {}
 
                 for sig in confirmed:
-                    name = sig.metadata.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
+                    # Debug: log metadata contents
+                    meta = getattr(sig, 'metadata', {})
+                    self._log(f"    DEBUG: sig.metadata type={type(meta)}, contents={meta}")
+                    name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
                     scores[name] = {
                         "name": name,
                         "status": "Confirmed",

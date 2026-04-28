@@ -443,11 +443,12 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
         if ranking_file.exists():
             with open(ranking_file, 'r') as f:
                 ranking_data = json.load(f)
-            symbol_scores = ranking_data.get("symbol_scores", {})
-            scores = symbol_scores.get(selected_symbol, [])
+            symbol_scores = ranking_data.get("symbols", {})
+            symbol_entry = symbol_scores.get(selected_symbol, {})
+            scores = symbol_entry.get("strategies", [])
             for s in scores:
-                if s.get("strategy") == strategy_name:
-                    score = f"{s.get('score', 0):.1f}"
+                if s.get("name") == strategy_name:
+                    score = f"{s.get('score', 0) * 100:.1f}"
                     break
     except Exception:
         pass
