@@ -293,16 +293,22 @@ class MonitoringScheduler:
             from pathlib import Path
 
             ranking = {"last_updated": datetime.now().isoformat(), "symbols": {}}
-            all_names = [
+            all_strategy_names = [
                 "rsi_trend", "volume_profile", "parabolic_sar_t",
                 "composite_multi", "hilbert_cycle", "mfi_volume",
-                "adx_trend_stren", "stochastic_brea", "bb_mean_reversi", "macd_momentum"
+                "adx_trend_stren", "stochastic_brea", "bb_mean_reversi", "macd_momentum",
+                "ema_cross_fast", "rsi_mid_bounce", "volume_spike",
+                "price_channel_break", "momentum_divergence"
             ]
 
+            # Process symbols that were actually monitored
+            monitored_symbols = set()
             for result in results:
                 if not result.success:
                     continue
                 symbol = result.symbol
+                monitored_symbols.add(symbol)
+                
                 symbol_data = {"price": getattr(result, 'current_price', 0), "strategies": []}
                 confirmed = getattr(result, 'confirmed_signals', []) or []
                 watch_only = getattr(result, 'watch_only_signals', []) or []
@@ -329,7 +335,7 @@ class MonitoringScheduler:
                             "total_conditions": getattr(sig, 'total_conditions', 0)
                         }
 
-                for name in all_names:
+                for name in all_strategy_names:
                     if name not in scores:
                         scores[name] = {
                             "name": name,
@@ -342,15 +348,52 @@ class MonitoringScheduler:
                 symbol_data["strategies"] = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
                 ranking["symbols"][symbol] = symbol_data
 
+            # Ensure all 10 symbols are present, even if not monitored this run
+            all_symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+                          "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"]
+            
+            for symbol in all_symbols:
+                if symbol not in ranking["symbols"]:
+                    # Read previous data if available, otherwise create Idle entry
+                    prev_data = self._load_previous_ranking_for_symbol(symbol)
+                    if prev_data:
+                        ranking["symbols"][symbol] = prev_data
+                    else:
+                        ranking["symbols"][symbol] = {
+                            "price": 0,
+                            "strategies": [
+                                {
+                                    "name": name,
+                                    "status": "Idle",
+                                    "score": 0.0,
+                                    "conditions_passed": 0,
+                                    "total_conditions": 0
+                                }
+                                for name in all_strategy_names
+                            ]
+                        }
+
             STATE_DIR.mkdir(parents=True, exist_ok=True)
             ranking_file = STATE_DIR / "live_strategy_ranking.json"
             with open(ranking_file, 'w') as f:
                 json.dump(ranking, f, indent=2)
 
-            self._log(f"  Live ranking updated: {list(ranking['symbols'].keys())}")
+            self._log(f"  Live ranking updated: {len(monitored_symbols)} monitored, all 10 symbols present")
 
         except Exception as e:
             self._log(f"  Live ranking update error: {e}")
+
+    def _load_previous_ranking_for_symbol(self, symbol: str) -> dict:
+        """Load previous ranking data for a symbol if available / 載入該幣種之前的排名資料"""
+        try:
+            ranking_file = STATE_DIR / "live_strategy_ranking.json"
+            if not ranking_file.exists():
+                return None
+            with open(ranking_file, 'r') as f:
+                data = json.load(f)
+            return data.get("symbols", {}).get(symbol)
+        except Exception:
+            return None
 
     def _run_monitor(self) -> RunRecord:
         """

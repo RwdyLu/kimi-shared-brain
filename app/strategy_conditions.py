@@ -66,6 +66,12 @@ class StrategyConditions:
             "rsi_cross_above_30": self._check_rsi_cross_above_30,
             "rsi_below_30": self._check_rsi_below_30,
             "price_below_bb_lower": self._check_price_below_bb_lower,
+            # High-frequency strategy conditions / 高頻策略條件
+            "ema5_cross_above_ema10": self._check_ema5_cross_above_ema10,
+            "rsi_cross_above_40": self._check_rsi_cross_above_40,
+            "volume_above_avg_1_5x": self._check_volume_above_avg_1_5x,
+            "price_above_20period_high": self._check_price_above_20period_high,
+            "bullish_divergence_rsi": self._check_bullish_divergence_rsi,
         }
     
     def check_condition(
@@ -707,4 +713,167 @@ class StrategyConditions:
                 result=ConditionResult.FAILED,
                 details={"price": price, "bb_lower": bb_lower},
                 message=f"Price ${price:.2f} above BB lower ${bb_lower:.2f}"
+            )
+
+    # ===================================================================
+    # High-frequency strategy conditions / 高頻策略條件
+    # ===================================================================
+
+    def _check_ema5_cross_above_ema10(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
+        """Check if EMA5 crosses above EMA10 / 檢查EMA5是否上穿EMA10"""
+        ema5 = data.get("ema5")
+        ema10 = data.get("ema10")
+        
+        if ema5 is None or ema10 is None:
+            return ConditionCheck(
+                condition="ema5_cross_above_ema10",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="EMA5 or EMA10 data missing"
+            )
+        
+        if ema5 > ema10:
+            return ConditionCheck(
+                condition="ema5_cross_above_ema10",
+                result=ConditionResult.PASSED,
+                details={"ema5": ema5, "ema10": ema10, "diff": ema5 - ema10},
+                message=f"EMA5 ({ema5:.2f}) above EMA10 ({ema10:.2f})"
+            )
+        else:
+            return ConditionCheck(
+                condition="ema5_cross_above_ema10",
+                result=ConditionResult.FAILED,
+                details={"ema5": ema5, "ema10": ema10},
+                message=f"EMA5 ({ema5:.2f}) not above EMA10 ({ema10:.2f})"
+            )
+
+    def _check_rsi_cross_above_40(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
+        """Check if RSI crosses above 40 / 檢查RSI是否上穿40"""
+        rsi = data.get("rsi")
+        
+        if rsi is None:
+            return ConditionCheck(
+                condition="rsi_cross_above_40",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="RSI data missing"
+            )
+        
+        if rsi > 40:
+            return ConditionCheck(
+                condition="rsi_cross_above_40",
+                result=ConditionResult.PASSED,
+                details={"rsi": rsi},
+                message=f"RSI {rsi:.1f} above 40"
+            )
+        else:
+            return ConditionCheck(
+                condition="rsi_cross_above_40",
+                result=ConditionResult.FAILED,
+                details={"rsi": rsi},
+                message=f"RSI {rsi:.1f} not above 40"
+            )
+
+    def _check_volume_above_avg_1_5x(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
+        """Check if volume is above 1.5x average / 檢查成交量是否超過均量1.5倍"""
+        volume_ratio = data.get("volume_ratio")
+        
+        if volume_ratio is None:
+            return ConditionCheck(
+                condition="volume_above_avg_1_5x",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Volume ratio data missing"
+            )
+        
+        threshold = 1.5
+        if volume_ratio > threshold:
+            return ConditionCheck(
+                condition="volume_above_avg_1_5x",
+                result=ConditionResult.PASSED,
+                details={"volume_ratio": volume_ratio, "threshold": threshold},
+                message=f"Volume {volume_ratio:.2f}x above threshold {threshold}x"
+            )
+        else:
+            return ConditionCheck(
+                condition="volume_above_avg_1_5x",
+                result=ConditionResult.FAILED,
+                details={"volume_ratio": volume_ratio, "threshold": threshold},
+                message=f"Volume {volume_ratio:.2f}x below threshold {threshold}x"
+            )
+
+    def _check_price_above_20period_high(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
+        """Check if price is above 20-period high / 檢查價格是否突破20期高點"""
+        price = data.get("price")
+        highs = data.get("highs")
+        
+        if price is None or highs is None or len(highs) < 20:
+            return ConditionCheck(
+                condition="price_above_20period_high",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Price or highs data missing (need 20 periods)"
+            )
+        
+        period_high = max(highs[-20:])
+        
+        if price > period_high:
+            return ConditionCheck(
+                condition="price_above_20period_high",
+                result=ConditionResult.PASSED,
+                details={"price": price, "period_high": period_high},
+                message=f"Price ${price:.2f} above 20-period high ${period_high:.2f}"
+            )
+        else:
+            return ConditionCheck(
+                condition="price_above_20period_high",
+                result=ConditionResult.FAILED,
+                details={"price": price, "period_high": period_high},
+                message=f"Price ${price:.2f} below 20-period high ${period_high:.2f}"
+            )
+
+    def _check_bullish_divergence_rsi(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
+        """Check for bullish RSI divergence / 檢查RSI底背離"""
+        closes = data.get("closes")
+        rsi_values = data.get("rsi_values")
+        
+        if closes is None or rsi_values is None or len(closes) < 14 or len(rsi_values) < 14:
+            return ConditionCheck(
+                condition="bullish_divergence_rsi",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Price or RSI history missing (need 14 periods)"
+            )
+        
+        # Simple divergence check: compare last 5 periods
+        # Price makes lower low but RSI makes higher low
+        price_low_1 = min(closes[-10:-5])
+        price_low_2 = min(closes[-5:])
+        rsi_low_1 = min(rsi_values[-10:-5])
+        rsi_low_2 = min(rsi_values[-5:])
+        
+        price_lower_low = price_low_2 < price_low_1
+        rsi_higher_low = rsi_low_2 > rsi_low_1
+        
+        if price_lower_low and rsi_higher_low:
+            return ConditionCheck(
+                condition="bullish_divergence_rsi",
+                result=ConditionResult.PASSED,
+                details={
+                    "price_low_1": price_low_1,
+                    "price_low_2": price_low_2,
+                    "rsi_low_1": rsi_low_1,
+                    "rsi_low_2": rsi_low_2
+                },
+                message=f"Bullish divergence: price lower low ({price_low_2:.2f} < {price_low_1:.2f}), RSI higher low ({rsi_low_2:.1f} > {rsi_low_1:.1f})"
+            )
+        else:
+            return ConditionCheck(
+                condition="bullish_divergence_rsi",
+                result=ConditionResult.FAILED,
+                details={
+                    "price_lower_low": price_lower_low,
+                    "rsi_higher_low": rsi_higher_low
+                },
+                message="No bullish divergence detected"
             )

@@ -321,6 +321,115 @@
       "backtest_rank": 4,
       "backtest_score": 0.56,
       "source": "freqtrade_open_source"
+    },
+    {
+      "id": "ema_cross_fast",
+      "name": "EMA Cross Fast",
+      "name_zh": "快速EMA交叉",
+      "type": "trend",
+      "enabled": true,
+      "description": "Fast EMA crossover for short-term trend detection",
+      "description_zh": "快速EMA交叉檢測短期趨勢",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+      ],
+      "timeframes": ["5m"],
+      "indicators": ["EMA"],
+      "conditions": ["ema5_cross_above_ema10"],
+      "parameters": {
+        "ema_fast": 5,
+        "ema_slow": 10
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "rsi_mid_bounce",
+      "name": "RSI Mid Bounce",
+      "name_zh": "RSI中線反彈",
+      "type": "reversal",
+      "enabled": true,
+      "description": "RSI bounce from below 40 to mid zone",
+      "description_zh": "RSI從40下方反彈回中線區間",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+      ],
+      "timeframes": ["15m"],
+      "indicators": ["RSI"],
+      "conditions": ["rsi_cross_above_40"],
+      "parameters": {
+        "rsi_period": 14,
+        "rsi_threshold": 40
+      },
+      "signal_type": "reversal_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "volume_spike",
+      "name": "Volume Spike",
+      "name_zh": "成交量突增",
+      "type": "momentum",
+      "enabled": true,
+      "description": "Volume spike above 1.5x average",
+      "description_zh": "成交量突增超過均量1.5倍",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+      ],
+      "timeframes": ["5m"],
+      "indicators": ["Volume"],
+      "conditions": ["volume_above_avg_1_5x"],
+      "parameters": {
+        "volume_period": 20,
+        "volume_multiplier": 1.5
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "price_channel_break",
+      "name": "Price Channel Break",
+      "name_zh": "價格通道突破",
+      "type": "breakout",
+      "enabled": true,
+      "description": "Breakout from 20-period high/low channel",
+      "description_zh": "突破20期高點/低點通道",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+      ],
+      "timeframes": ["1h"],
+      "indicators": ["PriceChannel"],
+      "conditions": ["price_above_20period_high"],
+      "parameters": {
+        "channel_period": 20
+      },
+      "signal_type": "breakout_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "momentum_divergence",
+      "name": "Momentum Divergence",
+      "name_zh": "動能背離",
+      "type": "reversal",
+      "enabled": true,
+      "description": "Bullish divergence: price lower low, RSI higher low",
+      "description_zh": "底背離：價格新低但RSI未新低",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+      ],
+      "timeframes": ["4h"],
+      "indicators": ["RSI", "Price"],
+      "conditions": ["bullish_divergence_rsi"],
+      "parameters": {
+        "lookback_period": 14,
+        "divergence_threshold": 0.02
+      },
+      "signal_type": "reversal_long",
+      "signal_level": "watch_only"
     }
   ],
   "registry_settings": {
