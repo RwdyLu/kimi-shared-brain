@@ -47,10 +47,10 @@ class NotificationFormatter:
     
     # Signal type display names / 訊號類型顯示名稱
     SIGNAL_NAMES = {
-        SignalType.TREND_LONG: ("📈 TREND LONG", "📈 順勢做多提醒"),
-        SignalType.TREND_SHORT: ("📉 TREND SHORT", "📉 順勢做空提醒"),
-        SignalType.CONTRARIAN_WATCH_OVERHEATED: ("🔥 CONTRARIAN WATCH", "🔥 逆勢觀察：過熱"),
-        SignalType.CONTRARIAN_WATCH_OVERSOLD: ("❄️ CONTRARIAN WATCH", "❄️ 逆勢觀察：超跌")
+        SignalType.MA_CROSS_TREND: ("📈 TREND LONG", "📈 順勢做多提醒"),
+        SignalType.MA_CROSS_TREND_SHORT: ("📉 TREND SHORT", "📉 順勢做空提醒"),
+        SignalType.CONTRARIAN_OVERHEATED: ("🔥 CONTRARIAN WATCH", "🔥 逆勢觀察：過熱"),
+        SignalType.CONTRARIAN_OVERSOLD: ("❄️ CONTRARIAN WATCH", "❄️ 逆勢觀察：超跌")
     }
     
     # Level indicators / 層級指示器
@@ -61,25 +61,25 @@ class NotificationFormatter:
     
     # Chinese readable signal descriptions / 中文可讀訊號描述
     SIGNAL_DESCRIPTIONS_ZH = {
-        SignalType.TREND_LONG: {
+        SignalType.MA_CROSS_TREND: {
             "name": "順勢做多提醒",
             "emoji": "📈",
             "description": "價格突破均線，成交量放大，可能開啟上漲趨勢",
             "action": "可考慮順勢做多，設定止損"
         },
-        SignalType.TREND_SHORT: {
+        SignalType.MA_CROSS_TREND_SHORT: {
             "name": "順勢做空提醒",
             "emoji": "📉",
             "description": "價格跌破均線，成交量放大，可能開啟下跌趨勢",
             "action": "可考慮順勢做空，設定止損"
         },
-        SignalType.CONTRARIAN_WATCH_OVERHEATED: {
+        SignalType.CONTRARIAN_OVERHEATED: {
             "name": "逆勢觀察：過熱",
             "emoji": "🔥",
             "description": "連續上漲後出現過熱訊號，可能面臨回調",
             "action": "僅供觀察，等待確認訊號，不要追多"
         },
-        SignalType.CONTRARIAN_WATCH_OVERSOLD: {
+        SignalType.CONTRARIAN_OVERSOLD: {
             "name": "逆勢觀察：超跌",
             "emoji": "❄️",
             "description": "連續下跌後出現超跌訊號，可能面臨反彈",
@@ -515,7 +515,7 @@ if __name__ == "__main__":
     import time
     
     sample_signal = Signal(
-        signal_type=SignalType.TREND_LONG,
+        signal_type=SignalType.MA_CROSS_TREND,
         level=SignalLevel.CONFIRMED,
         symbol="BTCUSDT",
         timestamp=int(time.time() * 1000),

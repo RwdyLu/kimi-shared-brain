@@ -104,9 +104,9 @@ class Notifier:
         """Get color for signal type / 取得訊號類型的顏色"""
         if signal.level == SignalLevel.WATCH_ONLY:
             return "yellow"
-        elif signal.signal_type == SignalType.TREND_LONG:
+        elif signal.signal_type == SignalType.MA_CROSS_TREND:
             return "green"
-        elif signal.signal_type == SignalType.TREND_SHORT:
+        elif signal.signal_type == SignalType.MA_CROSS_TREND_SHORT:
             return "red"
         return "cyan"
     

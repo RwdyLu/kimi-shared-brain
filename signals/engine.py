@@ -54,17 +54,20 @@ from config.loader import get_signal_params, get_cooldown_minutes, get_enabled_s
 
 class SignalType(Enum):
     """Signal types / 訊號類型"""
-    TREND_LONG = "trend_long"
-    TREND_SHORT = "trend_short"
-    CONTRARIAN_WATCH_OVERHEATED = "contrarian_watch_overheated"
-    CONTRARIAN_WATCH_OVERSOLD = "contrarian_watch_oversold"
-    # Extended signal types for all 13 strategies
-    CYCLE = "cycle"
-    BREAKOUT = "breakout"
-    MOMENTUM = "momentum"
-    MEAN_REVERSION = "mean_reversion"
-    REVERSAL_LONG = "reversal_long"
-    BREAKOUT_LONG = "breakout_long"
+    # 13 unique strategy signal types
+    MA_CROSS_TREND = "ma_cross_trend"
+    MA_CROSS_TREND_SHORT = "ma_cross_trend_short"
+    CONTRARIAN_OVERHEATED = "contrarian_overheated"
+    CONTRARIAN_OVERSOLD = "contrarian_oversold"
+    HILBERT_CYCLE = "hilbert_cycle"
+    STOCHASTIC_BREAKOUT = "stochastic_breakout"
+    RSI_TREND = "rsi_trend"
+    BB_MEAN_REVERSION = "bb_mean_reversion"
+    EMA_CROSS_FAST = "ema_cross_fast"
+    RSI_MID_BOUNCE = "rsi_mid_bounce"
+    VOLUME_SPIKE = "volume_spike"
+    PRICE_CHANNEL_BREAK = "price_channel_break"
+    MOMENTUM_DIVERGENCE = "momentum_divergence"
     # Exit signal types for position management
     EXIT_LONG = "exit_long"
     EXIT_SHORT = "exit_short"
@@ -165,13 +168,13 @@ class CooldownManager:
     
     def get_cooldown_seconds(self, signal_type: SignalType) -> int:
         """Get cooldown period for signal type / 取得訊號類型的冷卻期"""
-        if signal_type == SignalType.TREND_LONG:
+        if signal_type == SignalType.MA_CROSS_TREND:
             return self.config.trend_long_seconds
-        elif signal_type == SignalType.TREND_SHORT:
+        elif signal_type == SignalType.MA_CROSS_TREND_SHORT:
             return self.config.trend_short_seconds
         elif signal_type in [
-            SignalType.CONTRARIAN_WATCH_OVERHEATED,
-            SignalType.CONTRARIAN_WATCH_OVERSOLD
+            SignalType.CONTRARIAN_OVERHEATED,
+            SignalType.CONTRARIAN_OVERSOLD
         ]:
             return self.config.contrarian_watch_seconds
         return 0
@@ -369,7 +372,7 @@ class SignalEngine:
         # Check overheated (4 consecutive red)
         red_result = detect_four_consecutive_red(candles_15m)
         if red_result.pattern_detected:
-            return SignalType.CONTRARIAN_WATCH_OVERHEATED, {
+            return SignalType.CONTRARIAN_OVERHEATED, {
                 "pattern": red_result,
                 "type": "overheated"
             }
@@ -377,7 +380,7 @@ class SignalEngine:
         # Check oversold (4 consecutive green)
         green_result = detect_four_consecutive_green(candles_15m)
         if green_result.pattern_detected:
-            return SignalType.CONTRARIAN_WATCH_OVERSOLD, {
+            return SignalType.CONTRARIAN_OVERSOLD, {
                 "pattern": green_result,
                 "type": "oversold"
             }
@@ -403,7 +406,7 @@ class SignalEngine:
         Generate trend_long signal if conditions met / 若條件符合則產生 trend_long 訊號
         """
         # Check cooldown / 檢查冷卻
-        if not self.cooldown.can_emit(symbol, SignalType.TREND_LONG):
+        if not self.cooldown.can_emit(symbol, SignalType.MA_CROSS_TREND):
             return None
         
         # Check conditions / 檢查條件
@@ -419,7 +422,7 @@ class SignalEngine:
         vol_analysis = details.get("volume_analysis")
         
         signal = Signal(
-            signal_type=SignalType.TREND_LONG,
+            signal_type=SignalType.MA_CROSS_TREND,
             level=SignalLevel.CONFIRMED,
             symbol=symbol,
             timestamp=timestamp or int(time.time() * 1000),
@@ -439,7 +442,7 @@ class SignalEngine:
         )
         
         # Record emission / 記錄發送
-        self.cooldown.record_emission(symbol, SignalType.TREND_LONG)
+        self.cooldown.record_emission(symbol, SignalType.MA_CROSS_TREND)
         
         return signal
     
@@ -458,7 +461,7 @@ class SignalEngine:
         Generate trend_short signal if conditions met / 若條件符合則產生 trend_short 訊號
         """
         # Check cooldown / 檢查冷卻
-        if not self.cooldown.can_emit(symbol, SignalType.TREND_SHORT):
+        if not self.cooldown.can_emit(symbol, SignalType.MA_CROSS_TREND_SHORT):
             return None
         
         # Check conditions / 檢查條件
@@ -474,7 +477,7 @@ class SignalEngine:
         vol_analysis = details.get("volume_analysis")
         
         signal = Signal(
-            signal_type=SignalType.TREND_SHORT,
+            signal_type=SignalType.MA_CROSS_TREND_SHORT,
             level=SignalLevel.CONFIRMED,
             symbol=symbol,
             timestamp=timestamp or int(time.time() * 1000),
@@ -494,7 +497,7 @@ class SignalEngine:
         )
         
         # Record emission / 記錄發送
-        self.cooldown.record_emission(symbol, SignalType.TREND_SHORT)
+        self.cooldown.record_emission(symbol, SignalType.MA_CROSS_TREND_SHORT)
         
         return signal
     
@@ -536,7 +539,7 @@ class SignalEngine:
             reason=f"{symbol} 15m: {pattern_result.consecutive_count} consecutive {pattern_type} candles - potential reversal zone",
             warning="WATCH_ONLY_NOT_EXECUTION_SIGNAL",
             metadata={
-                "strategy_name": "contrarian_watch_overheated" if signal_type == SignalType.CONTRARIAN_WATCH_OVERHEATED else "contrarian_watch_oversold",
+                "strategy_name": "contrarian_watch_overheated" if signal_type == SignalType.CONTRARIAN_OVERHEATED else "contrarian_watch_oversold",
                 "conditions_passed": 1,
                 "conditions_total": 1
             }
@@ -712,7 +715,7 @@ class SignalEngine:
             if ma5_last > ma20_last and current_close > ma240_last:
                 vol_analysis = analyze_volume(current_volume, volumes_1m, period=20, threshold=1.0)
                 signals.append(Signal(
-                    signal_type=SignalType.TREND_LONG,
+                    signal_type=SignalType.MA_CROSS_TREND,
                     level=SignalLevel.CONFIRMED,
                     symbol="BACKTEST",
                     timestamp=int(time.time() * 1000),
@@ -727,7 +730,7 @@ class SignalEngine:
             if ma5_last < ma20_last and current_close < ma240_last:
                 vol_analysis = analyze_volume(current_volume, volumes_1m, period=20, threshold=1.0)
                 signals.append(Signal(
-                    signal_type=SignalType.TREND_SHORT,
+                    signal_type=SignalType.MA_CROSS_TREND_SHORT,
                     level=SignalLevel.CONFIRMED,
                     symbol="BACKTEST",
                     timestamp=int(time.time() * 1000),
@@ -750,7 +753,7 @@ class SignalEngine:
                 )
                 if conditions_met:
                     signals.append(Signal(
-                        signal_type=SignalType.TREND_LONG,
+                        signal_type=SignalType.MA_CROSS_TREND,
                         level=SignalLevel.CONFIRMED,
                         symbol="BACKTEST",
                         timestamp=int(time.time() * 1000),
@@ -774,7 +777,7 @@ class SignalEngine:
                 )
                 if conditions_met:
                     signals.append(Signal(
-                        signal_type=SignalType.TREND_SHORT,
+                        signal_type=SignalType.MA_CROSS_TREND_SHORT,
                         level=SignalLevel.CONFIRMED,
                         symbol="BACKTEST",
                         timestamp=int(time.time() * 1000),
@@ -863,13 +866,13 @@ class SignalEngine:
             訊號類型到剩餘冷卻秒數的字典
         """
         return {
-            "trend_long": self.cooldown.get_remaining_cooldown(symbol, SignalType.TREND_LONG),
-            "trend_short": self.cooldown.get_remaining_cooldown(symbol, SignalType.TREND_SHORT),
+            "trend_long": self.cooldown.get_remaining_cooldown(symbol, SignalType.MA_CROSS_TREND),
+            "trend_short": self.cooldown.get_remaining_cooldown(symbol, SignalType.MA_CROSS_TREND_SHORT),
             "contrarian_watch_overheated": self.cooldown.get_remaining_cooldown(
-                symbol, SignalType.CONTRARIAN_WATCH_OVERHEATED
+                symbol, SignalType.CONTRARIAN_OVERHEATED
             ),
             "contrarian_watch_oversold": self.cooldown.get_remaining_cooldown(
-                symbol, SignalType.CONTRARIAN_WATCH_OVERSOLD
+                symbol, SignalType.CONTRARIAN_OVERSOLD
             ),
             "exit_long": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_LONG),
             "exit_short": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_SHORT),

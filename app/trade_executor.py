@@ -47,14 +47,20 @@ class TradeExecutor:
 
     # Signal type → trade side mapping
     SIGNAL_TO_SIDE = {
-        SignalType.TREND_LONG: TradeSide.BUY,
-        SignalType.TREND_SHORT: TradeSide.SELL,
-        SignalType.CYCLE: TradeSide.BUY,
-        SignalType.BREAKOUT: TradeSide.BUY,
-        SignalType.MOMENTUM: TradeSide.BUY,
-        SignalType.MEAN_REVERSION: TradeSide.BUY,
-        SignalType.REVERSAL_LONG: TradeSide.BUY,
-        SignalType.BREAKOUT_LONG: TradeSide.BUY,
+        # 13 unique strategy signal types
+        SignalType.MA_CROSS_TREND: TradeSide.BUY,
+        SignalType.MA_CROSS_TREND_SHORT: TradeSide.SELL,
+        SignalType.CONTRARIAN_OVERHEATED: TradeSide.BUY,
+        SignalType.CONTRARIAN_OVERSOLD: TradeSide.BUY,
+        SignalType.HILBERT_CYCLE: TradeSide.BUY,
+        SignalType.STOCHASTIC_BREAKOUT: TradeSide.BUY,
+        SignalType.RSI_TREND: TradeSide.BUY,
+        SignalType.BB_MEAN_REVERSION: TradeSide.BUY,
+        SignalType.EMA_CROSS_FAST: TradeSide.BUY,
+        SignalType.RSI_MID_BOUNCE: TradeSide.BUY,
+        SignalType.VOLUME_SPIKE: TradeSide.BUY,
+        SignalType.PRICE_CHANNEL_BREAK: TradeSide.BUY,
+        SignalType.MOMENTUM_DIVERGENCE: TradeSide.BUY,
         # Exit signals
         SignalType.EXIT_LONG: TradeSide.SELL,   # Close long position
         SignalType.EXIT_SHORT: TradeSide.BUY,   # Close short position
@@ -62,9 +68,13 @@ class TradeExecutor:
 
     # Entry vs exit signal classification
     ENTRY_SIGNALS = {
-        SignalType.TREND_LONG, SignalType.TREND_SHORT, SignalType.CYCLE,
-        SignalType.BREAKOUT, SignalType.MOMENTUM, SignalType.MEAN_REVERSION,
-        SignalType.REVERSAL_LONG, SignalType.BREAKOUT_LONG,
+        SignalType.MA_CROSS_TREND, SignalType.MA_CROSS_TREND_SHORT,
+        SignalType.CONTRARIAN_OVERHEATED, SignalType.CONTRARIAN_OVERSOLD,
+        SignalType.HILBERT_CYCLE, SignalType.STOCHASTIC_BREAKOUT,
+        SignalType.RSI_TREND, SignalType.BB_MEAN_REVERSION,
+        SignalType.EMA_CROSS_FAST, SignalType.RSI_MID_BOUNCE,
+        SignalType.VOLUME_SPIKE, SignalType.PRICE_CHANNEL_BREAK,
+        SignalType.MOMENTUM_DIVERGENCE,
     }
     EXIT_SIGNALS = {SignalType.EXIT_LONG, SignalType.EXIT_SHORT}
 

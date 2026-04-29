@@ -153,7 +153,7 @@ class StrategyExecutor:
         warning = strategy.get("warning", "")
         
         # Map signal type string to enum
-        signal_type = self._map_signal_type(signal_type_str)
+        signal_type = self._map_signal_type(strategy_id)
         signal_level = self._map_signal_level(signal_level_str)
         
         # Check all conditions
@@ -208,21 +208,24 @@ class StrategyExecutor:
         
         return None
     
-    def _map_signal_type(self, signal_type_str: str) -> SignalType:
-        """Map string to SignalType enum / 將字串對應到 SignalType 列舉"""
+    def _map_signal_type(self, strategy_id: str) -> SignalType:
+        """Map strategy_id to unique SignalType enum / 將策略 ID 對應到唯一 SignalType"""
         mapping = {
-            "trend_long": SignalType.TREND_LONG,
-            "trend_short": SignalType.TREND_SHORT,
-            "contrarian_watch_overheated": SignalType.CONTRARIAN_WATCH_OVERHEATED,
-            "contrarian_watch_oversold": SignalType.CONTRARIAN_WATCH_OVERSOLD,
-            "cycle": SignalType.CYCLE,
-            "breakout": SignalType.BREAKOUT,
-            "momentum": SignalType.MOMENTUM,
-            "mean_reversion": SignalType.MEAN_REVERSION,
-            "reversal_long": SignalType.REVERSAL_LONG,
-            "breakout_long": SignalType.BREAKOUT_LONG,
+            "ma_cross_trend": SignalType.MA_CROSS_TREND,
+            "ma_cross_trend_short": SignalType.MA_CROSS_TREND_SHORT,
+            "contrarian_watch_overheated": SignalType.CONTRARIAN_OVERHEATED,
+            "contrarian_watch_oversold": SignalType.CONTRARIAN_OVERSOLD,
+            "hilbert_cycle": SignalType.HILBERT_CYCLE,
+            "stochastic_breakout": SignalType.STOCHASTIC_BREAKOUT,
+            "rsi_trend": SignalType.RSI_TREND,
+            "bb_mean_reversion": SignalType.BB_MEAN_REVERSION,
+            "ema_cross_fast": SignalType.EMA_CROSS_FAST,
+            "rsi_mid_bounce": SignalType.RSI_MID_BOUNCE,
+            "volume_spike": SignalType.VOLUME_SPIKE,
+            "price_channel_break": SignalType.PRICE_CHANNEL_BREAK,
+            "momentum_divergence": SignalType.MOMENTUM_DIVERGENCE,
         }
-        return mapping.get(signal_type_str, SignalType.TREND_LONG)
+        return mapping.get(strategy_id, SignalType.MA_CROSS_TREND)
     
     def _map_signal_level(self, signal_level_str: str) -> SignalLevel:
         """Map string to SignalLevel enum / 將字串對應到 SignalLevel 列舉"""
