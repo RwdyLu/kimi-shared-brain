@@ -46,6 +46,59 @@ def get_strategy_display_name(strategy_id: str) -> str:
     names = _load_display_names()
     return names.get(strategy_id, strategy_id)
 
+# ─── Paper Trading summary helpers / Paper Trading 總覽輔助 ───
+_PAPER_STATE_FILE = project_root / "state" / "paper_trading_state.json"
+
+def load_paper_summary() -> dict:
+    """Load paper trading state and compute summary metrics / 載入模擬交易狀態並計算總覽指標"""
+    try:
+        if not _PAPER_STATE_FILE.exists():
+            return {}
+        with open(_PAPER_STATE_FILE, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+    except Exception:
+        return {}
+
+    initial = state.get("initial_balance", 10000.0)
+    current = state.get("balance", initial)
+    total_return_pct = (current / initial - 1) * 100 if initial else 0
+    total_pnl = current - initial
+
+    positions = state.get("positions", {})
+    open_count = len(positions)
+
+    # Max hold time / 最大持倉時間
+    max_hold_hours = 0
+    now = datetime.now()
+    for sym, pos in positions.items():
+        entry_time_str = pos.get("entry_time")
+        if entry_time_str:
+            try:
+                entry_time = datetime.fromisoformat(entry_time_str)
+                hold_hours = (now - entry_time).total_seconds() / 3600
+                if hold_hours > max_hold_hours:
+                    max_hold_hours = hold_hours
+            except Exception:
+                pass
+
+    # Today's realized PnL / 今日已實現損益
+    today_pnl = 0.0
+    today_str = now.strftime("%Y-%m-%d")
+    for t in state.get("trades", []):
+        exit_time = t.get("exit_time")
+        if exit_time and exit_time.startswith(today_str):
+            today_pnl += t.get("realized_pnl", 0)
+
+    return {
+        "initial_balance": initial,
+        "current_balance": current,
+        "total_pnl": total_pnl,
+        "total_return_pct": total_return_pct,
+        "open_positions": open_count,
+        "max_hold_hours": max_hold_hours,
+        "today_pnl": today_pnl,
+    }
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/", title="Dashboard")
 
@@ -68,6 +121,79 @@ layout = dbc.Container(
         ]),
         
         html.Hr(),
+        
+        # ─── New Feature A: Paper Trading Summary / Paper Trading 總覽 ───
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Balance / 目前餘額", className="text-muted mb-1"),
+                            html.H4(id="paper-balance", children="$--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Initial / 初始資金", className="text-muted mb-1"),
+                            html.H4(id="paper-initial", children="$--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Total PnL / 總損益", className="text-muted mb-1"),
+                            html.H4(id="paper-pnl", children="--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Open Pos / 開倉數", className="text-muted mb-1"),
+                            html.H4(id="paper-open", children="--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Today PnL / 今日損益", className="text-muted mb-1"),
+                            html.H4(id="paper-today", children="--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6("Max Hold / 最大持倉", className="text-muted mb-1"),
+                            html.H4(id="paper-max-hold", children="--")
+                        ]),
+                        color="light",
+                        className="mb-3"
+                    ),
+                    width=6, md=2
+                ),
+            ],
+            className="mb-2"
+        ),
         
         # T-074: Three Column Layout / 三欄布局
         dbc.Row(
@@ -1500,3 +1626,57 @@ def update_discovery_count(n):
         return str(signals.get("total", 0))
     except Exception:
         return "0"
+
+
+# ─── New Feature A: Paper Trading Summary Callback / Paper Trading 總覽回調 ───
+@callback(
+    Output("paper-balance", "children"),
+    Output("paper-initial", "children"),
+    Output("paper-pnl", "children"),
+    Output("paper-open", "children"),
+    Output("paper-today", "children"),
+    Output("paper-max-hold", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_paper_summary(n):
+    """Update paper trading summary cards / 更新模擬交易總覽卡片"""
+    summary = load_paper_summary()
+    
+    if not summary:
+        return "$--", "$--", "--", "--", "--", "--"
+    
+    initial = summary["initial_balance"]
+    current = summary["current_balance"]
+    total_pnl = summary["total_pnl"]
+    total_return_pct = summary["total_return_pct"]
+    open_count = summary["open_positions"]
+    today_pnl = summary["today_pnl"]
+    max_hold = summary["max_hold_hours"]
+    
+    # Color formatting / 顏色格式
+    pnl_color = "text-success" if total_pnl >= 0 else "text-danger"
+    today_color = "text-success" if today_pnl >= 0 else "text-danger"
+    
+    # Max hold warning / 持倉時間警告
+    if max_hold > 6:
+        hold_display = html.Span(f"{max_hold:.1f}h ⚠️", className="text-danger fw-bold")
+    elif max_hold > 0:
+        hold_display = html.Span(f"{max_hold:.1f}h", className="text-muted")
+    else:
+        hold_display = html.Span("--", className="text-muted")
+    
+    return (
+        f"${current:,.2f}",
+        f"${initial:,.2f}",
+        html.Span(
+            f"${total_pnl:+.2f} ({total_return_pct:+.1f}%)",
+            className=pnl_color
+        ),
+        str(open_count),
+        html.Span(
+            f"${today_pnl:+.2f}",
+            className=today_color
+        ),
+        hold_display,
+    )
+
