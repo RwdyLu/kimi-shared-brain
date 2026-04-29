@@ -230,6 +230,22 @@ class PaperTrading:
             trade.exit_time = datetime.now()
             trade.commission += commission
             trade.realized_pnl = pnl
+        else:
+            # No matching trade record found (e.g., after state load)
+            # Create a new record for the exit
+            trade = SimulatedTrade(
+                trade_id=f"sim_{datetime.now().strftime('%Y%m%d%H%M%S')}_{symbol}",
+                symbol=symbol,
+                side=position["side"],
+                quantity=position["quantity"],
+                entry_price=position["entry_price"],
+                entry_time=position.get("entry_time", datetime.now()),
+                exit_price=executed_price,
+                exit_time=datetime.now(),
+                commission=commission,
+                realized_pnl=pnl,
+            )
+            self.trades.append(trade)
 
         del self.positions[symbol]
 
@@ -314,8 +330,23 @@ class PaperTrading:
                 state = json.load(f)
             self.balance = state.get("balance", self.initial_balance)
             self.initial_balance = state.get("initial_balance", self.initial_balance)
-            # Positions and trades are not restored (simplified)
-            self.logger.info(f"Paper trading state loaded from {filepath}: balance=${self.balance:,.2f}")
+
+            # Restore positions
+            positions_data = state.get("positions", {})
+            for sym, pos_data in positions_data.items():
+                side = TradeSide(pos_data["side"])
+                entry_time = datetime.fromisoformat(pos_data["entry_time"]) if pos_data.get("entry_time") else datetime.now()
+                self.positions[sym] = {
+                    "side": side,
+                    "quantity": pos_data["quantity"],
+                    "entry_price": pos_data["entry_price"],
+                    "entry_time": entry_time,
+                }
+
+            self.logger.info(
+                f"Paper trading state loaded from {filepath}: balance=${self.balance:,.2f}, "
+                f"positions={len(self.positions)}"
+            )
             return True
         except Exception as e:
             self.logger.warning(f"Failed to load paper trading state: {e}")

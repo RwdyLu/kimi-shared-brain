@@ -449,22 +449,37 @@ class MonitoringScheduler:
 
             # Execute paper trades for confirmed signals / 對確認訊號執行模擬交易
             trades_executed = 0
-            if self.trade_executor and summary.confirmed_count > 0:
-                self._log("  [Phase 2] Executing paper trades...")
-                
-                # Collect confirmed signals and current prices
-                confirmed_signals = []
+            if self.trade_executor:
+                # Collect current prices from monitoring results
                 current_prices = {}
                 for result in results:
                     if result.success and result.current_price:
                         current_prices[result.symbol] = result.current_price
-                        if result.confirmed_signals:
-                            confirmed_signals.extend(result.confirmed_signals)
                 
-                # Execute trades
-                trade_results = self.trade_executor.execute_signals(
-                    confirmed_signals, current_prices
-                )
+                # Fix A: Time stop-loss check — exit positions held > 8 hours before processing new signals
+                time_stop_results = self.trade_executor.check_time_stop_loss(current_prices)
+                for tsr in time_stop_results:
+                    status_icon = "⏰" if tsr.status == "time_stopped" else "⏭️"
+                    self._log(f"    {status_icon} {tsr.symbol}: {tsr.side.upper()} {tsr.status} — {tsr.reason}")
+                    if tsr.trade_id:
+                        self._log(f"       qty={tsr.quantity:.6f} @ ${tsr.entry_price:,.2f}")
+                
+                if time_stop_results:
+                    self._log(f"  Time stop-loss: {len(time_stop_results)} positions auto-exited")
+                
+                if summary.confirmed_count > 0:
+                    self._log("  [Phase 2] Executing paper trades...")
+                    
+                    # Collect confirmed signals
+                    confirmed_signals = []
+                    for result in results:
+                        if result.success and result.confirmed_signals:
+                            confirmed_signals.extend(result.confirmed_signals)
+                    
+                    # Execute trades
+                    trade_results = self.trade_executor.execute_signals(
+                        confirmed_signals, current_prices
+                    )
                 trades_executed = len([t for t in trade_results if t.status == "executed"])
                 
                 for tr in trade_results:
