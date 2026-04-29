@@ -41,7 +41,7 @@ class MonitorService:
         self.base_path = Path(base_path) if base_path else PROJECT_ROOT
         self.log_file = self.base_path / "logs" / "scheduler.log"
         self.daemon_log = self.base_path / "logs" / "monitor_daemon.log"
-        self.pid_file = self.base_path / ".monitor.pid"
+        self.pid_file = STATE_DIR / ".monitor.pid"  # T-XXX: Fix - scheduler writes to STATE_DIR, not PROJECT_ROOT
         self.alerts_dir = self.base_path / "alerts"
     
     def _read_log_lines(self) -> List[str]:

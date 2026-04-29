@@ -431,7 +431,8 @@ class SignalEngine:
             },
             conditions=analysis["conditions"],
             reason=f"{symbol}: close > MA240, MA5 crossed above MA20, volume {vol_analysis.ratio:.2f}x average",
-            warning="ALERT_ONLY_NO_AUTO_TRADE"
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "ma_cross_trend", "conditions_passed": len([c for c in analysis["conditions"].values() if c]), "conditions_total": len(analysis["conditions"])}
         )
         
         # Record emission / 記錄發送

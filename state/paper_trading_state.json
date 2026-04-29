@@ -1,0 +1,160 @@
+{
+  "balance": 6554.79895728016,
+  "initial_balance": 10000,
+  "positions": {
+    "BTCUSDT": {
+      "side": "sell",
+      "quantity": 0.008590518080194467,
+      "entry_price": 76206.67408073091,
+      "entry_time": "2026-04-29T23:11:07.819351"
+    },
+    "ETHUSDT": {
+      "side": "sell",
+      "quantity": 0.28634079563159237,
+      "entry_price": 2287.1397329679885,
+      "entry_time": "2026-04-29T23:11:08.019557"
+    },
+    "SOLUSDT": {
+      "side": "sell",
+      "quantity": 7.860413667442331,
+      "entry_price": 83.25694747280477,
+      "entry_time": "2026-04-29T23:11:08.219755"
+    },
+    "XRPUSDT": {
+      "side": "sell",
+      "quantity": 480.06437361067526,
+      "entry_price": 1.36427697454242,
+      "entry_time": "2026-04-29T23:11:08.419924"
+    },
+    "ADAUSDT": {
+      "side": "sell",
+      "quantity": 2672.1561179291316,
+      "entry_price": 0.2447618808964707,
+      "entry_time": "2026-04-29T23:11:08.620108"
+    },
+    "AVAXUSDT": {
+      "side": "sell",
+      "quantity": 71.63714707410011,
+      "entry_price": 9.134108759915476,
+      "entry_time": "2026-04-29T23:11:08.820279"
+    }
+  },
+  "trades": [
+    {
+      "trade_id": "PT_1",
+      "symbol": "BTCUSDT",
+      "side": "sell",
+      "quantity": 0.008590518080194467,
+      "entry_price": 76206.67408073091,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:07.819338",
+      "exit_time": null,
+      "slippage": -96.04591926909052,
+      "commission": 0.654654811522006,
+      "realized_pnl": 0.0
+    },
+    {
+      "trade_id": "PT_2",
+      "symbol": "ETHUSDT",
+      "side": "sell",
+      "quantity": 0.28634079563159237,
+      "entry_price": 2287.1397329679885,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:08.019544",
+      "exit_time": null,
+      "slippage": -2.020267032011361,
+      "commission": 0.6549014108586815,
+      "realized_pnl": 0.0
+    },
+    {
+      "trade_id": "PT_3",
+      "symbol": "SOLUSDT",
+      "side": "sell",
+      "quantity": 7.860413667442331,
+      "entry_price": 83.25694747280477,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:08.219744",
+      "exit_time": null,
+      "slippage": -0.13305252719523253,
+      "commission": 0.6544340478247629,
+      "realized_pnl": 0.0
+    },
+    {
+      "trade_id": "PT_4",
+      "symbol": "XRPUSDT",
+      "side": "sell",
+      "quantity": 480.06437361067526,
+      "entry_price": 1.36427697454242,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:08.419913",
+      "exit_time": null,
+      "slippage": -0.0011230254575800291,
+      "commission": 0.654940771215174,
+      "realized_pnl": 0.0
+    },
+    {
+      "trade_id": "PT_5",
+      "symbol": "ADAUSDT",
+      "side": "sell",
+      "quantity": 2672.1561179291316,
+      "entry_price": 0.2447618808964707,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:08.620097",
+      "exit_time": null,
+      "slippage": -0.0005381191035292998,
+      "commission": 0.6540419574733456,
+      "realized_pnl": 0.0
+    },
+    {
+      "trade_id": "PT_6",
+      "symbol": "AVAXUSDT",
+      "side": "sell",
+      "quantity": 71.63714707410011,
+      "entry_price": 9.134108759915476,
+      "exit_price": null,
+      "entry_time": "2026-04-29T23:11:08.820269",
+      "exit_time": null,
+      "slippage": -0.015891240084524583,
+      "commission": 0.654341492624891,
+      "realized_pnl": 0.0
+    }
+  ],
+  "equity_curve": [
+    {
+      "timestamp": "2026-04-29T23:11:07.819375",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    },
+    {
+      "timestamp": "2026-04-29T23:11:08.019580",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    },
+    {
+      "timestamp": "2026-04-29T23:11:08.219775",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    },
+    {
+      "timestamp": "2026-04-29T23:11:08.419945",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    },
+    {
+      "timestamp": "2026-04-29T23:11:08.620131",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    },
+    {
+      "timestamp": "2026-04-29T23:11:08.820300",
+      "balance": 6554.79895728016,
+      "unrealized_pnl": 0,
+      "total_equity": 6554.79895728016
+    }
+  ]
+}
