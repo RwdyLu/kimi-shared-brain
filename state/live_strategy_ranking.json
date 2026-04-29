@@ -1,8 +1,8 @@
 {
-  "last_updated": "2026-04-29T22:07:57.528461",
+  "last_updated": "2026-04-29T22:09:59.344677",
   "symbols": {
     "BTCUSDT": {
-      "price": 76644.36,
+      "price": 76590.45,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -98,7 +98,7 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2297.03,
+      "price": 2295.49,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -194,7 +194,7 @@
       ]
     },
     "BNBUSDT": {
-      "price": 621.24,
+      "price": 621.01,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -290,7 +290,7 @@
       ]
     },
     "SOLUSDT": {
-      "price": 83.82,
+      "price": 83.74,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -386,7 +386,7 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.3713,
+      "price": 1.3709,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -482,8 +482,22 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2469,
+      "price": 0.2468,
       "strategies": [
+        {
+          "name": "MA Cross Trend Short",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 3,
+          "total_conditions": 3
+        },
+        {
+          "name": "Volume Spike",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 1,
+          "total_conditions": 1
+        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -578,22 +592,8 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.10627,
+      "price": 0.10618,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -688,7 +688,7 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.19,
+      "price": 9.18,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -787,6 +787,20 @@
       "price": 9.2,
       "strategies": [
         {
+          "name": "MA Cross Trend Short",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 3,
+          "total_conditions": 3
+        },
+        {
+          "name": "Volume Spike",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 1,
+          "total_conditions": 1
+        },
+        {
           "name": "ma_cross_trend",
           "status": "Idle",
           "score": 0.0,
@@ -880,22 +894,8 @@
       ]
     },
     "DOTUSDT": {
-      "price": 1.227,
+      "price": 1.225,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",

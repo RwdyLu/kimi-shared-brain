@@ -50571,3 +50571,27 @@ Scheduler stopped by user / 排程器被使用者停止
 [2026-04-29 22:07:57]   Symbols: 10/10
 [2026-04-29 22:07:57]   Signals: 4 (Confirmed: 4, Watch: 0)
 [2026-04-29 22:07:57] Next run at 22:12:57 (in 5 min)
+[2026-04-29 22:09:42] 
+Scheduler stopped by user / 排程器被使用者停止
+[2026-04-29 22:09:42] Starting interval scheduler / 啟動間隔排程器
+[2026-04-29 22:09:42] Interval: 5 minutes / 間隔：5 分鐘
+[2026-04-29 22:09:42] Press Ctrl+C to stop / 按 Ctrl+C 停止
+[2026-04-29 22:09:42] ============================================================
+[2026-04-29 22:09:42] ============================================================
+[2026-04-29 22:09:42] Run #1 started at 2026-04-29 22:09:42.811946
+[2026-04-29 22:09:42] ============================================================
+[2026-04-29 22:09:58]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-04-29 22:09:58]   [Phase 2] Executing paper trades...
+[2026-04-29 22:09:59]     ✅ ADAUSDT: SELL executed
+[2026-04-29 22:09:59]        qty=4051.863857 @ $0.25
+[2026-04-29 22:09:59]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-29 22:09:59]     ✅ LINKUSDT: SELL executed
+[2026-04-29 22:09:59]        qty=108.695652 @ $9.18
+[2026-04-29 22:09:59]     ⏭️ LINKUSDT: BUY skipped
+[2026-04-29 22:09:59]   Paper Balance: $0.00
+[2026-04-29 22:09:59]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-04-29 22:09:59] Run #1 completed
+[2026-04-29 22:09:59]   Duration: 16.1s
+[2026-04-29 22:09:59]   Symbols: 10/10
+[2026-04-29 22:09:59]   Signals: 4 (Confirmed: 4, Watch: 0)
+[2026-04-29 22:09:59] Next run at 22:14:59 (in 5 min)

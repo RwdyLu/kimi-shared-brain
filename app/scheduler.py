@@ -317,6 +317,19 @@ class MonitoringScheduler:
                 for sig in confirmed:
                     meta = getattr(sig, 'metadata', {})
                     name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
+                    # Match by strategy_id if available, otherwise use strategy_name
+                    strategy_id = meta.get('strategy_id', name) if meta else name
+                    # Normalize: if strategy_name is a display name (e.g., "MA Cross Trend"), 
+                    # try to find the matching ID from all_strategy_names
+                    if name not in all_strategy_names:
+                        # Try to match by replacing spaces with underscores and lowercasing
+                        normalized = name.lower().replace(" ", "_").replace("-", "_")
+                        if normalized in all_strategy_names:
+                            name = normalized
+                        else:
+                            # Fallback: use strategy_id if available
+                            name = strategy_id
+                    
                     scores[name] = {
                         "name": name,
                         "status": "Confirmed",
@@ -326,7 +339,16 @@ class MonitoringScheduler:
                     }
 
                 for sig in watch_only:
-                    name = sig.metadata.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
+                    meta = getattr(sig, 'metadata', {})
+                    name = meta.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
+                    strategy_id = meta.get('strategy_id', name) if meta else name
+                    if name not in all_strategy_names:
+                        normalized = name.lower().replace(" ", "_").replace("-", "_")
+                        if normalized in all_strategy_names:
+                            name = normalized
+                        else:
+                            name = strategy_id
+                    
                     if name not in scores:
                         scores[name] = {
                             "name": name,
