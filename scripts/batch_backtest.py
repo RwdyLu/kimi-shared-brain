@@ -107,6 +107,8 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
             initial_capital=10000.0,
             stop_loss_pct=2.0,
             take_profit_pct=4.0,
+            strategy_id=strategy_id,
+            strategy_type=strategy_type,
         )
         
         # Calculate additional metrics

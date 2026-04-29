@@ -99,6 +99,8 @@ class BacktestConfig:
     start_date: str  # YYYY-MM-DD
     end_date: str    # YYYY-MM-DD
     strategy: str = "ma_cross"  # Strategy to test
+    strategy_id: Optional[str] = None  # Strategy ID from strategies.json / 策略ID
+    strategy_type: Optional[str] = None  # Strategy type / 策略類型
     initial_capital: float = 10000.0
     position_size_pct: float = 100.0  # Use full capital per trade
     

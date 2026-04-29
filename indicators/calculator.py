@@ -929,6 +929,144 @@ def calculate_ht_sine(closes: List[float]) -> Dict[str, List[float]]:
     return {"sine": sine, "leadsine": leadsine}
 
 
+def calculate_ema(closes: List[float], period: int) -> List[float]:
+    """
+    Calculate EMA (Exponential Moving Average) / 計算 EMA
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        period: EMA period / EMA 週期
+        
+    Returns:
+        List of EMA values / EMA 值列表
+    """
+    if len(closes) < period:
+        return []
+    
+    multiplier = 2.0 / (period + 1)
+    ema = [sum(closes[:period]) / period]
+    
+    for price in closes[period:]:
+        ema.append((price - ema[-1]) * multiplier + ema[-1])
+    
+    return ema
+
+
+def detect_ema_cross(ema_fast: List[float], ema_slow: List[float]) -> CrossType:
+    """
+    Detect EMA cross / 檢測 EMA 交叉
+    
+    Args:
+        ema_fast: Fast EMA values / 快線 EMA 值
+        ema_slow: Slow EMA values / 慢線 EMA 值
+        
+    Returns:
+        CrossType / 交叉類型
+    """
+    if len(ema_fast) < 2 or len(ema_slow) < 2:
+        return CrossType.NO_CROSS
+    
+    # Check last two values
+    fast_now = ema_fast[-1]
+    slow_now = ema_slow[-1]
+    fast_prev = ema_fast[-2]
+    slow_prev = ema_slow[-2]
+    
+    # Cross above: fast was below, now above
+    if fast_prev <= slow_prev and fast_now > slow_now:
+        return CrossType.CROSS_ABOVE
+    
+    # Cross below: fast was above, now below
+    if fast_prev >= slow_prev and fast_now < slow_now:
+        return CrossType.CROSS_BELOW
+    
+    return CrossType.NO_CROSS
+
+
+def calculate_price_channel(highs: List[float], lows: List[float], period: int = 20) -> Dict[str, List[float]]:
+    """
+    Calculate Price Channel / 計算價格通道
+    
+    Args:
+        highs: List of high prices / 最高價列表
+        lows: List of low prices / 最低價列表
+        period: Channel period (default: 20) / 通道週期
+        
+    Returns:
+        Dictionary with upper, lower channels / 上軌下軌字典
+    """
+    if len(highs) < period or len(lows) < period:
+        return {"upper": [], "lower": []}
+    
+    upper = []
+    lower = []
+    
+    for i in range(period - 1, len(highs)):
+        recent_highs = highs[i - period + 1:i + 1]
+        recent_lows = lows[i - period + 1:i + 1]
+        upper.append(max(recent_highs))
+        lower.append(min(recent_lows))
+    
+    return {"upper": upper, "lower": lower}
+
+
+def detect_volume_spike(volumes: List[float], current_idx: int, period: int = 20, multiplier: float = 1.5) -> bool:
+    """
+    Detect volume spike / 檢測成交量突增
+    
+    Args:
+        volumes: List of volume values / 成交量列表
+        current_idx: Current index / 當前索引
+        period: Average period (default: 20) / 平均週期
+        multiplier: Spike threshold (default: 1.5) / 突增閾值
+        
+    Returns:
+        True if volume spike detected / 是否有成交量突增
+    """
+    if current_idx < period:
+        return False
+    
+    recent_volumes = volumes[current_idx - period:current_idx]
+    avg_volume = sum(recent_volumes) / len(recent_volumes)
+    current_volume = volumes[current_idx]
+    
+    if avg_volume == 0:
+        return False
+    
+    return current_volume > avg_volume * multiplier
+
+
+def detect_momentum_divergence(closes: List[float], rsi_values: List[float], lookback: int = 14) -> bool:
+    """
+    Detect bullish momentum divergence / 檢測底背離
+    
+    Bullish divergence: price makes lower low, RSI makes higher low
+    底背離：價格創新低但 RSI 未創新低
+    
+    Args:
+        closes: List of closing prices / 收盤價列表
+        rsi_values: List of RSI values / RSI 值列表
+        lookback: Lookback period (default: 14) / 回顧週期
+        
+    Returns:
+        True if bullish divergence detected / 是否檢測到底背離
+    """
+    if len(closes) < lookback * 2 or len(rsi_values) < lookback * 2:
+        return False
+    
+    # Find recent low and previous low in price
+    recent_closes = closes[-lookback:]
+    previous_closes = closes[-lookback*2:-lookback]
+    
+    recent_rsi = rsi_values[-lookback:]
+    previous_rsi = rsi_values[-lookback*2:-lookback]
+    
+    price_lower_low = min(recent_closes) < min(previous_closes)
+    rsi_higher_low = min(recent_rsi) > min(previous_rsi)
+    
+    return price_lower_low and rsi_higher_low
+
+
 # Example usage / 使用範例
 if __name__ == "__main__":
     print("Indicator Calculator Module")

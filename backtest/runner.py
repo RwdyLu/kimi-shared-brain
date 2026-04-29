@@ -57,6 +57,10 @@ class BacktestRunner:
         self.fetcher = BinanceFetcher()
         self.signal_engine = SignalEngine()
 
+        # Strategy identification
+        self.strategy_id = config.strategy_id or config.strategy
+        self.strategy_type = config.strategy_type or "trend_following"
+
         # State tracking
         self.active_trades: Dict[str, TradeRecord] = {}  # symbol -> TradeRecord
         self.closed_trades: List[TradeRecord] = []
@@ -78,6 +82,7 @@ class BacktestRunner:
         print(f"🔄 BACKTEST START / 回測開始")
         print(f"{'='*70}")
         print(f"Backtest ID: {self.backtest_id}")
+        print(f"Strategy: {self.strategy_id} ({self.strategy_type})")
         print(f"Period: {self.config.start_date} ~ {self.config.end_date}")
         print(f"Symbols: {', '.join(self.config.symbols)}")
         print(f"Initial Capital: ${self.config.initial_capital:,.2f}")
@@ -194,17 +199,432 @@ class BacktestRunner:
         df['MA20'] = [None] * (len(df) - len(ma20_values)) + ma20_values if ma20_values else [None] * len(df)
         df['MA240'] = [None] * (len(df) - len(ma240_values)) + ma240_values if ma240_values else [None] * len(df)
 
+        # Calculate additional indicators based on strategy needs
+        closes = df['close'].tolist()
+        highs = df['high'].tolist()
+        lows = df['low'].tolist()
+        volumes = df['volume'].tolist()
+
+        # RSI (for rsi_trend, bb_mean_reversion, momentum_divergence)
+        rsi_values = indicator_calc.calculate_rsi(closes, period=14)
+        df['RSI'] = [None] * (len(df) - len(rsi_values)) + rsi_values if rsi_values else [None] * len(df)
+
+        # EMA5/EMA10 (for ema_cross_fast)
+        ema5_values = indicator_calc.calculate_ema(closes, period=5)
+        ema10_values = indicator_calc.calculate_ema(closes, period=10)
+        df['EMA5'] = [None] * (len(df) - len(ema5_values)) + ema5_values if ema5_values else [None] * len(df)
+        df['EMA10'] = [None] * (len(df) - len(ema10_values)) + ema10_values if ema10_values else [None] * len(df)
+
+        # TEMA (for hilbert_cycle, rsi_trend)
+        tema_values = indicator_calc.calculate_tema(closes, period=9)
+        df['TEMA'] = [None] * (len(df) - len(tema_values)) + tema_values if tema_values else [None] * len(df)
+
+        # Bollinger Bands (for bb_mean_reversion, rsi_trend)
+        bb = indicator_calc.calculate_bollinger_bands(closes, period=20, std_dev=2.0)
+        bb_upper = bb.get('upper', [])
+        bb_middle = bb.get('middle', [])
+        bb_lower = bb.get('lower', [])
+        df['BB_upper'] = [None] * (len(df) - len(bb_upper)) + bb_upper if bb_upper else [None] * len(df)
+        df['BB_middle'] = [None] * (len(df) - len(bb_middle)) + bb_middle if bb_middle else [None] * len(df)
+        df['BB_lower'] = [None] * (len(df) - len(bb_lower)) + bb_lower if bb_lower else [None] * len(df)
+
+        # Stochastic (for stochastic_breakout)
+        fastk, fastd = indicator_calc.calculate_stochastic(closes, highs, lows, k_period=5, d_period=3)
+        df['STOCH_K'] = [None] * (len(df) - len(fastk)) + fastk if fastk else [None] * len(df)
+        df['STOCH_D'] = [None] * (len(df) - len(fastd)) + fastd if fastd else [None] * len(df)
+
+        # SAR (for stochastic_breakout)
+        sar_values = indicator_calc.calculate_sar(highs, lows)
+        df['SAR'] = [None] * (len(df) - len(sar_values)) + sar_values if sar_values else [None] * len(df)
+
+        # Hilbert SineWave (for hilbert_cycle)
+        ht = indicator_calc.calculate_ht_sine(closes)
+        ht_sine = ht.get('sine', [])
+        ht_leadsine = ht.get('leadsine', [])
+        df['HT_SINE'] = [None] * (len(df) - len(ht_sine)) + ht_sine if ht_sine else [None] * len(df)
+        df['HT_LEADSINE'] = [None] * (len(df) - len(ht_leadsine)) + ht_leadsine if ht_leadsine else [None] * len(df)
+
+        # Price Channel (for price_channel_break)
+        pc = indicator_calc.calculate_price_channel(highs, lows, period=20)
+        pc_upper = pc.get('upper', [])
+        df['PC_upper'] = [None] * (len(df) - len(pc_upper)) + pc_upper if pc_upper else [None] * len(df)
+
+        # Volume MA20 (for volume analysis)
+        volume_sma_values = []
+        for i in range(len(volumes)):
+            if i >= 19:
+                volume_sma_values.append(sum(volumes[i-19:i+1]) / 20)
+            else:
+                volume_sma_values.append(None)
+        df['volume_MA20'] = volume_sma_values
+
         return df
 
     def _check_entry_signals(self, symbol: str, timestamp: str, price: float, row: pd.Series, df: pd.DataFrame, idx: int) -> None:
         """
         Check for entry signals and open trades
         檢查進場訊號並開倉
-        """
-        # Prepare indicator data
-        # Get volume history for volume spike calculation
-        volume_history = df['volume'].iloc[max(0, idx-19):idx+1].tolist() if idx >= 0 else [row.get('volume')]
         
+        Fix B: Each strategy uses its own entry logic based on strategy_id
+        """
+        strategy_id = self.strategy_id
+
+        # Determine entry direction and whether to open trade
+        entry_triggered = False
+        direction = TradeDirection.LONG
+        reason = ""
+
+        if strategy_id in ("ma_cross_trend", "ma_cross_trend_short"):
+            entry_triggered, direction, reason = self._check_ma_cross_entry(symbol, row, df, idx)
+        elif strategy_id == "hilbert_cycle":
+            entry_triggered, direction, reason = self._check_hilbert_cycle_entry(symbol, row, df, idx)
+        elif strategy_id == "stochastic_breakout":
+            entry_triggered, direction, reason = self._check_stochastic_entry(symbol, row, df, idx)
+        elif strategy_id == "rsi_trend":
+            entry_triggered, direction, reason = self._check_rsi_trend_entry(symbol, row, df, idx)
+        elif strategy_id == "rsi_mid_bounce":
+            entry_triggered, direction, reason = self._check_rsi_bounce_entry(symbol, row, df, idx)
+        elif strategy_id == "bb_mean_reversion":
+            entry_triggered, direction, reason = self._check_bb_entry(symbol, row, df, idx)
+        elif strategy_id == "ema_cross_fast":
+            entry_triggered, direction, reason = self._check_ema_cross_entry(symbol, row, df, idx)
+        elif strategy_id == "volume_spike":
+            entry_triggered, direction, reason = self._check_volume_spike_entry(symbol, row, df, idx)
+        elif strategy_id == "price_channel_break":
+            entry_triggered, direction, reason = self._check_price_channel_entry(symbol, row, df, idx)
+        elif strategy_id == "momentum_divergence":
+            entry_triggered, direction, reason = self._check_momentum_divergence_entry(symbol, row, df, idx)
+        elif strategy_id in ("contrarian_watch_overheated", "contrarian_watch_oversold"):
+            # Contrarian watch strategies: log the signal but do NOT enter trades
+            # They are WATCH-ONLY in the strategy config
+            self._check_contrarian_watch(symbol, row, df, idx, strategy_id)
+            return
+        else:
+            # Fallback: use unified signal engine (original behavior)
+            entry_triggered, direction, reason = self._check_unified_entry(symbol, row, df, idx)
+
+        if entry_triggered:
+            trade = TradeRecord(
+                trade_id=f"{self.backtest_id}_{symbol}_{len(self.closed_trades)}",
+                symbol=symbol,
+                direction=direction.value,
+                entry_time=timestamp,
+                entry_price=price,
+                quantity=1.0,
+                exit_reason=f"[{strategy_id}] {reason}",
+            )
+
+            self.active_trades[symbol] = trade
+            self.storage.save_trade(trade)
+
+            print(f"   ➡️  ENTRY [{strategy_id}]: {direction.value.upper()} @ ${price:,.2f} ({timestamp}) — {reason}")
+
+    # ============================================================
+    # Strategy-specific entry checks / 各策略獨立進場條件
+    # ============================================================
+
+    def _check_ma_cross_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """MA Cross Trend entry: MA5 vs MA20 cross + close vs MA240 + volume spike"""
+        ma5 = row.get('MA5')
+        ma20 = row.get('MA20')
+        ma240 = row.get('MA240')
+        close = row.get('close')
+        volume = row.get('volume')
+
+        if any(v is None for v in [ma5, ma20, ma240, close, volume]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need at least 2 rows for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_ma5 = prev_row.get('MA5')
+        prev_ma20 = prev_row.get('MA20')
+
+        if prev_ma5 is None or prev_ma20 is None:
+            return False, TradeDirection.LONG, "need previous MA"
+
+        # Volume spike check
+        volume_spike = indicator_calc.detect_volume_spike(
+            df['volume'].tolist(), idx, period=20, multiplier=1.5
+        )
+
+        # MA cross trend: close > MA240, MA5 crosses above MA20, volume spike
+        if close > ma240 and prev_ma5 <= prev_ma20 and ma5 > ma20 and volume_spike:
+            return True, TradeDirection.LONG, f"MA5xMA20↑ close>MA240 vol_spike"
+
+        # MA cross trend short: close < MA240, MA5 crosses below MA20, volume spike
+        if close < ma240 and prev_ma5 >= prev_ma20 and ma5 < ma20 and volume_spike:
+            return True, TradeDirection.SHORT, f"MA5xMA20↓ close<MA240 vol_spike"
+
+        return False, TradeDirection.LONG, "no MA cross"
+
+    def _check_hilbert_cycle_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Hilbert Cycle entry: HT_SINE cross above LEADSINE + TEMA rising"""
+        ht_sine = row.get('HT_SINE')
+        ht_leadsine = row.get('HT_LEADSINE')
+        tema = row.get('TEMA')
+        close = row.get('close')
+
+        if any(v is None for v in [ht_sine, ht_leadsine, tema, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need previous bar for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_sine = prev_row.get('HT_SINE')
+        prev_leadsine = prev_row.get('HT_LEADSINE')
+        prev_tema = prev_row.get('TEMA')
+
+        if any(v is None for v in [prev_sine, prev_leadsine, prev_tema]):
+            return False, TradeDirection.LONG, "need previous HT"
+
+        # TEMA rising
+        tema_rising = tema > prev_tema
+
+        # HT_SINE cross above LEADSINE
+        ht_cross = prev_sine <= prev_leadsine and ht_sine > ht_leadsine
+
+        if ht_cross and tema_rising:
+            return True, TradeDirection.LONG, f"HT_SINE×LEADSINE↑ TEMA↑"
+
+        return False, TradeDirection.LONG, "no HT cycle signal"
+
+    def _check_stochastic_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Stochastic Breakout entry: fastK cross above fastD + fastK < 20 + SAR below price"""
+        fastk = row.get('STOCH_K')
+        fastd = row.get('STOCH_D')
+        sar = row.get('SAR')
+        close = row.get('close')
+
+        if any(v is None for v in [fastk, fastd, sar, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need previous bar for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_k = prev_row.get('STOCH_K')
+        prev_d = prev_row.get('STOCH_D')
+
+        if prev_k is None or prev_d is None:
+            return False, TradeDirection.LONG, "need previous STOCH"
+
+        # fastK cross above fastD
+        k_cross_d = prev_k <= prev_d and fastk > fastd
+        # fastK < 20 (oversold)
+        oversold = fastk < 20
+        # SAR below price (uptrend)
+        sar_below = sar < close
+
+        if k_cross_d and oversold and sar_below:
+            return True, TradeDirection.LONG, f"STOCH_K×D↑ K<20 SAR<close"
+
+        return False, TradeDirection.LONG, "no stochastic signal"
+
+    def _check_rsi_trend_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """RSI Trend entry: RSI cross above 30 + TEMA below BB middle + TEMA rising"""
+        rsi = row.get('RSI')
+        tema = row.get('TEMA')
+        bb_middle = row.get('BB_middle')
+        close = row.get('close')
+
+        if any(v is None for v in [rsi, tema, bb_middle, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need previous bar for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_rsi = prev_row.get('RSI')
+        prev_tema = prev_row.get('TEMA')
+
+        if prev_rsi is None or prev_tema is None:
+            return False, TradeDirection.LONG, "need previous RSI/TEMA"
+
+        # RSI cross above 30
+        rsi_cross = prev_rsi <= 30 and rsi > 30
+        # TEMA below BB middle
+        tema_below_bb = tema < bb_middle
+        # TEMA rising
+        tema_rising = tema > prev_tema
+
+        if rsi_cross and tema_below_bb and tema_rising:
+            return True, TradeDirection.LONG, f"RSI×30↑ TEMA<BBmid TEMA↑"
+
+        return False, TradeDirection.LONG, "no RSI trend signal"
+
+    def _check_rsi_bounce_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """RSI Mid-Bounce entry: RSI cross above 40"""
+        rsi = row.get('RSI')
+        close = row.get('close')
+
+        if any(v is None for v in [rsi, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need previous bar for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_rsi = prev_row.get('RSI')
+
+        if prev_rsi is None:
+            return False, TradeDirection.LONG, "need previous RSI"
+
+        # RSI cross above 40
+        if prev_rsi <= 40 and rsi > 40:
+            return True, TradeDirection.LONG, f"RSI×40↑"
+
+        return False, TradeDirection.LONG, "no RSI bounce"
+
+    def _check_bb_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """BB Mean Reversion entry: price below BB lower + RSI < 30 + volume spike"""
+        close = row.get('close')
+        bb_lower = row.get('BB_lower')
+        rsi = row.get('RSI')
+        volume = row.get('volume')
+
+        if any(v is None for v in [close, bb_lower, rsi, volume]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Price below BB lower
+        below_lower = close < bb_lower
+        # RSI < 30 (oversold)
+        rsi_oversold = rsi < 30
+        # Volume spike
+        volume_spike = indicator_calc.detect_volume_spike(
+            df['volume'].tolist(), idx, period=20, multiplier=1.5
+        )
+
+        if below_lower and rsi_oversold and volume_spike:
+            return True, TradeDirection.LONG, f"close<BBlower RSI<30 vol_spike"
+
+        return False, TradeDirection.LONG, "no BB reversion signal"
+
+    def _check_ema_cross_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """EMA Cross Fast entry: EMA5 cross above EMA10"""
+        ema5 = row.get('EMA5')
+        ema10 = row.get('EMA10')
+        close = row.get('close')
+
+        if any(v is None for v in [ema5, ema10, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Need previous bar for cross detection
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_ema5 = prev_row.get('EMA5')
+        prev_ema10 = prev_row.get('EMA10')
+
+        if prev_ema5 is None or prev_ema10 is None:
+            return False, TradeDirection.LONG, "need previous EMA"
+
+        # EMA5 cross above EMA10
+        if prev_ema5 <= prev_ema10 and ema5 > ema10:
+            return True, TradeDirection.LONG, f"EMA5×EMA10↑"
+
+        # EMA5 cross below EMA10 (short)
+        if prev_ema5 >= prev_ema10 and ema5 < ema10:
+            return True, TradeDirection.SHORT, f"EMA5×EMA10↓"
+
+        return False, TradeDirection.LONG, "no EMA cross"
+
+    def _check_volume_spike_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Volume Spike entry: volume > avg * 1.5"""
+        volume = row.get('volume')
+
+        if volume is None:
+            return False, TradeDirection.LONG, "insufficient data"
+
+        volume_spike = indicator_calc.detect_volume_spike(
+            df['volume'].tolist(), idx, period=20, multiplier=1.5
+        )
+
+        if volume_spike:
+            return True, TradeDirection.LONG, f"vol>{1.5}×avg"
+
+        return False, TradeDirection.LONG, "no volume spike"
+
+    def _check_price_channel_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Price Channel Break entry: price > 20-period high"""
+        close = row.get('close')
+        pc_upper = row.get('PC_upper')
+
+        if any(v is None for v in [close, pc_upper]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        # Price above 20-period channel upper
+        if close > pc_upper:
+            return True, TradeDirection.LONG, f"close>20-period-high"
+
+        return False, TradeDirection.LONG, "no channel break"
+
+    def _check_momentum_divergence_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Momentum Divergence entry: price lower low + RSI higher low"""
+        closes = df['close'].iloc[:idx+1].tolist()
+        rsi_values = df['RSI'].iloc[:idx+1].tolist()
+
+        # Remove None values
+        valid_closes = [c for c in closes if c is not None]
+        valid_rsi = [r for r in rsi_values if r is not None]
+
+        if len(valid_closes) < 28 or len(valid_rsi) < 28:
+            return False, TradeDirection.LONG, "insufficient data"
+
+        divergence = indicator_calc.detect_momentum_divergence(valid_closes, valid_rsi, lookback=14)
+
+        if divergence:
+            return True, TradeDirection.LONG, f"bullish_divergence"
+
+        return False, TradeDirection.LONG, "no divergence"
+
+    def _check_contrarian_watch(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int, strategy_id: str) -> None:
+        """
+        Contrarian watch strategies: detect consecutive candles + close vs MA240
+        These are WATCH-ONLY — no trades are opened
+        """
+        ma240 = row.get('MA240')
+        close = row.get('close')
+
+        if ma240 is None or close is None:
+            return
+
+        # Need at least 4 candles for consecutive detection
+        if idx < 3:
+            return
+
+        # Build candles for consecutive detection
+        candles = []
+        for i in range(max(0, idx - 3), idx + 1):
+            r = df.iloc[i]
+            candles.append({
+                'open': r.get('open'),
+                'close': r.get('close'),
+            })
+
+        if strategy_id == "contrarian_watch_overheated":
+            result = indicator_calc.detect_four_consecutive_green(candles)
+            if result.pattern_detected and close > ma240:
+                # Log the watch signal (but do NOT trade)
+                print(f"   👁️  WATCH [overheated]: {symbol} 4 consecutive green + close>MA240 @ ${close:,.2f}")
+        elif strategy_id == "contrarian_watch_oversold":
+            result = indicator_calc.detect_four_consecutive_red(candles)
+            if result.pattern_detected and close < ma240:
+                # Log the watch signal (but do NOT trade)
+                print(f"   👁️  WATCH [oversold]: {symbol} 4 consecutive red + close<MA240 @ ${close:,.2f}")
+
+    def _check_unified_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Fallback: use unified signal engine (original behavior for unknown strategies)"""
+        volume_history = df['volume'].iloc[max(0, idx-19):idx+1].tolist() if idx >= 0 else [row.get('volume')]
+
         indicators = {
             'MA5': row.get('MA5'),
             'MA20': row.get('MA20'),
@@ -215,28 +635,14 @@ class BacktestRunner:
             'backtest_mode': True
         }
 
-        # Get signals from engine
         signals = self.signal_engine.generate_signals(indicators)
 
         for signal in signals:
             if signal.level.value == "confirmed":
-                # Open trade
                 direction = TradeDirection.LONG if "LONG" in signal.signal_type.name else TradeDirection.SHORT
+                return True, direction, f"unified_{signal.signal_type.name}"
 
-                trade = TradeRecord(
-                    trade_id=f"{self.backtest_id}_{symbol}_{len(self.closed_trades)}",
-                    symbol=symbol,
-                    direction=direction.value,
-                    entry_time=timestamp,
-                    entry_price=price,
-                    quantity=1.0
-                )
-
-                self.active_trades[symbol] = trade
-                self.storage.save_trade(trade)
-
-                print(f"   ➡️  ENTRY: {direction.value.upper()} @ ${price:,.2f} ({timestamp})")
-                break
+        return False, TradeDirection.LONG, "no unified signal"
 
     def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
         """
@@ -573,7 +979,9 @@ def run_backtest(
     end_date: str = None,
     initial_capital: float = 10000.0,
     stop_loss_pct: Optional[float] = None,
-    take_profit_pct: Optional[float] = None
+    take_profit_pct: Optional[float] = None,
+    strategy_id: Optional[str] = None,
+    strategy_type: Optional[str] = None,
 ) -> BacktestSummary:
     """
     Convenience function to run a backtest
@@ -586,6 +994,8 @@ def run_backtest(
         initial_capital: Starting capital
         stop_loss_pct: Stop loss percentage (e.g., 5.0 for 5%)
         take_profit_pct: Take profit percentage (e.g., 10.0 for 10%)
+        strategy_id: Strategy ID (e.g., "ma_cross_trend", "rsi_trend")
+        strategy_type: Strategy type (e.g., "trend_following", "momentum")
 
     Returns:
         BacktestSummary with results
@@ -605,9 +1015,11 @@ def run_backtest(
         symbols=symbols,
         start_date=start_date,
         end_date=end_date,
+        strategy_id=strategy_id,
+        strategy_type=strategy_type,
         initial_capital=initial_capital,
         stop_loss_pct=stop_loss_pct,
-        take_profit_pct=take_profit_pct
+        take_profit_pct=take_profit_pct,
     )
 
     # Run backtest
