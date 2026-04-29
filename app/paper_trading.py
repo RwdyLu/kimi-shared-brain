@@ -34,6 +34,7 @@ class SimulatedTrade:
     slippage: float = 0.0
     commission: float = 0.0
     realized_pnl: float = 0.0
+    strategy_id: Optional[str] = None  # Which strategy generated this trade
 
     def to_dict(self) -> Dict:
         return {
@@ -48,6 +49,7 @@ class SimulatedTrade:
             "slippage": self.slippage,
             "commission": self.commission,
             "realized_pnl": self.realized_pnl,
+            "strategy_id": self.strategy_id,
         }
 
 
@@ -112,7 +114,7 @@ class PaperTrading:
         """Calculate commission fee."""
         return value * (self.commission_pct / 100)
 
-    def enter_position(self, symbol: str, side: TradeSide, quantity: float, price: float) -> SimulatedTrade:
+    def enter_position(self, symbol: str, side: TradeSide, quantity: float, price: float, strategy_id: Optional[str] = None) -> SimulatedTrade:
         """
         Enter paper position.
 
@@ -121,6 +123,7 @@ class PaperTrading:
             side: Buy or sell
             quantity: Position size
             price: Entry price
+            strategy_id: Strategy that generated this signal
 
         Returns:
             SimulatedTrade record
@@ -159,6 +162,7 @@ class PaperTrading:
             entry_price=executed_price,
             slippage=executed_price - price,
             commission=commission,
+            strategy_id=strategy_id,
         )
 
         self.trades.append(trade)

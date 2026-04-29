@@ -226,6 +226,7 @@ class TradeExecutor:
                 side=side,
                 quantity=quantity,
                 price=price,
+                strategy_id=signal_type.name,
             )
 
             self.logger.info(
