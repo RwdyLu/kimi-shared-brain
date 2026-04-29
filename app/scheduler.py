@@ -477,6 +477,9 @@ class MonitoringScheduler:
                 perf = self.trade_executor.get_paper_performance()
                 if perf:
                     self._log(f"  Paper Balance: ${perf.get('current_balance', 0):,.2f}")
+                    self._log(f"  Open positions: {perf.get('open_positions', 0)}")
+                # Save paper trading state after each run with trades
+                self.trade_executor.save_state()
 
             # Update live strategy ranking / 更新即時策略排名
             self._update_live_ranking(results)

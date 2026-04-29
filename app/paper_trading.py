@@ -261,9 +261,6 @@ class PaperTrading:
         """Get paper trading performance."""
         completed_trades = [t for t in self.trades if t.exit_price is not None]
 
-        if not completed_trades:
-            return {"error": "No completed trades"}
-
         total_pnl = sum(t.realized_pnl for t in completed_trades)
         wins = sum(1 for t in completed_trades if t.realized_pnl > 0)
         losses = len(completed_trades) - wins
@@ -280,7 +277,49 @@ class PaperTrading:
             "avg_pnl": total_pnl / len(completed_trades) if completed_trades else 0,
             "max_pnl": max((t.realized_pnl for t in completed_trades), default=0),
             "min_pnl": min((t.realized_pnl for t in completed_trades), default=0),
+            "open_positions": len(self.positions),
+            "open_position_symbols": list(self.positions.keys()),
         }
+
+    def save_state(self, filepath: str) -> None:
+        """Save paper trading state to file / 儲存模擬交易狀態到檔案"""
+        import json
+        state = {
+            "balance": self.balance,
+            "initial_balance": self.initial_balance,
+            "positions": {
+                sym: {
+                    "side": pos["side"].value,
+                    "quantity": pos["quantity"],
+                    "entry_price": pos["entry_price"],
+                    "entry_time": pos["entry_time"].isoformat() if pos.get("entry_time") else None,
+                }
+                for sym, pos in self.positions.items()
+            },
+            "trades": [t.to_dict() for t in self.trades],
+            "equity_curve": self.equity_curve,
+        }
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2, default=str)
+        self.logger.info(f"Paper trading state saved to {filepath}")
+
+    def load_state(self, filepath: str) -> bool:
+        """Load paper trading state from file / 從檔案載入模擬交易狀態"""
+        import json, os
+        from pathlib import Path
+        if not os.path.exists(filepath):
+            return False
+        try:
+            with open(filepath, 'r') as f:
+                state = json.load(f)
+            self.balance = state.get("balance", self.initial_balance)
+            self.initial_balance = state.get("initial_balance", self.initial_balance)
+            # Positions and trades are not restored (simplified)
+            self.logger.info(f"Paper trading state loaded from {filepath}: balance=${self.balance:,.2f}")
+            return True
+        except Exception as e:
+            self.logger.warning(f"Failed to load paper trading state: {e}")
+            return False
 
     def reset(self):
         """Reset paper trading account."""

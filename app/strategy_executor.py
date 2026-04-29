@@ -215,11 +215,12 @@ class StrategyExecutor:
             "trend_short": SignalType.TREND_SHORT,
             "contrarian_watch_overheated": SignalType.CONTRARIAN_WATCH_OVERHEATED,
             "contrarian_watch_oversold": SignalType.CONTRARIAN_WATCH_OVERSOLD,
-            "momentum": SignalType.TREND_LONG,  # Default for momentum
-            "breakout": SignalType.TREND_LONG,  # Default for breakout
-            "mean_reversion": SignalType.CONTRARIAN_WATCH_OVERSOLD,
-            "cycle": SignalType.TREND_LONG,
-            "composite": SignalType.TREND_LONG,
+            "cycle": SignalType.CYCLE,
+            "breakout": SignalType.BREAKOUT,
+            "momentum": SignalType.MOMENTUM,
+            "mean_reversion": SignalType.MEAN_REVERSION,
+            "reversal_long": SignalType.REVERSAL_LONG,
+            "breakout_long": SignalType.BREAKOUT_LONG,
         }
         return mapping.get(signal_type_str, SignalType.TREND_LONG)
     

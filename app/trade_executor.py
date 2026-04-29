@@ -48,6 +48,12 @@ class TradeExecutor:
     SIGNAL_TO_SIDE = {
         SignalType.TREND_LONG: TradeSide.BUY,
         SignalType.TREND_SHORT: TradeSide.SELL,
+        SignalType.CYCLE: TradeSide.BUY,
+        SignalType.BREAKOUT: TradeSide.BUY,
+        SignalType.MOMENTUM: TradeSide.BUY,
+        SignalType.MEAN_REVERSION: TradeSide.BUY,
+        SignalType.REVERSAL_LONG: TradeSide.BUY,
+        SignalType.BREAKOUT_LONG: TradeSide.BUY,
     }
 
     def __init__(
@@ -56,11 +62,13 @@ class TradeExecutor:
         position_pct: float = 0.1,  # Use 10% of balance per trade
         max_total_exposure_pct: float = 0.5,  # Max 50% of balance in open positions
         enable_trading: bool = True,
+        state_file: Optional[str] = None,
     ):
         self.logger = logging.getLogger(__name__)
         self.enable_trading = enable_trading
         self.position_pct = position_pct
         self.max_total_exposure_pct = max_total_exposure_pct
+        self.state_file = state_file or str(STATE_DIR / "paper_trading_state.json")
 
         # Paper trading account
         self.paper = PaperTrading(
@@ -69,11 +77,15 @@ class TradeExecutor:
             commission_pct=0.1,
         ) if enable_trading else None
 
+        # Load previous state if available
+        if self.paper and self.state_file:
+            self.paper.load_state(self.state_file)
+
         # Track which symbols have open positions (simple single-position model)
         self.open_positions: Dict[str, Dict] = {}
 
         self.logger.info(
-            f"TradeExecutor initialized: balance=${initial_balance:,.2f}, "
+            f"TradeExecutor initialized: balance=${self.paper.balance if self.paper else 0:,.2f}, "
             f"position_pct={position_pct*100}%, max_exposure={max_total_exposure_pct*100}%, enabled={enable_trading}"
         )
 
@@ -236,11 +248,14 @@ class TradeExecutor:
             return None
 
         perf = self.paper.get_performance()
-        if perf and "error" not in perf:
-            perf["open_positions"] = len(self.open_positions)
-            perf["open_position_symbols"] = list(self.open_positions.keys())
-
+        perf["open_positions"] = len(self.open_positions)
+        perf["open_position_symbols"] = list(self.open_positions.keys())
         return perf
+
+    def save_state(self) -> None:
+        """Save paper trading state / 儲存模擬交易狀態"""
+        if self.paper and self.state_file:
+            self.paper.save_state(self.state_file)
 
     def reset(self):
         """Reset paper trading account and positions."""

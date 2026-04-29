@@ -58,6 +58,13 @@ class SignalType(Enum):
     TREND_SHORT = "trend_short"
     CONTRARIAN_WATCH_OVERHEATED = "contrarian_watch_overheated"
     CONTRARIAN_WATCH_OVERSOLD = "contrarian_watch_oversold"
+    # Extended signal types for all 13 strategies
+    CYCLE = "cycle"
+    BREAKOUT = "breakout"
+    MOMENTUM = "momentum"
+    MEAN_REVERSION = "mean_reversion"
+    REVERSAL_LONG = "reversal_long"
+    BREAKOUT_LONG = "breakout_long"
 
 
 class SignalLevel(Enum):
