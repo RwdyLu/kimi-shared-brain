@@ -287,12 +287,18 @@ class MonitoringScheduler:
             self._log(f"  Price save error: {e}")
 
     def _update_live_ranking(self, results):
-        """Update live strategy ranking after each run / 每次執行後更新即時策略排名"""
+        """Update live strategy ranking after each run / 每次執行後更新即時策略排名
+        
+        Fix D: score based on conditions_passed/total_conditions (continuous 0~1)
+        with rolling average (last 5 runs) per strategy-symbol pair.
+        """
         try:
             import json
             from pathlib import Path
 
-            ranking = {"last_updated": datetime.now().isoformat(), "symbols": {}}
+            ROLLING_WINDOW = 5
+            DECAY_FACTOR = 0.9
+
             all_strategy_names = [
                 "ma_cross_trend", "ma_cross_trend_short",
                 "contrarian_watch_overheated", "contrarian_watch_oversold",
@@ -300,6 +306,23 @@ class MonitoringScheduler:
                 "bb_mean_reversion", "ema_cross_fast", "rsi_mid_bounce",
                 "volume_spike", "price_channel_break", "momentum_divergence"
             ]
+
+            # Load previous rolling scores / 載入之前的滾動分數
+            rolling_scores = {}
+            try:
+                ranking_file = STATE_DIR / "live_strategy_ranking.json"
+                if ranking_file.exists():
+                    with open(ranking_file, 'r') as f:
+                        prev_data = json.load(f)
+                    rolling_scores = prev_data.get("rolling_scores", {})
+            except Exception:
+                rolling_scores = {}
+
+            ranking = {
+                "last_updated": datetime.now().isoformat(),
+                "symbols": {},
+                "rolling_scores": rolling_scores
+            }
 
             # Process symbols that were actually monitored
             monitored_symbols = set()
@@ -317,25 +340,24 @@ class MonitoringScheduler:
                 for sig in confirmed:
                     meta = getattr(sig, 'metadata', {})
                     name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
-                    # Match by strategy_id if available, otherwise use strategy_name
                     strategy_id = meta.get('strategy_id', name) if meta else name
-                    # Normalize: if strategy_name is a display name (e.g., "MA Cross Trend"), 
-                    # try to find the matching ID from all_strategy_names
                     if name not in all_strategy_names:
-                        # Try to match by replacing spaces with underscores and lowercasing
                         normalized = name.lower().replace(" ", "_").replace("-", "_")
                         if normalized in all_strategy_names:
                             name = normalized
                         else:
-                            # Fallback: use strategy_id if available
                             name = strategy_id
+                    
+                    cp = sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                    ct = sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                    raw_score = cp / ct if ct > 0 else 1.0
                     
                     scores[name] = {
                         "name": name,
                         "status": "Confirmed",
-                        "score": 1.0,
-                        "conditions_passed": sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0,
-                        "total_conditions": sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                        "score": round(raw_score, 3),
+                        "conditions_passed": cp,
+                        "total_conditions": ct
                     }
 
                 for sig in watch_only:
@@ -350,23 +372,48 @@ class MonitoringScheduler:
                             name = strategy_id
                     
                     if name not in scores:
+                        cp = sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                        ct = sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                        raw_score = cp / ct if ct > 0 else 0.5
+                        
                         scores[name] = {
                             "name": name,
                             "status": "Watch",
-                            "score": 0.5,
-                            "conditions_passed": sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0,
-                            "total_conditions": sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
+                            "score": round(raw_score, 3),
+                            "conditions_passed": cp,
+                            "total_conditions": ct
                         }
 
+                # Rolling average / 滾動平均
                 for name in all_strategy_names:
-                    if name not in scores:
+                    key = f"{symbol}:{name}"
+                    prev_history = rolling_scores.get(key, [])
+                    
+                    if name in scores:
+                        current_raw = scores[name]["score"]
+                    else:
+                        # No signal this run: decay previous average / 本次無訊號：衰減前次平均
+                        if prev_history:
+                            current_raw = sum(prev_history) / len(prev_history) * DECAY_FACTOR
+                        else:
+                            current_raw = 0.0
                         scores[name] = {
                             "name": name,
                             "status": "Idle",
-                            "score": 0.0,
+                            "score": round(current_raw, 3),
                             "conditions_passed": 0,
                             "total_conditions": 0
                         }
+                    
+                    # Update rolling history / 更新滾動歷史
+                    new_history = prev_history[-(ROLLING_WINDOW-1):] + [current_raw]
+                    rolling_scores[key] = new_history
+                    
+                    # Final score = rolling average / 最終分數 = 滾動平均
+                    rolling_avg = sum(new_history) / len(new_history)
+                    scores[name]["score"] = round(rolling_avg, 3)
+                    scores[name]["rolling_avg"] = round(rolling_avg, 3)
+                    scores[name]["history"] = [round(x, 3) for x in new_history]
 
                 symbol_data["strategies"] = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
                 ranking["symbols"][symbol] = symbol_data
@@ -377,7 +424,6 @@ class MonitoringScheduler:
             
             for symbol in all_symbols:
                 if symbol not in ranking["symbols"]:
-                    # Read previous data if available, otherwise create Idle entry
                     prev_data = self._load_previous_ranking_for_symbol(symbol)
                     if prev_data:
                         ranking["symbols"][symbol] = prev_data
@@ -480,13 +526,13 @@ class MonitoringScheduler:
                     trade_results = self.trade_executor.execute_signals(
                         confirmed_signals, current_prices
                     )
-                trades_executed = len([t for t in trade_results if t.status == "executed"])
-                
-                for tr in trade_results:
-                    status_icon = "✅" if tr.status == "executed" else "⏭️"
-                    self._log(f"    {status_icon} {tr.symbol}: {tr.side.upper()} {tr.status}")
-                    if tr.trade_id:
-                        self._log(f"       qty={tr.quantity:.6f} @ ${tr.entry_price:,.2f}")
+                    trades_executed = len([t for t in trade_results if t.status == "executed"])
+                    
+                    for tr in trade_results:
+                        status_icon = "✅" if tr.status == "executed" else "⏭️"
+                        self._log(f"    {status_icon} {tr.symbol}: {tr.side.upper()} {tr.status}")
+                        if tr.trade_id:
+                            self._log(f"       qty={tr.quantity:.6f} @ ${tr.entry_price:,.2f}")
                 
                 # Log paper performance
                 perf = self.trade_executor.get_paper_performance()

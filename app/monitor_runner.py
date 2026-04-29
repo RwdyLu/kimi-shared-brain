@@ -390,7 +390,7 @@ class MonitorRunner:
 
         return result
 
-    def run_for_symbol(self, symbol: str) -> SymbolResult:
+    def run_for_symbol(self, symbol: str, run_id: Optional[int] = None) -> SymbolResult:
         """
         Run monitoring for a single symbol / 執行單一標的監測
 
@@ -601,7 +601,7 @@ class MonitorRunner:
 
         # Run for each symbol / 為每個標的執行
         for symbol in MONITOR_SYMBOLS:
-            result = self.run_for_symbol(symbol)
+            result = self.run_for_symbol(symbol, run_id=run_id)
             results.append(result)
 
             if not result.success:
