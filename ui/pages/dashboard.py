@@ -99,6 +99,19 @@ def load_paper_summary() -> dict:
         "today_pnl": today_pnl,
     }
 
+
+def load_current_prices() -> dict:
+    """Load current prices from state/prices.json / 從 state/prices.json 載入最新價格"""
+    try:
+        prices_file = project_root / "state" / "prices.json"
+        if not prices_file.exists():
+            return {}
+        with open(prices_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/", title="Dashboard")
 
@@ -193,6 +206,38 @@ layout = dbc.Container(
                 ),
             ],
             className="mb-2"
+        ),
+        
+        # ─── New Feature B: Open Positions Table / 持倉列表 ───
+        dbc.Card(
+            [
+                dbc.CardHeader("Open Positions / 目前持倉", className="fw-bold"),
+                dbc.CardBody(
+                    [
+                        dbc.Table(
+                            [
+                                html.Thead(
+                                    html.Tr([
+                                        html.Th("Symbol / 幣種"),
+                                        html.Th("Direction / 方向", className="text-center"),
+                                        html.Th("Entry / 進場價", className="text-end"),
+                                        html.Th("Current / 現價", className="text-end"),
+                                        html.Th("PnL% / 損益%", className="text-end"),
+                                        html.Th("Hold Time / 持倉時間", className="text-center"),
+                                        html.Th("Status / 狀態", className="text-center"),
+                                    ])
+                                ),
+                                html.Tbody(id="paper-positions-table-body", children=[])
+                            ],
+                            bordered=True,
+                            hover=True,
+                            size="sm",
+                            responsive=True
+                        )
+                    ]
+                )
+            ],
+            className="mb-4"
         ),
         
         # T-074: Three Column Layout / 三欄布局
@@ -1610,8 +1655,94 @@ def update_ft_block(n):
         ])
         
     except Exception as e:
-        return html.P(f"Error: {str(e)[:30]}", className="text-danger")
+        return html.P(f"Error: {str(e)}", className="text-danger")
 
+
+# ─── New Feature B: Open Positions Callback / 持倉列表回調 ───
+@callback(
+    Output("paper-positions-table-body", "children"),
+    Input("dashboard-interval", "n_intervals")
+)
+def update_paper_positions(n):
+    """Update open positions table / 更新持倉列表"""
+    try:
+        if not _PAPER_STATE_FILE.exists():
+            return [html.Tr([html.Td("No positions / 暫無持倉", colSpan=7)])]
+        
+        with open(_PAPER_STATE_FILE, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+        
+        positions = state.get("positions", {})
+        if not positions:
+            return [html.Tr([html.Td("No open positions / 目前無持倉", colSpan=7)])]
+        
+        # Load current prices / 載入最新價格
+        current_prices = load_current_prices()
+        now = datetime.now()
+        
+        rows = []
+        for symbol, pos in positions.items():
+            side = pos.get("side", "--")
+            entry_price = pos.get("entry_price", 0)
+            entry_time_str = pos.get("entry_time")
+            
+            # Current price / 現價
+            current_price = current_prices.get(symbol, entry_price)
+            
+            # PnL% calculation / 損益%計算
+            if entry_price and entry_price > 0:
+                if side.lower() == "buy":
+                    pnl_pct = (current_price - entry_price) / entry_price * 100
+                else:
+                    pnl_pct = (entry_price - current_price) / entry_price * 100
+            else:
+                pnl_pct = 0
+            
+            # Hold time / 持倉時間
+            hold_time_str = "--"
+            hold_hours = 0
+            if entry_time_str:
+                try:
+                    entry_time = datetime.fromisoformat(entry_time_str)
+                    hold_td = now - entry_time
+                    hold_hours = hold_td.total_seconds() / 3600
+                    hours = int(hold_hours)
+                    minutes = int((hold_td.total_seconds() % 3600) / 60)
+                    hold_time_str = f"{hours}h {minutes}m"
+                except Exception:
+                    pass
+            
+            # Status / 狀態
+            status_badge = None
+            if hold_hours > 6:
+                status_badge = dbc.Badge("⏰ Time Alert", color="warning", className="ms-1")
+            elif pnl_pct > 2:
+                status_badge = dbc.Badge("🟢 Profiting", color="success", className="ms-1")
+            elif pnl_pct < -1.5:
+                status_badge = dbc.Badge("🔴 Near Stop", color="danger", className="ms-1")
+            elif -1 <= pnl_pct <= 0:
+                status_badge = dbc.Badge("🟡 Watching", color="warning", className="ms-1")
+            else:
+                status_badge = dbc.Badge("Normal", color="secondary", className="ms-1")
+            
+            # Colors / 顏色
+            pnl_color = "text-success" if pnl_pct >= 0 else "text-danger"
+            side_color = "text-success" if side.lower() == "buy" else "text-danger" if side.lower() == "sell" else "text-muted"
+            side_label = "LONG" if side.lower() == "buy" else "SHORT" if side.lower() == "sell" else side.upper()
+            
+            rows.append(html.Tr([
+                html.Td(symbol, className="fw-bold"),
+                html.Td(side_label, className=f"text-center fw-bold {side_color}"),
+                html.Td(f"${entry_price:,.2f}" if entry_price else "--", className="text-end"),
+                html.Td(f"${current_price:,.2f}" if current_price else "--", className="text-end"),
+                html.Td(f"{pnl_pct:+.2f}%", className=f"text-end {pnl_color}"),
+                html.Td(hold_time_str, className="text-center"),
+                html.Td(status_badge, className="text-center"),
+            ]))
+        
+        return rows
+    except Exception as e:
+        return [html.Tr([html.Td(f"Error: {str(e)}", colSpan=7)])]
 
 # T-079: Discovery Count Badge Callback / 探索計數徽章回調
 @callback(
