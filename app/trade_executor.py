@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from app.paper_trading import PaperTrading, TradeSide
 from signals.engine import SignalType, SignalLevel
+from config.paths import STATE_DIR
 
 logger = logging.getLogger(__name__)
 
