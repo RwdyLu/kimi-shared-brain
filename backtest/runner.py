@@ -114,7 +114,7 @@ class BacktestRunner:
 
         # Fetch historical data
         try:
-            df = self._fetch_historical_data(symbol, interval="5m", limit=500)  # T-071: 500 bars of 5m
+            df = self._fetch_historical_data(symbol, interval="5m", limit=1000)  # T-071: 1000 bars of 5m
             if df is None or len(df) == 0:
                 print(f"   ⚠️ No data available for {symbol}")
                 return
@@ -370,7 +370,7 @@ class BacktestRunner:
         建立回測摘要統計
         """
         total_trades = len(self.closed_trades)
-        winning_trades = sum(1 for t in self.closed_trades if t.pnl_pct and t.pnl_pct > 0)
+        winning_trades = sum(1 for t in self.closed_trades if t.pnl_pct is not None and t.pnl_pct > 0)
         losing_trades = total_trades - winning_trades
 
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
@@ -384,7 +384,7 @@ class BacktestRunner:
             if symbol_trades:
                 symbol_stats[symbol] = {
                     "total_trades": len(symbol_trades),
-                    "winning_trades": sum(1 for t in symbol_trades if t.pnl_pct and t.pnl_pct > 0),
+                    "winning_trades": sum(1 for t in symbol_trades if t.pnl_pct is not None and t.pnl_pct > 0),
                     "total_pnl_pct": sum(t.pnl_pct for t in symbol_trades if t.pnl_pct)
                 }
 

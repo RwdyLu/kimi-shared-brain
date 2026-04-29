@@ -1,24 +1,24 @@
 {
-  "timestamp": "2026-04-29T23:53:22.007319",
+  "timestamp": "2026-04-30T00:09:11.759510",
   "total_strategies": 12,
   "total_symbols": 10,
   "strategy_ranking": [
     {
       "strategy_id": "ma_cross_trend_short",
       "name": "MA Cross Trend Short",
-      "avg_score": 96.7,
+      "avg_score": 100.0,
       "symbols_evaluated": 10,
       "max_score": 100.0,
-      "min_score": 66.7,
+      "min_score": 100.0,
       "rank": 1
     },
     {
       "strategy_id": "ma_cross_trend",
       "name": "MA Cross Trend",
-      "avg_score": 63.4,
+      "avg_score": 66.7,
       "symbols_evaluated": 10,
       "max_score": 66.7,
-      "min_score": 33.3,
+      "min_score": 66.7,
       "rank": 2
     },
     {
@@ -119,7 +119,7 @@
       "strategy_name": "MA Cross Trend Short",
       "symbol": "BTCUSDT",
       "score": 100.0,
-      "price": 75904.49
+      "price": 76025.52
     },
     {
       "rank": 2,
@@ -127,7 +127,7 @@
       "strategy_name": "MA Cross Trend",
       "symbol": "BTCUSDT",
       "score": 66.7,
-      "price": 75892.83
+      "price": 76025.52
     },
     {
       "rank": 3,
@@ -143,7 +143,7 @@
       "strategy_name": "Contrarian Watch - Oversold",
       "symbol": "BTCUSDT",
       "score": 50.0,
-      "price": 75871.82
+      "price": 76025.52
     },
     {
       "rank": 5,
@@ -151,7 +151,7 @@
       "strategy_name": "Hilbert Cycle",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75842.85
+      "price": 76029.23
     },
     {
       "rank": 6,
@@ -159,7 +159,7 @@
       "strategy_name": "Stochastic Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75845.02
+      "price": 76025.52
     },
     {
       "rank": 7,
@@ -167,7 +167,7 @@
       "strategy_name": "RSI Trend",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75818.01
+      "price": 76025.52
     },
     {
       "rank": 8,
@@ -175,7 +175,7 @@
       "strategy_name": "EMA Cross Fast",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75822.39
+      "price": 76025.52
     },
     {
       "rank": 9,
@@ -183,7 +183,7 @@
       "strategy_name": "RSI Mid Bounce",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75822.36
+      "price": 76025.52
     },
     {
       "rank": 10,
@@ -191,7 +191,7 @@
       "strategy_name": "Volume Spike",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75822.36
+      "price": 76025.52
     },
     {
       "rank": 11,
@@ -199,7 +199,7 @@
       "strategy_name": "Price Channel Break",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75812.31
+      "price": 76025.52
     },
     {
       "rank": 12,
@@ -207,7 +207,7 @@
       "strategy_name": "Momentum Divergence",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75812.31
+      "price": 76025.52
     }
   ],
   "symbol_scores": {
@@ -664,15 +664,15 @@
     "DOTUSDT": [
       {
         "strategy": "ma_cross_trend_short",
+        "score": 100.0
+      },
+      {
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
         "strategy": "contrarian_watch_oversold",
         "score": 50.0
-      },
-      {
-        "strategy": "ma_cross_trend",
-        "score": 33.3
       },
       {
         "strategy": "contrarian_watch_overheated",
