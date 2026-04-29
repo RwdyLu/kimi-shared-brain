@@ -51315,3 +51315,42 @@ Scheduler stopped by user / 排程器被使用者停止
 [2026-04-30 00:56:48]   Symbols: 10/10
 [2026-04-30 00:56:48]   Signals: 7 (Confirmed: 6, Watch: 1)
 [2026-04-30 00:56:48] Next run at 01:01:48 (in 5 min)
+[2026-04-30 01:01:48] ============================================================
+[2026-04-30 01:01:48] Run #22 started at 2026-04-30 01:01:48.547972
+[2026-04-30 01:01:48] ============================================================
+[2026-04-30 01:02:04]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-04-30 01:02:04]   [Phase 2] Executing paper trades...
+[2026-04-30 01:02:04]     ⏭️ BTCUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ BTCUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ BNBUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ BNBUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ SOLUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ SOLUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ SOLUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ XRPUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ XRPUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOGEUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOGEUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ LINKUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ LINKUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 01:02:04]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 01:02:04]   Paper Balance: $6,554.80
+[2026-04-30 01:02:04]   Open positions: 6
+[2026-04-30 01:02:04]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-04-30 01:02:04] Run #22 completed
+[2026-04-30 01:02:04]   Duration: 16.2s
+[2026-04-30 01:02:04]   Symbols: 10/10
+[2026-04-30 01:02:04]   Signals: 24 (Confirmed: 23, Watch: 1)
+[2026-04-30 01:02:04] Next run at 01:07:04 (in 5 min)
+[2026-04-30 01:07:04] ============================================================
+[2026-04-30 01:07:04] Run #23 started at 2026-04-30 01:07:04.761554
+[2026-04-30 01:07:04] ============================================================

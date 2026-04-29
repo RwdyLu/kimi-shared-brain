@@ -30,6 +30,11 @@ from config.loader import get_monitoring_params
 from config.paths import PROJECT_ROOT
 from ui.services.monitor_service import get_scheduler_status
 
+# Determine initial scheduler status at import time / 匯入時檢測 scheduler 狀態
+_initial_scheduler_status = get_scheduler_status()
+_scheduler_badge_text = "🟢 Running" if _initial_scheduler_status.get("running") else "🔴 Stopped"
+_scheduler_badge_color = "success" if _initial_scheduler_status.get("running") else "danger"
+
 # Initialize the Dash app with multi-page support
 # 使用多頁支援初始化 Dash 應用程式
 app = dash.Dash(
@@ -81,7 +86,7 @@ navbar = dbc.Navbar(
             html.Div(
                 id="navbar-status",
                 children=[
-                    dbc.Badge("🟢 Running", color="success", className="me-2")
+                    dbc.Badge(_scheduler_badge_text, color=_scheduler_badge_color, className="me-2")
                 ]
             )
         ]
@@ -147,6 +152,7 @@ def update_navbar_status(n):
     try:
         # Use the same source as Dashboard/System pages
         status = get_scheduler_status()
+        print(f"[DEBUG] Scheduler status: running={status.get('running')}, pid={status.get('pid')}, text={status.get('status_text')}")
         
         if status.get("running"):
             return dbc.Badge("🟢 Running", color="success", className="me-2")
