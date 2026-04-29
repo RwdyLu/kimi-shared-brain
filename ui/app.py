@@ -152,8 +152,9 @@ def update_navbar_status(n):
             return dbc.Badge("🟢 Running", color="success", className="me-2")
         else:
             return dbc.Badge("🔴 Stopped", color="danger", className="me-2")
-    except Exception:
-        return dbc.Badge("⚪ Unknown", color="secondary", className="me-2")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return dbc.Badge(f"⚪ Unknown ({str(e)[:20]})", color="secondary", className="me-2")
 
 
 if __name__ == "__main__":

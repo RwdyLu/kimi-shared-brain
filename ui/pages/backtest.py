@@ -474,7 +474,7 @@ def run_backtest_callback(n_clicks, symbol, stop_loss, take_profit, capital):
         # Sort by exit time (most recent first) and take last 20
         trades_sorted = sorted(
             trades,
-            key=lambda x: x.get("exit_time", ""),
+            key=lambda x: x.get("exit_time") or "",
             reverse=True
         )[:20]
         
@@ -654,7 +654,7 @@ def display_selected_backtest(backtest_id):
         
         # Build trades table
         trades = storage.get_trades_for_backtest(backtest_id)
-        trades_sorted = sorted(trades, key=lambda x: x.get("exit_time", ""), reverse=True)[:20]
+        trades_sorted = sorted(trades, key=lambda x: x.get("exit_time") or "", reverse=True)[:20]
         
         table_rows = []
         for trade in trades_sorted:
