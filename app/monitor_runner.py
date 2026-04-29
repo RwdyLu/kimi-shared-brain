@@ -119,6 +119,28 @@ class SymbolResult:
     volume_ratio: Optional[float] = None
     current_price: Optional[float] = None  # Current price from latest candle / 最新K線的當前價格
 
+    # P2 Strategy Indicators (Fix F) / P2 策略指標
+    rsi: Optional[float] = None
+    rsi_prev: Optional[float] = None
+    tema: Optional[float] = None
+    tema_prev: Optional[float] = None
+    stoch_fastk: Optional[float] = None
+    stoch_fastd: Optional[float] = None
+    stoch_fastk_prev: Optional[float] = None
+    stoch_fastd_prev: Optional[float] = None
+    bb_upper: Optional[float] = None
+    bb_middle: Optional[float] = None
+    bb_lower: Optional[float] = None
+    sar: Optional[float] = None
+    ht_sine: Optional[float] = None
+    ht_leadsine: Optional[float] = None
+    ht_sine_prev: Optional[float] = None
+    ht_leadsine_prev: Optional[float] = None
+    ema5: Optional[float] = None
+    ema10: Optional[float] = None
+    highs: List[float] = None
+    closes: List[float] = None
+
     # Signals / 訊號
     signals: List[Signal] = None
     confirmed_signals: List[Signal] = None
@@ -236,6 +258,30 @@ class MonitorRunner:
             else:
                 snapshot["price_vs_ma240_pct"] = None
 
+            # Add P2 strategy indicators / 添加 P2 策略指標 (Fix F)
+            p2_indicator_fields = [
+                "rsi", "rsi_prev",
+                "tema", "tema_prev",
+                "stoch_fastk", "stoch_fastd",
+                "stoch_fastk_prev", "stoch_fastd_prev",
+                "bb_upper", "bb_middle", "bb_lower",
+                "sar",
+                "ht_sine", "ht_leadsine",
+                "ht_sine_prev", "ht_leadsine_prev",
+                "ema5", "ema10",
+                "volume_avg",
+            ]
+            for field in p2_indicator_fields:
+                val = getattr(result, field, None)
+                if val is not None:
+                    snapshot[field] = val
+
+            # Add lists (highs, closes) if available / 添加列表欄位
+            if result.highs is not None:
+                snapshot["highs"] = result.highs
+            if result.closes is not None:
+                snapshot["closes"] = result.closes
+
             # Add signals info / 添加訊號資訊
             snapshot["signals_count"] = len(result.signals) if result.signals else 0
             snapshot["signal_types"] = [s.signal_type.name for s in result.signals] if result.signals else []
@@ -333,8 +379,17 @@ class MonitorRunner:
         # Calculate P2 strategy indicators / 計算 P2 策略指標
         from indicators.calculator import (
             calculate_rsi, calculate_tema, calculate_stochastic,
-            calculate_bollinger_bands, calculate_sar, calculate_ht_sine
+            calculate_bollinger_bands, calculate_sar, calculate_ht_sine,
+            calculate_ema
         )
+
+        # EMA (for ema_cross_fast strategy)
+        if len(closes_5m) >= 10:
+            ema5_list = calculate_ema(closes_5m, period=5)
+            ema10_list = calculate_ema(closes_5m, period=10)
+            if ema5_list and ema10_list:
+                result["ema5"] = ema5_list[-1]
+                result["ema10"] = ema10_list[-1]
 
         # RSI
         if len(closes_5m) >= 15:
@@ -567,6 +622,27 @@ class MonitorRunner:
             volume_avg=indicators.get("volume_avg"),
             volume_ratio=indicators.get("volume_ratio"),
             current_price=current_price,  # Add current price / 添加當前價格
+            # P2 Strategy Indicators (Fix F) / P2 策略指標
+            rsi=indicators.get("rsi"),
+            rsi_prev=indicators.get("rsi_prev"),
+            tema=indicators.get("tema"),
+            tema_prev=indicators.get("tema_prev"),
+            stoch_fastk=indicators.get("stoch_fastk"),
+            stoch_fastd=indicators.get("stoch_fastd"),
+            stoch_fastk_prev=indicators.get("stoch_fastk_prev"),
+            stoch_fastd_prev=indicators.get("stoch_fastd_prev"),
+            bb_upper=indicators.get("bb_upper"),
+            bb_middle=indicators.get("bb_middle"),
+            bb_lower=indicators.get("bb_lower"),
+            sar=indicators.get("sar"),
+            ht_sine=indicators.get("ht_sine"),
+            ht_leadsine=indicators.get("ht_leadsine"),
+            ht_sine_prev=indicators.get("ht_sine_prev"),
+            ht_leadsine_prev=indicators.get("ht_leadsine_prev"),
+            ema5=indicators.get("ema5"),
+            ema10=indicators.get("ema10"),
+            highs=indicators.get("highs"),
+            closes=indicators.get("closes"),
             signals=signals,
             confirmed_signals=confirmed,
             watch_only_signals=watch_only,

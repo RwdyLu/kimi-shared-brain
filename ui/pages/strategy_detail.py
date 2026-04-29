@@ -511,6 +511,7 @@ def render_conditions(strategy, snapshot):
         "volume_ratio": snapshot.get("volume_ratio"),
         "candles": snapshot.get("candles", []),
         "closes": snapshot.get("closes", []),
+        "highs": snapshot.get("highs", []),
         "ht_sine": snapshot.get("ht_sine"),
         "ht_leadsine": snapshot.get("ht_leadsine"),
         "ht_sine_prev": snapshot.get("ht_sine_prev"),
@@ -526,6 +527,9 @@ def render_conditions(strategy, snapshot):
         "sar": snapshot.get("sar"),
         "rsi": snapshot.get("rsi"),
         "rsi_prev": snapshot.get("rsi_prev"),
+        "ema5": snapshot.get("ema5"),
+        "ema10": snapshot.get("ema10"),
+        "rsi_values": snapshot.get("closes", []),  # For divergence check
     }
     
     # Evaluate conditions
@@ -583,6 +587,14 @@ def render_conditions(strategy, snapshot):
                 current_value = f"BB Lower: ${check.details['bb_lower']:,.2f}"
             elif "bb_middle" in check.details:
                 current_value = f"BB Middle: ${check.details['bb_middle']:,.2f}"
+            elif "ema5" in check.details and "ema10" in check.details:
+                current_value = f"EMA5: ${check.details['ema5']:,.2f}, EMA10: ${check.details['ema10']:,.2f}"
+            elif "ema5" in check.details:
+                current_value = f"EMA5: ${check.details['ema5']:,.2f}"
+            elif "period_high" in check.details:
+                current_value = f"High: ${check.details['period_high']:,.2f}"
+            elif "volume_ratio" in check.details and "threshold" in check.details:
+                current_value = f"Vol: {check.details['volume_ratio']:.2f}x (threshold: {check.details['threshold']}x)"
         
         if not current_value:
             current_value = check.message[:50] if check.message else "--"
