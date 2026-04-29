@@ -51148,3 +51148,28 @@ Scheduler stopped by user / 排程器被使用者停止
 [2026-04-30 00:14:29]   Symbols: 10/10
 [2026-04-30 00:14:29]   Signals: 21 (Confirmed: 21, Watch: 0)
 [2026-04-30 00:14:29] Next run at 00:19:29 (in 5 min)
+[2026-04-30 00:19:29] ============================================================
+[2026-04-30 00:19:29] Run #14 started at 2026-04-30 00:19:29.643296
+[2026-04-30 00:19:29] ============================================================
+[2026-04-30 00:19:46]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-04-30 00:19:46]   [Phase 2] Executing paper trades...
+[2026-04-30 00:19:46]     ⏭️ ETHUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ ETHUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ BNBUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ BNBUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ SOLUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ ADAUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ AVAXUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 00:19:46]     ⏭️ DOTUSDT: BUY skipped
+[2026-04-30 00:19:46]   Paper Balance: $6,554.80
+[2026-04-30 00:19:46]   Open positions: 6
+[2026-04-30 00:19:46]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-04-30 00:19:46] Run #14 completed
+[2026-04-30 00:19:46]   Duration: 17.2s
+[2026-04-30 00:19:46]   Symbols: 10/10
+[2026-04-30 00:19:46]   Signals: 12 (Confirmed: 12, Watch: 0)
+[2026-04-30 00:19:46] Next run at 00:24:46 (in 5 min)

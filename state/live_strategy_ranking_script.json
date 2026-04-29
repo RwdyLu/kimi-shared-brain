@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-30T00:14:29.607184",
+  "timestamp": "2026-04-30T00:19:46.840570",
   "total_strategies": 12,
   "total_symbols": 10,
   "strategy_ranking": [
@@ -24,18 +24,18 @@
     {
       "strategy_id": "contrarian_watch_oversold",
       "name": "Contrarian Watch - Oversold",
-      "avg_score": 45.0,
+      "avg_score": 50.0,
       "symbols_evaluated": 10,
       "max_score": 50.0,
-      "min_score": 0.0,
+      "min_score": 50.0,
       "rank": 3
     },
     {
       "strategy_id": "contrarian_watch_overheated",
       "name": "Contrarian Watch - Overheated",
-      "avg_score": 5.0,
+      "avg_score": 0.0,
       "symbols_evaluated": 10,
-      "max_score": 50.0,
+      "max_score": 0.0,
       "min_score": 0.0,
       "rank": 4
     },
@@ -119,7 +119,7 @@
       "strategy_name": "MA Cross Trend Short",
       "symbol": "BTCUSDT",
       "score": 100.0,
-      "price": 76050.01
+      "price": 75959.71
     },
     {
       "rank": 2,
@@ -127,23 +127,23 @@
       "strategy_name": "MA Cross Trend",
       "symbol": "BTCUSDT",
       "score": 66.7,
-      "price": 76050.02
+      "price": 75959.71
     },
     {
       "rank": 3,
-      "strategy_id": "contrarian_watch_overheated",
-      "strategy_name": "Contrarian Watch - Overheated",
-      "symbol": "DOGEUSDT",
-      "score": 50.0,
-      "price": 0.1
-    },
-    {
-      "rank": 4,
       "strategy_id": "contrarian_watch_oversold",
       "strategy_name": "Contrarian Watch - Oversold",
       "symbol": "BTCUSDT",
       "score": 50.0,
-      "price": 76050.02
+      "price": 75957.47
+    },
+    {
+      "rank": 4,
+      "strategy_id": "contrarian_watch_overheated",
+      "strategy_name": "Contrarian Watch - Overheated",
+      "symbol": "BTCUSDT",
+      "score": 0.0,
+      "price": 75957.47
     },
     {
       "rank": 5,
@@ -151,7 +151,7 @@
       "strategy_name": "Hilbert Cycle",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.02
+      "price": 75957.48
     },
     {
       "rank": 6,
@@ -159,7 +159,7 @@
       "strategy_name": "Stochastic Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.02
+      "price": 75963.22
     },
     {
       "rank": 7,
@@ -167,7 +167,7 @@
       "strategy_name": "RSI Trend",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.01
+      "price": 75963.21
     },
     {
       "rank": 8,
@@ -175,7 +175,7 @@
       "strategy_name": "EMA Cross Fast",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.01
+      "price": 75963.22
     },
     {
       "rank": 9,
@@ -183,7 +183,7 @@
       "strategy_name": "RSI Mid Bounce",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.01
+      "price": 75856.29
     },
     {
       "rank": 10,
@@ -191,7 +191,7 @@
       "strategy_name": "Volume Spike",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76050.01
+      "price": 75845.52
     },
     {
       "rank": 11,
@@ -199,7 +199,7 @@
       "strategy_name": "Price Channel Break",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76054.89
+      "price": 75843.34
     },
     {
       "rank": 12,
@@ -207,7 +207,7 @@
       "strategy_name": "Momentum Divergence",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 76054.89
+      "price": 75843.34
     }
   ],
   "symbol_scores": {
@@ -521,11 +521,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 0.0
       },
       {

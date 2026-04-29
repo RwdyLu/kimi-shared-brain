@@ -1,23 +1,9 @@
 {
-  "last_updated": "2026-04-30T00:14:29.615785",
+  "last_updated": "2026-04-30T00:19:46.856790",
   "symbols": {
     "BTCUSDT": {
-      "price": 76050.01,
+      "price": 75959.7,
       "strategies": [
-        {
-          "name": "hilbert_cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -47,7 +33,21 @@
           "total_conditions": 0
         },
         {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
           "name": "stochastic_breakout",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "rsi_trend",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -98,7 +98,7 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2276.78,
+      "price": 2274.8,
       "strategies": [
         {
           "name": "hilbert_cycle",
@@ -194,7 +194,7 @@
       ]
     },
     "BNBUSDT": {
-      "price": 617.49,
+      "price": 617.35,
       "strategies": [
         {
           "name": "hilbert_cycle",
@@ -290,22 +290,8 @@
       ]
     },
     "SOLUSDT": {
-      "price": 83.5,
+      "price": 83.28,
       "strategies": [
-        {
-          "name": "hilbert_cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
         {
           "name": "rsi_mid_bounce",
           "status": "Confirmed",
@@ -342,7 +328,21 @@
           "total_conditions": 0
         },
         {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
           "name": "stochastic_breakout",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "rsi_trend",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -386,29 +386,8 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.3655,
+      "price": 1.3642,
       "strategies": [
-        {
-          "name": "hilbert_cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
-        {
-          "name": "rsi_mid_bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -438,7 +417,21 @@
           "total_conditions": 0
         },
         {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
           "name": "stochastic_breakout",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "rsi_trend",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -453,6 +446,13 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -482,7 +482,7 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2445,
+      "price": 0.2448,
       "strategies": [
         {
           "name": "hilbert_cycle",
@@ -578,7 +578,7 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.10339,
+      "price": 0.10287,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -674,7 +674,7 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.14,
+      "price": 9.15,
       "strategies": [
         {
           "name": "hilbert_cycle",
@@ -770,22 +770,8 @@
       ]
     },
     "LINKUSDT": {
-      "price": 9.13,
+      "price": 9.11,
       "strategies": [
-        {
-          "name": "hilbert_cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -815,7 +801,21 @@
           "total_conditions": 0
         },
         {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
           "name": "stochastic_breakout",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "rsi_trend",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
