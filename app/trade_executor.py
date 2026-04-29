@@ -55,7 +55,18 @@ class TradeExecutor:
         SignalType.MEAN_REVERSION: TradeSide.BUY,
         SignalType.REVERSAL_LONG: TradeSide.BUY,
         SignalType.BREAKOUT_LONG: TradeSide.BUY,
+        # Exit signals
+        SignalType.EXIT_LONG: TradeSide.SELL,   # Close long position
+        SignalType.EXIT_SHORT: TradeSide.BUY,   # Close short position
     }
+
+    # Entry vs exit signal classification
+    ENTRY_SIGNALS = {
+        SignalType.TREND_LONG, SignalType.TREND_SHORT, SignalType.CYCLE,
+        SignalType.BREAKOUT, SignalType.MOMENTUM, SignalType.MEAN_REVERSION,
+        SignalType.REVERSAL_LONG, SignalType.BREAKOUT_LONG,
+    }
+    EXIT_SIGNALS = {SignalType.EXIT_LONG, SignalType.EXIT_SHORT}
 
     def __init__(
         self,
@@ -119,7 +130,7 @@ class TradeExecutor:
         return results
 
     def _process_signal(self, signal, current_prices: Dict[str, float]) -> Optional[TradeResult]:
-        """Process a single confirmed signal."""
+        """Process a single confirmed signal (entry or exit)."""
         symbol = signal.symbol
         signal_type = signal.signal_type
 
@@ -145,9 +156,14 @@ class TradeExecutor:
                 reason="No valid price",
             )
 
+        # Handle EXIT signals
+        if signal_type in self.EXIT_SIGNALS:
+            return self._process_exit_signal(symbol, signal, price, side)
+
+        # ENTRY signal handling below
         # Check if we already have an open position for this symbol
         if symbol in self.open_positions:
-            self.logger.info(f"Already have open position for {symbol}, skipping new signal")
+            self.logger.info(f"Already have open position for {symbol}, skipping new entry signal")
             return TradeResult(
                 symbol=symbol,
                 side=side.value,
@@ -184,7 +200,7 @@ class TradeExecutor:
 
         quantity = position_value / price
 
-        # Execute paper trade
+        # Execute paper trade entry
         try:
             trade = self.paper.enter_position(
                 symbol=symbol,
@@ -203,7 +219,7 @@ class TradeExecutor:
             }
 
             self.logger.info(
-                f"✅ PAPER TRADE: {side.value.upper()} {quantity:.6f} {symbol} "
+                f"✅ PAPER TRADE ENTRY: {side.value.upper()} {quantity:.6f} {symbol} "
                 f"@ ${trade.entry_price:,.2f} (balance: ${self.paper.balance:,.2f})"
             )
 
@@ -225,6 +241,81 @@ class TradeExecutor:
                 side=side.value,
                 status="skipped",
                 reason=f"Execution error: {e}",
+            )
+
+    def _process_exit_signal(self, symbol: str, signal, price: float, side: TradeSide) -> Optional[TradeResult]:
+        """Process an exit signal by closing the corresponding open position."""
+        # Check if we have an open position
+        if symbol not in self.open_positions:
+            self.logger.info(f"No open position for {symbol}, skipping exit signal")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="No open position to exit",
+            )
+
+        position = self.open_positions[symbol]
+        signal_type = signal.signal_type
+
+        # Verify position direction matches exit signal
+        # EXIT_LONG requires a long position, EXIT_SHORT requires a short position
+        if signal_type == SignalType.EXIT_LONG and position["side"] != "buy":
+            self.logger.info(f"Position for {symbol} is not long, skipping EXIT_LONG")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="Position direction mismatch for EXIT_LONG",
+            )
+
+        if signal_type == SignalType.EXIT_SHORT and position["side"] != "sell":
+            self.logger.info(f"Position for {symbol} is not short, skipping EXIT_SHORT")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason="Position direction mismatch for EXIT_SHORT",
+            )
+
+        # Execute paper trade exit
+        try:
+            trade = self.paper.exit_position(symbol=symbol, price=price)
+
+            if trade:
+                # Remove from tracking
+                del self.open_positions[symbol]
+
+                self.logger.info(
+                    f"✅ PAPER TRADE EXIT: {symbol} @ ${price:,.2f} "
+                    f"PnL: ${trade.realized_pnl:.2f} (balance: ${self.paper.balance:,.2f})"
+                )
+
+                return TradeResult(
+                    symbol=symbol,
+                    side=side.value,
+                    status="exited",
+                    trade_id=trade.trade_id,
+                    quantity=trade.quantity,
+                    entry_price=trade.entry_price,
+                    balance_after=self.paper.balance,
+                    reason=f"Exit signal: {signal.reason}",
+                )
+            else:
+                return TradeResult(
+                    symbol=symbol,
+                    side=side.value,
+                    status="skipped",
+                    reason="Exit failed - no trade record",
+                )
+
+        except Exception as e:
+            self.logger.error(f"Trade exit failed for {symbol}: {e}")
+            return TradeResult(
+                symbol=symbol,
+                side=side.value,
+                status="skipped",
+                reason=f"Exit execution error: {e}",
             )
 
     def check_exit_signals(self, symbol: str, current_price: float) -> Optional[TradeResult]:

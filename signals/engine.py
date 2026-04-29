@@ -65,6 +65,9 @@ class SignalType(Enum):
     MEAN_REVERSION = "mean_reversion"
     REVERSAL_LONG = "reversal_long"
     BREAKOUT_LONG = "breakout_long"
+    # Exit signal types for position management
+    EXIT_LONG = "exit_long"
+    EXIT_SHORT = "exit_short"
 
 
 class SignalLevel(Enum):
@@ -786,6 +789,71 @@ class SignalEngine:
         
         return signals
 
+    def generate_exit_signals(self, indicators: Dict[str, Any]) -> List[Signal]:
+        """
+        Generate exit signals from indicator data.
+        從指標資料產生出場訊號。
+        
+        Args:
+            indicators: Dict with MA5, MA20, MA240, position_side keys
+            
+        Returns:
+            List of exit Signal objects
+        """
+        signals = []
+        
+        ma5 = indicators.get('MA5')
+        ma20 = indicators.get('MA20')
+        ma240 = indicators.get('MA240')
+        position_side = indicators.get('position_side')  # "long" or "short"
+        
+        if not ma5 or not ma20 or not ma240 or not position_side:
+            return signals
+        
+        if not isinstance(ma5, list):
+            ma5 = [ma5]
+        if not isinstance(ma20, list):
+            ma20 = [ma20]
+        if not isinstance(ma240, list):
+            ma240 = [ma240]
+        
+        current_close = ma5[-1] if ma5 else 0
+        ma5_last = ma5[-1] if ma5 else 0
+        ma20_last = ma20[-1] if ma20 else 0
+        ma240_last = ma240[-1] if ma240 else 0
+        
+        # EXIT_LONG: close long position when trend turns bearish
+        if position_side == "long":
+            if ma5_last < ma20_last or current_close < ma240_last:
+                signals.append(Signal(
+                    signal_type=SignalType.EXIT_LONG,
+                    level=SignalLevel.CONFIRMED,
+                    symbol=indicators.get('symbol', 'UNKNOWN'),
+                    timestamp=int(time.time() * 1000),
+                    price_data={"close": current_close, "ma5": ma5_last, "ma20": ma20_last, "ma240": ma240_last},
+                    conditions={"ma5_below_ma20": ma5_last < ma20_last, "below_ma240": current_close < ma240_last},
+                    reason=f"Exit long: MA5={ma5_last:.2f} vs MA20={ma20_last:.2f}, close={current_close:.2f} vs MA240={ma240_last:.2f}",
+                    warning="ALERT_ONLY_NO_AUTO_TRADE",
+                    metadata={"strategy_name": "ma_cross_trend", "exit_reason": "trend_reversal", "conditions_passed": 1, "conditions_total": 2}
+                ))
+        
+        # EXIT_SHORT: close short position when trend turns bullish
+        elif position_side == "short":
+            if ma5_last > ma20_last or current_close > ma240_last:
+                signals.append(Signal(
+                    signal_type=SignalType.EXIT_SHORT,
+                    level=SignalLevel.CONFIRMED,
+                    symbol=indicators.get('symbol', 'UNKNOWN'),
+                    timestamp=int(time.time() * 1000),
+                    price_data={"close": current_close, "ma5": ma5_last, "ma20": ma20_last, "ma240": ma240_last},
+                    conditions={"ma5_above_ma20": ma5_last > ma20_last, "above_ma240": current_close > ma240_last},
+                    reason=f"Exit short: MA5={ma5_last:.2f} vs MA20={ma20_last:.2f}, close={current_close:.2f} vs MA240={ma240_last:.2f}",
+                    warning="ALERT_ONLY_NO_AUTO_TRADE",
+                    metadata={"strategy_name": "ma_cross_trend_short", "exit_reason": "trend_reversal", "conditions_passed": 1, "conditions_total": 2}
+                ))
+        
+        return signals
+
     def get_cooldown_status(self, symbol: str) -> Dict[str, float]:
         """
         Get cooldown status for symbol / 取得標的的冷卻狀態
@@ -802,7 +870,9 @@ class SignalEngine:
             ),
             "contrarian_watch_oversold": self.cooldown.get_remaining_cooldown(
                 symbol, SignalType.CONTRARIAN_WATCH_OVERSOLD
-            )
+            ),
+            "exit_long": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_LONG),
+            "exit_short": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_SHORT),
         }
 
 

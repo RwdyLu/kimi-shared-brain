@@ -279,23 +279,21 @@ class BacktestRunner:
                     exit_price = tp_price
                     exit_reason = "take_profit"
 
-        # Check reverse signal (optional exit)
+        # Check reverse signal / exit signal
         if not exit_triggered:
             indicators = {
                 'MA5': row.get('MA5'),
                 'MA20': row.get('MA20'),
                 'MA240': row.get('MA240'),
+                'position_side': trade.direction,
+                'symbol': symbol,
+                'backtest_mode': True,
             }
-            signals = self.signal_engine.generate_signals(indicators)
-
-            for signal in signals:
-                # Close on opposite direction signal
-                is_long_signal = "LONG" in signal.signal_type.name
-                if (trade.direction == "long" and not is_long_signal) or \
-                   (trade.direction == "short" and is_long_signal):
-                    exit_triggered = True
-                    exit_reason = "reverse_signal"
-                    break
+            exit_signals = self.signal_engine.generate_exit_signals(indicators)
+            
+            if exit_signals:
+                exit_triggered = True
+                exit_reason = "exit_signal"
 
         if exit_triggered:
             self._close_trade(symbol, timestamp, exit_price, exit_reason)
