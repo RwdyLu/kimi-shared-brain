@@ -437,7 +437,7 @@ class MonitoringScheduler:
 
         try:
             # Execute monitoring / 執行監測
-            results, summary = self.runner.run_monitor_once()
+            results, summary = self.runner.run_monitor_once(run_id=run_id)
 
             # Save current prices to state file / 儲存當前價格到狀態檔案
             self._save_prices_to_state(results)

@@ -573,13 +573,13 @@ class MonitorRunner:
         )
 
         # Save indicator snapshot / 儲存指標快照 (T-052-B)
-        self._save_indicator_snapshot(result, run_id=None)
+        self._save_indicator_snapshot(result, run_id=run_id)
 
         print(f"✓ {symbol} monitoring complete")
 
         return result
 
-    def run_monitor_once(self) -> Tuple[List[SymbolResult], RunSummary]:
+    def run_monitor_once(self, run_id: Optional[int] = None) -> Tuple[List[SymbolResult], RunSummary]:
         """
         Run monitoring once for all symbols / 執行所有標的的一次監測
 
