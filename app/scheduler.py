@@ -297,9 +297,8 @@ class MonitoringScheduler:
                 "ma_cross_trend", "ma_cross_trend_short",
                 "contrarian_watch_overheated", "contrarian_watch_oversold",
                 "hilbert_cycle", "stochastic_breakout", "rsi_trend",
-                "bb_mean_reversion", "macd_momentum",
-                "ema_cross_fast", "rsi_mid_bounce", "volume_spike",
-                "price_channel_break", "momentum_divergence"
+                "bb_mean_reversion", "ema_cross_fast", "rsi_mid_bounce",
+                "volume_spike", "price_channel_break", "momentum_divergence"
             ]
 
             # Process symbols that were actually monitored
@@ -316,9 +315,7 @@ class MonitoringScheduler:
                 scores = {}
 
                 for sig in confirmed:
-                    # Debug: log metadata contents
                     meta = getattr(sig, 'metadata', {})
-                    self._log(f"    DEBUG: sig.metadata type={type(meta)}, contents={meta}")
                     name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
                     scores[name] = {
                         "name": name,

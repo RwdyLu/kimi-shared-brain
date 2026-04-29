@@ -47,11 +47,28 @@ def load_strategies():
 
 
 def find_strategy(strategy_name: str):
-    """Find strategy by id or name"""
+    """Find strategy by id, name, or signal_type with flexible matching"""
+    if not strategy_name:
+        return None
     strategies = load_strategies()
+    strategy_name_lower = strategy_name.lower().replace(" ", "_")
     for s in strategies:
-        if s.get("id") == strategy_name or s.get("name") == strategy_name:
+        sid = s.get("id", "")
+        sname = s.get("name", "")
+        stype = s.get("signal_type", "")
+        if sid == strategy_name:
             return s
+        if sname == strategy_name:
+            return s
+        if stype == strategy_name:
+            return s
+        # Flexible: id normalized vs input normalized
+        if sid.lower().replace("_", "") == strategy_name_lower.replace("_", ""):
+            return s
+        # Flexible: name normalized (spaces → underscores)
+        if sname.lower().replace(" ", "_") == strategy_name_lower:
+            return s
+    print(f"[find_strategy] Not found: '{strategy_name}'. Available: {[s.get('id') for s in strategies]}")
     return None
 
 
