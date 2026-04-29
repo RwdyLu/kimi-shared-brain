@@ -124,7 +124,7 @@ class BacktestRunner:
             return
 
         # Process each candle
-        for idx, row in df.iterrows():
+        for candle_idx, (idx, row) in enumerate(df.iterrows()):
             timestamp = idx.strftime('%Y-%m-%d %H:%M')
             current_price = row['close']
 
@@ -134,7 +134,7 @@ class BacktestRunner:
 
             # Check for entry signals (only if no active trade)
             if symbol not in self.active_trades:
-                self._check_entry_signals(symbol, timestamp, current_price, row)
+                self._check_entry_signals(symbol, timestamp, current_price, row, df, candle_idx)
 
             # Update equity curve
             self._update_equity_curve(timestamp)
@@ -185,31 +185,41 @@ class BacktestRunner:
         df['volume'] = df['volume'].astype(float)
 
         # Calculate indicators using module functions
-        df['MA5'] = indicator_calc.calculate_ma5(df['close'].tolist())
-        df['MA20'] = indicator_calc.calculate_ma20(df['close'].tolist())
-        df['MA240'] = indicator_calc.calculate_ma240(df['close'].tolist())
+        # Pad with None to match DataFrame length
+        ma5_values = indicator_calc.calculate_ma5(df['close'].tolist())
+        ma20_values = indicator_calc.calculate_ma20(df['close'].tolist())
+        ma240_values = indicator_calc.calculate_ma240(df['close'].tolist())
+        
+        df['MA5'] = [None] * (len(df) - len(ma5_values)) + ma5_values if ma5_values else [None] * len(df)
+        df['MA20'] = [None] * (len(df) - len(ma20_values)) + ma20_values if ma20_values else [None] * len(df)
+        df['MA240'] = [None] * (len(df) - len(ma240_values)) + ma240_values if ma240_values else [None] * len(df)
 
         return df
 
-    def _check_entry_signals(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
+    def _check_entry_signals(self, symbol: str, timestamp: str, price: float, row: pd.Series, df: pd.DataFrame, idx: int) -> None:
         """
         Check for entry signals and open trades
         檢查進場訊號並開倉
         """
         # Prepare indicator data
+        # Get volume history for volume spike calculation
+        volume_history = df['volume'].iloc[max(0, idx-19):idx+1].tolist() if idx >= 0 else [row.get('volume')]
+        
         indicators = {
             'MA5': row.get('MA5'),
             'MA20': row.get('MA20'),
             'MA240': row.get('MA240'),
             'volume': row.get('volume'),
-            'volume_MA20': row.get('volume_MA20')
+            'volume_MA20': row.get('volume_MA20'),
+            'volume_history': volume_history,
+            'backtest_mode': True
         }
 
         # Get signals from engine
         signals = self.signal_engine.generate_signals(indicators)
 
         for signal in signals:
-            if signal.status.value == "confirmed":
+            if signal.level.value == "confirmed":
                 # Open trade
                 direction = TradeDirection.LONG if "LONG" in signal.signal_type.name else TradeDirection.SHORT
 

@@ -1,8 +1,8 @@
 {
-  "last_updated": "2026-04-29T23:37:31.365165",
+  "last_updated": "2026-04-29T23:53:22.011632",
   "symbols": {
     "BTCUSDT": {
-      "price": 76164.63,
+      "price": 75892.82,
       "strategies": [
         {
           "name": "contrarian_watch_overheated",
@@ -98,7 +98,7 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2283.86,
+      "price": 2270.81,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -194,7 +194,7 @@
       ]
     },
     "BNBUSDT": {
-      "price": 618.01,
+      "price": 616.63,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -290,7 +290,7 @@
       ]
     },
     "SOLUSDT": {
-      "price": 83.32,
+      "price": 83.22,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -386,7 +386,7 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.3656,
+      "price": 1.3622,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -482,7 +482,7 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2453,
+      "price": 0.2441,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -578,7 +578,7 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.10419,
+      "price": 0.10353,
       "strategies": [
         {
           "name": "ma_cross_trend",
@@ -674,8 +674,15 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.14,
+      "price": 9.11,
       "strategies": [
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Watch",
+          "score": 0.5,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -692,13 +699,6 @@
         },
         {
           "name": "contrarian_watch_overheated",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "contrarian_watch_oversold",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -770,24 +770,17 @@
       ]
     },
     "LINKUSDT": {
-      "price": 9.14,
+      "price": 9.11,
       "strategies": [
         {
-          "name": "ma_cross_trend_short",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
-        {
-          "name": "volume_spike",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
-        {
           "name": "ma_cross_trend",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
+          "name": "ma_cross_trend_short",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -850,6 +843,13 @@
           "total_conditions": 0
         },
         {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0
+        },
+        {
           "name": "price_channel_break",
           "status": "Idle",
           "score": 0.0,
@@ -866,7 +866,7 @@
       ]
     },
     "DOTUSDT": {
-      "price": 1.213,
+      "price": 1.206,
       "strategies": [
         {
           "name": "ma_cross_trend",
