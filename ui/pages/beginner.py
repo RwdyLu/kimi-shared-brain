@@ -103,6 +103,79 @@ def format_price(price):
         return f"${price:.4f}"
 
 
+# ─── New Feature F: Why explanation helpers / 為什麼說明輔助函數 ───
+
+STRATEGY_DISPLAY_NAMES = {
+    "ma_cross_trend": "均線交叉趨勢",
+    "ma_cross_trend_short": "均線交叉趨勢（做空）",
+    "hilbert_cycle": "希爾伯特週期",
+    "stochastic_breakout": "隨機指標突破",
+    "rsi_trend": "RSI 趨勢",
+    "bb_mean_reversion": "布林帶均值回歸",
+    "ema_cross_fast": "EMA 快速交叉",
+    "rsi_mid_bounce": "RSI 中位反彈",
+    "volume_spike": "成交量爆量",
+    "price_channel_break": "價格通道突破",
+    "momentum_divergence": "動能背離",
+    "contrarian_watch_overheated": "反向觀察（過熱）",
+    "contrarian_watch_oversold": "反向觀察（超賣）",
+}
+
+
+STRATEGY_EXPLANATIONS = {
+    "ma_cross_trend": "短期均線突破長期均線，顯示上升趨勢開始",
+    "ma_cross_trend_short": "短期均線跌破長期均線，顯示下降趨勢開始",
+    "hilbert_cycle": "週期指標顯示趨勢轉折點接近，可能出現方向變化",
+    "stochastic_breakout": "隨機指標從超賣區反彈，顯示買盤力量增強",
+    "rsi_trend": "RSI 從低點反彈，顯示買盤增加",
+    "bb_mean_reversion": "價格觸及布林帶下軌，統計上可能回歸均值",
+    "ema_cross_fast": "快速 EMA 突破慢速 EMA，顯示短期動能轉強",
+    "rsi_mid_bounce": "RSI 從中位區反彈，顯示動能轉為正面",
+    "volume_spike": "成交量異常放大，顯示市場關注度提升",
+    "price_channel_break": "價格突破近期高點，顯示趨勢延續",
+    "momentum_divergence": "價格與動能指標出現背離，可能預示趨勢反轉",
+    "contrarian_watch_overheated": "市場可能過熱，適合觀察等待回調",
+    "contrarian_watch_oversold": "市場可能超賣，適合觀察等待反彈",
+}
+
+
+def get_strategy_display_name(strategy_id: str) -> str:
+    """Get Chinese strategy name / 取得中文策略名稱"""
+    return STRATEGY_DISPLAY_NAMES.get(strategy_id, strategy_id)
+
+
+def get_strategy_explanation(strategy_id: str) -> str:
+    """Get one-sentence explanation / 取得一句話說明"""
+    return STRATEGY_EXPLANATIONS.get(strategy_id, "策略訊號觸發")
+
+
+def load_latest_snapshot(symbol: str) -> dict:
+    """Load latest indicator snapshot for symbol / 載入該幣種最新指標快照"""
+    try:
+        snapshots_file = Path(__file__).parents[2] / "logs" / "indicator_snapshots.jsonl"
+        if not snapshots_file.exists():
+            return {}
+        
+        latest = {}
+        with open(snapshots_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    snap = json.loads(line)
+                    if snap.get("symbol") == symbol:
+                        # Keep the latest / 保留最新的一筆
+                        ts = snap.get("timestamp", "")
+                        if not latest or ts > latest.get("timestamp", ""):
+                            latest = snap
+                except Exception:
+                    continue
+        return latest
+    except Exception:
+        return {}
+
+
 # =============================================================================
 # Layout / 佈局
 # =============================================================================
@@ -180,6 +253,44 @@ def update_beginner_grid(n):
         price = price_info.get("price", 0)
         price_text = format_price(price) if price else "--"
         
+        # ─── New Feature F: Why explanation / 為什麼說明 ───
+        # Load latest snapshot for this symbol / 載入該幣種最新快照
+        snapshot = load_latest_snapshot(symbol)
+        signal_types = snapshot.get("signal_types", []) if snapshot else []
+        snapshot_price = snapshot.get("price", price) if snapshot else price
+        
+        # Build why section / 建立為什麼區塊
+        why_children = []
+        if signal_types:
+            for st in signal_types:
+                st_id = st if isinstance(st, str) else st.get("strategy", "")
+                st_name = get_strategy_display_name(st_id)
+                st_explain = get_strategy_explanation(st_id)
+                why_children.append(
+                    html.Div([
+                        html.Strong(f"📊 {st_name}", className="d-block mb-1"),
+                        html.Small(st_explain, className="text-muted d-block mb-2")
+                    ])
+                )
+        else:
+            why_children.append(
+                html.Small("目前無觸發訊號", className="text-muted d-block")
+            )
+        
+        # Reference price, stop loss, take profit / 參考價、止損、止盈
+        ref_price = snapshot_price or price or 0
+        if ref_price > 0:
+            stop_loss = ref_price * 0.98
+            take_profit = ref_price * 1.025
+            ref_display = format_price(ref_price)
+            sl_display = format_price(stop_loss)
+            tp_display = format_price(take_profit)
+            sl_pct = "-2.0%"
+            tp_pct = "+2.5%"
+        else:
+            ref_display = sl_display = tp_display = "--"
+            sl_pct = tp_pct = ""
+        
         # Card border color / 卡片邊框顏色
         border_color = f"border-{status['color']}"
         
@@ -202,16 +313,36 @@ def update_beginner_grid(n):
                                 status['advice'],
                                 className="text-center text-muted small"
                             ),
-                            html.Div(
-                                dbc.Button(
-                                    "看詳情",
-                                    id=f"btn-{symbol}",
-                                    color=status['color'],
-                                    size="sm",
-                                    className="w-100 mt-2"
-                                ),
-                                className="d-grid"
-                            )
+                            
+                            # ─── Why section / 為什麼區塊 ───
+                            html.Hr(className="my-2"),
+                            html.H6("為什麼？", className="text-center fw-bold mb-2"),
+                            html.Div(why_children, className="small mb-2"),
+                            
+                            # Price targets / 價格目標
+                            html.Div([
+                                html.Div([
+                                    html.Small("進場參考: ", className="text-muted"),
+                                    html.Span(ref_display, className="fw-bold")
+                                ]),
+                                html.Div([
+                                    html.Small("建議止損: ", className="text-muted"),
+                                    html.Span(sl_display, className="text-danger fw-bold"),
+                                    html.Small(f" ({sl_pct})", className="text-danger") if sl_pct else None
+                                ]),
+                                html.Div([
+                                    html.Small("建議止盈: ", className="text-muted"),
+                                    html.Span(tp_display, className="text-success fw-bold"),
+                                    html.Small(f" ({tp_pct})", className="text-success") if tp_pct else None
+                                ]),
+                            ], className="text-center small mb-2"),
+                            
+                            # Disclaimer / 免責聲明
+                            html.P(
+                                "⚠️ 以上僅供參考，非投資建議",
+                                className="text-center text-muted small mt-2 mb-0",
+                                style={"fontSize": "0.75rem"}
+                            ),
                         ],
                         className="text-center"
                     )
