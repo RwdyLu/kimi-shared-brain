@@ -112,6 +112,57 @@ def load_current_prices() -> dict:
         return {}
 
 
+def load_strategy_win_rates() -> dict:
+    """Load historical win rates from state/strategy_ranking.json / 從回測排名載入歷史勝率"""
+    try:
+        ranking_file = project_root / "state" / "strategy_ranking.json"
+        if not ranking_file.exists():
+            return {}
+        with open(ranking_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {
+            r.get("strategy_id", ""): r.get("win_rate")
+            for r in data.get("ranking", [])
+            if r.get("strategy_id")
+        }
+    except Exception:
+        return {}
+
+
+def load_today_trigger_counts() -> dict:
+    """Count today's trigger occurrences per strategy from indicator_snapshots.jsonl / 從 indicator_snapshots 計算今日各策略觸發次數"""
+    try:
+        snapshots_file = project_root / "logs" / "indicator_snapshots.jsonl"
+        if not snapshots_file.exists():
+            return {}
+        
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        counts: dict = {}
+        
+        with open(snapshots_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    snap = json.loads(line)
+                    ts = snap.get("timestamp", "")
+                    if not ts.startswith(today_str):
+                        continue
+                    
+                    # signal_types is a list of strategy names that triggered
+                    sig_types = snap.get("signal_types", [])
+                    if isinstance(sig_types, list):
+                        for st in sig_types:
+                            counts[st] = counts.get(st, 0) + 1
+                except Exception:
+                    continue
+        
+        return counts
+    except Exception:
+        return {}
+
+
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/", title="Dashboard")
 
@@ -1485,6 +1536,10 @@ def update_strategy_ranking(n, selected_symbol):
             ])
         
         # Build ranking table from live data / 從即時資料建立排名表
+        # Load win rates and today triggers / 載入歷史勝率與今日觸發次數
+        win_rates = load_strategy_win_rates()
+        today_triggers = load_today_trigger_counts()
+        
         rows = []
         for i, item in enumerate(symbol_data, 1):
             strategy = item.get("name", "Unknown")
@@ -1501,10 +1556,25 @@ def update_strategy_ranking(n, selected_symbol):
                 score_color = "text-muted"
                 status_icon = "🔴"
             
+            # Historical win rate / 歷史勝率
+            wr = win_rates.get(strategy)
+            if wr is not None:
+                wr_display = f"{wr:.0f}%"
+                wr_color = "text-success" if wr >= 50 else "text-warning" if wr >= 40 else "text-danger"
+            else:
+                wr_display = "-"
+                wr_color = "text-muted"
+            
+            # Today trigger count / 今日觸發次數
+            triggers = today_triggers.get(strategy, 0)
+            trigger_display = f"{triggers}次" if triggers > 0 else "-"
+            
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
                 html.Td(dcc.Link(f"{get_strategy_display_name(strategy)}", href=f"/strategy/{strategy}", className="fw-bold text-decoration-none")),
                 html.Td(f"{status_icon} {score:.1f}%", className=score_color),
+                html.Td(trigger_display, className="text-center"),
+                html.Td(wr_display, className=f"text-center {wr_color}"),
             ]))
         
         # Also show best opportunities for this symbol / 也顯示該幣種的最佳機會
@@ -1544,7 +1614,9 @@ def update_strategy_ranking(n, selected_symbol):
             dbc.Table(
                 [
                     html.Thead(html.Tr([
-                        html.Th("#"), html.Th("Strategy"), html.Th("Score")
+                        html.Th("#"), html.Th("Strategy"), html.Th("Score"),
+                        html.Th("Today Trigs / 今日觸發", className="text-center"),
+                        html.Th("Win Rate / 歷史勝率", className="text-center"),
                     ]))
                 ] + [html.Tbody(rows)],
                 bordered=False,
