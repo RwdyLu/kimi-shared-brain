@@ -1,9 +1,16 @@
 {
-  "last_updated": "2026-04-29T08:28:11.093068",
+  "last_updated": "2026-04-29T08:58:24.287222",
   "symbols": {
     "BTCUSDT": {
-      "price": 76326.37,
+      "price": 76503.74,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "RSI Mid Bounce",
           "status": "Confirmed",
@@ -62,13 +69,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -112,24 +112,17 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2287.59,
+      "price": 2292.66,
       "strategies": [
         {
-          "name": "MA Cross Trend",
+          "name": "Hilbert Cycle",
           "status": "Confirmed",
           "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
+          "conditions_passed": 2,
+          "total_conditions": 2
         },
         {
           "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
-        {
-          "name": "Volume Spike",
           "status": "Confirmed",
           "score": 1.0,
           "conditions_passed": 1,
@@ -186,13 +179,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -236,8 +222,15 @@
       ]
     },
     "BNBUSDT": {
-      "price": 624.17,
+      "price": 624.61,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "RSI Mid Bounce",
           "status": "Confirmed",
@@ -296,13 +289,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -346,8 +332,15 @@
       ]
     },
     "SOLUSDT": {
-      "price": 83.89,
+      "price": 84.09,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "RSI Mid Bounce",
           "status": "Confirmed",
@@ -406,13 +399,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -456,8 +442,15 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.3789,
+      "price": 1.383,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "RSI Mid Bounce",
           "status": "Confirmed",
@@ -516,13 +509,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -566,31 +552,17 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2465,
+      "price": 0.2471,
       "strategies": [
         {
-          "name": "Unknown",
+          "name": "Hilbert Cycle",
           "status": "Confirmed",
           "score": 1.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "MA Cross Trend Short",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
+          "conditions_passed": 2,
+          "total_conditions": 2
         },
         {
           "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
-        {
-          "name": "Volume Spike",
           "status": "Confirmed",
           "score": 1.0,
           "conditions_passed": 1,
@@ -647,13 +619,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -697,31 +662,10 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.0997,
+      "price": 0.09994,
       "strategies": [
         {
-          "name": "MA Cross Trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
           "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
-        {
-          "name": "Volume Spike",
           "status": "Confirmed",
           "score": 1.0,
           "conditions_passed": 1,
@@ -778,13 +722,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -828,8 +765,29 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.16,
+      "price": 9.17,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
+        {
+          "name": "RSI Trend",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 3,
+          "total_conditions": 3
+        },
+        {
+          "name": "RSI Mid Bounce",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 1,
+          "total_conditions": 1
+        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -881,13 +839,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -931,8 +882,15 @@
       ]
     },
     "LINKUSDT": {
-      "price": 9.23,
+      "price": 9.26,
       "strategies": [
+        {
+          "name": "Hilbert Cycle",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
         {
           "name": "RSI Mid Bounce",
           "status": "Confirmed",
@@ -991,13 +949,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1041,24 +992,17 @@
       ]
     },
     "DOTUSDT": {
-      "price": 1.228,
+      "price": 1.23,
       "strategies": [
         {
-          "name": "MA Cross Trend",
+          "name": "Hilbert Cycle",
           "status": "Confirmed",
           "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
+          "conditions_passed": 2,
+          "total_conditions": 2
         },
         {
           "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
-        {
-          "name": "Volume Spike",
           "status": "Confirmed",
           "score": 1.0,
           "conditions_passed": 1,
@@ -1115,13 +1059,6 @@
         },
         {
           "name": "bb_mean_reversion",
-          "status": "Idle",
-          "score": 0.0,
-          "conditions_passed": 0,
-          "total_conditions": 0
-        },
-        {
-          "name": "macd_momentum",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,

@@ -12,6 +12,7 @@ from dash import dcc, html, callback, Output, Input
 import dash_bootstrap_components as dbc
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
@@ -220,6 +221,11 @@ STATUS_LABELS = {
 
 def layout(strategy_name=None):
     """Page layout with strategy name from URL"""
+    
+    # Decode URL encoding and normalize: "Hilbert%20Cycle" → "hilbert_cycle"
+    if strategy_name:
+        strategy_name = urllib.parse.unquote(strategy_name)
+        strategy_name = strategy_name.lower().replace(" ", "_").replace("-", "_")
     
     # Find strategy / 查找策略
     strategy = find_strategy(strategy_name) if strategy_name else None
@@ -441,6 +447,10 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     """Update strategy detail content for selected coin"""
     if not strategy_name:
         return "--", "--", html.P("No strategy selected / 未選擇策略", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted")
+    
+    # Decode URL encoding and normalize: "Hilbert%20Cycle" → "hilbert_cycle"
+    strategy_name = urllib.parse.unquote(strategy_name)
+    strategy_name = strategy_name.lower().replace(" ", "_").replace("-", "_")
     
     strategy = find_strategy(strategy_name)
     if not strategy:
