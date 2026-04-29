@@ -478,7 +478,8 @@ class SignalEngine:
             },
             conditions=analysis["conditions"],
             reason=f"{symbol}: close < MA240, MA5 crossed below MA20, volume {vol_analysis.ratio:.2f}x average",
-            warning="ALERT_ONLY_NO_AUTO_TRADE"
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "ma_cross_trend_short", "conditions_passed": len([c for c in analysis["conditions"].values() if c]), "conditions_total": len(analysis["conditions"])}
         )
         
         # Record emission / 記錄發送
@@ -522,7 +523,12 @@ class SignalEngine:
             },
             conditions={"pattern_detected": True},
             reason=f"{symbol} 15m: {pattern_result.consecutive_count} consecutive {pattern_type} candles - potential reversal zone",
-            warning="WATCH_ONLY_NOT_EXECUTION_SIGNAL"
+            warning="WATCH_ONLY_NOT_EXECUTION_SIGNAL",
+            metadata={
+                "strategy_name": "contrarian_watch_overheated" if signal_type == SignalType.CONTRARIAN_WATCH_OVERHEATED else "contrarian_watch_oversold",
+                "conditions_passed": 1,
+                "conditions_total": 1
+            }
         )
         
         # Record emission / 記錄發送

@@ -1,23 +1,9 @@
 {
-  "last_updated": "2026-04-29T08:58:24.287222",
+  "last_updated": "2026-04-29T22:07:57.528461",
   "symbols": {
     "BTCUSDT": {
-      "price": 76503.74,
+      "price": 76644.36,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -112,22 +98,8 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2292.66,
+      "price": 2297.03,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -222,22 +194,8 @@
       ]
     },
     "BNBUSDT": {
-      "price": 624.61,
+      "price": 621.24,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -332,22 +290,8 @@
       ]
     },
     "SOLUSDT": {
-      "price": 84.09,
+      "price": 83.82,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -442,22 +386,8 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.383,
+      "price": 1.3713,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -552,22 +482,8 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2471,
+      "price": 0.2469,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -662,14 +578,21 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.09994,
+      "price": 0.10627,
       "strategies": [
         {
-          "name": "RSI Mid Bounce",
+          "name": "Hilbert Cycle",
           "status": "Confirmed",
           "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
+          "conditions_passed": 2,
+          "total_conditions": 2
+        },
+        {
+          "name": "RSI Trend",
+          "status": "Confirmed",
+          "score": 1.0,
+          "conditions_passed": 3,
+          "total_conditions": 3
         },
         {
           "name": "ma_cross_trend",
@@ -765,29 +688,8 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.17,
+      "price": 9.19,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Trend",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 3,
-          "total_conditions": 3
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -882,22 +784,8 @@
       ]
     },
     "LINKUSDT": {
-      "price": 9.26,
+      "price": 9.2,
       "strategies": [
-        {
-          "name": "Hilbert Cycle",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 2,
-          "total_conditions": 2
-        },
-        {
-          "name": "RSI Mid Bounce",
-          "status": "Confirmed",
-          "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
@@ -992,7 +880,7 @@
       ]
     },
     "DOTUSDT": {
-      "price": 1.23,
+      "price": 1.227,
       "strategies": [
         {
           "name": "Hilbert Cycle",
@@ -1002,11 +890,11 @@
           "total_conditions": 2
         },
         {
-          "name": "RSI Mid Bounce",
+          "name": "RSI Trend",
           "status": "Confirmed",
           "score": 1.0,
-          "conditions_passed": 1,
-          "total_conditions": 1
+          "conditions_passed": 3,
+          "total_conditions": 3
         },
         {
           "name": "ma_cross_trend",
