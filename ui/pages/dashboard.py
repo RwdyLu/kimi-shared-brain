@@ -3,6 +3,7 @@ from dash import dcc, html, callback, Output, Input
 import dash_bootstrap_components as dbc
 from datetime import datetime
 import sys
+import json
 from pathlib import Path
 
 # Dynamic path setup / 動態路徑設定
@@ -19,6 +20,31 @@ from ui.services.monitor_service import (
     get_current_prices  # T-051: Add current prices / 新增當前價格
 )
 from config.loader import get_enabled_symbols
+
+# Fix H: Strategy display names / 策略顯示名稱
+_DISPLAY_NAMES = None
+
+def _load_display_names():
+    """Load strategy display names from config/strategies.json"""
+    global _DISPLAY_NAMES
+    if _DISPLAY_NAMES is not None:
+        return _DISPLAY_NAMES
+    try:
+        strategies_file = project_root / "config" / "strategies.json"
+        with open(strategies_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        _DISPLAY_NAMES = {
+            s["id"]: s.get("name", s["id"])
+            for s in data.get("strategies", [])
+        }
+    except Exception:
+        _DISPLAY_NAMES = {}
+    return _DISPLAY_NAMES
+
+def get_strategy_display_name(strategy_id: str) -> str:
+    """Get human-readable strategy name / 取得可讀的策略名稱"""
+    names = _load_display_names()
+    return names.get(strategy_id, strategy_id)
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/", title="Dashboard")
@@ -904,7 +930,7 @@ def update_btc_strategy_status(n):
         )
         
     except Exception as e:
-        return ([f"Error: {str(e)[:20]}"] + ["--"] * 12)
+        return ([f"Error: {str(e)}"] + ["--"] * 12)
 
 
 @callback(
@@ -1004,7 +1030,7 @@ def update_eth_strategy_status(n):
         )
         
     except Exception as e:
-        return ([f"Error: {str(e)[:20]}"] + ["--"] * 12)
+        return ([f"Error: {str(e)}"] + ["--"] * 12)
 
 
 # T-053-B: Check History Callback / 檢查歷史回調
@@ -1250,7 +1276,7 @@ def update_strategy_ranking(n, selected_symbol):
                 
                 rows.append(html.Tr([
                     html.Td(f"#{i}", className="text-muted"),
-                    html.Td(f"{strategy[:15]}", className="fw-bold"),
+                    html.Td(f"{get_strategy_display_name(strategy)}", className="fw-bold"),
                     html.Td(f"{total_trades}"),
                     html.Td(f"{win_rate:.1f}%", className=winrate_color),
                     html.Td(f"{total_return:+.2f}%", className=return_color),
@@ -1306,7 +1332,7 @@ def update_strategy_ranking(n, selected_symbol):
             
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
-                html.Td(dcc.Link(f"{strategy[:20]}", href=f"/strategy/{strategy}", className="fw-bold text-decoration-none")),
+                html.Td(dcc.Link(f"{get_strategy_display_name(strategy)}", href=f"/strategy/{strategy}", className="fw-bold text-decoration-none")),
                 html.Td(f"{status_icon} {score:.1f}%", className=score_color),
             ]))
         
@@ -1319,7 +1345,7 @@ def update_strategy_ranking(n, selected_symbol):
             opp_rows = []
             for opp in symbol_opps[:3]:
                 opp_rows.append(html.Tr([
-                    html.Td(f"{opp.get('strategy_name', 'Unknown')[:20]}", className="fw-bold small"),
+                    html.Td(f"{get_strategy_display_name(opp.get('strategy_name', 'Unknown'))}", className="fw-bold small"),
                     html.Td(f"Score: {opp.get('score', 0):.1f}%", className="text-info small"),
                     html.Td(f"${opp.get('price', 0):,.2f}", className="text-muted small")
                 ]))
@@ -1405,7 +1431,7 @@ def update_signals_history(n):
                 html.Div([
                     html.Div([
                         html.Div([
-                            html.Small(f"{bt.get('backtest_id', '--')[:20]}", className="fw-bold d-block"),
+                            html.Small(f"{bt.get('backtest_id', '--')}", className="fw-bold d-block"),
                             html.Small(
                                 f"Return: {bt.get('total_return_pct', 0):+.1f}% | WR: {bt.get('win_rate', 0):.0f}%",
                                 className="text-muted"

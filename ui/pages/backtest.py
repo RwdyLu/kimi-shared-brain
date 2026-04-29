@@ -253,7 +253,8 @@ layout = dbc.Container(
                                     "template": "plotly_white"
                                 }
                             },
-                            config={"displayModeBar": True}
+                            config={"displayModeBar": True},
+                            style={"height": "350px", "minHeight": "350px"}
                         )
                     ]
                 )
