@@ -181,8 +181,89 @@ def generate_live_ranking() -> dict:
         }
     }
     
-    # Save
-    output_path = Path("state/live_strategy_ranking.json")
+def generate_live_ranking() -> dict:
+    """Generate live ranking across all strategies and symbols."""
+    
+    executor = StrategyExecutor()
+    strategies = executor.enabled_strategies
+    
+    all_results = []
+    symbol_scores = {}
+    
+    for strategy in strategies:
+        symbols = strategy.get("symbols", [])
+        for symbol in symbols:
+            result = evaluate_strategy_live(strategy, symbol)
+            if result:
+                all_results.append(result)
+                
+                # Track symbol-level scores
+                if symbol not in symbol_scores:
+                    symbol_scores[symbol] = []
+                symbol_scores[symbol].append({
+                    "strategy": strategy["id"],
+                    "score": result["score"]
+                })
+    
+    # Calculate strategy average scores
+    strategy_totals = {}
+    for r in all_results:
+        sid = r["strategy_id"]
+        if sid not in strategy_totals:
+            strategy_totals[sid] = {"scores": [], "name": r.get("strategy_name", sid)}
+        strategy_totals[sid]["scores"].append(r["score"])
+    
+    strategy_ranking = []
+    for sid, data in strategy_totals.items():
+        avg_score = sum(data["scores"]) / len(data["scores"]) if data["scores"] else 0
+        strategy_ranking.append({
+            "strategy_id": sid,
+            "name": data["name"],
+            "avg_score": round(avg_score, 1),
+            "symbols_evaluated": len(data["scores"]),
+            "max_score": round(max(data["scores"]), 1) if data["scores"] else 0,
+            "min_score": round(min(data["scores"]), 1) if data["scores"] else 0
+        })
+    
+    strategy_ranking.sort(key=lambda x: x["avg_score"], reverse=True)
+    
+    # Add rank
+    for i, r in enumerate(strategy_ranking, 1):
+        r["rank"] = i
+    
+    # Best symbol per strategy
+    best_per_strategy = {}
+    for r in all_results:
+        sid = r["strategy_id"]
+        if sid not in best_per_strategy or r["score"] > best_per_strategy[sid]["score"]:
+            best_per_strategy[sid] = r
+    
+    output = {
+        "timestamp": datetime.now().isoformat(),
+        "total_strategies": len(strategies),
+        "total_symbols": len(symbol_scores),
+        "strategy_ranking": strategy_ranking,
+        "best_opportunities": [
+            {
+                "rank": i + 1,
+                "strategy_id": r["strategy_id"],
+                "strategy_name": r.get("strategy_name", r["strategy_id"]),
+                "symbol": r["symbol"],
+                "score": r["score"],
+                "price": r.get("current_price")
+            }
+            for i, (sid, r) in enumerate(
+                sorted(best_per_strategy.items(), key=lambda x: x[1]["score"], reverse=True)
+            )
+        ],
+        "symbol_scores": {
+            sym: sorted(scores, key=lambda x: x["score"], reverse=True)
+            for sym, scores in symbol_scores.items()
+        }
+    }
+    
+    # Save to alternate path to avoid overwriting scheduler's ranking
+    output_path = Path("state/live_strategy_ranking_script.json")
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
