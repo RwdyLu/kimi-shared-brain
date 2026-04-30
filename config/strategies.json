@@ -32,7 +32,7 @@
         "volume_spike"
       ],
       "parameters": {
-        "volume_threshold": 1.5,
+        "volume_threshold": 0.8,
         "consecutive_required": false
       },
       "signal_type": "trend_long",
@@ -67,7 +67,7 @@
         "volume_spike"
       ],
       "parameters": {
-        "volume_threshold": 1.5,
+        "volume_threshold": 0.8,
         "consecutive_required": false
       },
       "signal_type": "trend_short",
@@ -314,7 +314,7 @@
         "bb_period": 20,
         "bb_std": 2.0,
         "rsi_period": 14,
-        "volume_threshold": 1.5
+        "volume_threshold": 0.8
       },
       "signal_type": "mean_reversion",
       "signal_level": "confirmed",
@@ -372,8 +372,8 @@
       "name_zh": "成交量突增",
       "type": "momentum",
       "enabled": true,
-      "description": "Volume spike above 1.5x average",
-      "description_zh": "成交量突增超過均量1.5倍",
+      "description": "Volume spike above 0.8x average",
+      "description_zh": "成交量突增超過均量0.8倍",
       "symbols": [
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
         "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
@@ -383,7 +383,7 @@
       "conditions": ["volume_above_avg_1_5x"],
       "parameters": {
         "volume_period": 20,
-        "volume_multiplier": 1.5
+        "volume_multiplier": 0.8
       },
       "signal_type": "momentum",
       "signal_level": "confirmed"
