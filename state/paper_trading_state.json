@@ -1,38 +1,214 @@
 {
-  "balance": 7348.44628158167,
+  "balance": 4269.17198663203,
   "initial_balance": 10000,
   "positions": {
     "BTCUSDT": {
+      "side": "buy",
+      "quantity": 0.008444648631045012,
+      "entry_price": 77197.82627654869,
+      "entry_time": "2026-05-01T14:57:21.620999"
+    },
+    "ETHUSDT": {
+      "side": "buy",
+      "quantity": 0.25691684433556267,
+      "entry_price": 2283.180920566092,
+      "entry_time": "2026-05-01T14:57:21.821195"
+    },
+    "BNBUSDT": {
+      "side": "buy",
+      "quantity": 0.8540796711714072,
+      "entry_price": 617.6603903917628,
+      "entry_time": "2026-05-01T14:57:22.021379"
+    },
+    "SOLUSDT": {
+      "side": "buy",
+      "quantity": 5.651762792315293,
+      "entry_price": 83.94606699073573,
+      "entry_time": "2026-05-01T14:57:22.221578"
+    }
+  },
+  "trades": [
+    {
+      "trade_id": "sim_20260501145720_BTCUSDT",
+      "symbol": "BTCUSDT",
       "side": "sell",
       "quantity": 0.011903590563255198,
       "entry_price": 76244.47220130512,
-      "entry_time": "2026-05-01T06:57:10.846947"
+      "exit_price": 77164.10195665002,
+      "entry_time": "2026-05-01T06:57:10.846947",
+      "exit_time": "2026-05-01T14:57:20.618940",
+      "slippage": 0.0,
+      "commission": 0.9185298758732412,
+      "realized_pnl": -11.86542595328544,
+      "strategy_id": null
     },
-    "ETHUSDT": {
+    {
+      "trade_id": "sim_20260501145720_ETHUSDT",
+      "symbol": "ETHUSDT",
       "side": "sell",
       "quantity": 0.4027122105928886,
       "entry_price": 2252.1034125183714,
-      "entry_time": "2026-05-01T06:57:11.047116"
+      "exit_price": 2282.96313106984,
+      "entry_time": "2026-05-01T06:57:11.047116",
+      "exit_time": "2026-05-01T14:57:20.819153",
+      "slippage": 0.0,
+      "commission": 0.9193771292151978,
+      "realized_pnl": -13.346962605351504,
+      "strategy_id": null
     },
-    "DOGEUSDT": {
+    {
+      "trade_id": "sim_20260501145721_DOGEUSDT",
+      "symbol": "DOGEUSDT",
       "side": "buy",
       "quantity": 8555.983392991362,
       "entry_price": 0.10635019047601188,
-      "entry_time": "2026-05-01T06:57:11.247291"
+      "exit_price": 0.10854565496362462,
+      "entry_time": "2026-05-01T06:57:11.247291",
+      "exit_time": "2026-05-01T14:57:21.019369",
+      "slippage": 0.0,
+      "commission": 0.9287148212501427,
+      "realized_pnl": 17.855642874666717,
+      "strategy_id": null
     },
-    "AVAXUSDT": {
+    {
+      "trade_id": "sim_20260501145721_AVAXUSDT",
+      "symbol": "AVAXUSDT",
       "side": "buy",
       "quantity": 90.04474074912962,
       "entry_price": 9.082084124517142,
-      "entry_time": "2026-05-01T06:57:11.447454"
+      "exit_price": 9.089072864532369,
+      "entry_time": "2026-05-01T06:57:11.447454",
+      "exit_time": "2026-05-01T14:57:21.219584",
+      "slippage": 0.0,
+      "commission": 0.8184232097367661,
+      "realized_pnl": -0.18912392690253454,
+      "strategy_id": null
     },
-    "LINKUSDT": {
+    {
+      "trade_id": "sim_20260501145721_LINKUSDT",
+      "symbol": "LINKUSDT",
       "side": "sell",
       "quantity": 80.84099319671805,
       "entry_price": 9.084025150730028,
-      "entry_time": "2026-05-01T06:57:11.647626"
+      "exit_price": 9.171927655867805,
+      "entry_time": "2026-05-01T06:57:11.647626",
+      "exit_time": "2026-05-01T14:57:21.419787",
+      "slippage": 0.0,
+      "commission": 0.7414677412287992,
+      "realized_pnl": -7.847593561046274,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "PT_6",
+      "symbol": "BTCUSDT",
+      "side": "buy",
+      "quantity": 0.008444648631045012,
+      "entry_price": 77197.82627654869,
+      "exit_price": null,
+      "entry_time": "2026-05-01T14:57:21.620984",
+      "exit_time": null,
+      "slippage": 85.28627654869342,
+      "commission": 0.6519085179859075,
+      "realized_pnl": 0.0,
+      "strategy_id": "HILBERT_CYCLE"
+    },
+    {
+      "trade_id": "PT_7",
+      "symbol": "ETHUSDT",
+      "side": "buy",
+      "quantity": 0.25691684433556267,
+      "entry_price": 2283.180920566092,
+      "exit_price": null,
+      "entry_time": "2026-05-01T14:57:21.821182",
+      "exit_time": null,
+      "slippage": 2.550920566091918,
+      "commission": 0.5865876371590053,
+      "realized_pnl": 0.0,
+      "strategy_id": "HILBERT_CYCLE"
+    },
+    {
+      "trade_id": "PT_8",
+      "symbol": "BNBUSDT",
+      "side": "buy",
+      "quantity": 0.8540796711714072,
+      "entry_price": 617.6603903917628,
+      "exit_price": null,
+      "entry_time": "2026-05-01T14:57:22.021367",
+      "exit_time": null,
+      "slippage": 0.3703903917628395,
+      "commission": 0.5275311831213998,
+      "realized_pnl": 0.0,
+      "strategy_id": "HILBERT_CYCLE"
+    },
+    {
+      "trade_id": "PT_9",
+      "symbol": "SOLUSDT",
+      "side": "buy",
+      "quantity": 5.651762792315293,
+      "entry_price": 83.94606699073573,
+      "exit_price": null,
+      "entry_time": "2026-05-01T14:57:22.221566",
+      "exit_time": null,
+      "slippage": 0.006066990735732247,
+      "commission": 0.4744432579794472,
+      "realized_pnl": 0.0,
+      "strategy_id": "HILBERT_CYCLE"
     }
-  },
-  "trades": [],
-  "equity_curve": []
+  ],
+  "equity_curve": [
+    {
+      "timestamp": "2026-05-01T14:57:20.618967",
+      "balance": 6428.997875832555,
+      "unrealized_pnl": 0,
+      "total_equity": 6428.997875832555
+    },
+    {
+      "timestamp": "2026-05-01T14:57:20.819175",
+      "balance": 5508.7013694881425,
+      "unrealized_pnl": 0,
+      "total_equity": 5508.7013694881425
+    },
+    {
+      "timestamp": "2026-05-01T14:57:21.019392",
+      "balance": 6436.487475917035,
+      "unrealized_pnl": 0,
+      "total_equity": 6436.487475917035
+    },
+    {
+      "timestamp": "2026-05-01T14:57:21.219603",
+      "balance": 7254.0922624440645,
+      "unrealized_pnl": 0,
+      "total_equity": 7254.0922624440645
+    },
+    {
+      "timestamp": "2026-05-01T14:57:21.419807",
+      "balance": 6511.883053474036,
+      "unrealized_pnl": 0,
+      "total_equity": 6511.883053474036
+    },
+    {
+      "timestamp": "2026-05-01T14:57:21.621024",
+      "balance": 5859.322626970143,
+      "unrealized_pnl": 0,
+      "total_equity": 5859.322626970143
+    },
+    {
+      "timestamp": "2026-05-01T14:57:21.821216",
+      "balance": 5272.148402173978,
+      "unrealized_pnl": 0,
+      "total_equity": 5272.148402173978
+    },
+    {
+      "timestamp": "2026-05-01T14:57:22.021414",
+      "balance": 4744.089687869457,
+      "unrealized_pnl": 0,
+      "total_equity": 4744.089687869457
+    },
+    {
+      "timestamp": "2026-05-01T14:57:22.221598",
+      "balance": 4269.17198663203,
+      "unrealized_pnl": 0,
+      "total_equity": 4269.17198663203
+    }
+  ]
 }

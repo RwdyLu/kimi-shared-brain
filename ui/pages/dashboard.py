@@ -1749,7 +1749,8 @@ def update_paper_positions(n):
             return [html.Tr([html.Td("No open positions / 目前無持倉", colSpan=7)])]
         
         # Load current prices / 載入最新價格
-        current_prices = load_current_prices()
+        prices_data = get_current_prices()
+        current_prices = prices_data.get("prices", {})
         now = datetime.now()
         
         rows = []
@@ -1759,7 +1760,8 @@ def update_paper_positions(n):
             entry_time_str = pos.get("entry_time")
             
             # Current price / 現價
-            current_price = current_prices.get(symbol, entry_price)
+            price_info = current_prices.get(symbol, {})
+            current_price = price_info.get("price", entry_price) if isinstance(price_info, dict) else entry_price
             
             # PnL% calculation / 損益%計算
             if entry_price and entry_price > 0:
