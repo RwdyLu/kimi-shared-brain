@@ -347,9 +347,35 @@ class PaperTrading:
                     "entry_time": entry_time,
                 }
 
+            # Restore trades / 恢復交易記錄
+            trades_data = state.get("trades", [])
+            self.trades = []
+            for t_data in trades_data:
+                try:
+                    trade = SimulatedTrade(
+                        trade_id=t_data.get("trade_id", ""),
+                        symbol=t_data.get("symbol", ""),
+                        side=TradeSide(t_data.get("side", "buy")),
+                        quantity=t_data.get("quantity", 0),
+                        entry_price=t_data.get("entry_price", 0),
+                        exit_price=t_data.get("exit_price"),
+                        entry_time=datetime.fromisoformat(t_data["entry_time"]) if t_data.get("entry_time") else datetime.now(),
+                        exit_time=datetime.fromisoformat(t_data["exit_time"]) if t_data.get("exit_time") else None,
+                        slippage=t_data.get("slippage", 0),
+                        commission=t_data.get("commission", 0),
+                        realized_pnl=t_data.get("realized_pnl", 0),
+                        strategy_id=t_data.get("strategy_id"),
+                    )
+                    self.trades.append(trade)
+                except Exception as e:
+                    self.logger.warning(f"Failed to restore trade: {e}")
+
+            # Restore equity curve / 恢復資金曲線
+            self.equity_curve = state.get("equity_curve", [])
+
             self.logger.info(
                 f"Paper trading state loaded from {filepath}: balance=${self.balance:,.2f}, "
-                f"positions={len(self.positions)}"
+                f"positions={len(self.positions)}, trades={len(self.trades)}"
             )
             return True
         except Exception as e:
