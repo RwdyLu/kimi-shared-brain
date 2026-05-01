@@ -42,6 +42,7 @@ class MonitorService:
         self.log_file = self.base_path / "logs" / "scheduler.log"
         self.daemon_log = self.base_path / "logs" / "monitor_daemon.log"
         self.pid_file = STATE_DIR / ".monitor.pid"  # T-XXX: Fix - scheduler writes to STATE_DIR, not PROJECT_ROOT
+        self.lock_file = STATE_DIR / ".scheduler.lock"  # T-XXX: Also check scheduler's own lock file
         self.alerts_dir = self.base_path / "alerts"
     
     def _read_log_lines(self) -> List[str]:
@@ -238,7 +239,24 @@ class MonitorService:
         }
         
         try:
-            # Primary check: PID file
+            # Primary check 1: Scheduler lock file (.scheduler.lock)
+            if self.lock_file.exists():
+                with open(self.lock_file, 'r') as f:
+                    pid = f.read().strip()
+                    try:
+                        pid_int = int(pid)
+                        os.kill(pid_int, 0)
+                        # PID is valid and process is running
+                        status["running"] = True
+                        status["pid"] = pid
+                        status["status_text"] = "Running / 執行中"
+                        status["status_color"] = "success"
+                        return status
+                    except (OSError, ValueError):
+                        # Lock file exists but process not running (stale lock)
+                        pass
+            
+            # Primary check 2: Monitor PID file (.monitor.pid)
             if self.pid_file.exists():
                 with open(self.pid_file, 'r') as f:
                     pid = f.read().strip()
@@ -263,8 +281,8 @@ class MonitorService:
                 status["pid"] = "Unknown (from log)"
                 status["status_text"] = "Running (active) / 執行中 (活躍)"
                 status["status_color"] = "success"
-            elif self.pid_file.exists():
-                # PID file exists but no recent activity
+            elif self.pid_file.exists() or self.lock_file.exists():
+                # PID/lock file exists but no recent activity
                 status["status_text"] = "Stale PID / 過期 PID"
                 status["status_color"] = "warning"
                 

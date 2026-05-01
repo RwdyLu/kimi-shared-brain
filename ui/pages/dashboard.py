@@ -750,15 +750,15 @@ def update_scheduler(n):
     try:
         status = get_scheduler_status()
         
-        is_running = status.get("is_running", False)
-        state = status.get("state", "unknown")
-        interval_min = status.get("interval_minutes", 0)
+        is_running = status.get("running", False)
+        state = status.get("status_text", "unknown")
+        interval_min = status.get("interval_minutes", 5)
         
         if is_running:
-            text = f"🟢 Running ({state})"
+            text = f"🟢 Running"
             class_name = "text-success fw-bold mb-0"
         else:
-            text = f"🔴 Stopped ({state})"
+            text = f"🔴 Stopped"
             class_name = "text-danger fw-bold mb-0"
         
         next_run = f"Interval: {interval_min} min"

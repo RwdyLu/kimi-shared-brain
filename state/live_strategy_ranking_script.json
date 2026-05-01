@@ -1,41 +1,41 @@
 {
-  "timestamp": "2026-04-30T01:02:04.703112",
+  "timestamp": "2026-05-01T12:56:35.705078",
   "total_strategies": 12,
   "total_symbols": 10,
   "strategy_ranking": [
     {
       "strategy_id": "ma_cross_trend_short",
       "name": "MA Cross Trend Short",
-      "avg_score": 90.0,
+      "avg_score": 100.0,
       "symbols_evaluated": 10,
       "max_score": 100.0,
-      "min_score": 66.7,
+      "min_score": 100.0,
       "rank": 1
     },
     {
       "strategy_id": "ma_cross_trend",
       "name": "MA Cross Trend",
-      "avg_score": 70.0,
+      "avg_score": 66.7,
       "symbols_evaluated": 10,
-      "max_score": 100.0,
+      "max_score": 66.7,
       "min_score": 66.7,
       "rank": 2
     },
     {
-      "strategy_id": "contrarian_watch_oversold",
-      "name": "Contrarian Watch - Oversold",
+      "strategy_id": "contrarian_watch_overheated",
+      "name": "Contrarian Watch - Overheated",
       "avg_score": 50.0,
       "symbols_evaluated": 10,
-      "max_score": 50.0,
-      "min_score": 50.0,
+      "max_score": 100.0,
+      "min_score": 0.0,
       "rank": 3
     },
     {
-      "strategy_id": "contrarian_watch_overheated",
-      "name": "Contrarian Watch - Overheated",
-      "avg_score": 0.0,
+      "strategy_id": "contrarian_watch_oversold",
+      "name": "Contrarian Watch - Oversold",
+      "avg_score": 5.0,
       "symbols_evaluated": 10,
-      "max_score": 0.0,
+      "max_score": 50.0,
       "min_score": 0.0,
       "rank": 4
     },
@@ -115,35 +115,35 @@
   "best_opportunities": [
     {
       "rank": 1,
-      "strategy_id": "ma_cross_trend",
-      "strategy_name": "MA Cross Trend",
-      "symbol": "DOTUSDT",
-      "score": 100.0,
-      "price": 1.21
-    },
-    {
-      "rank": 2,
       "strategy_id": "ma_cross_trend_short",
       "strategy_name": "MA Cross Trend Short",
       "symbol": "BTCUSDT",
       "score": 100.0,
-      "price": 75846.43
+      "price": 77035.32
+    },
+    {
+      "rank": 2,
+      "strategy_id": "contrarian_watch_overheated",
+      "strategy_name": "Contrarian Watch - Overheated",
+      "symbol": "DOGEUSDT",
+      "score": 100.0,
+      "price": 0.11
     },
     {
       "rank": 3,
-      "strategy_id": "contrarian_watch_oversold",
-      "strategy_name": "Contrarian Watch - Oversold",
+      "strategy_id": "ma_cross_trend",
+      "strategy_name": "MA Cross Trend",
       "symbol": "BTCUSDT",
-      "score": 50.0,
-      "price": 75833.2
+      "score": 66.7,
+      "price": 77035.32
     },
     {
       "rank": 4,
-      "strategy_id": "contrarian_watch_overheated",
-      "strategy_name": "Contrarian Watch - Overheated",
-      "symbol": "BTCUSDT",
-      "score": 0.0,
-      "price": 75839.75
+      "strategy_id": "contrarian_watch_oversold",
+      "strategy_name": "Contrarian Watch - Oversold",
+      "symbol": "AVAXUSDT",
+      "score": 50.0,
+      "price": 9.12
     },
     {
       "rank": 5,
@@ -151,7 +151,7 @@
       "strategy_name": "Hilbert Cycle",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75832.06
+      "price": 77040.62
     },
     {
       "rank": 6,
@@ -159,7 +159,7 @@
       "strategy_name": "Stochastic Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75832.06
+      "price": 77040.62
     },
     {
       "rank": 7,
@@ -167,7 +167,7 @@
       "strategy_name": "RSI Trend",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75832.06
+      "price": 77040.61
     },
     {
       "rank": 8,
@@ -175,7 +175,7 @@
       "strategy_name": "EMA Cross Fast",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75826.32
+      "price": 77040.62
     },
     {
       "rank": 9,
@@ -183,7 +183,7 @@
       "strategy_name": "RSI Mid Bounce",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75826.32
+      "price": 77040.62
     },
     {
       "rank": 10,
@@ -191,7 +191,7 @@
       "strategy_name": "Volume Spike",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75826.32
+      "price": 77040.62
     },
     {
       "rank": 11,
@@ -199,7 +199,7 @@
       "strategy_name": "Price Channel Break",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75818.73
+      "price": 77042.47
     },
     {
       "rank": 12,
@@ -207,7 +207,7 @@
       "strategy_name": "Momentum Divergence",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 75818.73
+      "price": 77042.46
     }
   ],
   "symbol_scores": {
@@ -221,11 +221,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -271,11 +271,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -313,19 +313,19 @@
     ],
     "BNBUSDT": [
       {
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
+      },
+      {
         "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
-        "strategy": "ma_cross_trend_short",
-        "score": 66.7
-      },
-      {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -371,11 +371,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -413,19 +413,19 @@
     ],
     "XRPUSDT": [
       {
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
+      },
+      {
         "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
-        "strategy": "ma_cross_trend_short",
-        "score": 66.7
-      },
-      {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -471,11 +471,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -517,15 +517,15 @@
         "score": 100.0
       },
       {
+        "strategy": "contrarian_watch_overheated",
+        "score": 100.0
+      },
+      {
         "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
         "strategy": "contrarian_watch_oversold",
-        "score": 50.0
-      },
-      {
-        "strategy": "contrarian_watch_overheated",
         "score": 0.0
       },
       {
@@ -621,11 +621,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -663,19 +663,19 @@
     ],
     "DOTUSDT": [
       {
-        "strategy": "ma_cross_trend",
+        "strategy": "ma_cross_trend_short",
         "score": 100.0
       },
       {
-        "strategy": "ma_cross_trend_short",
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {

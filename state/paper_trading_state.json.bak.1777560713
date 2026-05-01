@@ -1,0 +1,234 @@
+{
+  "balance": 1721.6013062582385,
+  "initial_balance": 10000,
+  "positions": {
+    "BTCUSDT": {
+      "side": "buy",
+      "quantity": 0.003443111309801188,
+      "entry_price": 76379.30470480204,
+      "entry_time": "2026-04-30T22:38:46.452459"
+    },
+    "ETHUSDT": {
+      "side": "buy",
+      "quantity": 0.10470694033813482,
+      "entry_price": 2258.888725911166,
+      "entry_time": "2026-04-30T22:38:46.652652"
+    },
+    "BNBUSDT": {
+      "side": "buy",
+      "quantity": 0.3458108408677714,
+      "entry_price": 615.3437000968578,
+      "entry_time": "2026-04-30T22:38:46.852829"
+    },
+    "SOLUSDT": {
+      "side": "buy",
+      "quantity": 2.3044925047627123,
+      "entry_price": 83.15374984164671,
+      "entry_time": "2026-04-30T22:38:47.053007"
+    }
+  },
+  "trades": [
+    {
+      "trade_id": "sim_20260430223845_BTCUSDT",
+      "symbol": "BTCUSDT",
+      "side": "sell",
+      "quantity": 0.008590518080194467,
+      "entry_price": 76206.67408073091,
+      "exit_price": 76355.97285951176,
+      "entry_time": "2026-04-29T23:11:07.819351",
+      "exit_time": "2026-04-30T22:38:45.249999",
+      "slippage": 0.0,
+      "commission": 0.6559373653804739,
+      "realized_pnl": -1.938491223848341,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "sim_20260430223845_ETHUSDT",
+      "symbol": "ETHUSDT",
+      "side": "sell",
+      "quantity": 0.28634079563159237,
+      "entry_price": 2287.1397329679885,
+      "exit_price": 2259.3743466029146,
+      "entry_time": "2026-04-29T23:11:08.019557",
+      "exit_time": "2026-04-30T22:38:45.450217",
+      "slippage": 0.0,
+      "commission": 0.6469510480358877,
+      "realized_pnl": 7.30341177475795,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "sim_20260430223845_SOLUSDT",
+      "symbol": "SOLUSDT",
+      "side": "sell",
+      "quantity": 7.860413667442331,
+      "entry_price": 83.25694747280477,
+      "exit_price": 83.07425338074943,
+      "entry_time": "2026-04-29T23:11:08.219755",
+      "exit_time": "2026-04-30T22:38:45.650434",
+      "slippage": 0.0,
+      "commission": 0.6529979966866101,
+      "realized_pnl": 0.7830531414661722,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "sim_20260430223845_XRPUSDT",
+      "symbol": "XRPUSDT",
+      "side": "sell",
+      "quantity": 480.06437361067526,
+      "entry_price": 1.36427697454242,
+      "exit_price": 1.3691017734436033,
+      "entry_time": "2026-04-29T23:11:08.419924",
+      "exit_time": "2026-04-30T22:38:45.850645",
+      "slippage": 0.0,
+      "commission": 0.6572569852774681,
+      "realized_pnl": -2.973471047571537,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "sim_20260430223846_ADAUSDT",
+      "symbol": "ADAUSDT",
+      "side": "sell",
+      "quantity": 2672.1561179291316,
+      "entry_price": 0.2447618808964707,
+      "exit_price": 0.24612990395495732,
+      "entry_time": "2026-04-29T23:11:08.620108",
+      "exit_time": "2026-04-30T22:38:46.050854",
+      "slippage": 0.0,
+      "commission": 0.6576975286585488,
+      "realized_pnl": -4.3132687138617145,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "sim_20260430223846_AVAXUSDT",
+      "symbol": "AVAXUSDT",
+      "side": "sell",
+      "quantity": 71.63714707410011,
+      "entry_price": 9.134108759915476,
+      "exit_price": 9.123826029819798,
+      "entry_time": "2026-04-29T23:11:08.820279",
+      "exit_time": "2026-04-30T22:38:46.251043",
+      "slippage": 0.0,
+      "commission": 0.6536048671767039,
+      "realized_pnl": 0.08302058101067522,
+      "strategy_id": null
+    },
+    {
+      "trade_id": "PT_7",
+      "symbol": "BTCUSDT",
+      "side": "buy",
+      "quantity": 0.003443111309801188,
+      "entry_price": 76379.30470480204,
+      "exit_price": null,
+      "entry_time": "2026-04-30T22:38:46.452446",
+      "exit_time": null,
+      "slippage": 98.62470480204502,
+      "commission": 0.262982447863855,
+      "realized_pnl": 0.0,
+      "strategy_id": "RSI_MID_BOUNCE"
+    },
+    {
+      "trade_id": "PT_8",
+      "symbol": "ETHUSDT",
+      "side": "buy",
+      "quantity": 0.10470694033813482,
+      "entry_price": 2258.888725911166,
+      "exit_price": null,
+      "entry_time": "2026-04-30T22:38:46.652642",
+      "exit_time": null,
+      "slippage": 1.9387259111663298,
+      "commission": 0.23652132705446588,
+      "realized_pnl": 0.0,
+      "strategy_id": "RSI_MID_BOUNCE"
+    },
+    {
+      "trade_id": "PT_9",
+      "symbol": "BNBUSDT",
+      "side": "buy",
+      "quantity": 0.3458108408677714,
+      "entry_price": 615.3437000968578,
+      "exit_price": null,
+      "entry_time": "2026-04-30T22:38:46.852817",
+      "exit_time": null,
+      "slippage": 0.4337000968578195,
+      "commission": 0.21279252235318016,
+      "realized_pnl": 0.0,
+      "strategy_id": "RSI_MID_BOUNCE"
+    },
+    {
+      "trade_id": "PT_10",
+      "symbol": "SOLUSDT",
+      "side": "buy",
+      "quantity": 2.3044925047627123,
+      "entry_price": 83.15374984164671,
+      "exit_price": null,
+      "entry_time": "2026-04-30T22:38:47.052996",
+      "exit_time": null,
+      "slippage": 0.12374984164671332,
+      "commission": 0.19162719325298844,
+      "realized_pnl": 0.0,
+      "strategy_id": "RSI_TREND"
+    }
+  ],
+  "equity_curve": [
+    {
+      "timestamp": "2026-04-30T22:38:45.250026",
+      "balance": 5898.205654534306,
+      "unrealized_pnl": 0,
+      "total_equity": 5898.205654534306
+    },
+    {
+      "timestamp": "2026-04-30T22:38:45.450239",
+      "balance": 5250.6076554503825,
+      "unrealized_pnl": 0,
+      "total_equity": 5250.6076554503825
+    },
+    {
+      "timestamp": "2026-04-30T22:38:45.650459",
+      "balance": 4596.956660767086,
+      "unrealized_pnl": 0,
+      "total_equity": 4596.956660767086
+    },
+    {
+      "timestamp": "2026-04-30T22:38:45.850671",
+      "balance": 3939.0424185043403,
+      "unrealized_pnl": 0,
+      "total_equity": 3939.0424185043403
+    },
+    {
+      "timestamp": "2026-04-30T22:38:46.050874",
+      "balance": 3280.687192317133,
+      "unrealized_pnl": 0,
+      "total_equity": 3280.687192317133
+    },
+    {
+      "timestamp": "2026-04-30T22:38:46.251062",
+      "balance": 2626.4287202732526,
+      "unrealized_pnl": 0,
+      "total_equity": 2626.4287202732526
+    },
+    {
+      "timestamp": "2026-04-30T22:38:46.452482",
+      "balance": 2363.183289961534,
+      "unrealized_pnl": 0,
+      "total_equity": 2363.183289961534
+    },
+    {
+      "timestamp": "2026-04-30T22:38:46.652674",
+      "balance": 2126.4254415800133,
+      "unrealized_pnl": 0,
+      "total_equity": 2126.4254415800133
+    },
+    {
+      "timestamp": "2026-04-30T22:38:46.852852",
+      "balance": 1913.42012670448,
+      "unrealized_pnl": 0,
+      "total_equity": 1913.42012670448
+    },
+    {
+      "timestamp": "2026-04-30T22:38:47.053028",
+      "balance": 1721.6013062582385,
+      "unrealized_pnl": 0,
+      "total_equity": 1721.6013062582385
+    }
+  ]
+}
