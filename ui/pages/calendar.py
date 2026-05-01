@@ -252,7 +252,6 @@ layout = dbc.Container(
 # ─── Callback: Month navigation / 回調：月份導航 ───
 @callback(
     Output("cal-current-ym", "data"),
-    Output("cal-selected-date", "data"),
     Input("cal-prev-month", "n_clicks"),
     Input("cal-next-month", "n_clicks"),
     Input("cal-interval", "n_intervals"),
@@ -262,7 +261,7 @@ def update_month(prev_clicks, next_clicks, n_intervals, current_ym):
     """Update current month based on button clicks / 根據按鈕點擊更新當前月份"""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return current_ym, None
+        return current_ym
     
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
     year = current_ym.get("year", datetime.now().year)
@@ -279,7 +278,7 @@ def update_month(prev_clicks, next_clicks, n_intervals, current_ym):
             month = 1
             year += 1
     
-    return {"year": year, "month": month}, None
+    return {"year": year, "month": month}
 
 # ─── Callback: Render calendar grid / 回調：渲染月曆格子 ───
 @callback(
