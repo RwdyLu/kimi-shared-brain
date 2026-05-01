@@ -305,6 +305,27 @@ class BacktestRunner:
             # They are WATCH-ONLY in the strategy config
             self._check_contrarian_watch(symbol, row, df, idx, strategy_id)
             return
+        elif strategy_id == "bb_breakout":
+            entry_triggered, direction, reason = self._check_bb_breakout_entry(symbol, row, df, idx)
+        elif strategy_id == "ema_ribbon":
+            entry_triggered, direction, reason = self._check_ema_ribbon_entry(symbol, row, df, idx)
+        elif strategy_id == "momentum_breakout":
+            entry_triggered, direction, reason = self._check_momentum_breakout_entry(symbol, row, df, idx)
+        elif strategy_id == "supertrend":
+            entry_triggered, direction, reason = self._check_supertrend_entry(symbol, row, df, idx)
+        elif strategy_id == "ichimoku_cloud":
+            entry_triggered, direction, reason = self._check_ichimoku_cloud_entry(symbol, row, df, idx)
+        elif strategy_id == "williams_r":
+            entry_triggered, direction, reason = self._check_williams_r_entry(symbol, row, df, idx)
+        elif strategy_id == "atr_breakout":
+            entry_triggered, direction, reason = self._check_atr_breakout_entry(symbol, row, df, idx)
+        elif strategy_id == "dual_thrust":
+            entry_triggered, direction, reason = self._check_dual_thrust_entry(symbol, row, df, idx)
+        elif strategy_id == "parabolic_sar_v2":
+            entry_triggered, direction, reason = self._check_parabolic_sar_v2_entry(symbol, row, df, idx)
+        elif strategy_id == "keltner_breakout":
+            entry_triggered, direction, reason = self._check_keltner_breakout_entry(symbol, row, df, idx)
+
         else:
             # Fallback: use unified signal engine (original behavior)
             entry_triggered, direction, reason = self._check_unified_entry(symbol, row, df, idx)
@@ -1152,3 +1173,259 @@ if __name__ == "__main__":
     )
 
     print(f"\nBacktest saved with ID: {summary.backtest_id}")
+
+
+    def _check_bb_breakout_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        df_slice['ma20'] = df_slice['close'].rolling(20).mean()
+        df_slice['std20'] = df_slice['close'].rolling(20).std()
+        df_slice['upper'] = df_slice['ma20'] + 2 * df_slice['std20']
+        df_slice['lower'] = df_slice['ma20'] - 2 * df_slice['std20']
+        df_slice['vol_ma20'] = df_slice['volume'].rolling(20).mean()
+
+        upper = float(df_slice['upper'].iloc[-1])
+        lower = float(df_slice['lower'].iloc[-1])
+        price = float(row['close'])
+        vol = float(row['volume'])
+        vol_ma = float(df_slice['vol_ma20'].iloc[-1])
+
+        if vol < vol_ma * 1.2:
+            return False, None, f"Volume {vol:.0f} < {vol_ma*1.2:.0f} threshold"
+
+        if price > upper:
+            return True, "LONG", f"BB upper breakout {upper:.2f}"
+        elif price < lower:
+            return True, "SHORT", f"BB lower breakdown {lower:.2f}"
+        return False, None, f"Price {price:.2f} within BB bands"
+
+    def _check_ema_ribbon_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        df_slice['ema8'] = df_slice['close'].ewm(span=8).mean()
+        df_slice['ema21'] = df_slice['close'].ewm(span=21).mean()
+        df_slice['ema55'] = df_slice['close'].ewm(span=55).mean()
+
+        e8 = float(df_slice['ema8'].iloc[-1])
+        e21 = float(df_slice['ema21'].iloc[-1])
+        e55 = float(df_slice['ema55'].iloc[-1])
+
+        if e8 > e21 > e55:
+            return True, "LONG", f"EMA ribbon LONG {e8:.2f}>{e21:.2f}>{e55:.2f}"
+        elif e8 < e21 < e55:
+            return True, "SHORT", f"EMA ribbon SHORT {e8:.2f}<{e21:.2f}<{e55:.2f}"
+        return False, None, f"EMA not aligned {e8:.2f}/{e21:.2f}/{e55:.2f}"
+
+    def _check_momentum_breakout_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        high_10 = float(df_slice['high'].rolling(10).max().iloc[-1])
+        low_10 = float(df_slice['low'].rolling(10).min().iloc[-1])
+
+        delta = df_slice['close'].diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        current_rsi = float(rsi.iloc[-1])
+        price = float(row['close'])
+
+        if current_rsi < 40 or current_rsi > 60:
+            return False, None, f"RSI {current_rsi:.1f} outside 40-60"
+
+        if price > high_10:
+            return True, "LONG", f"Momentum breakout {high_10:.2f}"
+        elif price < low_10:
+            return True, "SHORT", f"Momentum breakdown {low_10:.2f}"
+        return False, None, f"Price {price:.2f} within range"
+
+    def _check_supertrend_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        n = 10
+        mult = 3.0
+
+        df_slice['hl2'] = (df_slice['high'] + df_slice['low']) / 2
+        df_slice['atr'] = df_slice['high'].rolling(n).max() - df_slice['low'].rolling(n).min()
+        df_slice['upper_band'] = df_slice['hl2'] + mult * df_slice['atr']
+        df_slice['lower_band'] = df_slice['hl2'] - mult * df_slice['atr']
+
+        st = [df_slice['lower_band'].iloc[0]]
+        direction = [1]
+
+        for i in range(1, len(df_slice)):
+            if df_slice['close'].iloc[i] > df_slice['upper_band'].iloc[i-1]:
+                st.append(df_slice['lower_band'].iloc[i])
+                direction.append(1)
+            elif df_slice['close'].iloc[i] < df_slice['lower_band'].iloc[i-1]:
+                st.append(df_slice['upper_band'].iloc[i])
+                direction.append(-1)
+            else:
+                st.append(st[-1])
+                direction.append(direction[-1])
+
+        if len(direction) < 2:
+            return False, None, "Not enough data"
+
+        current_dir = direction[-1]
+        prev_dir = direction[-2]
+
+        if current_dir == 1 and prev_dir == -1:
+            return True, "LONG", "Supertrend flipped LONG"
+        elif current_dir == -1 and prev_dir == 1:
+            return True, "SHORT", "Supertrend flipped SHORT"
+        return False, None, f"Supertrend dir {current_dir}"
+
+    def _check_ichimoku_cloud_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        high_9 = df_slice['high'].rolling(9).max()
+        low_9 = df_slice['low'].rolling(9).min()
+        high_26 = df_slice['high'].rolling(26).max()
+        low_26 = df_slice['low'].rolling(26).min()
+
+        df_slice['tenkan'] = (high_9 + low_9) / 2
+        df_slice['kijun'] = (high_26 + low_26) / 2
+        df_slice['senkou_a'] = ((df_slice['tenkan'] + df_slice['kijun']) / 2).shift(26)
+        df_slice['senkou_b'] = ((df_slice['high'].rolling(52).max() + df_slice['low'].rolling(52).min()) / 2).shift(26)
+
+        price = float(row['close'])
+        senkou_a = float(df_slice['senkou_a'].iloc[-1])
+        senkou_b = float(df_slice['senkou_b'].iloc[-1])
+        tenkan = float(df_slice['tenkan'].iloc[-1])
+        kijun = float(df_slice['kijun'].iloc[-1])
+
+        cloud_top = max(senkou_a, senkou_b)
+        cloud_bottom = min(senkou_a, senkou_b)
+
+        if price > cloud_top and tenkan > kijun:
+            return True, "LONG", f"Ichimoku LONG {cloud_top:.2f}"
+        elif price < cloud_bottom and tenkan < kijun:
+            return True, "SHORT", f"Ichimoku SHORT {cloud_bottom:.2f}"
+        return False, None, f"Price {price:.2f} in cloud"
+
+    def _check_williams_r_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        high_14 = df_slice['high'].rolling(14).max()
+        low_14 = df_slice['low'].rolling(14).min()
+        df_slice['williams_r'] = (df_slice['close'] - high_14) / (high_14 - low_14) * -100
+
+        wr_values = df_slice['williams_r'].tail(3).values
+        if len(wr_values) < 3:
+            return False, None, "Not enough data"
+        current_wr = float(wr_values[-1])
+
+        if current_wr < -80 and all(w < -80 for w in wr_values):
+            return True, "LONG", f"Williams %R oversold {current_wr:.1f}"
+        elif current_wr > -20 and all(w > -20 for w in wr_values):
+            return True, "SHORT", f"Williams %R overbought {current_wr:.1f}"
+        return False, None, f"Williams %R {current_wr:.1f}"
+
+    def _check_atr_breakout_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        df_slice['tr1'] = df_slice['high'] - df_slice['low']
+        df_slice['tr2'] = abs(df_slice['high'] - df_slice['close'].shift(1))
+        df_slice['tr3'] = abs(df_slice['low'] - df_slice['close'].shift(1))
+        df_slice['tr'] = df_slice[['tr1', 'tr2', 'tr3']].max(axis=1)
+        df_slice['atr'] = df_slice['tr'].rolling(14).mean()
+
+        if len(df_slice) < 2:
+            return False, None, "Not enough data"
+
+        prev_close = float(df_slice['close'].iloc[-2])
+        atr = float(df_slice['atr'].iloc[-1])
+        price = float(row['close'])
+        upper = prev_close + 1.5 * atr
+        lower = prev_close - 1.5 * atr
+
+        if price > upper:
+            return True, "LONG", f"ATR LONG {upper:.2f}"
+        elif price < lower:
+            return True, "SHORT", f"ATR SHORT {lower:.2f}"
+        return False, None, f"Price {price:.2f} within ATR"
+
+    def _check_dual_thrust_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        if len(df_slice) < 5:
+            return False, None, "Not enough data"
+
+        hh = float(df_slice['high'].rolling(4).max().iloc[-1])
+        ll = float(df_slice['low'].rolling(4).min().iloc[-1])
+        hc = float(df_slice['close'].rolling(4).max().iloc[-1])
+        lc = float(df_slice['close'].rolling(4).min().iloc[-1])
+
+        range_val = max(hh - lc, hc - ll)
+        open_price = float(row['open'])
+        price = float(row['close'])
+        k = 0.5
+
+        if price > open_price + k * range_val:
+            return True, "LONG", "Dual Thrust LONG"
+        elif price < open_price - k * range_val:
+            return True, "SHORT", "Dual Thrust SHORT"
+        return False, None, "Price within range"
+
+    def _check_parabolic_sar_v2_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        if len(df_slice) < 2:
+            return False, None, "Not enough data"
+
+        af = 0.02
+        max_af = 0.2
+        sar = float(df_slice['low'].iloc[0])
+        ep = float(df_slice['high'].iloc[0])
+        trend = 1
+        directions = [trend]
+
+        for i in range(1, len(df_slice)):
+            sar = sar + af * (ep - sar)
+            if trend == 1:
+                if df_slice['low'].iloc[i] < sar:
+                    trend = -1
+                    sar = ep
+                    ep = float(df_slice['low'].iloc[i])
+                    af = 0.02
+                else:
+                    if float(df_slice['high'].iloc[i]) > ep:
+                        ep = float(df_slice['high'].iloc[i])
+                        af = min(af + 0.02, max_af)
+            else:
+                if float(df_slice['high'].iloc[i]) > sar:
+                    trend = 1
+                    sar = ep
+                    ep = float(df_slice['high'].iloc[i])
+                    af = 0.02
+                else:
+                    if float(df_slice['low'].iloc[i]) < ep:
+                        ep = float(df_slice['low'].iloc[i])
+                        af = min(af + 0.02, max_af)
+            directions.append(trend)
+
+        if len(directions) < 2:
+            return False, None, "Not enough data"
+
+        current_trend = directions[-1]
+        prev_trend = directions[-2]
+
+        if current_trend == 1 and prev_trend == -1:
+            return True, "LONG", "SAR flipped LONG"
+        elif current_trend == -1 and prev_trend == 1:
+            return True, "SHORT", "SAR flipped SHORT"
+        return False, None, f"SAR trend {current_trend}"
+
+    def _check_keltner_breakout_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        df_slice = df.iloc[:idx+1].copy()
+        df_slice['ema20'] = df_slice['close'].ewm(span=20).mean()
+        df_slice['tr1'] = df_slice['high'] - df_slice['low']
+        df_slice['tr2'] = abs(df_slice['high'] - df_slice['close'].shift(1))
+        df_slice['tr3'] = abs(df_slice['low'] - df_slice['close'].shift(1))
+        df_slice['tr'] = df_slice[['tr1', 'tr2', 'tr3']].max(axis=1)
+        df_slice['atr'] = df_slice['tr'].rolling(14).mean()
+
+        ema20 = float(df_slice['ema20'].iloc[-1])
+        atr = float(df_slice['atr'].iloc[-1])
+        price = float(row['close'])
+        upper = ema20 + 2.0 * atr
+        lower = ema20 - 2.0 * atr
+
+        if price > upper:
+            return True, "LONG", f"Keltner LONG {upper:.2f}"
+        elif price < lower:
+            return True, "SHORT", f"Keltner SHORT {lower:.2f}"
+        return False, None, f"Price {price:.2f} in Keltner"
+
