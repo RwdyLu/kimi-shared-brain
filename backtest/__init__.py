@@ -108,6 +108,9 @@ class BacktestConfig:
     stop_loss_pct: Optional[float] = None  # e.g., 5.0 for 5% stop loss
     take_profit_pct: Optional[float] = None  # e.g., 10.0 for 10% take profit
     
+    # Commission
+    commission_pct: float = 0.0  # e.g., 0.1 for 0.1% per trade (entry + exit)
+    
     # Time-based exit
     max_holding_periods: Optional[int] = None  # Max candles to hold
 

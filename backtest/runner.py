@@ -294,6 +294,12 @@ class BacktestRunner:
             entry_triggered, direction, reason = self._check_price_channel_entry(symbol, row, df, idx)
         elif strategy_id == "momentum_divergence":
             entry_triggered, direction, reason = self._check_momentum_divergence_entry(symbol, row, df, idx)
+        elif strategy_id == "opening_range_breakout":
+            entry_triggered, direction, reason = self._check_opening_range_entry(symbol, price, row, df, idx)
+        elif strategy_id == "vwap_reversion":
+            entry_triggered, direction, reason = self._check_vwap_reversion_entry(symbol, price, row, df, idx)
+        elif strategy_id == "rsi_macd_confirm":
+            entry_triggered, direction, reason = self._check_rsi_macd_entry(symbol, price, row, df, idx)
         elif strategy_id in ("contrarian_watch_overheated", "contrarian_watch_oversold"):
             # Contrarian watch strategies: log the signal but do NOT enter trades
             # They are WATCH-ONLY in the strategy config
@@ -644,6 +650,106 @@ class BacktestRunner:
 
         return False, TradeDirection.LONG, "no unified signal"
 
+    def _check_opening_range_entry(self, symbol: str, price: float, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """Opening Range Breakout entry: first candle of day defines range / 開盤區間突破 (每日限1次)"""
+        # Check if already in position for this symbol
+        if symbol in self.active_trades:
+            return False, TradeDirection.LONG, "already in position"
+        
+        # Get current candle's date
+        curr_ts = df.index[idx]
+        curr_date = curr_ts.date()
+        
+        # Check if already traded today (track daily trades)
+        if not hasattr(self, '_daily_trades'):
+            self._daily_trades = {}  # symbol -> date
+        
+        if self._daily_trades.get(symbol) == curr_date:
+            return False, TradeDirection.LONG, "already traded today"
+        
+        # Filter candles for today
+        df_today = df[df.index.date == curr_date]
+        if len(df_today) < 2:  # Need at least 2 candles
+            return False, TradeDirection.LONG, "not enough candles"
+        
+        first_candle = df_today.iloc[0]
+        range_high = float(first_candle['high'])
+        range_low = float(first_candle['low'])
+        
+        # Only trade after the first candle
+        if idx < 1 or curr_ts <= df_today.index[0]:
+            return False, TradeDirection.LONG, "in opening candle"
+        
+        # Breakout above high -> long
+        if price > range_high:
+            self._daily_trades[symbol] = curr_date  # Mark as traded today
+            return True, TradeDirection.LONG, f"ORB HIGH {range_high:.2f}"
+        
+        # Breakout below low -> short
+        if price < range_low:
+            self._daily_trades[symbol] = curr_date  # Mark as traded today
+            return True, TradeDirection.SHORT, f"ORB LOW {range_low:.2f}"
+        
+        return False, TradeDirection.LONG, f"in range {range_low:.2f}-{range_high:.2f}"
+
+    def _check_vwap_reversion_entry(self, symbol: str, price: float, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """VWAP Reversion entry: trade when price deviates from VWAP / VWAP 均值回歸"""
+        if symbol in self.active_trades:
+            return False, TradeDirection.LONG, "already in position"
+        
+        # Calculate VWAP up to current candle
+        df_slice = df.iloc[:idx+1]
+        vwap = (df_slice['close'] * df_slice['volume']).cumsum().iloc[-1] / df_slice['volume'].cumsum().iloc[-1]
+        deviation = (price - vwap) / vwap
+        
+        # Deviation > 0.8% -> short (price too high)
+        if deviation > 0.008:
+            return True, TradeDirection.SHORT, f"VWAP dev +{deviation:.2%} VWAP={vwap:.2f}"
+        
+        # Deviation < -0.8% -> long (price too low)
+        if deviation < -0.008:
+            return True, TradeDirection.LONG, f"VWAP dev {deviation:.2%} VWAP={vwap:.2f}"
+        
+        return False, TradeDirection.LONG, f"VWAP dev {deviation:.2%} within range"
+
+    def _check_rsi_macd_entry(self, symbol: str, price: float, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """RSI + MACD dual confirmation entry / RSI+MACD 雙重確認進場"""
+        if symbol in self.active_trades:
+            return False, TradeDirection.LONG, "already in position"
+        
+        if idx < 26:  # Need enough data for RSI(14) and EMA(26)
+            return False, TradeDirection.LONG, "not enough data"
+        
+        df_slice = df.iloc[:idx+1]
+        
+        # Calculate RSI(14)
+        delta = df_slice['close'].diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        current_rsi = float(rsi.iloc[-1])
+        
+        # Calculate MACD
+        ema12 = df_slice['close'].ewm(span=12, adjust=False).mean()
+        ema26 = df_slice['close'].ewm(span=26, adjust=False).mean()
+        macd = ema12 - ema26
+        signal = macd.ewm(span=9, adjust=False).mean()
+        
+        # Check for cross
+        macd_cross_up = float(macd.iloc[-1]) > float(signal.iloc[-1]) and float(macd.iloc[-2]) <= float(signal.iloc[-2])
+        macd_cross_down = float(macd.iloc[-1]) < float(signal.iloc[-1]) and float(macd.iloc[-2]) >= float(signal.iloc[-2])
+        
+        # RSI < 35 and MACD golden cross -> long
+        if current_rsi < 35 and macd_cross_up:
+            return True, TradeDirection.LONG, f"RSI={current_rsi:.1f} MACD golden cross"
+        
+        # RSI > 65 and MACD death cross -> short
+        elif current_rsi > 65 and macd_cross_down:
+            return True, TradeDirection.SHORT, f"RSI={current_rsi:.1f} MACD death cross"
+        
+        return False, TradeDirection.LONG, f"RSI={current_rsi:.1f} no signal"
+
     def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
         """
         Check for exit conditions and close trades
@@ -715,11 +821,15 @@ class BacktestRunner:
         trade.exit_price = exit_price
         trade.exit_reason = reason
 
-        # Calculate P&L
+        # Calculate P&L (gross, before commission)
         if trade.direction == "long":
-            trade.pnl_pct = ((exit_price - trade.entry_price) / trade.entry_price) * 100
+            gross_pnl_pct = ((exit_price - trade.entry_price) / trade.entry_price) * 100
         else:  # short
-            trade.pnl_pct = ((trade.entry_price - exit_price) / trade.entry_price) * 100
+            gross_pnl_pct = ((trade.entry_price - exit_price) / trade.entry_price) * 100
+
+        # Deduct commission (entry + exit = 2 * commission_pct)
+        commission_deduction = (self.config.commission_pct or 0.0) * 2
+        trade.pnl_pct = gross_pnl_pct - commission_deduction
 
         trade.pnl_amount = (trade.pnl_pct / 100) * self.config.initial_capital * (self.config.position_size_pct / 100)
 
@@ -736,7 +846,7 @@ class BacktestRunner:
         # Update equity
         self.current_equity += trade.pnl_amount
 
-        print(f"   {emoji} EXIT: ${exit_price:,.2f} | P&L: {trade.pnl_pct:+.2f}% ({reason})")
+        print(f"   {emoji} EXIT: ${exit_price:,.2f} | Gross P&L: {gross_pnl_pct:+.2f}% | Net P&L: {trade.pnl_pct:+.2f}% ({reason})")
 
     def _close_all_trades(self, reason: str) -> None:
         """
@@ -797,7 +907,7 @@ class BacktestRunner:
             start_date=self.config.start_date,
             end_date=self.config.end_date,
             symbols=self.config.symbols,
-            strategy=self.config.strategy,
+            strategy=self.strategy_id or self.config.strategy,
             total_trades=total_trades,
             winning_trades=winning_trades,
             losing_trades=losing_trades,
@@ -810,7 +920,7 @@ class BacktestRunner:
             equity_curve=self.equity_curve
         )
 
-    def build_equity_chart(self, summary: Optional[BacktestSummary] = None) -> Optional[go.Figure]:
+    def build_equity_chart(self, summary: Optional[BacktestSummary] = None) -> Optional[Any]:
         """
         Build equity curve and drawdown chart using plotly
         使用 plotly 建立權益曲線和回撤圖表
@@ -912,7 +1022,7 @@ class BacktestRunner:
 
         return fig
 
-    def save_equity_chart(self, fig: go.Figure, filename: Optional[str] = None) -> str:
+    def save_equity_chart(self, fig: Any, filename: Optional[str] = None) -> str:
         """
         Save equity chart to HTML file
         儲存權益圖表為 HTML
@@ -980,6 +1090,7 @@ def run_backtest(
     initial_capital: float = 10000.0,
     stop_loss_pct: Optional[float] = None,
     take_profit_pct: Optional[float] = None,
+    commission_pct: Optional[float] = None,
     strategy_id: Optional[str] = None,
     strategy_type: Optional[str] = None,
 ) -> BacktestSummary:
@@ -994,6 +1105,7 @@ def run_backtest(
         initial_capital: Starting capital
         stop_loss_pct: Stop loss percentage (e.g., 5.0 for 5%)
         take_profit_pct: Take profit percentage (e.g., 10.0 for 10%)
+        commission_pct: Commission percentage per side (e.g., 0.1 for 0.1%)
         strategy_id: Strategy ID (e.g., "ma_cross_trend", "rsi_trend")
         strategy_type: Strategy type (e.g., "trend_following", "momentum")
 
@@ -1020,6 +1132,7 @@ def run_backtest(
         initial_capital=initial_capital,
         stop_loss_pct=stop_loss_pct,
         take_profit_pct=take_profit_pct,
+        commission_pct=commission_pct or 0.0,
     )
 
     # Run backtest
