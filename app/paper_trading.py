@@ -1,412 +1,516 @@
 """
-Paper Trading Simulator
-Simulates trading with realistic slippage, latency, and fees.
+Paper Trading Engine — Per-Strategy Isolated Capital / 策略獨立資金模擬交易
+
+Each enabled strategy gets its own $1,000 virtual account.
+Positions and trades are fully isolated by strategy_id.
+Intraday positions are force-closed before 23:59.
 """
 
 import json
 import logging
-import random
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
+from pathlib import Path
 from datetime import datetime
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field, asdict
 from enum import Enum
 
+logger = logging.getLogger(__name__)
 
-class TradeSide(Enum):
-    BUY = "buy"
-    SELL = "sell"
+# ─── Constants / 常數 ──────────────────────────────────────────
+INITIAL_BALANCE_PER_STRATEGY = 1000.0
+COMMISSION_RATE = 0.001
+SLIPPAGE_RATE = 0.0001
+MAX_POSITION_RATIO = 0.20  # 20% per position
+DAILY_LOSS_LIMIT_PCT = 0.05  # 5% daily loss limit
+STATE_FILE = Path(__file__).resolve().parents[1] / "state" / "paper_trading_state.json"
+CONFIG_FILE = Path(__file__).resolve().parents[1] / "config" / "strategies.json"
+
+
+# ─── Data Classes / 資料類別 ────────────────────────────────────
+@dataclass
+class Position:
+    symbol: str
+    side: str
+    quantity: float
+    entry_price: float
+    entry_time: str
+    strategy_id: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Position":
+        return cls(**data)
 
 
 @dataclass
-class SimulatedTrade:
-    """Simulated trade record."""
-
+class Trade:
     trade_id: str
     symbol: str
-    side: TradeSide
+    side: str
     quantity: float
     entry_price: float
-    exit_price: Optional[float] = None
-    entry_time: datetime = field(default_factory=datetime.now)
-    exit_time: Optional[datetime] = None
+    exit_price: Optional[float]
+    entry_time: str
+    exit_time: Optional[str]
+    slippage: float
+    commission: float
+    realized_pnl: float
+    strategy_id: str
 
-    # Simulated costs
-    slippage: float = 0.0
-    commission: float = 0.0
-    realized_pnl: float = 0.0
-    strategy_id: Optional[str] = None  # Which strategy generated this trade
+    def to_dict(self) -> dict:
+        return asdict(self)
 
-    def to_dict(self) -> Dict:
+    @classmethod
+    def from_dict(cls, data: dict) -> "Trade":
+        return cls(**data)
+
+
+@dataclass
+class StrategyAccount:
+    """Per-strategy virtual trading account / 單一策略虛擬交易帳戶"""
+    balance: float
+    initial: float
+    positions: Dict[str, dict] = field(default_factory=dict)
+    trades: List[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
         return {
-            "trade_id": self.trade_id,
-            "symbol": self.symbol,
-            "side": self.side.value,
-            "quantity": self.quantity,
-            "entry_price": self.entry_price,
-            "exit_price": self.exit_price,
-            "entry_time": self.entry_time.isoformat(),
-            "exit_time": self.exit_time.isoformat() if self.exit_time else None,
-            "slippage": self.slippage,
-            "commission": self.commission,
-            "realized_pnl": self.realized_pnl,
-            "strategy_id": self.strategy_id,
+            "balance": self.balance,
+            "initial": self.initial,
+            "positions": self.positions,
+            "trades": self.trades,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "StrategyAccount":
+        return cls(
+            balance=data.get("balance", INITIAL_BALANCE_PER_STRATEGY),
+            initial=data.get("initial", INITIAL_BALANCE_PER_STRATEGY),
+            positions=data.get("positions", {}),
+            trades=data.get("trades", []),
+        )
 
+
+# ─── Paper Trading Engine / 模擬交易引擎 ─────────────────────────
 class PaperTrading:
     """
-    Paper trading simulator with realistic execution.
-
-    Simulates:
-    - Slippage (market impact)
-    - Latency (order delay)
-    - Commission fees
-    - Partial fills
+    Paper trading with per-strategy isolated capital.
+    Each enabled strategy gets $1,000 and trades independently.
     """
 
-    def __init__(
-        self,
-        initial_balance: float = 10000.0,
-        slippage_pct: float = 0.1,
-        commission_pct: float = 0.1,
-        latency_ms: int = 200,
-    ):
-        self.logger = logging.getLogger(__name__)
+    def __init__(self):
+        self.state: Dict[str, Any] = {}
+        self.strategies: Dict[str, StrategyAccount] = {}
+        self.total_initial: float = 0.0
+        self.last_updated: str = ""
+        self.daily_settlements: Dict[str, Dict[str, dict]] = {}
+        self._load_state()
 
-        # Account
-        self.balance = initial_balance
-        self.initial_balance = initial_balance
+    def _enabled_strategy_ids(self) -> List[str]:
+        """Read enabled strategies from config / 從設定讀取啟用策略"""
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return [
+                s["id"]
+                for s in data.get("strategies", [])
+                if s.get("enabled", False)
+            ]
+        except Exception as e:
+            logger.error(f"Failed to load strategies config: {e}")
+            return []
 
-        # Simulation parameters
-        self.slippage_pct = slippage_pct
-        self.commission_pct = commission_pct
-        self.latency_ms = latency_ms
-
-        # State
-        self.positions: Dict[str, Dict] = {}
-        self.trades: List[SimulatedTrade] = []
-        self.equity_curve: List[Dict] = []
-
-        self.logger.info(f"PaperTrading initialized: ${initial_balance:,.2f}")
-
-    def _simulate_slippage(self, price: float, side: TradeSide) -> float:
-        """
-        Simulate price slippage.
-
-        Args:
-            price: Target price
-            side: Trade side
-
-        Returns:
-            Executed price with slippage
-        """
-        # Slippage: worse price for market orders
-        slippage = price * (self.slippage_pct / 100) * random.gauss(1, 0.5)
-
-        if side == TradeSide.BUY:
-            executed = price + abs(slippage)
-        else:
-            executed = price - abs(slippage)
-
-        return executed
-
-    def _calculate_commission(self, value: float) -> float:
-        """Calculate commission fee."""
-        return value * (self.commission_pct / 100)
-
-    def enter_position(self, symbol: str, side: TradeSide, quantity: float, price: float, strategy_id: Optional[str] = None) -> SimulatedTrade:
-        """
-        Enter paper position.
-
-        Args:
-            symbol: Trading pair
-            side: Buy or sell
-            quantity: Position size
-            price: Entry price
-            strategy_id: Strategy that generated this signal
-
-        Returns:
-            SimulatedTrade record
-        """
-        # Simulate latency
-        if self.latency_ms > 0:
-            import time
-
-            time.sleep(self.latency_ms / 1000)
-
-        # Simulate slippage
-        executed_price = self._simulate_slippage(price, side)
-
-        # Calculate costs
-        trade_value = executed_price * quantity
-        commission = self._calculate_commission(trade_value)
-
-        # Deduct from balance
-        if side == TradeSide.BUY:
-            cost = trade_value + commission
-            if cost > self.balance:
-                self.logger.warning(f"Insufficient balance: ${self.balance:.2f} < ${cost:.2f}")
-                quantity = self.balance / (executed_price * (1 + self.commission_pct / 100))
-                trade_value = executed_price * quantity
-                commission = self._calculate_commission(trade_value)
-                cost = trade_value + commission
-
-            self.balance -= cost
-
-        # Record trade
-        trade = SimulatedTrade(
-            trade_id=f"PT_{len(self.trades)+1}",
-            symbol=symbol,
-            side=side,
-            quantity=quantity,
-            entry_price=executed_price,
-            slippage=executed_price - price,
-            commission=commission,
-            strategy_id=strategy_id,
+    def _init_new_state(self):
+        """Initialize fresh per-strategy state / 初始化全新策略獨立狀態"""
+        enabled = self._enabled_strategy_ids()
+        self.strategies = {
+            sid: StrategyAccount(
+                balance=INITIAL_BALANCE_PER_STRATEGY,
+                initial=INITIAL_BALANCE_PER_STRATEGY,
+            )
+            for sid in enabled
+        }
+        self.total_initial = len(enabled) * INITIAL_BALANCE_PER_STRATEGY
+        self.last_updated = datetime.now().isoformat()
+        self.daily_settlements = {}
+        logger.info(
+            f"Initialized {len(enabled)} strategy accounts, "
+            f"total initial: ${self.total_initial:,.2f}"
         )
 
-        self.trades.append(trade)
+    def _load_state(self):
+        """Load state from disk / 從磁碟載入狀態"""
+        if not STATE_FILE.exists():
+            self._init_new_state()
+            self._save_state()
+            return
 
-        # Track position
-        self.positions[symbol] = {
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load state: {e}, reinitializing")
+            self._init_new_state()
+            self._save_state()
+            return
+
+        # Detect old single-balance format / 偵測舊格式
+        if "strategies" not in raw:
+            logger.warning("Old state format detected — reinitializing per-strategy accounts")
+            self._init_new_state()
+            self._save_state()
+            return
+
+        # Load new format / 載入新格式
+        self.strategies = {
+            sid: StrategyAccount.from_dict(acc)
+            for sid, acc in raw.get("strategies", {}).items()
+        }
+        self.total_initial = raw.get("total_initial", 0)
+        self.last_updated = raw.get("last_updated", "")
+        self.daily_settlements = raw.get("daily_settlements", {})
+
+    def _save_state(self):
+        """Save state to disk / 保存狀態到磁碟"""
+        self.last_updated = datetime.now().isoformat()
+        state = {
+            "strategies": {
+                sid: acc.to_dict() for sid, acc in self.strategies.items()
+            },
+            "total_initial": self.total_initial,
+            "last_updated": self.last_updated,
+            "daily_settlements": self.daily_settlements,
+        }
+        try:
+            STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2, ensure_ascii=False, default=str)
+        except Exception as e:
+            logger.error(f"Failed to save state: {e}")
+
+    # ─── Public API / 公開介面 ─────────────────────────────────────
+
+    def get_strategy_balance(self, strategy_id: str) -> float:
+        """Get current balance for a strategy / 取得策略當前餘額"""
+        acc = self.strategies.get(strategy_id)
+        return acc.balance if acc else 0.0
+
+    def get_strategy_positions(self, strategy_id: str) -> Dict[str, dict]:
+        """Get open positions for a strategy / 取得策略未平倉"""
+        acc = self.strategies.get(strategy_id)
+        return acc.positions if acc else {}
+
+    def get_all_positions(self) -> Dict[str, Dict[str, dict]]:
+        """Get all positions grouped by strategy / 取得所有策略倉位"""
+        return {
+            sid: acc.positions for sid, acc in self.strategies.items()
+        }
+
+    def has_position(self, strategy_id: str, symbol: str) -> bool:
+        """Check if strategy holds a symbol / 檢查策略是否持有某幣種"""
+        acc = self.strategies.get(strategy_id)
+        return symbol in acc.positions if acc else False
+
+    def get_total_equity(self) -> float:
+        """Total equity across all strategies / 所有策略總權益"""
+        total = 0.0
+        for acc in self.strategies.values():
+            total += acc.balance + sum(
+                p.get("quantity", 0) * p.get("entry_price", 0)
+                for p in acc.positions.values()
+            )
+        return total
+
+    def get_total_pnl(self) -> float:
+        """Total realized + unrealized PnL / 總已實現+未實現損益"""
+        return self.get_total_equity() - self.total_initial
+
+    def get_today_realized_pnl(self) -> float:
+        """Sum of today's realized PnL across all strategies / 今日所有策略已實現損益"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        today_pnl = 0.0
+        for acc in self.strategies.values():
+            for t in acc.trades:
+                exit_time = t.get("exit_time", "")
+                if exit_time and exit_time.startswith(today):
+                    today_pnl += t.get("realized_pnl", 0)
+        return today_pnl
+
+    def get_strategy_today_pnl(self, strategy_id: str) -> float:
+        """Today's realized PnL for a specific strategy / 指定策略今日已實現損益"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        acc = self.strategies.get(strategy_id)
+        if not acc:
+            return 0.0
+        return sum(
+            t.get("realized_pnl", 0)
+            for t in acc.trades
+            if t.get("exit_time", "").startswith(today)
+        )
+
+    def get_strategy_return_pct(self, strategy_id: str) -> float:
+        """Return % for a strategy / 策略報酬率"""
+        acc = self.strategies.get(strategy_id)
+        if not acc or acc.initial == 0:
+            return 0.0
+        return (acc.balance - acc.initial) / acc.initial * 100
+
+    def enter_position(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        price: float,
+        strategy_id: str,
+    ) -> bool:
+        """
+        Enter a position using strategy's own balance.
+        Returns True if successful.
+        """
+        if strategy_id not in self.strategies:
+            logger.warning(f"Unknown strategy: {strategy_id}")
+            return False
+
+        acc = self.strategies[strategy_id]
+        cost = quantity * price
+        commission = cost * COMMISSION_RATE
+        slippage = cost * SLIPPAGE_RATE
+        total_cost = cost + commission + slippage
+
+        if acc.balance < total_cost:
+            logger.warning(
+                f"[{strategy_id}] Insufficient balance: ${acc.balance:.2f} < ${total_cost:.2f}"
+            )
+            return False
+
+        if symbol in acc.positions:
+            logger.warning(f"[{strategy_id}] Already holding {symbol}")
+            return False
+
+        # Position size check / 倉位大小檢查
+        if cost > acc.balance * MAX_POSITION_RATIO:
+            logger.warning(
+                f"[{strategy_id}] Position too large: ${cost:.2f} > "
+                f"{MAX_POSITION_RATIO * 100}% of balance"
+            )
+            return False
+
+        acc.balance -= total_cost
+        position = {
+            "symbol": symbol,
             "side": side,
             "quantity": quantity,
-            "entry_price": executed_price,
-            "entry_time": datetime.now(),
+            "entry_price": price,
+            "entry_time": datetime.now().isoformat(),
+            "strategy_id": strategy_id,
         }
+        acc.positions[symbol] = position
 
-        self.logger.info(
-            f"Paper trade: {side.value.upper()} {quantity} {symbol} @ ${executed_price:.2f} "
-            f"(slippage: ${executed_price-price:.2f}, comm: ${commission:.2f})"
+        # Record trade entry / 記錄交易進場
+        trade_id = f"PT_{datetime.now().strftime('%Y%m%d%H%M%S')}_{symbol}_{strategy_id}"
+        trade = {
+            "trade_id": trade_id,
+            "symbol": symbol,
+            "side": side,
+            "quantity": quantity,
+            "entry_price": price,
+            "exit_price": None,
+            "entry_time": datetime.now().isoformat(),
+            "exit_time": None,
+            "slippage": slippage,
+            "commission": commission,
+            "realized_pnl": 0.0,
+            "strategy_id": strategy_id,
+        }
+        acc.trades.append(trade)
+
+        self._save_state()
+        logger.info(
+            f"[{strategy_id}] ENTER {side} {symbol} {quantity} @ ${price:,.2f} "
+            f"cost=${total_cost:.2f} balance=${acc.balance:.2f}"
         )
+        return True
 
-        # Update equity
-        self._update_equity()
-
-        return trade
-
-    def exit_position(self, symbol: str, price: float) -> Optional[SimulatedTrade]:
+    def exit_position(
+        self,
+        symbol: str,
+        price: float,
+        strategy_id: str,
+    ) -> Optional[dict]:
         """
-        Exit paper position.
-
-        Args:
-            symbol: Trading pair
-            price: Exit price
-
-        Returns:
-            Updated SimulatedTrade or None
+        Exit a position for a specific strategy.
+        Returns trade dict if successful, None otherwise.
         """
-        if symbol not in self.positions:
-            self.logger.warning(f"No position to exit: {symbol}")
+        if strategy_id not in self.strategies:
+            logger.warning(f"Unknown strategy: {strategy_id}")
             return None
 
-        position = self.positions[symbol]
+        acc = self.strategies[strategy_id]
+        if symbol not in acc.positions:
+            logger.warning(f"[{strategy_id}] No position in {symbol} to exit")
+            return None
 
-        # Simulate latency
-        if self.latency_ms > 0:
-            import time
+        position = acc.positions[symbol]
+        entry_price = position["entry_price"]
+        quantity = position["quantity"]
+        side = position["side"]
 
-            time.sleep(self.latency_ms / 1000)
-
-        # Determine exit side (opposite of entry)
-        exit_side = TradeSide.SELL if position["side"] == TradeSide.BUY else TradeSide.BUY
-
-        # Simulate slippage
-        executed_price = self._simulate_slippage(price, exit_side)
-
-        # Calculate costs
-        trade_value = executed_price * position["quantity"]
-        commission = self._calculate_commission(trade_value)
-
-        # Calculate P&L
-        if position["side"] == TradeSide.BUY:
-            pnl = (executed_price - position["entry_price"]) * position["quantity"] - commission
-            self.balance += trade_value - commission
+        # Calculate PnL / 計算損益
+        if side.lower() == "buy":
+            raw_pnl = (price - entry_price) * quantity
         else:
-            pnl = (position["entry_price"] - executed_price) * position["quantity"] - commission
-            self.balance -= trade_value + commission
+            raw_pnl = (entry_price - price) * quantity
 
-        # Find and update trade record
-        trade = next((t for t in self.trades if t.symbol == symbol and t.exit_price is None), None)
+        exit_cost = quantity * price
+        commission = exit_cost * COMMISSION_RATE
+        slippage = exit_cost * SLIPPAGE_RATE
+        realized_pnl = raw_pnl - commission - slippage
 
-        if trade:
-            trade.exit_price = executed_price
-            trade.exit_time = datetime.now()
-            trade.commission += commission
-            trade.realized_pnl = pnl
-        else:
-            # No matching trade record found (e.g., after state load)
-            # Create a new record for the exit
-            trade = SimulatedTrade(
-                trade_id=f"sim_{datetime.now().strftime('%Y%m%d%H%M%S')}_{symbol}",
-                symbol=symbol,
-                side=position["side"],
-                quantity=position["quantity"],
-                entry_price=position["entry_price"],
-                entry_time=position.get("entry_time", datetime.now()),
-                exit_price=executed_price,
-                exit_time=datetime.now(),
-                commission=commission,
-                realized_pnl=pnl,
-            )
-            self.trades.append(trade)
+        # Update balance / 更新餘額
+        acc.balance += exit_cost - commission - slippage
 
-        del self.positions[symbol]
+        # Update trade record / 更新交易記錄
+        # Find the matching open trade
+        open_trade = None
+        for t in reversed(acc.trades):
+            if t["symbol"] == symbol and t["exit_price"] is None:
+                open_trade = t
+                break
 
-        self.logger.info(f"Paper exit: {symbol} @ ${executed_price:.2f} " f"PnL: ${pnl:.2f} (comm: ${commission:.2f})")
+        if open_trade:
+            open_trade["exit_price"] = price
+            open_trade["exit_time"] = datetime.now().isoformat()
+            open_trade["realized_pnl"] = realized_pnl
 
-        # Update equity
-        self._update_equity()
+        # Remove position / 移除倉位
+        del acc.positions[symbol]
 
-        return trade
-
-    def _update_equity(self):
-        """Update equity curve."""
-        # Calculate unrealized P&L
-        unrealized = 0
-        for symbol, pos in self.positions.items():
-            # Use last known price (simplified)
-            unrealized += 0  # Would need current price
-
-        self.equity_curve.append(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "balance": self.balance,
-                "unrealized_pnl": unrealized,
-                "total_equity": self.balance + unrealized,
-            }
+        self._save_state()
+        logger.info(
+            f"[{strategy_id}] EXIT {symbol} @ ${price:,.2f} "
+            f"PnL=${realized_pnl:+.2f} balance=${acc.balance:.2f}"
         )
 
-    def get_performance(self) -> Dict:
-        """Get paper trading performance."""
-        completed_trades = [t for t in self.trades if t.exit_price is not None]
+        return open_trade
 
-        total_pnl = sum(t.realized_pnl for t in completed_trades)
-        wins = sum(1 for t in completed_trades if t.realized_pnl > 0)
-        losses = len(completed_trades) - wins
+    def force_close_all(self, current_prices: Dict[str, float]) -> Dict[str, list]:
+        """
+        Force close ALL positions across ALL strategies.
+        Called at 23:30 for intraday settlement.
+        Returns {strategy_id: [closed_trade, ...]}.
+        """
+        closed: Dict[str, list] = {}
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        for sid, acc in self.strategies.items():
+            if not acc.positions:
+                continue
+
+            closed[sid] = []
+            # Copy keys because we're modifying dict / 複製 keys 因為會修改 dict
+            for symbol in list(acc.positions.keys()):
+                price = current_prices.get(symbol, 0)
+                if price <= 0:
+                    logger.warning(f"[{sid}] No price for {symbol}, skipping force close")
+                    continue
+
+                trade = self.exit_position(symbol, price, sid)
+                if trade:
+                    closed[sid].append(trade)
+
+            # Record daily settlement / 記錄當日結算
+            if closed[sid]:
+                day_pnl = sum(t.get("realized_pnl", 0) for t in closed[sid])
+                if today not in self.daily_settlements:
+                    self.daily_settlements[today] = {}
+                self.daily_settlements[today][sid] = {
+                    "realized_pnl": day_pnl,
+                    "trades": len(closed[sid]),
+                    "balance_after": acc.balance,
+                }
+                logger.info(f"[{sid}] Daily settlement: ${day_pnl:+.2f} ({len(closed[sid])} trades)")
+
+        self._save_state()
+        return closed
+
+    def record_daily_settlement(self, strategy_id: str, realized_pnl: float, trade_count: int):
+        """Manually record a daily settlement entry / 手動記錄日結算"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today not in self.daily_settlements:
+            self.daily_settlements[today] = {}
+        acc = self.strategies.get(strategy_id)
+        self.daily_settlements[today][strategy_id] = {
+            "realized_pnl": realized_pnl,
+            "trades": trade_count,
+            "balance_after": acc.balance if acc else 0,
+        }
+        self._save_state()
+
+    def get_daily_settlement(self, date_str: str) -> Dict[str, dict]:
+        """Get settlement for a specific date / 取得指定日期結算"""
+        return self.daily_settlements.get(date_str, {})
+
+    def get_all_settlements(self) -> Dict[str, Dict[str, dict]]:
+        """Get all daily settlements / 取得所有日結算"""
+        return self.daily_settlements
+
+    def get_summary(self) -> dict:
+        """Get overall summary / 取得總覽"""
+        total_balance = sum(acc.balance for acc in self.strategies.values())
+        total_pnl = total_balance - self.total_initial
+        total_return_pct = (total_pnl / self.total_initial * 100) if self.total_initial else 0
+        open_positions = sum(len(acc.positions) for acc in self.strategies.values())
+
+        # Max hold time / 最大持倉時間
+        max_hold_hours = 0
+        now = datetime.now()
+        for acc in self.strategies.values():
+            for pos in acc.positions.values():
+                et = pos.get("entry_time")
+                if et:
+                    try:
+                        entry = datetime.fromisoformat(et)
+                        hold = (now - entry).total_seconds() / 3600
+                        if hold > max_hold_hours:
+                            max_hold_hours = hold
+                    except Exception:
+                        pass
+
+        today_pnl = self.get_today_realized_pnl()
 
         return {
-            "initial_balance": self.initial_balance,
-            "current_balance": self.balance,
-            "total_return_pct": (self.balance / self.initial_balance - 1) * 100,
-            "total_trades": len(completed_trades),
-            "winning_trades": wins,
-            "losing_trades": losses,
-            "win_rate": wins / len(completed_trades) * 100 if completed_trades else 0,
+            "initial_balance": self.total_initial,
+            "current_balance": total_balance,
             "total_pnl": total_pnl,
-            "avg_pnl": total_pnl / len(completed_trades) if completed_trades else 0,
-            "max_pnl": max((t.realized_pnl for t in completed_trades), default=0),
-            "min_pnl": min((t.realized_pnl for t in completed_trades), default=0),
-            "open_positions": len(self.positions),
-            "open_position_symbols": list(self.positions.keys()),
-        }
-
-    def save_state(self, filepath: str) -> None:
-        """Save paper trading state to file / 儲存模擬交易狀態到檔案"""
-        import json
-        state = {
-            "balance": self.balance,
-            "initial_balance": self.initial_balance,
-            "positions": {
-                sym: {
-                    "side": pos["side"].value,
-                    "quantity": pos["quantity"],
-                    "entry_price": pos["entry_price"],
-                    "entry_time": pos["entry_time"].isoformat() if pos.get("entry_time") else None,
+            "total_return_pct": total_return_pct,
+            "open_positions": open_positions,
+            "max_hold_hours": max_hold_hours,
+            "today_pnl": today_pnl,
+            "strategies": {
+                sid: {
+                    "balance": acc.balance,
+                    "initial": acc.initial,
+                    "return_pct": (acc.balance - acc.initial) / acc.initial * 100 if acc.initial else 0,
+                    "positions": len(acc.positions),
+                    "trades": len([t for t in acc.trades if t.get("exit_price")]),
                 }
-                for sym, pos in self.positions.items()
+                for sid, acc in self.strategies.items()
             },
-            "trades": [t.to_dict() for t in self.trades],
-            "equity_curve": self.equity_curve,
         }
-        with open(filepath, 'w') as f:
-            json.dump(state, f, indent=2, default=str)
-        self.logger.info(f"Paper trading state saved to {filepath}")
 
-    def load_state(self, filepath: str) -> bool:
-        """Load paper trading state from file / 從檔案載入模擬交易狀態"""
-        import json, os
-        from pathlib import Path
-        if not os.path.exists(filepath):
-            return False
-        try:
-            with open(filepath, 'r') as f:
-                state = json.load(f)
-            self.balance = state.get("balance", self.initial_balance)
-            self.initial_balance = state.get("initial_balance", self.initial_balance)
 
-            # Restore positions
-            positions_data = state.get("positions", {})
-            for sym, pos_data in positions_data.items():
-                side = TradeSide(pos_data["side"])
-                entry_time = datetime.fromisoformat(pos_data["entry_time"]) if pos_data.get("entry_time") else datetime.now()
-                self.positions[sym] = {
-                    "side": side,
-                    "quantity": pos_data["quantity"],
-                    "entry_price": pos_data["entry_price"],
-                    "entry_time": entry_time,
-                }
-
-            # Restore trades / 恢復交易記錄
-            trades_data = state.get("trades", [])
-            self.trades = []
-            for t_data in trades_data:
-                try:
-                    trade = SimulatedTrade(
-                        trade_id=t_data.get("trade_id", ""),
-                        symbol=t_data.get("symbol", ""),
-                        side=TradeSide(t_data.get("side", "buy")),
-                        quantity=t_data.get("quantity", 0),
-                        entry_price=t_data.get("entry_price", 0),
-                        exit_price=t_data.get("exit_price"),
-                        entry_time=datetime.fromisoformat(t_data["entry_time"]) if t_data.get("entry_time") else datetime.now(),
-                        exit_time=datetime.fromisoformat(t_data["exit_time"]) if t_data.get("exit_time") else None,
-                        slippage=t_data.get("slippage", 0),
-                        commission=t_data.get("commission", 0),
-                        realized_pnl=t_data.get("realized_pnl", 0),
-                        strategy_id=t_data.get("strategy_id"),
-                    )
-                    self.trades.append(trade)
-                except Exception as e:
-                    self.logger.warning(f"Failed to restore trade: {e}")
-
-            # Restore equity curve / 恢復資金曲線
-            self.equity_curve = state.get("equity_curve", [])
-
-            self.logger.info(
-                f"Paper trading state loaded from {filepath}: balance=${self.balance:,.2f}, "
-                f"positions={len(self.positions)}, trades={len(self.trades)}"
-            )
-            return True
-        except Exception as e:
-            self.logger.warning(f"Failed to load paper trading state: {e}")
-            return False
-
-    def reset(self):
-        """Reset paper trading account."""
-        self.balance = self.initial_balance
-        self.positions.clear()
-        self.trades.clear()
-        self.equity_curve.clear()
-        self.logger.info("Paper trading reset")
+# ─── Legacy compatibility / 舊版相容 ───────────────────────────
+def create_paper_trading() -> PaperTrading:
+    """Factory function for legacy compatibility."""
+    return PaperTrading()
 
 
 if __name__ == "__main__":
-    # Example usage
     logging.basicConfig(level=logging.INFO)
-
-    paper = PaperTrading(initial_balance=10000)
-
-    # Simulate trades
-    paper.enter_position("BTCUSDT", TradeSide.BUY, 0.1, 45000)
-    paper.exit_position("BTCUSDT", 46000)
-
-    paper.enter_position("ETHUSDT", TradeSide.BUY, 1.0, 3200)
-    paper.exit_position("ETHUSDT", 3100)
-
-    print("Paper Trading Demo")
-    print("=" * 50)
-    print(f"Performance: {paper.get_performance()}")
-    print(f"\nTrades:")
-    for t in paper.trades:
-        print(f"  {t.side.value.upper()} {t.quantity} {t.symbol}: PnL=${t.realized_pnl:.2f}")
+    pt = PaperTrading()
+    print("Paper Trading (Per-Strategy) initialized")
+    print(f"Strategies: {list(pt.strategies.keys())}")
+    print(f"Total initial: ${pt.total_initial:,.2f}")
+    print(f"Summary: {pt.get_summary()}")

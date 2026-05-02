@@ -1,17 +1,17 @@
 """
-Calendar Page / 每日結算日曆
+Calendar Page — Per-Strategy Daily Settlement / 策略明細每日結算日曆
 
 Shows daily trading settlement calendar with:
-- Monthly calendar view with daily PnL and trade count
-- Day detail panel with trade list and daily summary
+- Monthly calendar view with per-strategy PnL detail and daily total
+- Day detail panel with per-strategy summary + trade list
 - Monthly summary cards
 
 URL: /calendar
 Title: 每日結算 / Daily Settlement
 
 Author: kimiclaw_bot
-Version: 1.0.0
-Date: 2026-05-01
+Version: 2.0.0
+Date: 2026-05-03
 """
 
 import dash
@@ -68,36 +68,72 @@ def load_paper_state() -> dict:
     except Exception:
         return {}
 
+
 def get_trades_by_date(state: dict, year: int, month: int) -> Dict[str, List[dict]]:
-    """Group completed trades by date / 按日期分組已平倉交易"""
-    trades = state.get("trades", [])
+    """
+    Group completed trades by date from per-strategy accounts.
+    從各策略帳戶按日期分組已平倉交易。
+    """
     by_date = {}
-    for t in trades:
-        if t.get("exit_price") is None:
-            continue
-        exit_time = t.get("exit_time", "")
-        if not exit_time:
-            continue
-        try:
-            dt = datetime.fromisoformat(exit_time.replace('Z', '+00:00'))
-            if dt.year == year and dt.month == month:
-                date_key = dt.strftime("%Y-%m-%d")
-                by_date.setdefault(date_key, []).append(t)
-        except Exception:
-            pass
+    strategies = state.get("strategies", {})
+    
+    for sid, acc in strategies.items():
+        for t in acc.get("trades", []):
+            if t.get("exit_price") is None:
+                continue
+            exit_time = t.get("exit_time", "")
+            if not exit_time:
+                continue
+            try:
+                dt = datetime.fromisoformat(exit_time.replace('Z', '+00:00'))
+                if dt.year == year and dt.month == month:
+                    date_key = dt.strftime("%Y-%m-%d")
+                    t["_strategy_id"] = sid  # Inject strategy_id for display
+                    by_date.setdefault(date_key, []).append(t)
+            except Exception:
+                pass
+    
     return by_date
 
-def get_daily_summary(trades: List[dict]) -> dict:
-    """Calculate daily summary / 計算當日小結"""
+
+def get_daily_settlement(state: dict, date_key: str) -> Dict[str, dict]:
+    """
+    Get daily settlement from state.daily_settlements.
+    Returns {strategy_id: {realized_pnl, trades, balance_after}}.
+    """
+    settlements = state.get("daily_settlements", {})
+    return settlements.get(date_key, {})
+
+
+def get_daily_summary(trades: List[dict], settlement: Dict[str, dict]) -> dict:
+    """
+    Calculate daily summary with per-strategy breakdown.
+    計算當日小結（含各策略明細）。
+    """
+    # Base from trades
     total_pnl = sum(t.get("realized_pnl", 0) for t in trades)
     wins = sum(1 for t in trades if t.get("realized_pnl", 0) > 0)
     count = len(trades)
     win_rate = (wins / count * 100) if count > 0 else 0
+    
+    # Per-strategy breakdown from settlement
+    strategy_pnls = {}
+    for sid, data in settlement.items():
+        strategy_pnls[sid] = data.get("realized_pnl", 0)
+    
+    # Also aggregate from trades for strategies not in settlement
+    for t in trades:
+        sid = t.get("_strategy_id", t.get("strategy_id", "Unknown"))
+        if sid not in strategy_pnls:
+            strategy_pnls[sid] = strategy_pnls.get(sid, 0) + t.get("realized_pnl", 0)
+    
     return {
         "count": count,
         "win_rate": win_rate,
         "total_pnl": total_pnl,
+        "strategy_pnls": strategy_pnls,
     }
+
 
 # ─── Page layout / 頁面佈局 ───
 layout = dbc.Container(
@@ -106,7 +142,7 @@ layout = dbc.Container(
         dbc.Row([
             dbc.Col([
                 html.H2("📅 Calendar / 每日結算", className="mb-3"),
-                html.P("Daily trading settlement and monthly overview / 每日交易結算與月度總覽", className="text-muted"),
+                html.P("Daily trading settlement with per-strategy breakdown / 每日交易結算（含策略明細）", className="text-muted"),
             ], width=12)
         ]),
         
@@ -214,6 +250,12 @@ layout = dbc.Container(
         dbc.Card([
             dbc.CardHeader(id="cal-detail-header", children="Day Detail / 日期明細", className="fw-bold"),
             dbc.CardBody([
+                # Per-strategy summary / 各策略小結
+                html.Div(id="cal-detail-strategy-summary", children=[]),
+                
+                html.Hr(),
+                
+                # Trade list / 交易列表
                 dbc.Table([
                     html.Thead(html.Tr([
                         html.Th("Time / 時間"),
@@ -290,6 +332,7 @@ def update_month(prev_clicks, next_clicks, n_intervals, current_ym):
     Output("cal-best-day", "children"),
     Output("cal-worst-day", "children"),
     Output("cal-detail-header", "children"),
+    Output("cal-detail-strategy-summary", "children"),
     Output("cal-detail-body", "children"),
     Output("cal-detail-summary", "children"),
     Input("cal-current-ym", "data"),
@@ -314,7 +357,8 @@ def render_calendar(current_ym, selected_date, n_intervals):
     worst_day_str = "--"
     
     for date_key, day_trades in trades_by_date.items():
-        summary = get_daily_summary(day_trades)
+        settlement = get_daily_settlement(state, date_key)
+        summary = get_daily_summary(day_trades, settlement)
         day_pnl = summary["total_pnl"]
         month_total_pnl += day_pnl
         month_total_trades += summary["count"]
@@ -346,19 +390,35 @@ def render_calendar(current_ym, selected_date, n_intervals):
             
             date_key = f"{year}-{month:02d}-{day:02d}"
             day_trades = trades_by_date.get(date_key, [])
-            summary = get_daily_summary(day_trades)
+            settlement = get_daily_settlement(state, date_key)
+            summary = get_daily_summary(day_trades, settlement)
             
             is_today = (date_key == today_str)
             border_class = "border border-primary border-2" if is_today else ""
             
-            if day_trades:
+            if day_trades or settlement:
                 pnl = summary["total_pnl"]
                 pnl_color = "text-success" if pnl >= 0 else "text-danger"
-                pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+                pnl_str = f"${pnl:+.2f}"
+                
+                # Build per-strategy mini list / 各策略小字明細
+                strategy_items = []
+                for sid, spnl in sorted(summary["strategy_pnls"].items(), key=lambda x: abs(x[1]), reverse=True):
+                    if abs(spnl) < 0.01:
+                        continue
+                    spnl_color = "text-success" if spnl >= 0 else "text-danger"
+                    strategy_items.append(
+                        html.Div(
+                            f"{get_strategy_display_name(sid)[:8]}: {spnl:+.0f}",
+                            className=f"{spnl_color} small lh-1"
+                        )
+                    )
+                
                 content = html.Div([
                     html.Div(day, className="fw-bold"),
                     html.Div(pnl_str, className=f"{pnl_color} fw-bold small"),
-                    html.Div(f"{summary['count']} trades", className="text-muted small")
+                    html.Div(f"{summary['count']} trades", className="text-muted small mb-1"),
+                    html.Div(strategy_items, className="mt-1")
                 ])
             else:
                 content = html.Div([
@@ -380,8 +440,35 @@ def render_calendar(current_ym, selected_date, n_intervals):
     if selected_date:
         detail_header = f"Day Detail / {selected_date} 交易明細"
         day_trades = trades_by_date.get(selected_date, [])
-        summary = get_daily_summary(day_trades)
+        settlement = get_daily_settlement(state, selected_date)
+        summary = get_daily_summary(day_trades, settlement)
         
+        # ─── Per-strategy summary cards / 各策略小結卡片 ───
+        strategy_summary_cards = []
+        if summary["strategy_pnls"]:
+            strategy_summary_cards.append(html.H6("Strategy PnL / 策略損益明細", className="fw-bold mb-2"))
+            card_row = []
+            for sid, spnl in sorted(summary["strategy_pnls"].items(), key=lambda x: x[1], reverse=True):
+                spnl_color = "success" if spnl >= 0 else "danger"
+                card_row.append(
+                    dbc.Col(
+                        dbc.Card(
+                            dbc.CardBody([
+                                html.H6(get_strategy_display_name(sid), className="mb-1 small fw-bold"),
+                                html.P(f"${spnl:+.2f}", className=f"text-{spnl_color} fw-bold mb-0")
+                            ]),
+                            color=spnl_color,
+                            outline=True,
+                            className="mb-2"
+                        ),
+                        width=6, md=3
+                    )
+                )
+            strategy_summary_cards.append(dbc.Row(card_row))
+        else:
+            strategy_summary_cards = [html.P("No strategy data / 無策略資料", className="text-muted")]
+        
+        # ─── Trade list / 交易列表 ───
         detail_rows = []
         for t in day_trades:
             pnl = t.get("realized_pnl", 0)
@@ -393,11 +480,12 @@ def render_calendar(current_ym, selected_date, n_intervals):
             pnl_color = "text-success" if pnl >= 0 else "text-danger"
             side = t.get("side", "--").upper()
             side_color = "text-success" if side == "BUY" else "text-danger"
+            sid = t.get("_strategy_id", t.get("strategy_id", "Unknown"))
             
             detail_rows.append(html.Tr([
                 html.Td(t.get("exit_time", "--")[:19] if t.get("exit_time") else "--"),
                 html.Td(t.get("symbol", "--")),
-                html.Td(get_strategy_display_name(t.get("strategy_id", "Unknown"))),
+                html.Td(get_strategy_display_name(sid)),
                 html.Td(side, className=f"fw-bold {side_color}"),
                 html.Td(f"${entry_price:,.2f}" if entry_price else "--", className="text-end"),
                 html.Td(f"${exit_price:,.2f}" if exit_price else "--", className="text-end"),
@@ -414,6 +502,7 @@ def render_calendar(current_ym, selected_date, n_intervals):
         )
     else:
         detail_header = "Day Detail / 日期明細（點擊月曆日期查看）"
+        strategy_summary_cards = [html.P("Select a date / 請選擇日期", className="text-muted")]
         detail_rows = [html.Tr([html.Td("Select a date / 請選擇日期", colSpan=8)])]
         detail_summary = ""
     
@@ -426,6 +515,7 @@ def render_calendar(current_ym, selected_date, n_intervals):
         best_day_str,
         worst_day_str,
         detail_header,
+        strategy_summary_cards,
         detail_rows,
         detail_summary,
     )

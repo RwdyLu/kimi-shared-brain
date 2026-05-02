@@ -488,6 +488,30 @@ class MonitoringScheduler:
             # Save current prices to state file / 儲存當前價格到狀態檔案
             self._save_prices_to_state(results)
 
+            # ─── Intraday Force Close / 日內強制平倉 ────────────────────
+            now = datetime.now()
+            if now.hour == 23 and now.minute >= 30:
+                self._log(f"Run #{run_id}: Force close window (23:30–23:59) detected — closing all positions")
+                try:
+                    from app.paper_trading import PaperTrading
+                    pt = PaperTrading()
+                    # Get current prices from monitoring results
+                    current_prices = {}
+                    for result in results:
+                        if result.success and result.current_price:
+                            current_prices[result.symbol] = result.current_price
+                    closed = pt.force_close_all(current_prices)
+                    total_closed = sum(len(trades) for trades in closed.values())
+                    if total_closed > 0:
+                        self._log(f"  Force closed {total_closed} positions across {len(closed)} strategies")
+                        for sid, trades in closed.items():
+                            pnl = sum(t.get("realized_pnl", 0) for t in trades)
+                            self._log(f"    [{sid}] {len(trades)} trades, PnL=${pnl:+.2f}")
+                    else:
+                        self._log(f"  No open positions to force close")
+                except Exception as e:
+                    self._log(f"  Force close error: {e}")
+
             # Record results / 記錄結果
             record.end_time = datetime.now()
             record.success = True
@@ -712,7 +736,8 @@ def run_every_5_minutes(webhook_url: Optional[str] = None, max_runs: Optional[in
         channel = create_console_channel()
 
     config = SchedulerConfig(mode=SchedulerMode.INTERVAL, interval_minutes=5, max_runs=max_runs)
-    scheduler = MonitoringScheduler(config=config, notification_channel=channel)
+    executor = TradeExecutor(exchange=None, position_pct=0.1, max_total_exposure_pct=0.5)
+    scheduler = MonitoringScheduler(config=config, notification_channel=channel, trade_executor=executor)
     scheduler.run_interval()
 
 
@@ -732,7 +757,8 @@ def run_every_minute(webhook_url: Optional[str] = None, max_runs: Optional[int] 
         channel = create_console_channel()
 
     config = SchedulerConfig(mode=SchedulerMode.INTERVAL, interval_minutes=1, max_runs=max_runs)
-    scheduler = MonitoringScheduler(config=config, notification_channel=channel)
+    executor = TradeExecutor(exchange=None, position_pct=0.1, max_total_exposure_pct=0.5)
+    scheduler = MonitoringScheduler(config=config, notification_channel=channel, trade_executor=executor)
     scheduler.run_interval()
 
 
