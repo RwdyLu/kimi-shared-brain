@@ -243,13 +243,13 @@ def print_strategy_details(ranked: List[Dict]) -> None:
             type_stats[t] = []
         type_stats[t].append(r)
     
-    for t, strategies in sorted(type_stats.items(), key=lambda x: sum(s['composite_score'] for s in x[1])/len(x[1]), reverse=True):
-        avg_score = sum(s['composite_score'] for s in strategies) / len(strategies)
-        avg_return = sum(s['total_return'] for s in strategies) / len(strategies)
+    for t, strategies in sorted(type_stats.items(), key=lambda x: sum(s['net_return'] for s in x[1])/len(x[1]), reverse=True):
+        avg_return = sum(s['net_return'] for s in strategies) / len(strategies)
+        avg_gross = sum(s['total_return'] for s in strategies) / len(strategies)
         print(f"\n   {t.upper()}:")
-        print(f"      Average Score: {avg_score:.2f} | Average Return: {avg_return:+.2f}%")
+        print(f"      Average Net Return: {avg_return:.2f}% | Average Gross: {avg_gross:.2f}%")
         for s in strategies:
-            print(f"      - {s['name']}: Score {s['composite_score']:.2f}")
+            print(f"      - {s['name']}: Net {s['net_return']:+.2f}% | Gross {s['total_return']:+.2f}%")
 
 
 def main():
