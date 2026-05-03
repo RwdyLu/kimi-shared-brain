@@ -112,6 +112,125 @@ class TradeExecutor:
         # Fallback: map from signal type name / 後備：從訊號類型名稱映射
         return signal.signal_type.name.lower().replace(' ', '_').replace('-', '_')
 
+    def _get_latest_indicators(self, symbol: str) -> dict:
+        """
+        Read latest indicator snapshot for a symbol from indicator_snapshots.jsonl.
+        / 從 indicator_snapshots.jsonl 讀取最新一筆該幣種指標。
+        """
+        import json
+        from pathlib import Path
+        result = {}
+        try:
+            snapshot_file = Path(__file__).resolve().parents[1] / "logs" / "indicator_snapshots.jsonl"
+            if not snapshot_file.exists():
+                return {}
+            with open(snapshot_file, 'r') as f:
+                for line in f:
+                    try:
+                        d = json.loads(line.strip())
+                        if d.get('symbol') == symbol:
+                            result = d
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return result
+
+    def _check_strategy_exit(self, strategy_id: str, position: dict, current_indicators: dict) -> tuple:
+        """
+        Per-strategy exit logic / 策略專屬出場邏輯
+
+        Returns (should_exit: bool, reason: str)
+        """
+        side = position.get('side', 'buy')
+        entry_price = position.get('entry_price', 0)
+        current_price = current_indicators.get('price', 0)
+
+        if not current_price or entry_price <= 0:
+            return False, None
+
+        if side.lower() == 'buy':
+            pnl_pct = (current_price - entry_price) / entry_price
+        else:
+            pnl_pct = (entry_price - current_price) / entry_price
+
+        # Global hard stop-loss (extreme loss protection) / 全局保底止損（防止極端虧損）
+        if pnl_pct <= -0.03:
+            return True, 'stop_loss_3pct'
+
+        # Strategy-specific exit conditions / 各策略專屬出場條件
+        ma5 = current_indicators.get('ma5', 0)
+        ma20 = current_indicators.get('ma20', 0)
+        rsi = current_indicators.get('rsi', 50)
+        ht_sine = current_indicators.get('ht_sine', 0)
+        ht_leadsine = current_indicators.get('ht_leadsine', 0)
+        stoch_k = current_indicators.get('stoch_fastk', 50)
+        stoch_d = current_indicators.get('stoch_fastd', 50)
+        volume_ratio = current_indicators.get('volume_ratio', 1)
+
+        if strategy_id == 'ma_cross_trend':
+            if ma5 and ma20 and ma5 < ma20 and side.lower() == 'buy':
+                return True, 'ma_reverse'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit_2pct'
+
+        elif strategy_id == 'ma_cross_trend_short':
+            if ma5 and ma20 and ma5 > ma20 and side.lower() == 'sell':
+                return True, 'ma_reverse'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit_2pct'
+
+        elif strategy_id == 'rsi_mid_bounce':
+            if rsi > 60 and side.lower() == 'buy':
+                return True, 'rsi_overbought'
+            if rsi < 35 and side.lower() == 'buy':
+                return True, 'rsi_failed'
+
+        elif strategy_id == 'rsi_trend':
+            if rsi < 45 and side.lower() == 'buy':
+                return True, 'rsi_weakening'
+            if pnl_pct >= 0.025:
+                return True, 'take_profit'
+
+        elif strategy_id == 'hilbert_cycle':
+            if ht_sine and ht_leadsine and ht_sine < ht_leadsine and side.lower() == 'buy':
+                return True, 'hilbert_reverse'
+            if ht_sine and ht_leadsine and ht_sine > ht_leadsine and side.lower() == 'sell':
+                return True, 'hilbert_reverse'
+
+        elif strategy_id == 'stochastic_breakout':
+            if stoch_k and stoch_d and stoch_k < stoch_d and stoch_k > 50 and side.lower() == 'buy':
+                return True, 'stoch_cross_down'
+            if stoch_k > 80 and side.lower() == 'buy':
+                return True, 'stoch_overbought'
+
+        elif strategy_id == 'volume_spike':
+            if volume_ratio < 0.5 and pnl_pct > 0:
+                return True, 'volume_normalized'
+            if pnl_pct >= 0.015:
+                return True, 'take_profit'
+
+        elif strategy_id in ['ema_cross_fast', 'ema_scalping']:
+            if ma5 and ma20 and ma5 < ma20 and side.lower() == 'buy':
+                return True, 'ema_reverse'
+            if pnl_pct >= 0.015:
+                return True, 'take_profit'
+
+        elif strategy_id in ['rsi_scalping', 'rsi_macd_confirm']:
+            if side.lower() == 'buy' and rsi > 55:
+                return True, 'rsi_mid'
+            if side.lower() == 'sell' and rsi < 45:
+                return True, 'rsi_mid'
+
+        elif strategy_id in ['momentum_divergence', 'roc_momentum']:
+            if pnl_pct >= 0.02:
+                return True, 'take_profit'
+            if pnl_pct <= -0.015:
+                return True, 'stop_loss'
+
+        # Default: rely on time stop-loss / 預設：沒有特殊出場條件就靠時間止損
+        return False, None
+
     def execute_signals(
         self,
         confirmed_signals: List,
@@ -123,10 +242,61 @@ class TradeExecutor:
             self.logger.info("Trading disabled, skipping execution")
             return results
 
+        # Step 0: Check strategy-specific exits before new entries
+        # / 步驟 0：在開新倉前先檢查策略專屬出場條件
+        exit_results = self._check_strategy_exits(current_prices)
+        results.extend(exit_results)
+
         for signal in confirmed_signals:
             result = self._process_signal(signal, current_prices)
             if result:
                 results.append(result)
+        return results
+
+    def _check_strategy_exits(self, current_prices: Dict[str, float]) -> List[TradeResult]:
+        """
+        Scan all open positions for strategy-specific exit conditions.
+        / 掃描所有未平倉位，檢查策略專屬出場條件。
+        """
+        results = []
+        if not self.paper:
+            return results
+
+        for strategy_id, acc in self.paper.strategies.items():
+            for symbol, positions in list(acc.positions.items()):
+                if not positions:
+                    continue
+                # Check each position / 逐倉位檢查
+                for position in list(positions):
+                    indicators = self._get_latest_indicators(symbol)
+                    should_exit, reason = self._check_strategy_exit(strategy_id, position, indicators)
+                    if should_exit:
+                        price = current_prices.get(symbol, 0)
+                        if price <= 0:
+                            continue
+                        position_side = position.get("side", "")
+                        exit_side = TradeSide.SELL if position_side.lower() == "buy" else TradeSide.BUY
+
+                        try:
+                            trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
+                            if trade:
+                                balance_after = self.paper.get_strategy_balance(strategy_id)
+                                self.logger.info(
+                                    f"🎯 STRATEGY EXIT [{strategy_id}] {symbol} @ ${price:,.2f} "
+                                    f"reason={reason} PnL=${trade.get('realized_pnl', 0):+.2f}"
+                                )
+                                results.append(TradeResult(
+                                    symbol=symbol, side=exit_side, status="exited",
+                                    trade_id=trade.get("trade_id"),
+                                    quantity=trade.get("quantity"),
+                                    entry_price=trade.get("entry_price"),
+                                    balance_after=balance_after,
+                                    reason=f"Strategy exit: {reason}",
+                                    strategy_id=strategy_id,
+                                ))
+                        except Exception as e:
+                            self.logger.error(f"[{strategy_id}] Strategy exit failed for {symbol}: {e}")
+
         return results
 
     def _process_signal(self, signal, current_prices: Dict[str, float]) -> Optional[TradeResult]:
@@ -383,6 +553,197 @@ class TradeExecutor:
                     else:
                         # Since positions are FIFO, if this one hasn't reached the limit, newer ones won't either
                         break
+
+
+    # ─── Strategy-specific exit logic / 策略專屬出場邏輯 ────────────────────
+
+    def _get_latest_indicators(self, symbol: str) -> dict:
+        """Read latest indicator snapshot for a symbol from jsonl log / 從 jsonl 讀取該幣種最新指標"""
+        result = {}
+        try:
+            snapshot_file = Path(__file__).resolve().parents[1] / "logs" / "indicator_snapshots.jsonl"
+            if not snapshot_file.exists():
+                return result
+            with open(snapshot_file, "r") as f:
+                for line in f:
+                    try:
+                        d = json.loads(line.strip())
+                        if d.get("symbol") == symbol:
+                            result = d
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return result
+
+    def _check_strategy_exit(self, strategy_id: str, position: dict, current_indicators: dict) -> tuple:
+        """
+        Per-strategy exit logic / 策略專屬出場條件
+        Returns: (should_exit: bool, reason: Optional[str])
+        """
+        side = position.get("side", "BUY")
+        entry_price = position.get("entry_price", 0)
+        current_price = current_indicators.get("price", 0)
+
+        if not current_price or not entry_price:
+            return False, None
+
+        pnl_pct = (current_price - entry_price) / entry_price if side.upper() == "BUY" else (entry_price - current_price) / entry_price
+
+        # Global hard stop-loss: -3% (极端情况兜底) / 全局保底止損 3%
+        if pnl_pct <= -0.03:
+            return True, "stop_loss_3pct"
+
+        # Extract indicator values / 提取指標值
+        ma5 = current_indicators.get("ma5", 0)
+        ma20 = current_indicators.get("ma20", 0)
+        rsi = current_indicators.get("rsi", 50)
+        ht_sine = current_indicators.get("ht_sine", 0)
+        ht_leadsine = current_indicators.get("ht_leadsine", 0)
+        stoch_k = current_indicators.get("stoch_fastk", 50)
+        stoch_d = current_indicators.get("stoch_fastd", 50)
+        volume_ratio = current_indicators.get("volume_ratio", 1)
+
+        # ─── MA Cross Trend / MA 趨勢跟隨 ──────────────────────────────────
+        if strategy_id == "ma_cross_trend":
+            if ma5 and ma20 and ma5 < ma20 and side.upper() == "BUY":
+                return True, "ma_reverse"
+            if pnl_pct >= 0.02:
+                return True, "take_profit_2pct"
+
+        # ─── MA Cross Trend Short / MA 趨勢做空 ────────────────────────────
+        elif strategy_id == "ma_cross_trend_short":
+            if ma5 and ma20 and ma5 > ma20 and side.upper() == "SELL":
+                return True, "ma_reverse"
+            if pnl_pct >= 0.02:
+                return True, "take_profit_2pct"
+
+        # ─── RSI Mid Bounce / RSI 中線反彈 ───────────────────────────────────
+        elif strategy_id == "rsi_mid_bounce":
+            if rsi > 60 and side.upper() == "BUY":
+                return True, "rsi_overbought"
+            if rsi < 35 and side.upper() == "BUY":
+                return True, "rsi_failed"
+
+        # ─── RSI Trend / RSI 趨勢 ──────────────────────────────────────────
+        elif strategy_id == "rsi_trend":
+            if rsi < 45 and side.upper() == "BUY":
+                return True, "rsi_weakening"
+            if pnl_pct >= 0.025:
+                return True, "take_profit"
+
+        # ─── Hilbert Cycle / 希爾伯特週期 ──────────────────────────────────
+        elif strategy_id == "hilbert_cycle":
+            if ht_sine and ht_leadsine and ht_sine < ht_leadsine and side.upper() == "BUY":
+                return True, "hilbert_reverse"
+            if ht_sine and ht_leadsine and ht_sine > ht_leadsine and side.upper() == "SELL":
+                return True, "hilbert_reverse"
+
+        # ─── Stochastic Breakout / 隨機指標突破 ────────────────────────────
+        elif strategy_id == "stochastic_breakout":
+            if stoch_k and stoch_d and stoch_k < stoch_d and stoch_k > 50 and side.upper() == "BUY":
+                return True, "stoch_cross_down"
+            if stoch_k > 80 and side.upper() == "BUY":
+                return True, "stoch_overbought"
+
+        # ─── Volume Spike / 成交量爆發 ─────────────────────────────────────
+        elif strategy_id == "volume_spike":
+            if volume_ratio < 0.5 and pnl_pct > 0:
+                return True, "volume_normalized"
+            if pnl_pct >= 0.015:
+                return True, "take_profit"
+
+        # ─── EMA Cross Fast / EMA 快速交叉 ────────────────────────────────
+        elif strategy_id in ["ema_cross_fast", "ema_scalping"]:
+            if ma5 and ma20 and ma5 < ma20 and side.upper() == "BUY":
+                return True, "ema_reverse"
+            if pnl_pct >= 0.015:
+                return True, "take_profit"
+
+        # ─── RSI Scalping / RSI 剝頭皮 ─────────────────────────────────────
+        elif strategy_id in ["rsi_scalping", "rsi_macd_confirm"]:
+            if side.upper() == "BUY" and rsi > 55:
+                return True, "rsi_mid"
+            if side.upper() == "SELL" and rsi < 45:
+                return True, "rsi_mid"
+
+        # ─── Momentum Divergence / 動能背離 ────────────────────────────────
+        elif strategy_id in ["momentum_divergence", "roc_momentum"]:
+            if pnl_pct >= 0.02:
+                return True, "take_profit"
+            if pnl_pct <= -0.015:
+                return True, "stop_loss"
+
+        # ─── Contrarian Overheated / 反向過熱 ──────────────────────────────
+        elif strategy_id == "contrarian_watch_overheated":
+            if rsi < 50 and side.upper() == "SELL":
+                return True, "rsi_cooled"
+            if pnl_pct >= 0.02:
+                return True, "take_profit"
+
+        # ─── Contrarian Oversold / 反向超賣 ────────────────────────────────
+        elif strategy_id == "contrarian_watch_oversold":
+            if rsi > 45 and side.upper() == "BUY":
+                return True, "rsi_recovered"
+            if pnl_pct >= 0.02:
+                return True, "take_profit"
+
+        # ─── Price Channel Break / 價格通道突破 ────────────────────────────
+        elif strategy_id == "price_channel_break":
+            if pnl_pct >= 0.025:
+                return True, "take_profit"
+
+        # Default: rely on time-stop / 預設：依靠時間止損
+        return False, None
+
+    def check_strategy_exits(self, current_prices: Dict[str, float]) -> List[TradeResult]:
+        """Check per-strategy exit conditions for all open positions / 檢查所有策略倉位的專屬出場條件"""
+        results = []
+        if not self.paper:
+            return results
+
+        for strategy_id, acc in self.paper.strategies.items():
+            for symbol, positions in list(acc.positions.items()):
+                if not positions:
+                    continue
+
+                indicators = self._get_latest_indicators(symbol)
+                current_price = current_prices.get(symbol, 0)
+                if not current_price:
+                    continue
+                indicators["price"] = current_price
+
+                # Check each position / 逐倉位檢查（FIFO 順序）
+                for position in list(positions):
+                    should_exit, reason = self._check_strategy_exit(strategy_id, position, indicators)
+                    if should_exit:
+                        try:
+                            trade = self.paper.exit_position(symbol=symbol, price=current_price, strategy_id=strategy_id)
+                            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+                            if trade:
+                                balance_after = self.paper.get_strategy_balance(strategy_id)
+                                position_side = position.get("side", "")
+                                exit_side = TradeSide.SELL if position_side.upper() == "BUY" else TradeSide.BUY
+                                results.append(TradeResult(
+                                    symbol=symbol, side=exit_side, status="exited",
+                                    trade_id=trade.get("trade_id"),
+                                    quantity=trade.get("quantity"),
+                                    entry_price=trade.get("entry_price"),
+                                    balance_after=balance_after,
+                                    reason=reason,
+                                    strategy_id=strategy_id,
+                                ))
+                                self.logger.info(
+                                    f"🎯 STRATEGY EXIT [{strategy_id}] {symbol} {reason} "
+                                    f"PnL={trade.get('realized_pnl', 0):+.2f}"
+                                )
+                        except Exception as e:
+                            self.logger.error(f"[{strategy_id}] Strategy exit failed: {e}")
+                    else:
+                        # FIFO: first non-exiting position means later ones won't exit either
+                        break
+
+        return results
 
     def get_paper_performance(self) -> Optional[Dict]:
         """Get paper trading summary / 取得模擬交易總覽"""
