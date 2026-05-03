@@ -59,18 +59,30 @@ def load_paper_summary() -> dict:
     except Exception:
         return {}
 
-    initial = state.get("initial_balance", 10000.0)
-    current = state.get("balance", initial)
+    # Global initial from total_initial (per-strategy trading)
+    initial = state.get("total_initial", 12000.0)
+
+    # Aggregate all strategy balances / positions / trades
+    strategies = state.get("strategies", {})
+    current = sum(acc.get("balance", 0) for acc in strategies.values())
     total_return_pct = (current / initial - 1) * 100 if initial else 0
     total_pnl = current - initial
 
-    positions = state.get("positions", {})
-    open_count = len(positions)
+    # Merge all positions across strategies
+    all_positions = {}
+    all_trades = []
+    for sid, acc in strategies.items():
+        for sym, pos in acc.get("positions", {}).items():
+            pos["strategy_id"] = sid
+            all_positions[sym] = pos
+        all_trades.extend(acc.get("trades", []))
+
+    open_count = len(all_positions)
 
     # Max hold time / 最大持倉時間
     max_hold_hours = 0
     now = datetime.now()
-    for sym, pos in positions.items():
+    for sym, pos in all_positions.items():
         entry_time_str = pos.get("entry_time")
         if entry_time_str:
             try:
@@ -84,7 +96,7 @@ def load_paper_summary() -> dict:
     # Today's realized PnL / 今日已實現損益
     today_pnl = 0.0
     today_str = now.strftime("%Y-%m-%d")
-    for t in state.get("trades", []):
+    for t in all_trades:
         exit_time = t.get("exit_time")
         if exit_time and exit_time.startswith(today_str):
             today_pnl += t.get("realized_pnl", 0)
@@ -270,6 +282,7 @@ layout = dbc.Container(
                                 html.Thead(
                                     html.Tr([
                                         html.Th("Symbol / 幣種"),
+                                        html.Th("Strategy / 策略", className="text-center"),
                                         html.Th("Direction / 方向", className="text-center"),
                                         html.Th("Entry / 進場價", className="text-end"),
                                         html.Th("Current / 現價", className="text-end"),
@@ -900,6 +913,18 @@ def format_update_time(timestamp_str: str) -> str:
         return f"Updated {timestamp_str}"
 
 
+def format_volume_display(volume: float) -> str:
+    """Format volume as B/M/K / 格式化成交量為 B/M/K"""
+    if volume >= 1_000_000_000:
+        return f"${volume/1_000_000_000:.1f}B"
+    elif volume >= 1_000_000:
+        return f"${volume/1_000_000:.0f}M"
+    elif volume >= 1_000:
+        return f"${volume/1_000:.0f}K"
+    else:
+        return f"${volume:.0f}"
+
+
 def format_price_display(price: float) -> str:
     """Format price based on magnitude / 根據價格大小格式化"""
     if price >= 1000:
@@ -938,7 +963,15 @@ def update_live_prices(n):
             if key in prices:
                 price = prices[key].get("price", 0)
                 change_pct = prices[key].get("change_24h_pct", 0)
+                quote_volume = prices[key].get("quote_volume", 0)
+                trade_count = prices[key].get("trade_count", 0)
                 price_text = format_price_display(price)
+                
+                # Format volume
+                volume_text = format_volume_display(quote_volume)
+                
+                # Format trade count
+                trades_text = f"{trade_count:,}" if trade_count > 0 else "--"
                 
                 # Format change with color
                 if change_pct > 0:
@@ -958,6 +991,8 @@ def update_live_prices(n):
                 change_text = "--"
                 change_color = "text-muted"
                 arrow = ""
+                volume_text = "--"
+                trades_text = "--"
             
             # Determine price color based on presence
             price_color = "text-primary" if key in prices else "text-muted"
@@ -974,7 +1009,15 @@ def update_live_prices(n):
                                 ),
                                 html.P(
                                     [html.Span(arrow, className=f"{change_color} me-1"), html.Span(change_text, className=change_color)],
-                                    className="small mb-2"
+                                    className="small mb-1"
+                                ),
+                                html.P(
+                                    f"Vol: {volume_text} USDT",
+                                    className="text-muted small mb-0"
+                                ),
+                                html.P(
+                                    f"Trades: {trades_text}",
+                                    className="text-muted small mb-2"
                                 ),
                                 html.P(
                                     time_text,
@@ -1786,14 +1829,20 @@ def update_paper_positions(n):
     """Update open positions table / 更新持倉列表"""
     try:
         if not _PAPER_STATE_FILE.exists():
-            return [html.Tr([html.Td("No positions / 暫無持倉", colSpan=7)])]
+            return [html.Tr([html.Td("No positions / 暫無持倉", colSpan=8)])]
         
         with open(_PAPER_STATE_FILE, 'r', encoding='utf-8') as f:
             state = json.load(f)
         
-        positions = state.get("positions", {})
-        if not positions:
-            return [html.Tr([html.Td("No open positions / 目前無持倉", colSpan=7)])]
+        # Aggregate positions from all strategies / 從所有策略合併持倉
+        all_positions = {}
+        for sid, acc in state.get("strategies", {}).items():
+            for sym, pos in acc.get("positions", {}).items():
+                pos["strategy_id"] = sid
+                all_positions[sym] = pos
+        
+        if not all_positions:
+            return [html.Tr([html.Td("No open positions / 目前無持倉", colSpan=8)])]
         
         # Load current prices / 載入最新價格
         prices_data = get_current_prices()
@@ -1801,7 +1850,7 @@ def update_paper_positions(n):
         now = datetime.now()
         
         rows = []
-        for symbol, pos in positions.items():
+        for symbol, pos in all_positions.items():
             side = pos.get("side", "--")
             entry_price = pos.get("entry_price", 0)
             entry_time_str = pos.get("entry_time")
@@ -1853,6 +1902,7 @@ def update_paper_positions(n):
             
             rows.append(html.Tr([
                 html.Td(symbol, className="fw-bold"),
+                html.Td(pos.get("strategy_id", "--"), className="text-center small text-muted"),
                 html.Td(side_label, className=f"text-center fw-bold {side_color}"),
                 html.Td(f"${entry_price:,.2f}" if entry_price else "--", className="text-end"),
                 html.Td(f"${current_price:,.2f}" if current_price else "--", className="text-end"),
@@ -1863,7 +1913,7 @@ def update_paper_positions(n):
         
         return rows
     except Exception as e:
-        return [html.Tr([html.Td(f"Error: {str(e)}", colSpan=7)])]
+        return [html.Tr([html.Td(f"Error: {str(e)}", colSpan=8)])]
 
 # T-079: Discovery Count Badge Callback / 探索計數徽章回調
 @callback(

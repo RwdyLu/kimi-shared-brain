@@ -739,7 +739,9 @@ def get_current_prices() -> Dict[str, Any]:
                         prices[f"{symbol}USDT"] = {
                             "price": float(data["lastPrice"]),
                             "timestamp": timestamp,
-                            "change_24h_pct": float(data.get("priceChangePercent", 0))
+                            "change_24h_pct": float(data.get("priceChangePercent", 0)),
+                            "quote_volume": float(data.get("quoteVolume", 0)),
+                            "trade_count": int(data.get("count", 0))
                         }
             except Exception as e:
                 print(f"Error fetching {symbol} price: {e}")

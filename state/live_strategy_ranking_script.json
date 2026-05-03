@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-03T13:49:46.569019",
+  "timestamp": "2026-05-03T17:10:28.029883",
   "total_strategies": 12,
   "total_symbols": 10,
   "strategy_ranking": [
     {
       "strategy_id": "ma_cross_trend_short",
       "name": "MA Cross Trend Short",
-      "avg_score": 80.0,
+      "avg_score": 86.7,
       "symbols_evaluated": 10,
       "max_score": 100.0,
       "min_score": 66.7,
@@ -15,27 +15,27 @@
     {
       "strategy_id": "ma_cross_trend",
       "name": "MA Cross Trend",
-      "avg_score": 66.7,
+      "avg_score": 70.0,
       "symbols_evaluated": 10,
-      "max_score": 66.7,
+      "max_score": 100.0,
       "min_score": 66.7,
       "rank": 2
     },
     {
       "strategy_id": "contrarian_watch_oversold",
       "name": "Contrarian Watch - Oversold",
-      "avg_score": 50.0,
+      "avg_score": 40.0,
       "symbols_evaluated": 10,
       "max_score": 50.0,
-      "min_score": 50.0,
+      "min_score": 0.0,
       "rank": 3
     },
     {
       "strategy_id": "contrarian_watch_overheated",
       "name": "Contrarian Watch - Overheated",
-      "avg_score": 0.0,
+      "avg_score": 10.0,
       "symbols_evaluated": 10,
-      "max_score": 0.0,
+      "max_score": 50.0,
       "min_score": 0.0,
       "rank": 4
     },
@@ -115,35 +115,35 @@
   "best_opportunities": [
     {
       "rank": 1,
-      "strategy_id": "ma_cross_trend_short",
-      "strategy_name": "MA Cross Trend Short",
-      "symbol": "ADAUSDT",
+      "strategy_id": "ma_cross_trend",
+      "strategy_name": "MA Cross Trend",
+      "symbol": "SOLUSDT",
       "score": 100.0,
-      "price": 0.25
+      "price": 83.96
     },
     {
       "rank": 2,
-      "strategy_id": "ma_cross_trend",
-      "strategy_name": "MA Cross Trend",
+      "strategy_id": "ma_cross_trend_short",
+      "strategy_name": "MA Cross Trend Short",
       "symbol": "BTCUSDT",
-      "score": 66.7,
-      "price": 78225.0
+      "score": 100.0,
+      "price": 78439.99
     },
     {
       "rank": 3,
-      "strategy_id": "contrarian_watch_oversold",
-      "strategy_name": "Contrarian Watch - Oversold",
-      "symbol": "BTCUSDT",
-      "score": 50.0,
-      "price": 78224.99
-    },
-    {
-      "rank": 4,
       "strategy_id": "contrarian_watch_overheated",
       "strategy_name": "Contrarian Watch - Overheated",
       "symbol": "BTCUSDT",
-      "score": 0.0,
-      "price": 78224.99
+      "score": 50.0,
+      "price": 78440.0
+    },
+    {
+      "rank": 4,
+      "strategy_id": "contrarian_watch_oversold",
+      "strategy_name": "Contrarian Watch - Oversold",
+      "symbol": "ETHUSDT",
+      "score": 50.0,
+      "price": 2308.66
     },
     {
       "rank": 5,
@@ -151,7 +151,7 @@
       "strategy_name": "Hilbert Cycle",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78225.0
+      "price": 78439.99
     },
     {
       "rank": 6,
@@ -159,7 +159,7 @@
       "strategy_name": "Stochastic Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78224.99
+      "price": 78438.43
     },
     {
       "rank": 7,
@@ -167,7 +167,7 @@
       "strategy_name": "RSI Trend",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78224.99
+      "price": 78438.43
     },
     {
       "rank": 8,
@@ -175,7 +175,7 @@
       "strategy_name": "EMA Cross Fast",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78224.99
+      "price": 78438.43
     },
     {
       "rank": 9,
@@ -183,7 +183,7 @@
       "strategy_name": "RSI Mid Bounce",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78224.99
+      "price": 78438.43
     },
     {
       "rank": 10,
@@ -191,7 +191,7 @@
       "strategy_name": "Volume Spike",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78225.0
+      "price": 78438.43
     },
     {
       "rank": 11,
@@ -199,7 +199,7 @@
       "strategy_name": "Price Channel Break",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78225.0
+      "price": 78438.44
     },
     {
       "rank": 12,
@@ -207,25 +207,25 @@
       "strategy_name": "Momentum Divergence",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 78224.99
+      "price": 78438.43
     }
   ],
   "symbol_scores": {
     "BTCUSDT": [
       {
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
+      },
+      {
         "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
-        "strategy": "ma_cross_trend_short",
-        "score": 66.7
-      },
-      {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -263,11 +263,11 @@
     ],
     "ETHUSDT": [
       {
-        "strategy": "ma_cross_trend",
-        "score": 66.7
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
       },
       {
-        "strategy": "ma_cross_trend_short",
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
@@ -321,11 +321,11 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_oversold",
+        "strategy": "contrarian_watch_overheated",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
@@ -364,7 +364,7 @@
     "SOLUSDT": [
       {
         "strategy": "ma_cross_trend",
-        "score": 66.7
+        "score": 100.0
       },
       {
         "strategy": "ma_cross_trend_short",
@@ -513,11 +513,11 @@
     ],
     "DOGEUSDT": [
       {
-        "strategy": "ma_cross_trend_short",
-        "score": 100.0
+        "strategy": "ma_cross_trend",
+        "score": 66.7
       },
       {
-        "strategy": "ma_cross_trend",
+        "strategy": "ma_cross_trend_short",
         "score": 66.7
       },
       {
@@ -563,11 +563,11 @@
     ],
     "AVAXUSDT": [
       {
-        "strategy": "ma_cross_trend",
-        "score": 66.7
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
       },
       {
-        "strategy": "ma_cross_trend_short",
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
