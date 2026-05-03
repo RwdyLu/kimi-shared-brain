@@ -725,7 +725,7 @@
       ]
     },
     "rsi_trend": {
-      "balance": 688.535155351741,
+      "balance": 619.6059009494782,
       "initial": 1000.0,
       "positions": {
         "AVAXUSDT": {
@@ -758,6 +758,14 @@
           "quantity": 307.6528257763877,
           "entry_price": 0.2487,
           "entry_time": "2026-05-03T17:37:11.599764",
+          "strategy_id": "rsi_trend"
+        },
+        "BNBUSDT": {
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.11128920062579659,
+          "entry_price": 618.69,
+          "entry_time": "2026-05-03T18:19:59.048545",
           "strategy_id": "rsi_trend"
         }
       },
@@ -941,6 +949,20 @@
           "exit_time": null,
           "slippage": 0.007651325777058763,
           "commission": 0.07651325777058764,
+          "realized_pnl": 0.0,
+          "strategy_id": "rsi_trend"
+        },
+        {
+          "trade_id": "PT_20260503181959_BNBUSDT_rsi_trend",
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.11128920062579659,
+          "entry_price": 618.69,
+          "exit_price": null,
+          "entry_time": "2026-05-03T18:19:59.048558",
+          "exit_time": null,
+          "slippage": 0.00688535155351741,
+          "commission": 0.0688535155351741,
           "realized_pnl": 0.0,
           "strategy_id": "rsi_trend"
         }
@@ -1141,7 +1163,7 @@
       ]
     },
     "volume_spike": {
-      "balance": 680.6066518828596,
+      "balance": 612.4711199628665,
       "initial": 1000.0,
       "positions": {
         "AVAXUSDT": {
@@ -1174,6 +1196,14 @@
           "quantity": 62.402809617587266,
           "entry_price": 1.212,
           "entry_time": "2026-05-03T18:09:17.785342",
+          "strategy_id": "volume_spike"
+        },
+        "BNBUSDT": {
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.11006107017947568,
+          "entry_price": 618.39,
+          "entry_time": "2026-05-03T18:14:37.916506",
           "strategy_id": "volume_spike"
         }
       },
@@ -1359,6 +1389,20 @@
           "commission": 0.07563220525651576,
           "realized_pnl": 0.0,
           "strategy_id": "volume_spike"
+        },
+        {
+          "trade_id": "PT_20260503181437_BNBUSDT_volume_spike",
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.11006107017947568,
+          "entry_price": 618.39,
+          "exit_price": null,
+          "entry_time": "2026-05-03T18:14:37.916520",
+          "exit_time": null,
+          "slippage": 0.006806066518828597,
+          "commission": 0.06806066518828596,
+          "realized_pnl": 0.0,
+          "strategy_id": "volume_spike"
         }
       ]
     },
@@ -1376,6 +1420,6 @@
     }
   },
   "total_initial": 12000.0,
-  "last_updated": "2026-05-03T18:09:17.785359",
+  "last_updated": "2026-05-03T18:19:59.048561",
   "daily_settlements": {}
 }

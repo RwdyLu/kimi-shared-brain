@@ -55466,3 +55466,112 @@ Scheduler stopped by user / 排程器被使用者停止
 [2026-05-03 18:09:17]   Symbols: 10/10
 [2026-05-03 18:09:17]   Signals: 16 (Confirmed: 14, Watch: 2)
 [2026-05-03 18:09:17] Next run at 18:14:17 (in 5 min)
+[2026-05-03 18:14:17] ============================================================
+[2026-05-03 18:14:17] Run #195 started at 2026-05-03 18:14:17.817799
+[2026-05-03 18:14:17] ============================================================
+[2026-05-03 18:14:37]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-05-03 18:14:37]   [Phase 2] Executing paper trades...
+[2026-05-03 18:14:37]     ⏭️ BTCUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ ETHUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:14:37]     ✅ BNBUSDT: BUY executed
+[2026-05-03 18:14:37]     ⏭️ SOLUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ ADAUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ AVAXUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ LINKUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:14:37]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:14:37]   Paper Balance: $9,733.72
+[2026-05-03 18:14:37]   Open positions: 29
+[2026-05-03 18:14:37]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-05-03 18:14:37] Run #195 completed
+[2026-05-03 18:14:37]   Duration: 20.1s
+[2026-05-03 18:14:37]   Symbols: 10/10
+[2026-05-03 18:14:37]   Signals: 13 (Confirmed: 13, Watch: 0)
+[2026-05-03 18:14:37] Next run at 18:19:37 (in 5 min)
+[2026-05-03 18:19:37] ============================================================
+[2026-05-03 18:19:37] Run #196 started at 2026-05-03 18:19:37.950156
+[2026-05-03 18:19:37] ============================================================
+[2026-05-03 18:19:59]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-05-03 18:19:59]   [Phase 2] Executing paper trades...
+[2026-05-03 18:19:59]     ⏭️ BTCUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ ETHUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:19:59]     ✅ BNBUSDT: BUY executed
+[2026-05-03 18:19:59]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ SOLUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ SOLUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ ADAUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ AVAXUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ LINKUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ LINKUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:19:59]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:19:59]   Paper Balance: $9,664.79
+[2026-05-03 18:19:59]   Open positions: 30
+[2026-05-03 18:19:59]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-05-03 18:19:59] Run #196 completed
+[2026-05-03 18:19:59]   Duration: 21.1s
+[2026-05-03 18:19:59]   Symbols: 10/10
+[2026-05-03 18:19:59]   Signals: 15 (Confirmed: 15, Watch: 0)
+[2026-05-03 18:19:59] Next run at 18:24:59 (in 5 min)
+[2026-05-03 18:24:59] ============================================================
+[2026-05-03 18:24:59] Run #197 started at 2026-05-03 18:24:59.086384
+[2026-05-03 18:24:59] ============================================================
+[2026-05-03 18:25:21]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-05-03 18:25:21]   [Phase 2] Executing paper trades...
+[2026-05-03 18:25:21]     ⏭️ BTCUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ ETHUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ SOLUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ ADAUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ AVAXUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ LINKUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:25:21]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:25:21]   Paper Balance: $9,664.79
+[2026-05-03 18:25:21]   Open positions: 30
+[2026-05-03 18:25:21]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-05-03 18:25:21] Run #197 completed
+[2026-05-03 18:25:21]   Duration: 22.0s
+[2026-05-03 18:25:21]   Symbols: 10/10
+[2026-05-03 18:25:21]   Signals: 14 (Confirmed: 14, Watch: 0)
+[2026-05-03 18:25:21] Next run at 18:30:21 (in 5 min)
+[2026-05-03 18:30:21] ============================================================
+[2026-05-03 18:30:21] Run #198 started at 2026-05-03 18:30:21.104716
+[2026-05-03 18:30:21] ============================================================
+[2026-05-03 18:30:41]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-05-03 18:30:41]   [Phase 2] Executing paper trades...
+[2026-05-03 18:30:41]     ⏭️ BTCUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ ETHUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ BNBUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ SOLUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ XRPUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ ADAUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ DOGEUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ AVAXUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ AVAXUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ LINKUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:30:41]     ⏭️ DOTUSDT: BUY skipped
+[2026-05-03 18:30:41]   Paper Balance: $9,664.79
+[2026-05-03 18:30:41]   Open positions: 30
+[2026-05-03 18:30:41]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-05-03 18:30:41] Run #198 completed
+[2026-05-03 18:30:41]   Duration: 20.2s
+[2026-05-03 18:30:41]   Symbols: 10/10
+[2026-05-03 18:30:41]   Signals: 15 (Confirmed: 15, Watch: 0)
+[2026-05-03 18:30:41] Next run at 18:35:41 (in 5 min)
