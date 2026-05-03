@@ -1067,6 +1067,56 @@ def detect_momentum_divergence(closes: List[float], rsi_values: List[float], loo
     return price_lower_low and rsi_higher_low
 
 
+def calculate_cci(highs: List[float], lows: List[float], closes: List[float], period: int = 14) -> List[float]:
+    """
+    Calculate Commodity Channel Index (CCI)
+    CCI = (Typical Price - SMA of TP) / (0.015 * Mean Deviation)
+    """
+    if len(closes) < period:
+        return []
+    
+    tp = [(h + l + c) / 3 for h, l, c in zip(highs, lows, closes)]
+    cci_values = []
+    
+    for i in range(len(tp)):
+        if i < period - 1:
+            cci_values.append(None)
+            continue
+        
+        tp_slice = tp[i-period+1:i+1]
+        tp_sma = sum(tp_slice) / period
+        mean_dev = sum(abs(x - tp_sma) for x in tp_slice) / period
+        
+        if mean_dev == 0:
+            cci_values.append(0)
+        else:
+            cci_values.append((tp[i] - tp_sma) / (0.015 * mean_dev))
+    
+    return cci_values
+
+
+def calculate_roc(closes: List[float], period: int = 10) -> List[float]:
+    """
+    Calculate Rate of Change (ROC)
+    ROC = ((Current - N periods ago) / N periods ago) * 100
+    """
+    if len(closes) < period:
+        return []
+    
+    roc_values = []
+    for i in range(len(closes)):
+        if i < period:
+            roc_values.append(None)
+        else:
+            prev = closes[i - period]
+            if prev == 0:
+                roc_values.append(0)
+            else:
+                roc_values.append(((closes[i] - prev) / prev) * 100)
+    
+    return roc_values
+
+
 # Example usage / 使用範例
 if __name__ == "__main__":
     print("Indicator Calculator Module")

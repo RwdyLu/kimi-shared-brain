@@ -49,6 +49,10 @@ class BacktestRunner:
     回測執行引擎
     """
 
+    # Minimum candles to hold before allowing take_profit exits
+    # 最少持倉 K 線數（前 N 根只允許 stop_loss 出場）
+    MIN_HOLD_CANDLES = 6
+
     def __init__(self, config: BacktestConfig):
         self.config = config
         self.storage = BacktestStorage()
@@ -69,6 +73,12 @@ class BacktestRunner:
         self.peak_equity: float = config.initial_capital
         self.max_drawdown: float = 0.0
         self.drawdown_start: Optional[str] = None
+
+        # Daily risk control / 日內風控
+        self.daily_pnl_pct = 0.0
+        self.current_day = None
+        self.daily_loss_limit = config.daily_loss_limit
+        self.daily_profit_target = config.daily_profit_target
 
         # Generate backtest ID
         self.backtest_id = f"BT{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -135,7 +145,7 @@ class BacktestRunner:
 
             # Check for exit conditions on active trade
             if symbol in self.active_trades:
-                self._check_exit_conditions(symbol, timestamp, current_price, row)
+                self._check_exit_conditions(symbol, timestamp, current_price, row, candle_idx)
 
             # Check for entry signals (only if no active trade)
             if symbol not in self.active_trades:
@@ -215,11 +225,25 @@ class BacktestRunner:
         df['EMA5'] = [None] * (len(df) - len(ema5_values)) + ema5_values if ema5_values else [None] * len(df)
         df['EMA10'] = [None] * (len(df) - len(ema10_values)) + ema10_values if ema10_values else [None] * len(df)
 
+        # EMA3/EMA8 (for ema_scalping)
+        ema3_values = indicator_calc.calculate_ema(closes, period=3)
+        ema8_values = indicator_calc.calculate_ema(closes, period=8)
+        df['EMA3'] = [None] * (len(df) - len(ema3_values)) + ema3_values if ema3_values else [None] * len(df)
+        df['EMA8'] = [None] * (len(df) - len(ema8_values)) + ema8_values if ema8_values else [None] * len(df)
+
+        # CCI (for cci_reversal)
+        cci_values = indicator_calc.calculate_cci(highs, lows, closes, period=14)
+        df['CCI'] = [None] * (len(df) - len(cci_values)) + cci_values if cci_values else [None] * len(df)
+
+        # ROC (for roc_momentum)
+        roc_values = indicator_calc.calculate_roc(closes, period=10)
+        df['ROC'] = [None] * (len(df) - len(roc_values)) + roc_values if roc_values else [None] * len(df)
+
         # TEMA (for hilbert_cycle, rsi_trend)
         tema_values = indicator_calc.calculate_tema(closes, period=9)
         df['TEMA'] = [None] * (len(df) - len(tema_values)) + tema_values if tema_values else [None] * len(df)
 
-        # Bollinger Bands (for bb_mean_reversion, rsi_trend)
+        # Bollinger Bands (for bb_mean_reversion, rsi_trend, bb_squeeze)
         bb = indicator_calc.calculate_bollinger_bands(closes, period=20, std_dev=2.0)
         bb_upper = bb.get('upper', [])
         bb_middle = bb.get('middle', [])
@@ -227,6 +251,15 @@ class BacktestRunner:
         df['BB_upper'] = [None] * (len(df) - len(bb_upper)) + bb_upper if bb_upper else [None] * len(df)
         df['BB_middle'] = [None] * (len(df) - len(bb_middle)) + bb_middle if bb_middle else [None] * len(df)
         df['BB_lower'] = [None] * (len(df) - len(bb_lower)) + bb_lower if bb_lower else [None] * len(df)
+        
+        # Calculate BB width for squeeze detection
+        bb_width = []
+        for i in range(len(closes)):
+            if i < len(bb_upper) and i < len(bb_lower) and bb_upper[i] is not None and bb_lower[i] is not None and bb_middle[i] is not None and bb_middle[i] != 0:
+                bb_width.append((bb_upper[i] - bb_lower[i]) / bb_middle[i])
+            else:
+                bb_width.append(None)
+        df['BB_width'] = [None] * (len(df) - len(bb_width)) + bb_width if bb_width else [None] * len(df)
 
         # Stochastic (for stochastic_breakout)
         fastk, fastd = indicator_calc.calculate_stochastic(closes, highs, lows, k_period=5, d_period=3)
@@ -325,6 +358,16 @@ class BacktestRunner:
             entry_triggered, direction, reason = self._check_parabolic_sar_v2_entry(symbol, row, df, idx)
         elif strategy_id == "keltner_breakout":
             entry_triggered, direction, reason = self._check_keltner_breakout_entry(symbol, row, df, idx)
+        elif strategy_id == "ema_scalping":
+            entry_triggered, direction, reason = self._check_ema_scalping_entry(symbol, row, df, idx)
+        elif strategy_id == "bb_squeeze":
+            entry_triggered, direction, reason = self._check_bb_squeeze_entry(symbol, row, df, idx)
+        elif strategy_id == "rsi_scalping":
+            entry_triggered, direction, reason = self._check_rsi_scalping_entry(symbol, row, df, idx)
+        elif strategy_id == "cci_reversal":
+            entry_triggered, direction, reason = self._check_cci_reversal_entry(symbol, row, df, idx)
+        elif strategy_id == "roc_momentum":
+            entry_triggered, direction, reason = self._check_roc_momentum_entry(symbol, row, df, idx)
 
         else:
             # Fallback: use unified signal engine (original behavior)
@@ -771,10 +814,12 @@ class BacktestRunner:
         
         return False, TradeDirection.LONG, f"RSI={current_rsi:.1f} no signal"
 
-    def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series) -> None:
+    def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series, idx: int) -> None:
         """
         Check for exit conditions and close trades
         檢查出場條件並平倉
+        
+        B+C Fix: Minimum hold candles + only SL/TP exits (no exit_signal)
         """
         trade = self.active_trades[symbol]
 
@@ -782,7 +827,10 @@ class BacktestRunner:
         exit_price = price
         exit_reason = "signal"
 
-        # Check stop loss
+        # Calculate how many candles we've held
+        candles_held = idx - trade.entry_idx
+
+        # Check stop loss (always allowed)
         if self.config.stop_loss_pct:
             if trade.direction == "long":
                 stop_price = trade.entry_price * (1 - self.config.stop_loss_pct / 100)
@@ -797,7 +845,13 @@ class BacktestRunner:
                     exit_price = stop_price
                     exit_reason = "stop_loss"
 
-        # Check take profit
+        # During minimum hold period: ONLY stop_loss is allowed
+        # 最少持倉期間內：只允許止損出場
+        if not exit_triggered and candles_held < self.MIN_HOLD_CANDLES:
+            return  # Skip take_profit and exit_signal
+
+        # After minimum hold period: check take profit (no exit_signal)
+        # 最少持倉期後：檢查止盈（不再檢查 exit_signal）
         if not exit_triggered and self.config.take_profit_pct:
             if trade.direction == "long":
                 tp_price = trade.entry_price * (1 + self.config.take_profit_pct / 100)
@@ -811,22 +865,6 @@ class BacktestRunner:
                     exit_triggered = True
                     exit_price = tp_price
                     exit_reason = "take_profit"
-
-        # Check reverse signal / exit signal
-        if not exit_triggered:
-            indicators = {
-                'MA5': row.get('MA5'),
-                'MA20': row.get('MA20'),
-                'MA240': row.get('MA240'),
-                'position_side': trade.direction,
-                'symbol': symbol,
-                'backtest_mode': True,
-            }
-            exit_signals = self.signal_engine.generate_exit_signals(indicators)
-            
-            if exit_signals:
-                exit_triggered = True
-                exit_reason = "exit_signal"
 
         if exit_triggered:
             self._close_trade(symbol, timestamp, exit_price, exit_reason)
@@ -866,6 +904,9 @@ class BacktestRunner:
 
         # Update equity
         self.current_equity += trade.pnl_amount
+
+        # Update daily PnL tracking / 更新日內風控 PnL
+        self.daily_pnl_pct += trade.pnl_pct / 100  # convert pct to decimal
 
         print(f"   {emoji} EXIT: ${exit_price:,.2f} | Gross P&L: {gross_pnl_pct:+.2f}% | Net P&L: {trade.pnl_pct:+.2f}% ({reason})")
 
@@ -1104,6 +1145,185 @@ class BacktestRunner:
         print(f"{'='*70}\n")
 
 
+    def _check_ema_scalping_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """EMA Scalping: EMA3 cross EMA8 + RSI 40-60 filter"""
+        ema3 = row.get('EMA3')
+        ema8 = row.get('EMA8')
+        rsi = row.get('RSI')
+        close = row.get('close')
+
+        if any(v is None for v in [ema3, ema8, rsi, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_ema3 = prev_row.get('EMA3')
+        prev_ema8 = prev_row.get('EMA8')
+
+        if prev_ema3 is None or prev_ema8 is None:
+            return False, TradeDirection.LONG, "need previous EMA"
+
+        # RSI filter: avoid chasing highs/lows
+        if rsi < 40 or rsi > 60:
+            return False, TradeDirection.LONG, f"RSI {rsi:.1f} outside 40-60"
+
+        # EMA3 cross above EMA8 -> LONG
+        if prev_ema3 <= prev_ema8 and ema3 > ema8:
+            return True, TradeDirection.LONG, f"EMA3×EMA8↑ RSI={rsi:.1f}"
+
+        # EMA3 cross below EMA8 -> SHORT
+        if prev_ema3 >= prev_ema8 and ema3 < ema8:
+            return True, TradeDirection.SHORT, f"EMA3×EMA8↓ RSI={rsi:.1f}"
+
+        return False, TradeDirection.LONG, "no EMA cross"
+
+    def _check_bb_squeeze_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """BB Squeeze: Band width < min(20) then breakout"""
+        close = row.get('close')
+        bb_upper = row.get('BB_upper')
+        bb_lower = row.get('BB_lower')
+        bb_width = row.get('BB_width')
+        volume = row.get('volume')
+
+        if any(v is None for v in [close, bb_upper, bb_lower, bb_width, volume]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        if idx < 20:
+            return False, TradeDirection.LONG, "need 20 bars"
+
+        # Check if current width is near minimum of last 20
+        recent_width = df['BB_width'].iloc[idx-19:idx+1].dropna().tolist()
+        if len(recent_width) < 5:
+            return False, TradeDirection.LONG, "no BB width data"
+
+        min_width = min(recent_width)
+        is_squeezed = bb_width <= min_width * 1.05  # within 5% of minimum
+
+        # Volume spike
+        volume_spike = indicator_calc.detect_volume_spike(
+            df['volume'].tolist(), idx, period=20, multiplier=1.2
+        )
+
+        if not is_squeezed:
+            return False, TradeDirection.LONG, f"BB width {bb_width:.4f} not squeezed"
+
+        if not volume_spike:
+            return False, TradeDirection.LONG, "no volume spike"
+
+        # Breakout above upper band -> LONG
+        if close > bb_upper:
+            return True, TradeDirection.LONG, f"BB squeeze breakout↑ vol>1.2×avg"
+
+        # Breakdown below lower band -> SHORT
+        if close < bb_lower:
+            return True, TradeDirection.SHORT, f"BB squeeze breakout↓ vol>1.2×avg"
+
+        return False, TradeDirection.LONG, f"in squeeze but no breakout"
+
+    def _check_rsi_scalping_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """RSI Scalping with ADX filter: RSI cross 30/70 + ADX proxy < 2.5 (ranging market)"""
+        rsi = row.get('RSI')
+        close = row.get('close')
+
+        if any(v is None for v in [rsi, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        if idx < 28:
+            return False, TradeDirection.LONG, "need 28 bars for ADX"
+
+        prev_row = df.iloc[idx - 1]
+        prev_rsi = prev_row.get('RSI')
+
+        if prev_rsi is None:
+            return False, TradeDirection.LONG, "need previous RSI"
+
+        # Calculate ADX proxy: price_range / (atr * 14)
+        high_slice = df['high'].iloc[idx-14:idx+1]
+        low_slice = df['low'].iloc[idx-14:idx+1]
+        close_slice = df['close'].iloc[idx-14:idx+1]
+        
+        tr_values = (high_slice - low_slice).abs()
+        atr = tr_values.mean()
+        price_range = high_slice.max() - low_slice.min()
+        
+        if atr == 0 or pd.isna(atr):
+            return False, TradeDirection.LONG, "ATR zero"
+            
+        adx_proxy = price_range / (atr * 14) * 100
+
+        # Only trade in ranging market (ADX proxy < 30)
+        if adx_proxy > 30:
+            return False, TradeDirection.LONG, f"trending ADX={adx_proxy:.1f}"
+
+        # RSI cross above 30 from below -> LONG
+        if prev_rsi <= 30 and rsi > 30:
+            return True, TradeDirection.LONG, f"RSI×30↑ {prev_rsi:.1f}->{rsi:.1f} ADX={adx_proxy:.1f}"
+
+        # RSI cross below 70 from above -> SHORT
+        if prev_rsi >= 70 and rsi < 70:
+            return True, TradeDirection.SHORT, f"RSI×70↓ {prev_rsi:.1f}->{rsi:.1f} ADX={adx_proxy:.1f}"
+
+        return False, TradeDirection.LONG, f"RSI={rsi:.1f} no signal"
+
+    def _check_cci_reversal_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """CCI Reversal: CCI < -100 LONG, CCI > +100 SHORT"""
+        cci = row.get('CCI')
+        close = row.get('close')
+
+        if any(v is None for v in [cci, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        if idx < 1:
+            return False, TradeDirection.LONG, "need previous bar"
+
+        prev_row = df.iloc[idx - 1]
+        prev_cci = prev_row.get('CCI')
+
+        if prev_cci is None:
+            return False, TradeDirection.LONG, "need previous CCI"
+
+        # CCI cross above -100 from below -> LONG
+        if prev_cci <= -100 and cci > -100:
+            return True, TradeDirection.LONG, f"CCI×-100↑ {prev_cci:.1f}->{cci:.1f}"
+
+        # CCI cross below +100 from above -> SHORT
+        if prev_cci >= 100 and cci < 100:
+            return True, TradeDirection.SHORT, f"CCI×+100↓ {prev_cci:.1f}->{cci:.1f}"
+
+        return False, TradeDirection.LONG, "no CCI signal"
+
+    def _check_roc_momentum_entry(self, symbol: str, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """ROC Momentum: ROC > +0.5% LONG, ROC < -0.5% SHORT, need 2 consecutive bars"""
+        roc = row.get('ROC')
+        close = row.get('close')
+
+        if any(v is None for v in [roc, close]):
+            return False, TradeDirection.LONG, "insufficient data"
+
+        if idx < 2:
+            return False, TradeDirection.LONG, "need 2 previous bars"
+
+        prev_row = df.iloc[idx - 1]
+        prev2_row = df.iloc[idx - 2]
+        prev_roc = prev_row.get('ROC')
+        prev2_roc = prev2_row.get('ROC')
+
+        if prev_roc is None or prev2_roc is None:
+            return False, TradeDirection.LONG, "need previous ROC"
+
+        # ROC > +0.5% for 2 consecutive bars -> LONG
+        if roc > 0.5 and prev_roc > 0.5:
+            return True, TradeDirection.LONG, f"ROC>0.5%×2 {roc:.2f}%"
+
+        # ROC < -0.5% for 2 consecutive bars -> SHORT
+        if roc < -0.5 and prev_roc < -0.5:
+            return True, TradeDirection.SHORT, f"ROC<-0.5%×2 {roc:.2f}%"
+
+        return False, TradeDirection.LONG, f"ROC {roc:.2f}% no signal"
+
+
 def run_backtest(
     symbols: List[str] = None,
     start_date: str = None,
@@ -1114,6 +1334,8 @@ def run_backtest(
     commission_pct: Optional[float] = None,
     strategy_id: Optional[str] = None,
     strategy_type: Optional[str] = None,
+    daily_loss_limit: float = -0.02,
+    daily_profit_target: float = 0.015,
 ) -> BacktestSummary:
     """
     Convenience function to run a backtest
@@ -1154,6 +1376,8 @@ def run_backtest(
         stop_loss_pct=stop_loss_pct,
         take_profit_pct=take_profit_pct,
         commission_pct=commission_pct or 0.0,
+        daily_loss_limit=daily_loss_limit,
+        daily_profit_target=daily_profit_target,
     )
 
     # Run backtest

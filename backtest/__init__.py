@@ -52,6 +52,7 @@ class TradeRecord:
     direction: str  # "long" or "short"
     entry_time: str  # ISO format
     entry_price: float
+    entry_idx: int = 0  # Index of entry candle / 進場K線索引
     exit_time: Optional[str] = None
     exit_price: Optional[float] = None
     quantity: float = 1.0  # Standardized to 1 unit for P&L % calculation
@@ -110,6 +111,10 @@ class BacktestConfig:
     
     # Commission
     commission_pct: float = 0.0  # e.g., 0.1 for 0.1% per trade (entry + exit)
+    
+    # Daily risk control / 日內風控
+    daily_loss_limit: float = -0.02  # Daily loss limit (-2% stop)
+    daily_profit_target: float = 0.015  # Daily profit target (+1.5% stop)
     
     # Time-based exit
     max_holding_periods: Optional[int] = None  # Max candles to hold
