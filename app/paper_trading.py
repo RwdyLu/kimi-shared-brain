@@ -247,7 +247,7 @@ class PaperTrading:
         return sum(
             t.get("realized_pnl", 0)
             for t in acc.trades
-            if t.get("exit_time", "").startswith(today)
+            if t.get("exit_time") and t.get("exit_time").startswith(today)
         )
 
     def get_strategy_return_pct(self, strategy_id: str) -> float:

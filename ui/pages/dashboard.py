@@ -147,7 +147,7 @@ def load_today_trigger_counts() -> dict:
                 try:
                     snap = json.loads(line)
                     ts = snap.get("timestamp", "")
-                    if not ts.startswith(today_str):
+                    if not ts or not ts.startswith(today_str):
                         continue
                     
                     # signal_types is a list of strategy names that triggered
@@ -1594,8 +1594,8 @@ def update_strategy_ranking(n, selected_symbol):
             # Balance / 策略餘額
             acc = strategy_accounts.get(strategy)
             if acc:
-                balance = acc.get("balance", 0)
-                initial = acc.get("initial", 1000)
+                balance = acc.balance
+                initial = acc.initial
             else:
                 balance = 0
                 initial = 1000
