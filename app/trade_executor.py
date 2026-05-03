@@ -1,29 +1,30 @@
 """
-Trade Executor / 交易執行器
+Trade Executor — Per-Strategy Isolated Execution / 策略獨立交易執行器
 
-Phase 2: Connects strategy signals to paper trading execution.
-將策略訊號連接到模擬交易執行，從 ALERT-ONLY 升級到 PAPER-TRADING。
-
-Fix A: 出場機制完善
-- 時間止損：持倉超過 8 小時自動平倉
-- EXIT 訊號需連續 2 根 K 線確認才出場
-- 以 paper.positions 為唯一 source of truth
+Connects strategy signals to per-strategy paper trading accounts.
+Each strategy trades with its own isolated capital and positions.
 
 Author: kimiclaw_bot
-Version: 1.1.0
-Date: 2026-04-29
+Version: 2.0.0
+Date: 2026-05-03
 """
 
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from app.paper_trading import PaperTrading, TradeSide
+from app.paper_trading import PaperTrading
 from signals.engine import SignalType, SignalLevel
 from config.paths import STATE_DIR
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Local TradeSide enum / 本地交易方向列舉 ─────────────────────
+class TradeSide:
+    BUY = "buy"
+    SELL = "sell"
 
 
 @dataclass
@@ -37,22 +38,16 @@ class TradeResult:
     entry_price: Optional[float] = None
     reason: str = ""
     balance_after: Optional[float] = None
+    strategy_id: str = ""
 
 
 class TradeExecutor:
     """
-    Trade executor that bridges strategy signals to paper trading.
-    
-    Integrates with:
-    - MonitorRunner / StrategyExecutor (signal generation)
-    - PaperTrading (simulated execution)
-    
-    Mode: PAPER-TRADING ONLY (no real exchange orders)
+    Trade executor bridging strategy signals to per-strategy paper trading.
     """
 
     # Signal type → trade side mapping
     SIGNAL_TO_SIDE = {
-        # 13 unique strategy signal types
         SignalType.MA_CROSS_TREND: TradeSide.BUY,
         SignalType.MA_CROSS_TREND_SHORT: TradeSide.SELL,
         SignalType.CONTRARIAN_OVERHEATED: TradeSide.BUY,
@@ -66,12 +61,10 @@ class TradeExecutor:
         SignalType.VOLUME_SPIKE: TradeSide.BUY,
         SignalType.PRICE_CHANNEL_BREAK: TradeSide.BUY,
         SignalType.MOMENTUM_DIVERGENCE: TradeSide.BUY,
-        # Exit signals
-        SignalType.EXIT_LONG: TradeSide.SELL,   # Close long position
-        SignalType.EXIT_SHORT: TradeSide.BUY,   # Close short position
+        SignalType.EXIT_LONG: TradeSide.SELL,
+        SignalType.EXIT_SHORT: TradeSide.BUY,
     }
 
-    # Entry vs exit signal classification
     ENTRY_SIGNALS = {
         SignalType.MA_CROSS_TREND, SignalType.MA_CROSS_TREND_SHORT,
         SignalType.CONTRARIAN_OVERHEATED, SignalType.CONTRARIAN_OVERSOLD,
@@ -83,60 +76,49 @@ class TradeExecutor:
     }
     EXIT_SIGNALS = {SignalType.EXIT_LONG, SignalType.EXIT_SHORT}
 
-    # Time stop-loss: max holding hours before auto-exit
     MAX_HOLD_HOURS = 8
 
     def __init__(
         self,
-        initial_balance: float = 10000.0,
-        position_pct: float = 0.1,  # Use 10% of balance per trade
-        max_total_exposure_pct: float = 0.5,  # Max 50% of balance in open positions
+        exchange=None,
+        paper_trading: Optional[PaperTrading] = None,
+        position_pct: float = 0.1,
+        max_total_exposure_pct: float = 0.5,
         enable_trading: bool = True,
-        state_file: Optional[str] = None,
     ):
         self.logger = logging.getLogger(__name__)
         self.enable_trading = enable_trading
         self.position_pct = position_pct
         self.max_total_exposure_pct = max_total_exposure_pct
-        self.state_file = state_file or str(STATE_DIR / "paper_trading_state.json")
+        self.exchange = exchange
 
-        # Paper trading account
-        self.paper = PaperTrading(
-            initial_balance=initial_balance,
-            slippage_pct=0.1,
-            commission_pct=0.1,
-        ) if enable_trading else None
+        # Paper trading instance (auto-loads state)
+        self.paper = paper_trading or (PaperTrading() if enable_trading else None)
 
-        # Load previous state if available
-        if self.paper and self.state_file:
-            self.paper.load_state(self.state_file)
-
-        # Track pending exit signals for 2-consecutive-K-line confirmation
-        # Structure: {symbol: {"signal_type": str, "first_seen": datetime, "price": float}}
-        self.pending_exit_signals: Dict[str, Dict] = {}
+        # Pending exit signals: {symbol: {strategy_id: {...}}}
+        self.pending_exit_signals: Dict[str, Dict[str, Dict]] = {}
 
         self.logger.info(
-            f"TradeExecutor initialized: balance=${self.paper.balance if self.paper else 0:,.2f}, "
-            f"position_pct={position_pct*100}%, max_exposure={max_total_exposure_pct*100}%, enabled={enable_trading}"
+            f"TradeExecutor initialized: strategies={list(self.paper.strategies.keys()) if self.paper else []}, "
+            f"position_pct={position_pct*100}%, enabled={enable_trading}"
         )
+
+    def _get_strategy_id(self, signal) -> str:
+        """Extract strategy_id from signal metadata / 從訊號元資料提取策略 ID"""
+        meta = getattr(signal, 'metadata', None) or {}
+        sid = meta.get('strategy_id') or meta.get('strategy_name') or ''
+        if sid:
+            return sid.lower().replace(' ', '_').replace('-', '_')
+        # Fallback: map from signal type name / 後備：從訊號類型名稱映射
+        return signal.signal_type.name.lower().replace(' ', '_').replace('-', '_')
 
     def execute_signals(
         self,
         confirmed_signals: List,
         current_prices: Dict[str, float],
     ) -> List[TradeResult]:
-        """
-        Execute trading for confirmed signals.
-        
-        Args:
-            confirmed_signals: List of CONFIRMED Signal objects
-            current_prices: Dict of symbol → current price
-            
-        Returns:
-            List of TradeResult
-        """
+        """Execute trades for confirmed signals."""
         results = []
-
         if not self.enable_trading or not self.paper:
             self.logger.info("Trading disabled, skipping execution")
             return results
@@ -145,251 +127,206 @@ class TradeExecutor:
             result = self._process_signal(signal, current_prices)
             if result:
                 results.append(result)
-
         return results
 
     def _process_signal(self, signal, current_prices: Dict[str, float]) -> Optional[TradeResult]:
-        """Process a single confirmed signal (entry or exit)."""
+        """Process a single confirmed signal."""
         symbol = signal.symbol
         signal_type = signal.signal_type
+        strategy_id = self._get_strategy_id(signal)
 
-        # Map signal type to trade side
         side = self.SIGNAL_TO_SIDE.get(signal_type)
         if not side:
-            self.logger.info(f"Signal type {signal_type.name} not mapped to trade side, skipping")
             return TradeResult(
-                symbol=symbol,
-                side="unknown",
-                status="skipped",
-                reason=f"Unmapped signal type: {signal_type.name}",
+                symbol=symbol, side="unknown", status="skipped",
+                reason=f"Unmapped signal type: {signal_type.name}", strategy_id=strategy_id,
             )
 
-        # Get current price
         price = current_prices.get(symbol)
         if not price or price <= 0:
-            self.logger.warning(f"No valid price for {symbol}, skipping")
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="No valid price",
+                symbol=symbol, side=side, status="skipped",
+                reason="No valid price", strategy_id=strategy_id,
             )
 
-        # Handle EXIT signals
+        # EXIT signal / 出場訊號
         if signal_type in self.EXIT_SIGNALS:
-            return self._process_exit_signal(symbol, signal, price, side)
+            return self._process_exit_signal(symbol, signal, price, side, strategy_id)
 
-        # ENTRY signal handling below
-        # Use paper.positions as source of truth for open positions
-        if symbol in self.paper.positions:
-            self.logger.info(f"Already have open position for {symbol}, skipping new entry signal")
+        # ENTRY signal / 進場訊號 ──────────────────────────────────
+        # Check strategy exists / 檢查策略存在
+        if strategy_id not in self.paper.strategies:
+            self.logger.warning(f"[{strategy_id}] Strategy not in paper trading, skipping entry")
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="Position already open",
+                symbol=symbol, side=side, status="skipped",
+                reason=f"Unknown strategy: {strategy_id}", strategy_id=strategy_id,
             )
 
-        # Check total exposure limit
+        # Check if already holding / 檢查是否已持有
+        if self.paper.has_position(strategy_id, symbol):
+            return TradeResult(
+                symbol=symbol, side=side, status="skipped",
+                reason="Position already open", strategy_id=strategy_id,
+            )
+
+        # Check exposure limit (per-strategy) / 檢查單策略曝險上限
+        strategy_balance = self.paper.get_strategy_balance(strategy_id)
+        open_positions = self.paper.get_strategy_positions(strategy_id)
         open_exposure = sum(
-            pos["entry_price"] * pos["quantity"] for pos in self.paper.positions.values()
+            p.get("entry_price", 0) * p.get("quantity", 0)
+            for p in open_positions.values()
         )
-        max_exposure = self.paper.balance * self.max_total_exposure_pct
+        max_exposure = strategy_balance * self.max_total_exposure_pct
         if open_exposure >= max_exposure:
-            self.logger.info(
-                f"Max total exposure reached ({open_exposure:.2f}/{max_exposure:.2f}), skipping {symbol}"
-            )
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="Max total exposure reached",
+                symbol=symbol, side=side, status="skipped",
+                reason="Max strategy exposure reached", strategy_id=strategy_id,
             )
 
-        # Calculate position size
-        position_value = self.paper.balance * self.position_pct
+        # Calculate position size from strategy balance / 依策略餘額計算倉位大小
+        position_value = strategy_balance * self.position_pct
         if position_value < 1.0:
-            self.logger.warning(f"Insufficient balance for trade: ${self.paper.balance:.2f}")
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="Insufficient balance",
+                symbol=symbol, side=side, status="skipped",
+                reason="Insufficient strategy balance", strategy_id=strategy_id,
             )
 
         quantity = position_value / price
 
-        # Execute paper trade entry
+        # Execute entry / 執行進場
         try:
-            trade = self.paper.enter_position(
-                symbol=symbol,
-                side=side,
-                quantity=quantity,
-                price=price,
-                strategy_id=signal_type.name,
+            success = self.paper.enter_position(
+                symbol=symbol, side=side, quantity=quantity,
+                price=price, strategy_id=strategy_id,
             )
+            if not success:
+                return TradeResult(
+                    symbol=symbol, side=side, status="skipped",
+                    reason="Enter position returned False", strategy_id=strategy_id,
+                )
 
+            balance_after = self.paper.get_strategy_balance(strategy_id)
             self.logger.info(
-                f"✅ PAPER TRADE ENTRY: {side.value.upper()} {quantity:.6f} {symbol} "
-                f"@ ${trade.entry_price:,.2f} (balance: ${self.paper.balance:,.2f})"
+                f"✅ PAPER ENTRY [{strategy_id}] {side.upper()} {quantity:.6f} {symbol} "
+                f"@ ${price:,.2f} balance=${balance_after:.2f}"
             )
 
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="executed",
-                trade_id=trade.trade_id,
-                quantity=quantity,
-                entry_price=trade.entry_price,
-                balance_after=self.paper.balance,
-                reason=signal.reason,
+                symbol=symbol, side=side, status="executed",
+                quantity=quantity, entry_price=price,
+                balance_after=balance_after,
+                reason=signal.reason, strategy_id=strategy_id,
             )
 
         except Exception as e:
-            self.logger.error(f"Trade execution failed for {symbol}: {e}")
+            self.logger.error(f"[{strategy_id}] Entry failed for {symbol}: {e}")
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason=f"Execution error: {e}",
+                symbol=symbol, side=side, status="skipped",
+                reason=f"Entry error: {e}", strategy_id=strategy_id,
             )
 
-    def _process_exit_signal(self, symbol: str, signal, price: float, side: TradeSide) -> Optional[TradeResult]:
-        """Process an exit signal with 2-consecutive-K-line confirmation."""
-        # Use paper.positions as source of truth
-        if symbol not in self.paper.positions:
-            self.logger.info(f"No open position for {symbol}, skipping exit signal")
-            # Also clear any stale pending exit
-            self.pending_exit_signals.pop(symbol, None)
+    def _process_exit_signal(
+        self, symbol: str, signal, price: float, side: str, strategy_id: str
+    ) -> Optional[TradeResult]:
+        """Process exit signal with 2-K-line confirmation / 處理出場訊號（需連續 2 根 K 線確認）"""
+        # Check if this strategy holds the symbol / 檢查該策略是否持有此幣種
+        if not self.paper.has_position(strategy_id, symbol):
+            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="No open position to exit",
+                symbol=symbol, side=side, status="skipped",
+                reason="No open position to exit", strategy_id=strategy_id,
             )
 
-        position = self.paper.positions[symbol]
+        position = self.paper.get_strategy_positions(strategy_id).get(symbol, {})
+        position_side = position.get("side", "")
         signal_type = signal.signal_type
-        position_side_str = position["side"].value if isinstance(position["side"], TradeSide) else position["side"]
-
-        # Verify position direction matches exit signal
-        # EXIT_LONG requires a long position (buy), EXIT_SHORT requires a short position (sell)
-        if signal_type == SignalType.EXIT_LONG and position_side_str != "buy":
-            self.logger.info(f"Position for {symbol} is {position_side_str}, skipping EXIT_LONG")
-            self.pending_exit_signals.pop(symbol, None)
-            return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="Position direction mismatch for EXIT_LONG",
-            )
-
-        if signal_type == SignalType.EXIT_SHORT and position_side_str != "sell":
-            self.logger.info(f"Position for {symbol} is {position_side_str}, skipping EXIT_SHORT")
-            self.pending_exit_signals.pop(symbol, None)
-            return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason="Position direction mismatch for EXIT_SHORT",
-            )
-
-        # Check for pending exit signal (2-consecutive confirmation)
-        pending = self.pending_exit_signals.get(symbol)
         signal_type_name = signal_type.name
 
+        # Verify direction matches / 驗證方向匹配
+        if signal_type == SignalType.EXIT_LONG and position_side != TradeSide.BUY:
+            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+            return TradeResult(
+                symbol=symbol, side=side, status="skipped",
+                reason="EXIT_LONG mismatch", strategy_id=strategy_id,
+            )
+        if signal_type == SignalType.EXIT_SHORT and position_side != TradeSide.SELL:
+            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+            return TradeResult(
+                symbol=symbol, side=side, status="skipped",
+                reason="EXIT_SHORT mismatch", strategy_id=strategy_id,
+            )
+
+        # 2-K-line confirmation / 連續 2 根 K 線確認
+        if symbol not in self.pending_exit_signals:
+            self.pending_exit_signals[symbol] = {}
+
+        pending = self.pending_exit_signals[symbol].get(strategy_id)
+
         if pending is None:
-            # First EXIT signal: record it and wait for next confirmation
-            self.pending_exit_signals[symbol] = {
+            self.pending_exit_signals[symbol][strategy_id] = {
                 "signal_type": signal_type_name,
                 "first_seen": datetime.now(),
                 "price": price,
             }
             self.logger.info(
-                f"⏳ EXIT SIGNAL PENDING (1st): {symbol} {signal_type_name} @ ${price:,.2f} "
-                f"— waiting for 2nd consecutive confirmation"
+                f"⏳ EXIT PENDING [{strategy_id}] {symbol} {signal_type_name} @ ${price:,.2f}"
             )
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="pending_exit",
-                reason=f"First EXIT {signal_type_name}, awaiting 2nd confirmation",
+                symbol=symbol, side=side, status="pending_exit",
+                reason=f"1st EXIT, awaiting 2nd confirmation", strategy_id=strategy_id,
             )
 
-        # Second signal: check if it's the same type
         if pending["signal_type"] != signal_type_name:
-            # Signal type changed, reset pending
-            self.logger.info(
-                f"EXIT signal type changed for {symbol}: {pending['signal_type']} → {signal_type_name}, "
-                f"resetting pending tracker"
-            )
-            self.pending_exit_signals[symbol] = {
+            self.pending_exit_signals[symbol][strategy_id] = {
                 "signal_type": signal_type_name,
                 "first_seen": datetime.now(),
                 "price": price,
             }
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="pending_exit",
-                reason=f"EXIT type changed to {signal_type_name}, awaiting confirmation",
+                symbol=symbol, side=side, status="pending_exit",
+                reason=f"EXIT type changed to {signal_type_name}", strategy_id=strategy_id,
             )
 
-        # Same signal type on 2nd consecutive K-line: execute exit
+        # 2nd confirmation — execute exit / 第二次確認 — 執行出場
         self.logger.info(
-            f"✅ EXIT CONFIRMED (2nd): {symbol} {signal_type_name} @ ${price:,.2f} "
-            f"(pending since {pending['first_seen'].strftime('%H:%M:%S')})"
+            f"✅ EXIT CONFIRMED [{strategy_id}] {symbol} {signal_type_name} @ ${price:,.2f}"
         )
 
-        # Execute paper trade exit
         try:
-            trade = self.paper.exit_position(symbol=symbol, price=price)
+            trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
+            self.pending_exit_signals[symbol].pop(strategy_id, None)
 
             if trade:
-                # Clear pending exit
-                del self.pending_exit_signals[symbol]
-
+                balance_after = self.paper.get_strategy_balance(strategy_id)
                 self.logger.info(
-                    f"✅ PAPER TRADE EXIT: {symbol} @ ${price:,.2f} "
-                    f"PnL: ${trade.realized_pnl:.2f} (balance: ${self.paper.balance:,.2f})"
+                    f"✅ PAPER EXIT [{strategy_id}] {symbol} @ ${price:,.2f} "
+                    f"PnL=${trade.get('realized_pnl', 0):+.2f} balance=${balance_after:.2f}"
                 )
-
                 return TradeResult(
-                    symbol=symbol,
-                    side=side.value,
-                    status="exited",
-                    trade_id=trade.trade_id,
-                    quantity=trade.quantity,
-                    entry_price=trade.entry_price,
-                    balance_after=self.paper.balance,
+                    symbol=symbol, side=side, status="exited",
+                    trade_id=trade.get("trade_id"),
+                    quantity=trade.get("quantity"),
+                    entry_price=trade.get("entry_price"),
+                    balance_after=balance_after,
                     reason=f"Exit confirmed (2nd K-line): {signal.reason}",
+                    strategy_id=strategy_id,
                 )
             else:
-                # Exit failed but clear pending to avoid getting stuck
-                del self.pending_exit_signals[symbol]
                 return TradeResult(
-                    symbol=symbol,
-                    side=side.value,
-                    status="skipped",
-                    reason="Exit failed - no trade record",
+                    symbol=symbol, side=side, status="skipped",
+                    reason="Exit failed", strategy_id=strategy_id,
                 )
 
         except Exception as e:
-            self.logger.error(f"Trade exit failed for {symbol}: {e}")
-            # Clear pending on error
-            self.pending_exit_signals.pop(symbol, None)
+            self.logger.error(f"[{strategy_id}] Exit failed for {symbol}: {e}")
+            self.pending_exit_signals[symbol].pop(strategy_id, None)
             return TradeResult(
-                symbol=symbol,
-                side=side.value,
-                status="skipped",
-                reason=f"Exit execution error: {e}",
+                symbol=symbol, side=side, status="skipped",
+                reason=f"Exit error: {e}", strategy_id=strategy_id,
             )
 
     def check_time_stop_loss(self, current_prices: Dict[str, float]) -> List[TradeResult]:
-        """
-        Check all open positions and exit any held longer than MAX_HOLD_HOURS.
-        Returns list of TradeResult for any time-stopped positions.
-        """
+        """Exit positions held longer than MAX_HOLD_HOURS / 時間止損：持倉超過 8 小時自動平倉"""
         results = []
         if not self.paper:
             return results
@@ -397,83 +334,70 @@ class TradeExecutor:
         now = datetime.now()
         max_hold_delta = timedelta(hours=self.MAX_HOLD_HOURS)
 
-        # Iterate over a copy since we may modify during iteration
-        symbols = list(self.paper.positions.keys())
-        for symbol in symbols:
-            position = self.paper.positions.get(symbol)
-            if not position:
-                continue
-
-            entry_time = position.get("entry_time")
-            if not entry_time:
-                continue
-
-            # Ensure entry_time is datetime
-            if isinstance(entry_time, str):
-                entry_time = datetime.fromisoformat(entry_time)
-
-            hold_duration = now - entry_time
-            if hold_duration > max_hold_delta:
-                price = current_prices.get(symbol)
-                if not price or price <= 0:
-                    self.logger.warning(
-                        f"Time stop-loss for {symbol}: held {hold_duration.total_seconds()/3600:.1f}h "
-                        f"but no valid price, skipping auto-exit"
-                    )
+        for strategy_id, acc in self.paper.strategies.items():
+            for symbol in list(acc.positions.keys()):
+                position = acc.positions.get(symbol)
+                if not position:
                     continue
 
-                position_side_str = position["side"].value if isinstance(position["side"], TradeSide) else position["side"]
-                exit_side = TradeSide.SELL if position_side_str == "buy" else TradeSide.BUY
+                entry_time_str = position.get("entry_time")
+                if not entry_time_str:
+                    continue
 
-                self.logger.info(
-                    f"⏰ TIME STOP-LOSS TRIGGERED: {symbol} held {hold_duration.total_seconds()/3600:.1f}h "
-                    f"(max {self.MAX_HOLD_HOURS}h), auto-exiting @ ${price:,.2f}"
-                )
+                entry_time = datetime.fromisoformat(entry_time_str) if isinstance(entry_time_str, str) else entry_time_str
+                hold_duration = now - entry_time
 
-                try:
-                    trade = self.paper.exit_position(symbol=symbol, price=price)
-                    if trade:
-                        # Clear any pending exit for this symbol
-                        self.pending_exit_signals.pop(symbol, None)
+                if hold_duration > max_hold_delta:
+                    price = current_prices.get(symbol, 0)
+                    if price <= 0:
+                        self.logger.warning(f"[{strategy_id}] Time stop for {symbol}: no price")
+                        continue
 
-                        self.logger.info(
-                            f"✅ PAPER TRADE TIME-STOP: {symbol} @ ${price:,.2f} "
-                            f"PnL: ${trade.realized_pnl:.2f} (balance: ${self.paper.balance:,.2f})"
-                        )
-                        results.append(TradeResult(
-                            symbol=symbol,
-                            side=exit_side.value,
-                            status="time_stopped",
-                            trade_id=trade.trade_id,
-                            quantity=trade.quantity,
-                            entry_price=trade.entry_price,
-                            balance_after=self.paper.balance,
-                            reason=f"Time stop-loss: held {hold_duration.total_seconds()/3600:.1f}h",
-                        ))
-                except Exception as e:
-                    self.logger.error(f"Time stop-loss exit failed for {symbol}: {e}")
+                    position_side = position.get("side", "")
+                    exit_side = TradeSide.SELL if position_side == TradeSide.BUY else TradeSide.BUY
+
+                    self.logger.info(
+                        f"⏰ TIME STOP [{strategy_id}] {symbol} held {hold_duration.total_seconds()/3600:.1f}h"
+                    )
+
+                    try:
+                        trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
+                        self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+
+                        if trade:
+                            balance_after = self.paper.get_strategy_balance(strategy_id)
+                            results.append(TradeResult(
+                                symbol=symbol, side=exit_side, status="time_stopped",
+                                trade_id=trade.get("trade_id"),
+                                quantity=trade.get("quantity"),
+                                entry_price=trade.get("entry_price"),
+                                balance_after=balance_after,
+                                reason=f"Time stop: {hold_duration.total_seconds()/3600:.1f}h",
+                                strategy_id=strategy_id,
+                            ))
+                    except Exception as e:
+                        self.logger.error(f"[{strategy_id}] Time stop exit failed: {e}")
 
         return results
 
     def get_paper_performance(self) -> Optional[Dict]:
-        """Get paper trading performance summary."""
+        """Get paper trading summary / 取得模擬交易總覽"""
         if not self.paper:
             return None
-
-        perf = self.paper.get_performance()
-        # Add pending exits info for visibility
-        perf["pending_exits"] = len(self.pending_exit_signals)
+        perf = self.paper.get_summary()
+        perf["pending_exits"] = sum(len(v) for v in self.pending_exit_signals.values())
         perf["pending_exit_symbols"] = list(self.pending_exit_signals.keys())
         return perf
 
     def save_state(self) -> None:
-        """Save paper trading state / 儲存模擬交易狀態"""
-        if self.paper and self.state_file:
-            self.paper.save_state(self.state_file)
+        """PaperTrading auto-saves; this is a no-op for compatibility."""
+        pass
 
     def reset(self):
-        """Reset paper trading account and positions."""
+        """Reset paper trading / 重置模擬交易"""
         if self.paper:
-            self.paper.reset()
+            # Re-initialize fresh state / 重新初始化全新狀態
+            self.paper._init_new_state()
+            self.paper._save_state()
         self.pending_exit_signals.clear()
         self.logger.info("TradeExecutor reset")

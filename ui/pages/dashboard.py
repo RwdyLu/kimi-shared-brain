@@ -147,7 +147,7 @@ def load_today_trigger_counts() -> dict:
                 try:
                     snap = json.loads(line)
                     ts = snap.get("timestamp", "")
-                    if not ts.startswith(today_str):
+                    if not ts or not ts.startswith(today_str):
                         continue
                     
                     # signal_types is a list of strategy names that triggered
@@ -1461,6 +1461,17 @@ def update_strategy_ranking(n, selected_symbol):
     Uses live strategy ranking data for all symbols / 使用所有幣種的即時策略排名資料
     """
     try:
+        # Load paper trading state for per-strategy metrics / 載入模擬交易狀態取得策略指標
+        from app.paper_trading import PaperTrading
+        pt = PaperTrading()
+        strategy_accounts = pt.strategies if pt else {}
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        daily_settlement = pt.get_daily_settlement(today_str) if pt else {}
+    except Exception:
+        strategy_accounts = {}
+        daily_settlement = {}
+    
+    try:
         # Load live strategy ranking / 載入即時策略排名
         import json
         from pathlib import Path
@@ -1569,12 +1580,45 @@ def update_strategy_ranking(n, selected_symbol):
             triggers = today_triggers.get(strategy, 0)
             trigger_display = f"{triggers}次" if triggers > 0 else "-"
             
+            # ─── Per-Strategy Paper Trading Metrics / 策略模擬交易指標 ───
+            # Today PnL / 今日損益
+            today_pnl = 0.0
+            if pt:
+                today_pnl = pt.get_strategy_today_pnl(strategy)
+                # Also include any force-closed settlement from today
+                if strategy in daily_settlement:
+                    today_pnl += daily_settlement[strategy].get("realized_pnl", 0)
+            today_pnl_display = f"${today_pnl:+.2f}" if today_pnl != 0 else "-"
+            today_pnl_color = "text-success" if today_pnl > 0 else "text-danger" if today_pnl < 0 else "text-muted"
+            
+            # Balance / 策略餘額
+            acc = strategy_accounts.get(strategy)
+            if acc:
+                balance = acc.balance
+                initial = acc.initial
+            else:
+                balance = 0
+                initial = 1000
+            balance_display = f"${balance:,.0f}" if balance > 0 else "-"
+            
+            # Return % / 策略報酬率
+            if initial > 0 and balance > 0:
+                return_pct = (balance - initial) / initial * 100
+                return_display = f"{return_pct:+.1f}%"
+                return_color = "text-success" if return_pct >= 0 else "text-danger"
+            else:
+                return_display = "-"
+                return_color = "text-muted"
+            
             rows.append(html.Tr([
                 html.Td(f"#{i}", className="text-muted"),
                 html.Td(dcc.Link(f"{get_strategy_display_name(strategy)}", href=f"/strategy/{strategy}", className="fw-bold text-decoration-none")),
                 html.Td(f"{status_icon} {score:.1f}%", className=score_color),
                 html.Td(trigger_display, className="text-center"),
                 html.Td(wr_display, className=f"text-center {wr_color}"),
+                html.Td(today_pnl_display, className=f"text-center {today_pnl_color}"),
+                html.Td(balance_display, className="text-center"),
+                html.Td(return_display, className=f"text-center {return_color}"),
             ]))
         
         # Also show best opportunities for this symbol / 也顯示該幣種的最佳機會
@@ -1617,6 +1661,9 @@ def update_strategy_ranking(n, selected_symbol):
                         html.Th("#"), html.Th("Strategy"), html.Th("Score"),
                         html.Th("Today Trigs / 今日觸發", className="text-center"),
                         html.Th("Win Rate / 歷史勝率", className="text-center"),
+                        html.Th("Today PnL / 今日損益", className="text-center"),
+                        html.Th("Balance / 餘額", className="text-center"),
+                        html.Th("Return% / 報酬率", className="text-center"),
                     ]))
                 ] + [html.Tbody(rows)],
                 bordered=False,
