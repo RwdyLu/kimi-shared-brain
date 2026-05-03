@@ -1,0 +1,157 @@
+{
+  "updated_at": "2026-05-03T14:54:18.487277",
+  "period": "2025-05-03 ~ 2026-05-03",
+  "rankings": [
+    {
+      "strategy_id": "roc_momentum",
+      "total_trades": 6,
+      "total_return_pct": 1.8,
+      "win_rate": 33.3,
+      "max_drawdown_pct": 3.22,
+      "score": 0.568,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:16.487132"
+    },
+    {
+      "strategy_id": "price_channel_break",
+      "total_trades": 0,
+      "total_return_pct": 0.0,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 0.0,
+      "score": 0.0,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:00.441473"
+    },
+    {
+      "strategy_id": "rsi_scalping",
+      "total_trades": 3,
+      "total_return_pct": -3.6,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 3.4,
+      "score": -3.6,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:08.137730"
+    },
+    {
+      "strategy_id": "opening_range_breakout",
+      "total_trades": 5,
+      "total_return_pct": -4.0,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 3.4,
+      "score": -4.0,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:03.297880"
+    },
+    {
+      "strategy_id": "ma_cross_trend",
+      "total_trades": 6,
+      "total_return_pct": -5.7,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 5.1,
+      "score": -5.7,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:34.598145"
+    },
+    {
+      "strategy_id": "ma_cross_trend_short",
+      "total_trades": 6,
+      "total_return_pct": -5.7,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 5.1,
+      "score": -5.7,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:37.701580"
+    },
+    {
+      "strategy_id": "stochastic_breakout",
+      "total_trades": 5,
+      "total_return_pct": -7.0,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 6.8,
+      "score": -7.0,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:49.548347"
+    },
+    {
+      "strategy_id": "rsi_trend",
+      "total_trades": 7,
+      "total_return_pct": -7.4,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 6.8,
+      "score": -7.4,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:43.630297"
+    },
+    {
+      "strategy_id": "ema_scalping",
+      "total_trades": 7,
+      "total_return_pct": -7.4,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 6.8,
+      "score": -7.4,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:10.893741"
+    },
+    {
+      "strategy_id": "rsi_mid_bounce",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:40.940839"
+    },
+    {
+      "strategy_id": "hilbert_cycle",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:46.440146"
+    },
+    {
+      "strategy_id": "ema_cross_fast",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:52.242856"
+    },
+    {
+      "strategy_id": "volume_spike",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:54.952410"
+    },
+    {
+      "strategy_id": "momentum_divergence",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:53:57.776070"
+    },
+    {
+      "strategy_id": "cci_reversal",
+      "total_trades": 8,
+      "total_return_pct": -9.1,
+      "win_rate": 0.0,
+      "max_drawdown_pct": 8.5,
+      "score": -9.1,
+      "recommended": false,
+      "updated_at": "2026-05-03T14:54:13.620798"
+    }
+  ],
+  "recommended": []
+}

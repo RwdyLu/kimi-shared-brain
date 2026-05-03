@@ -331,12 +331,26 @@
       "description": "Fast EMA crossover for short-term trend detection",
       "description_zh": "快速EMA交叉檢測短期趨勢",
       "symbols": [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
       ],
-      "timeframes": ["5m"],
-      "indicators": ["EMA"],
-      "conditions": ["ema5_cross_above_ema10"],
+      "timeframes": [
+        "5m"
+      ],
+      "indicators": [
+        "EMA"
+      ],
+      "conditions": [
+        "ema5_cross_above_ema10"
+      ],
       "parameters": {
         "ema_fast": 5,
         "ema_slow": 10
@@ -353,12 +367,26 @@
       "description": "RSI bounce from below 40 to mid zone",
       "description_zh": "RSI從40下方反彈回中線區間",
       "symbols": [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
       ],
-      "timeframes": ["15m"],
-      "indicators": ["RSI"],
-      "conditions": ["rsi_cross_above_40"],
+      "timeframes": [
+        "15m"
+      ],
+      "indicators": [
+        "RSI"
+      ],
+      "conditions": [
+        "rsi_cross_above_40"
+      ],
       "parameters": {
         "rsi_period": 14,
         "rsi_threshold": 40
@@ -375,12 +403,26 @@
       "description": "Volume spike above 0.8x average",
       "description_zh": "成交量突增超過均量0.8倍",
       "symbols": [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
       ],
-      "timeframes": ["5m"],
-      "indicators": ["Volume"],
-      "conditions": ["volume_above_avg_1_5x"],
+      "timeframes": [
+        "5m"
+      ],
+      "indicators": [
+        "Volume"
+      ],
+      "conditions": [
+        "volume_above_avg_1_5x"
+      ],
       "parameters": {
         "volume_period": 20,
         "volume_multiplier": 0.8
@@ -397,12 +439,26 @@
       "description": "Breakout from 20-period high/low channel",
       "description_zh": "突破20期高點/低點通道",
       "symbols": [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
       ],
-      "timeframes": ["1h"],
-      "indicators": ["PriceChannel"],
-      "conditions": ["price_above_20period_high"],
+      "timeframes": [
+        "1h"
+      ],
+      "indicators": [
+        "PriceChannel"
+      ],
+      "conditions": [
+        "price_above_20period_high"
+      ],
       "parameters": {
         "channel_period": 20
       },
@@ -418,18 +474,269 @@
       "description": "Bullish divergence: price lower low, RSI higher low",
       "description_zh": "底背離：價格新低但RSI未新低",
       "symbols": [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT"
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
       ],
-      "timeframes": ["4h"],
-      "indicators": ["RSI", "Price"],
-      "conditions": ["bullish_divergence_rsi"],
+      "timeframes": [
+        "4h"
+      ],
+      "indicators": [
+        "RSI",
+        "Price"
+      ],
+      "conditions": [
+        "bullish_divergence_rsi"
+      ],
       "parameters": {
         "lookback_period": 14,
         "divergence_threshold": 0.02
       },
       "signal_type": "reversal_long",
       "signal_level": "watch_only"
+    },
+    {
+      "id": "opening_range_breakout",
+      "name": "Opening Range Breakout",
+      "name_zh": "開盤區間突破",
+      "type": "momentum",
+      "enabled": true,
+      "description": "Day trading: breakout from first candle of day's high/low range",
+      "description_zh": "日內交易：突破當天第一根K線的高低點區間",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "opening_range_breakout"
+      ],
+      "parameters": {},
+      "signal_type": "momentum",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "vwap_reversion",
+      "name": "VWAP Reversion",
+      "type": "mean_reversion",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "vwap_reversion"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "rsi_macd_confirm",
+      "name": "RSI + MACD Confirm",
+      "type": "momentum",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "rsi_macd_confirm"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bb_breakout",
+      "name": "Bollinger Band Breakout",
+      "type": "breakout",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "bb_breakout"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ema_ribbon",
+      "name": "EMA Ribbon",
+      "type": "trend",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "ema_ribbon"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "momentum_breakout",
+      "name": "Momentum Breakout",
+      "type": "momentum",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "momentum_breakout"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "supertrend",
+      "name": "Supertrend",
+      "type": "trend",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "supertrend"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ichimoku_cloud",
+      "name": "Ichimoku Cloud",
+      "type": "trend",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "ichimoku_cloud"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "williams_r",
+      "name": "Williams %R Reversal",
+      "type": "reversal",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "williams_r"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "atr_breakout",
+      "name": "ATR Breakout",
+      "type": "breakout",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "atr_breakout"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "dual_thrust",
+      "name": "Dual Thrust",
+      "type": "momentum",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "dual_thrust"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "parabolic_sar_v2",
+      "name": "Parabolic SAR",
+      "type": "trend",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "parabolic_sar_v2"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "keltner_breakout",
+      "name": "Keltner Channel Breakout",
+      "type": "breakout",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "keltner_breakout"
+      ],
+      "parameters": {}
     }
   ],
   "registry_settings": {

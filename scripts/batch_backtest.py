@@ -79,7 +79,7 @@ def compute_profit_factor(trades: List[Dict]) -> float:
     return round(gross_profit / gross_loss, 2)
 
 
-def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
+def run_real_backtest(strategy: Dict, days: int = 30) -> Dict[str, Any]:
     """
     Run real backtest for a single strategy.
     為單一策略執行真實回測。
@@ -87,10 +87,9 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
     strategy_id = strategy['id']
     strategy_name = strategy['name']
     strategy_type = strategy['type']
-    symbols = strategy.get('symbols', ['BTCUSDT', 'ETHUSDT'])
     
-    # Use up to 5 symbols to keep runtime reasonable
-    test_symbols = symbols[:5]
+    # Fixed 5 symbols for all strategies
+    test_symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT']
     
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
@@ -98,6 +97,7 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
     print(f"\n🔍 Backtesting: {strategy_name} ({strategy_id})")
     print(f"   Symbols: {', '.join(test_symbols)}")
     print(f"   Period: {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}")
+    print(f"   SL: 1% | TP: 1.5% | Commission: 0.1% per side")
     
     try:
         summary = run_backtest(
@@ -105,8 +105,9 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
             start_date=start_date.strftime('%Y-%m-%d'),
             end_date=end_date.strftime('%Y-%m-%d'),
             initial_capital=10000.0,
-            stop_loss_pct=2.0,
-            take_profit_pct=4.0,
+            stop_loss_pct=1.0,
+            take_profit_pct=1.5,
+            commission_pct=0.1,
             strategy_id=strategy_id,
             strategy_type=strategy_type,
         )
@@ -128,6 +129,11 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
         elif winning > 0 and losing == 0:
             profit_factor = 2.0
         
+        # Calculate commission cost: 0.1% entry + 0.1% exit = 0.2% per round trip
+        # Applied to each trade
+        commission_cost_pct = total_trades * 0.2 if total_trades > 0 else 0.0
+        net_return = round(summary.total_return_pct - commission_cost_pct, 2)
+        
         metrics = {
             'strategy_id': strategy_id,
             'name': strategy_name,
@@ -139,13 +145,15 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
             'profit_factor': profit_factor,
             'total_trades': total_trades,
             'avg_profit_per_trade': round(summary.total_return_pct / total_trades, 3) if total_trades > 0 else 0.0,
+            'commission_cost': round(commission_cost_pct, 2),
+            'net_return': net_return,
             'status': 'completed',
             'symbols_tested': test_symbols,
             'backtest_id': summary.backtest_id
         }
         
-        print(f"   ✅ Return: {metrics['total_return']:+.2f}% | Sharpe: {metrics['sharpe_ratio']:.2f} | "
-              f"Win Rate: {metrics['win_rate']:.1f}% | Trades: {metrics['total_trades']}")
+        print(f"   ✅ Gross: {metrics['total_return']:+.2f}% | Net: {metrics['net_return']:+.2f}% | Sharpe: {metrics['sharpe_ratio']:.2f} | "
+              f"Win Rate: {metrics['win_rate']:.1f}% | Trades: {metrics['total_trades']} | Commission: {metrics['commission_cost']:.2f}%")
         
         return metrics
         
@@ -161,64 +169,56 @@ def run_real_backtest(strategy: Dict, days: int = 7) -> Dict[str, Any]:
 
 
 def rank_strategies(results: List[Dict]) -> List[Dict]:
-    """Rank strategies by composite score / 按綜合評分排名策略"""
+    """Rank strategies by net return after fees / 按手續費後淨報酬排名策略"""
     completed = [r for r in results if r.get('status') == 'completed']
     
     if not completed:
         print("\n⚠️ No successful backtests!")
         return []
     
-    # Calculate composite score
-    for r in completed:
-        sharpe = max(r.get('sharpe_ratio', 0), -5)
-        win_rate = r.get('win_rate', 0) / 100.0
-        returns = r.get('total_return', 0) / 100.0
-        drawdown_penalty = abs(r.get('max_drawdown', 0)) / 100.0
-        trades_factor = min(r.get('total_trades', 0) / 50.0, 1.0)  # Normalize to 0-1
-        
-        r['composite_score'] = (
-            sharpe * 0.30 +
-            win_rate * 0.25 +
-            returns * 0.20 -
-            drawdown_penalty * 0.15 +
-            trades_factor * 0.10
-        )
-    
-    # Sort by composite score
-    ranked = sorted(completed, key=lambda x: x['composite_score'], reverse=True)
+    # Sort by net return (after commission) descending
+    ranked = sorted(completed, key=lambda x: x.get('net_return', float('-inf')), reverse=True)
     
     return ranked
 
 
 def print_ranking(ranked: List[Dict]) -> None:
     """Print ranking table / 印出排名表"""
-    print("\n" + "="*90)
-    print("🏆 STRATEGY RANKING RESULTS")
-    print("="*90)
-    print(f"{'Rank':<6}{'Strategy':<28}{'Type':<14}{'Return':<10}{'Sharpe':<8}{'Win%':<8}{'DD':<8}{'Trades':<8}{'Score':<8}")
-    print("-"*90)
+    print("\n" + "="*100)
+    print("🏆 STRATEGY RANKING RESULTS (After Commission)")
+    print("="*100)
+    print(f"{'策略':<28}{'勝率':<8}{'總報酬':<10}{'Sharpe':<8}{'最大回撤':<10}{'交易次數':<10}{'手續費後淨報酬':<14}")
+    print("-"*100)
     
     for i, r in enumerate(ranked, 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else "  "
         return_str = f"{r['total_return']:>+.2f}%"
-        print(f"{medal} {i:<4}{r['name']:<28}{r['type']:<14}"
+        net_str = f"{r['net_return']:>+.2f}%"
+        print(f"{medal} {i:<2} {r['name']:<25}{r['win_rate']:>5.1f}%  "
               f"{return_str:<10}{r['sharpe_ratio']:>6.2f}  "
-              f"{r['win_rate']:>5.1f}% {r['max_drawdown']:>6.2f}% "
-              f"{r['total_trades']:>6} {r['composite_score']:>6.2f}")
+              f"{r['max_drawdown']:>6.2f}%  {r['total_trades']:>8}  "
+              f"{net_str:<14}")
     
-    print("="*90)
+    print("="*100)
     
     # Top 3 recommendation
     print("\n📊 TOP 3 RECOMMENDED:")
     for i, r in enumerate(ranked[:3], 1):
-        print(f"   {i}. {r['name']} (Score: {r['composite_score']:.2f})")
-        print(f"      Return: {r['total_return']:+.2f}% | Sharpe: {r['sharpe_ratio']:.2f} | "
+        print(f"   {i}. {r['name']} (Net: {r['net_return']:+.2f}%)")
+        print(f"      Gross: {r['total_return']:+.2f}% | Sharpe: {r['sharpe_ratio']:.2f} | "
               f"Win Rate: {r['win_rate']:.1f}% | Max DD: {r['max_drawdown']:.2f}% | "
-              f"Profit Factor: {r['profit_factor']:.2f}")
+              f"Trades: {r['total_trades']} | Commission: {r['commission_cost']:.2f}%")
     
     # Save results
     output = {
         'timestamp': datetime.now().isoformat(),
+        'parameters': {
+            'days': 30,
+            'stop_loss_pct': 1.0,
+            'take_profit_pct': 1.5,
+            'commission_pct': 0.1,
+            'symbols': ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT']
+        },
         'total_strategies': len(ranked),
         'ranking': ranked
     }
@@ -243,22 +243,22 @@ def print_strategy_details(ranked: List[Dict]) -> None:
             type_stats[t] = []
         type_stats[t].append(r)
     
-    for t, strategies in sorted(type_stats.items(), key=lambda x: sum(s['composite_score'] for s in x[1])/len(x[1]), reverse=True):
-        avg_score = sum(s['composite_score'] for s in strategies) / len(strategies)
-        avg_return = sum(s['total_return'] for s in strategies) / len(strategies)
+    for t, strategies in sorted(type_stats.items(), key=lambda x: sum(s['net_return'] for s in x[1])/len(x[1]), reverse=True):
+        avg_return = sum(s['net_return'] for s in strategies) / len(strategies)
+        avg_gross = sum(s['total_return'] for s in strategies) / len(strategies)
         print(f"\n   {t.upper()}:")
-        print(f"      Average Score: {avg_score:.2f} | Average Return: {avg_return:+.2f}%")
+        print(f"      Average Net Return: {avg_return:.2f}% | Average Gross: {avg_gross:.2f}%")
         for s in strategies:
-            print(f"      - {s['name']}: Score {s['composite_score']:.2f}")
+            print(f"      - {s['name']}: Net {s['net_return']:+.2f}% | Gross {s['total_return']:+.2f}%")
 
 
 def main():
     """Run batch backtest / 執行批次回測"""
-    print("="*90)
-    print("🚀 BATCH BACKTEST: Real Historical Data")
-    print("="*90)
+    print("="*100)
+    print("🚀 BATCH BACKTEST: Real Historical Data (30 Days, 1% SL, 1.5% TP, 0.1% Commission)")
+    print("="*100)
     print(f"Started: {datetime.now()}")
-    print("\n✅ Using real backtest runner with historical kline data")
+    print("\n✅ Parameters: SL=1% | TP=1.5% | Commission=0.1% per side | Period=30 days | Symbols=BTC,ETH,BNB,SOL,XRP")
     
     # Load strategies
     try:
@@ -271,7 +271,7 @@ def main():
     # Run backtests
     results = []
     for strategy in strategies:
-        result = run_real_backtest(strategy, days=7)
+        result = run_real_backtest(strategy, days=30)
         results.append(result)
     
     # Rank
