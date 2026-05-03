@@ -162,19 +162,13 @@ class TradeExecutor:
                 reason=f"Unknown strategy: {strategy_id}", strategy_id=strategy_id,
             )
 
-        # Check if already holding / 檢查是否已持有
-        if self.paper.has_position(strategy_id, symbol):
-            return TradeResult(
-                symbol=symbol, side=side, status="skipped",
-                reason="Position already open", strategy_id=strategy_id,
-            )
-
         # Check exposure limit (per-strategy) / 檢查單策略曝險上限
         strategy_balance = self.paper.get_strategy_balance(strategy_id)
         open_positions = self.paper.get_strategy_positions(strategy_id)
         open_exposure = sum(
             p.get("entry_price", 0) * p.get("quantity", 0)
-            for p in open_positions.values()
+            for positions in open_positions.values()
+            for p in positions
         )
         max_exposure = strategy_balance * self.max_total_exposure_pct
         if open_exposure >= max_exposure:
@@ -237,7 +231,15 @@ class TradeExecutor:
                 reason="No open position to exit", strategy_id=strategy_id,
             )
 
-        position = self.paper.get_strategy_positions(strategy_id).get(symbol, {})
+        # Verify direction matches — check oldest position (FIFO) / 驗證方向匹配（檢查最老的倉位）
+        positions = self.paper.get_strategy_positions(strategy_id).get(symbol, [])
+        if not positions:
+            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+            return TradeResult(
+                symbol=symbol, side=side, status="skipped",
+                reason="No open position to exit", strategy_id=strategy_id,
+            )
+        position = positions[0]  # FIFO — oldest position
         position_side = position.get("side", "")
         signal_type = signal.signal_type
         signal_type_name = signal_type.name
@@ -335,50 +337,52 @@ class TradeExecutor:
         max_hold_delta = timedelta(hours=self.MAX_HOLD_HOURS)
 
         for strategy_id, acc in self.paper.strategies.items():
-            for symbol in list(acc.positions.keys()):
-                position = acc.positions.get(symbol)
-                if not position:
+            for symbol, positions in list(acc.positions.items()):
+                if not positions:
                     continue
 
-                entry_time_str = position.get("entry_time")
-                if not entry_time_str:
-                    continue
-
-                entry_time = datetime.fromisoformat(entry_time_str) if isinstance(entry_time_str, str) else entry_time_str
-                hold_duration = now - entry_time
-
-                if hold_duration > max_hold_delta:
-                    price = current_prices.get(symbol, 0)
-                    if price <= 0:
-                        self.logger.warning(f"[{strategy_id}] Time stop for {symbol}: no price")
+                # Check each position individually / 逐倉位檢查
+                for position in list(positions):
+                    entry_time_str = position.get("entry_time")
+                    if not entry_time_str:
                         continue
 
-                    position_side = position.get("side", "")
-                    exit_side = TradeSide.SELL if position_side == TradeSide.BUY else TradeSide.BUY
+                    entry_time = datetime.fromisoformat(entry_time_str) if isinstance(entry_time_str, str) else entry_time_str
+                    hold_duration = now - entry_time
 
-                    self.logger.info(
-                        f"⏰ TIME STOP [{strategy_id}] {symbol} held {hold_duration.total_seconds()/3600:.1f}h"
-                    )
+                    if hold_duration > max_hold_delta:
+                        price = current_prices.get(symbol, 0)
+                        if price <= 0:
+                            self.logger.warning(f"[{strategy_id}] Time stop for {symbol}: no price")
+                            continue
 
-                    try:
-                        trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
-                        self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+                        position_side = position.get("side", "")
+                        exit_side = TradeSide.SELL if position_side == TradeSide.BUY else TradeSide.BUY
 
-                        if trade:
-                            balance_after = self.paper.get_strategy_balance(strategy_id)
-                            results.append(TradeResult(
-                                symbol=symbol, side=exit_side, status="time_stopped",
-                                trade_id=trade.get("trade_id"),
-                                quantity=trade.get("quantity"),
-                                entry_price=trade.get("entry_price"),
-                                balance_after=balance_after,
-                                reason=f"Time stop: {hold_duration.total_seconds()/3600:.1f}h",
-                                strategy_id=strategy_id,
-                            ))
-                    except Exception as e:
-                        self.logger.error(f"[{strategy_id}] Time stop exit failed: {e}")
+                        self.logger.info(
+                            f"⏰ TIME STOP [{strategy_id}] {symbol} held {hold_duration.total_seconds()/3600:.1f}h"
+                        )
 
-        return results
+                        try:
+                            trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
+                            self.pending_exit_signals.get(symbol, {}).pop(strategy_id, None)
+
+                            if trade:
+                                balance_after = self.paper.get_strategy_balance(strategy_id)
+                                results.append(TradeResult(
+                                    symbol=symbol, side=exit_side, status="time_stopped",
+                                    trade_id=trade.get("trade_id"),
+                                    quantity=trade.get("quantity"),
+                                    entry_price=trade.get("entry_price"),
+                                    balance_after=balance_after,
+                                    reason=f"Time stop: {hold_duration.total_seconds()/3600:.1f}h",
+                                    strategy_id=strategy_id,
+                                ))
+                        except Exception as e:
+                            self.logger.error(f"[{strategy_id}] Time stop exit failed: {e}")
+                    else:
+                        # Since positions are FIFO, if this one hasn't reached the limit, newer ones won't either
+                        break
 
     def get_paper_performance(self) -> Optional[Dict]:
         """Get paper trading summary / 取得模擬交易總覽"""

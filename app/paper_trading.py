@@ -69,10 +69,14 @@ class Trade:
 
 @dataclass
 class StrategyAccount:
-    """Per-strategy virtual trading account / 單一策略虛擬交易帳戶"""
+    """Per-strategy virtual trading account / 單一策略虛擬交易帳戶
+
+    positions: Dict[str, List[dict]] — symbol -> [position1, position2, ...]
+    Allows multiple simultaneous positions per symbol.
+    """
     balance: float
     initial: float
-    positions: Dict[str, dict] = field(default_factory=dict)
+    positions: Dict[str, List[dict]] = field(default_factory=dict)
     trades: List[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -85,10 +89,21 @@ class StrategyAccount:
 
     @classmethod
     def from_dict(cls, data: dict) -> "StrategyAccount":
+        raw_positions = data.get("positions", {})
+        # Migrate old format (Dict[str, dict]) -> new (Dict[str, List[dict]])
+        positions: Dict[str, List[dict]] = {}
+        for sym, pos in raw_positions.items():
+            if isinstance(pos, list):
+                positions[sym] = pos
+            elif isinstance(pos, dict):
+                # Old single-position format: wrap in list
+                positions[sym] = [pos]
+            else:
+                positions[sym] = []
         return cls(
             balance=data.get("balance", INITIAL_BALANCE_PER_STRATEGY),
             initial=data.get("initial", INITIAL_BALANCE_PER_STRATEGY),
-            positions=data.get("positions", {}),
+            positions=positions,
             trades=data.get("trades", []),
         )
 
@@ -197,8 +212,11 @@ class PaperTrading:
         acc = self.strategies.get(strategy_id)
         return acc.balance if acc else 0.0
 
-    def get_strategy_positions(self, strategy_id: str) -> Dict[str, dict]:
-        """Get open positions for a strategy / 取得策略未平倉"""
+    def get_strategy_positions(self, strategy_id: str) -> Dict[str, List[dict]]:
+        """Get open positions for a strategy / 取得策略未平倉
+
+        Returns Dict[str, List[dict]] — symbol -> [position1, ...]
+        """
         acc = self.strategies.get(strategy_id)
         return acc.positions if acc else {}
 
@@ -211,7 +229,17 @@ class PaperTrading:
     def has_position(self, strategy_id: str, symbol: str) -> bool:
         """Check if strategy holds a symbol / 檢查策略是否持有某幣種"""
         acc = self.strategies.get(strategy_id)
-        return symbol in acc.positions if acc else False
+        if not acc:
+            return False
+        positions = acc.positions.get(symbol, [])
+        return len(positions) > 0
+
+    def get_position_count(self, strategy_id: str, symbol: str) -> int:
+        """Count open positions for a strategy-symbol pair / 計算策略-幣種的未平倉數"""
+        acc = self.strategies.get(strategy_id)
+        if not acc:
+            return 0
+        return len(acc.positions.get(symbol, []))
 
     def get_total_equity(self) -> float:
         """Total equity across all strategies / 所有策略總權益"""
@@ -219,7 +247,8 @@ class PaperTrading:
         for acc in self.strategies.values():
             total += acc.balance + sum(
                 p.get("quantity", 0) * p.get("entry_price", 0)
-                for p in acc.positions.values()
+                for positions in acc.positions.values()
+                for p in positions
             )
         return total
 
@@ -267,6 +296,7 @@ class PaperTrading:
     ) -> bool:
         """
         Enter a position using strategy's own balance.
+        Multiple positions per symbol are allowed.
         Returns True if successful.
         """
         if strategy_id not in self.strategies:
@@ -285,28 +315,31 @@ class PaperTrading:
             )
             return False
 
-        if symbol in acc.positions:
-            logger.warning(f"[{strategy_id}] Already holding {symbol}")
-            return False
-
-        # Position size check / 倉位大小檢查
-        if cost > acc.balance * MAX_POSITION_RATIO:
+        # Position size check — total exposure across all positions for this symbol
+        existing_exposure = sum(
+            p.get("quantity", 0) * p.get("entry_price", 0)
+            for p in acc.positions.get(symbol, [])
+        )
+        total_exposure = existing_exposure + cost
+        if total_exposure > acc.balance * MAX_POSITION_RATIO * 2:  # Allow up to 2x single position for multiple entries
             logger.warning(
-                f"[{strategy_id}] Position too large: ${cost:.2f} > "
-                f"{MAX_POSITION_RATIO * 100}% of balance"
+                f"[{strategy_id}] Total position too large for {symbol}: ${total_exposure:.2f}"
             )
             return False
 
         acc.balance -= total_cost
+        entry_time = datetime.now().isoformat()
+        position_id = f"POS_{datetime.now().strftime('%Y%m%d%H%M%S')}_{symbol}_{strategy_id}_{len(acc.positions.get(symbol, []))}"
         position = {
             "symbol": symbol,
             "side": side,
             "quantity": quantity,
             "entry_price": price,
-            "entry_time": datetime.now().isoformat(),
+            "entry_time": entry_time,
             "strategy_id": strategy_id,
+            "position_id": position_id,
         }
-        acc.positions[symbol] = position
+        acc.positions.setdefault(symbol, []).append(position)
 
         # Record trade entry / 記錄交易進場
         trade_id = f"PT_{datetime.now().strftime('%Y%m%d%H%M%S')}_{symbol}_{strategy_id}"
@@ -317,19 +350,20 @@ class PaperTrading:
             "quantity": quantity,
             "entry_price": price,
             "exit_price": None,
-            "entry_time": datetime.now().isoformat(),
+            "entry_time": entry_time,
             "exit_time": None,
             "slippage": slippage,
             "commission": commission,
             "realized_pnl": 0.0,
             "strategy_id": strategy_id,
+            "position_id": position_id,
         }
         acc.trades.append(trade)
 
         self._save_state()
         logger.info(
             f"[{strategy_id}] ENTER {side} {symbol} {quantity} @ ${price:,.2f} "
-            f"cost=${total_cost:.2f} balance=${acc.balance:.2f}"
+            f"cost=${total_cost:.2f} balance=${acc.balance:.2f} (position_id={position_id})"
         )
         return True
 
@@ -340,7 +374,7 @@ class PaperTrading:
         strategy_id: str,
     ) -> Optional[dict]:
         """
-        Exit a position for a specific strategy.
+        Exit the oldest (FIFO) position for a specific strategy-symbol pair.
         Returns trade dict if successful, None otherwise.
         """
         if strategy_id not in self.strategies:
@@ -348,14 +382,17 @@ class PaperTrading:
             return None
 
         acc = self.strategies[strategy_id]
-        if symbol not in acc.positions:
+        positions = acc.positions.get(symbol, [])
+        if not positions:
             logger.warning(f"[{strategy_id}] No position in {symbol} to exit")
             return None
 
-        position = acc.positions[symbol]
+        # FIFO — exit oldest position / 先進先出 — 平倉最老的一筆
+        position = positions[0]
         entry_price = position["entry_price"]
         quantity = position["quantity"]
         side = position["side"]
+        position_id = position.get("position_id", "")
 
         # Calculate PnL / 計算損益
         if side.lower() == "buy":
@@ -372,10 +409,10 @@ class PaperTrading:
         acc.balance += exit_cost - commission - slippage
 
         # Update trade record / 更新交易記錄
-        # Find the matching open trade
+        # Find the matching open trade (FIFO — oldest unclosed trade for this position)
         open_trade = None
-        for t in reversed(acc.trades):
-            if t["symbol"] == symbol and t["exit_price"] is None:
+        for t in acc.trades:
+            if t["symbol"] == symbol and t["exit_price"] is None and t.get("position_id") == position_id:
                 open_trade = t
                 break
 
@@ -385,12 +422,14 @@ class PaperTrading:
             open_trade["realized_pnl"] = realized_pnl
 
         # Remove position / 移除倉位
-        del acc.positions[symbol]
+        positions.pop(0)
+        if not positions:
+            del acc.positions[symbol]
 
         self._save_state()
         logger.info(
             f"[{strategy_id}] EXIT {symbol} @ ${price:,.2f} "
-            f"PnL=${realized_pnl:+.2f} balance=${acc.balance:.2f}"
+            f"PnL=${realized_pnl:+.2f} balance=${acc.balance:.2f} (position_id={position_id})"
         )
 
         return open_trade
@@ -409,16 +448,20 @@ class PaperTrading:
                 continue
 
             closed[sid] = []
-            # Copy keys because we're modifying dict / 複製 keys 因為會修改 dict
+            # Copy symbols because we're modifying dict / 複製 symbols 因為會修改 dict
             for symbol in list(acc.positions.keys()):
                 price = current_prices.get(symbol, 0)
                 if price <= 0:
                     logger.warning(f"[{sid}] No price for {symbol}, skipping force close")
                     continue
 
-                trade = self.exit_position(symbol, price, sid)
-                if trade:
-                    closed[sid].append(trade)
+                # Close all positions for this symbol (FIFO loop) / 平倉該幣種所有倉位
+                while acc.positions.get(symbol):
+                    trade = self.exit_position(symbol, price, sid)
+                    if trade:
+                        closed[sid].append(trade)
+                    else:
+                        break
 
             # Record daily settlement / 記錄當日結算
             if closed[sid]:
@@ -461,22 +504,27 @@ class PaperTrading:
         total_balance = sum(acc.balance for acc in self.strategies.values())
         total_pnl = total_balance - self.total_initial
         total_return_pct = (total_pnl / self.total_initial * 100) if self.total_initial else 0
-        open_positions = sum(len(acc.positions) for acc in self.strategies.values())
+        open_positions = sum(
+            len(positions)
+            for acc in self.strategies.values()
+            for positions in acc.positions.values()
+        )
 
         # Max hold time / 最大持倉時間
         max_hold_hours = 0
         now = datetime.now()
         for acc in self.strategies.values():
-            for pos in acc.positions.values():
-                et = pos.get("entry_time")
-                if et:
-                    try:
-                        entry = datetime.fromisoformat(et)
-                        hold = (now - entry).total_seconds() / 3600
-                        if hold > max_hold_hours:
-                            max_hold_hours = hold
-                    except Exception:
-                        pass
+            for positions in acc.positions.values():
+                for pos in positions:
+                    et = pos.get("entry_time")
+                    if et:
+                        try:
+                            entry = datetime.fromisoformat(et)
+                            hold = (now - entry).total_seconds() / 3600
+                            if hold > max_hold_hours:
+                                max_hold_hours = hold
+                        except Exception:
+                            pass
 
         today_pnl = self.get_today_realized_pnl()
 

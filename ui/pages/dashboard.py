@@ -1835,11 +1835,18 @@ def update_paper_positions(n):
             state = json.load(f)
         
         # Aggregate positions from all strategies / 從所有策略合併持倉
-        all_positions = {}
+        # New format: positions = Dict[str, List[dict]] — symbol -> [position1, ...]
+        all_positions = []  # List of (symbol, position_dict)
         for sid, acc in state.get("strategies", {}).items():
-            for sym, pos in acc.get("positions", {}).items():
-                pos["strategy_id"] = sid
-                all_positions[sym] = pos
+            for sym, positions in acc.get("positions", {}).items():
+                if isinstance(positions, list):
+                    for pos in positions:
+                        pos["strategy_id"] = sid
+                        all_positions.append((sym, pos))
+                elif isinstance(positions, dict):
+                    # Old format: single position dict / 舊格式：單一倉位字典
+                    positions["strategy_id"] = sid
+                    all_positions.append((sym, positions))
         
         if not all_positions:
             return [html.Tr([html.Td("No open positions / 目前無持倉", colSpan=8)])]
@@ -1850,7 +1857,7 @@ def update_paper_positions(n):
         now = datetime.now()
         
         rows = []
-        for symbol, pos in all_positions.items():
+        for symbol, pos in all_positions:
             side = pos.get("side", "--")
             entry_price = pos.get("entry_price", 0)
             entry_time_str = pos.get("entry_time")
