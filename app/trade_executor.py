@@ -266,23 +266,28 @@ class TradeExecutor:
             for symbol, positions in list(acc.positions.items()):
                 if not positions:
                     continue
-                # Check each position / 逐倉位檢查
+
+                # Load indicators and inject current price / 載入指標並注入現價
+                indicators = self._get_latest_indicators(symbol)
+                current_price = current_prices.get(symbol, 0)
+                if current_price > 0:
+                    indicators["price"] = current_price
+
+                # Check each position (FIFO order) / 逐倉位檢查（FIFO 順序）
                 for position in list(positions):
-                    indicators = self._get_latest_indicators(symbol)
                     should_exit, reason = self._check_strategy_exit(strategy_id, position, indicators)
                     if should_exit:
-                        price = current_prices.get(symbol, 0)
-                        if price <= 0:
+                        if current_price <= 0:
                             continue
                         position_side = position.get("side", "")
                         exit_side = TradeSide.SELL if position_side.lower() == "buy" else TradeSide.BUY
 
                         try:
-                            trade = self.paper.exit_position(symbol=symbol, price=price, strategy_id=strategy_id)
+                            trade = self.paper.exit_position(symbol=symbol, price=current_price, strategy_id=strategy_id)
                             if trade:
                                 balance_after = self.paper.get_strategy_balance(strategy_id)
                                 self.logger.info(
-                                    f"🎯 STRATEGY EXIT [{strategy_id}] {symbol} @ ${price:,.2f} "
+                                    f"🎯 STRATEGY EXIT [{strategy_id}] {symbol} @ ${current_price:,.2f} "
                                     f"reason={reason} PnL=${trade.get('realized_pnl', 0):+.2f}"
                                 )
                                 results.append(TradeResult(
@@ -296,6 +301,9 @@ class TradeExecutor:
                                 ))
                         except Exception as e:
                             self.logger.error(f"[{strategy_id}] Strategy exit failed for {symbol}: {e}")
+                    else:
+                        # FIFO: if oldest position doesn't exit, newer ones won't either
+                        break
 
         return results
 
