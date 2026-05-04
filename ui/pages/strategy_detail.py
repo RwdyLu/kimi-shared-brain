@@ -421,6 +421,23 @@ def layout(strategy_name=None):
                 className="mb-4"
             ),
             
+            # Trading Log / 交易日誌
+            dbc.Card(
+                [
+                    dbc.CardHeader([
+                        html.H5("📖 Trading Log / 交易日誌", className="mb-0"),
+                        html.Small("Today's confirmed signals & matched trades / 今日確認訊號與配對交易", className="text-muted")
+                    ]),
+                    dbc.CardBody(
+                        id="strategy-trading-log",
+                        children=[
+                            html.P("Loading trading log... / 載入交易日誌中...", className="text-muted")
+                        ]
+                    )
+                ],
+                className="mb-4"
+            ),
+            
             # Auto-refresh / 自動刷新
             dcc.Interval(
                 id="strategy-interval",
@@ -439,6 +456,7 @@ def layout(strategy_name=None):
     Output("strategy-conditions-body", "children"),
     Output("strategy-indicators-body", "children"),
     Output("strategy-signal-history", "children"),
+    Output("strategy-trading-log", "children"),
     Input("strategy-coin-selector", "value"),
     Input("strategy-interval", "n_intervals"),
     Input("strategy-name-store", "data")
@@ -446,7 +464,7 @@ def layout(strategy_name=None):
 def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     """Update strategy detail content for selected coin"""
     if not strategy_name:
-        return "--", "--", html.P("No strategy selected / 未選擇策略", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted")
+        return "--", "--", html.P("No strategy selected / 未選擇策略", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted")
     
     # Decode URL encoding and normalize: "Hilbert%20Cycle" → "hilbert_cycle"
     strategy_name = urllib.parse.unquote(strategy_name)
@@ -454,7 +472,7 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     
     strategy = find_strategy(strategy_name)
     if not strategy:
-        return "--", "--", dbc.Alert("Strategy not found / 策略未找到", color="danger"), html.Div(), html.Div()
+        return "--", "--", dbc.Alert("Strategy not found / 策略未找到", color="danger"), html.Div(), html.Div(), html.Div()
     
     # Get latest snapshot for selected symbol
     snapshot = get_latest_snapshot(selected_symbol)
@@ -489,7 +507,10 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     # Render signal history
     signal_history_component = render_signal_history(strategy, selected_symbol)
     
-    return price_display, score, conditions_component, indicators_component, signal_history_component
+    # Render trading log
+    trading_log_component = render_trading_log(strategy, selected_symbol, price)
+    
+    return price_display, score, conditions_component, indicators_component, signal_history_component, trading_log_component
 
 
 def render_conditions(strategy, snapshot):
@@ -816,6 +837,296 @@ def render_signal_history(strategy, symbol):
                 html.Th("Price / 價格"),
                 html.Th("Status / 狀態"),
                 html.Th("Signal Types / 訊號類型")
+            ])),
+            html.Tbody(rows)
+        ],
+        bordered=True,
+        hover=True,
+        size="sm",
+        responsive=True,
+        className="mb-0"
+    )
+
+
+def get_today_signals_for_strategy(strategy_id: str, signal_type: str, symbol: str) -> list:
+    """Get today's confirmed signals for a strategy and symbol from snapshots"""
+    try:
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
+            return []
+        
+        expected = signal_type.upper().replace(" ", "_")
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        signals = []
+        with open(snapshot_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        for line in lines:
+            try:
+                data = json.loads(line.strip())
+                if data.get("symbol") != symbol:
+                    continue
+                
+                ts = data.get("timestamp", "")
+                if not ts.startswith(today):
+                    continue
+                
+                signal_types = data.get("signal_types", [])
+                if not signal_types:
+                    continue
+                
+                matched = any(
+                    expected in st.upper() or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
+                    for st in signal_types
+                )
+                
+                if matched:
+                    signals.append({
+                        "timestamp": ts,
+                        "symbol": symbol,
+                        "price": data.get("price"),
+                        "indicators": {
+                            "rsi": data.get("rsi"),
+                            "ma5": data.get("ma5"),
+                            "ma20": data.get("ma20"),
+                            "ht_sine": data.get("ht_sine"),
+                            "stoch_fastk": data.get("stoch_fastk"),
+                            "volume_ratio": data.get("volume_ratio"),
+                        }
+                    })
+            except Exception:
+                continue
+        
+        return signals
+    except Exception as e:
+        print(f"Error reading today's signals: {e}")
+        return []
+
+
+def get_paper_trades(strategy_id: str, symbol: str) -> dict:
+    """Get trades and positions for a strategy and symbol from paper trading state"""
+    try:
+        state_file = PROJECT_ROOT / "state" / "paper_trading_state.json"
+        if not state_file.exists():
+            return {"trades": [], "positions": []}
+        
+        with open(state_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        strategy_data = data.get("strategies", {}).get(strategy_id, {})
+        
+        trades = [
+            trade for trade in strategy_data.get("trades", [])
+            if trade.get("symbol") == symbol
+        ]
+        
+        positions = [
+            pos for sym, pos in strategy_data.get("positions", {}).items()
+            if sym == symbol
+        ]
+        
+        return {"trades": trades, "positions": positions}
+    except Exception as e:
+        print(f"Error reading paper trades: {e}")
+        return {"trades": [], "positions": []}
+
+
+def render_trading_log(strategy, symbol, current_price=None):
+    """Render trading log for today's confirmed signals matched with trades"""
+    strategy_id = strategy.get("id", "")
+    signal_type = strategy.get("signal_type", "")
+    
+    # 1. Get today's confirmed signals from snapshots
+    signals = get_today_signals_for_strategy(strategy_id, signal_type, symbol)
+    
+    # 2. Get trades and positions from paper trading state
+    trades_data = get_paper_trades(strategy_id, symbol)
+    
+    if not signals and not trades_data.get("trades") and not trades_data.get("positions"):
+        return dbc.Alert("No trading activity today / 今日無交易活動", color="info")
+    
+    # Build rows
+    rows = []
+    processed_trades = set()
+    processed_positions = set()
+    
+    for sig in signals:
+        ts = sig.get("timestamp", "--")
+        price = sig.get("price")
+        sym = sig.get("symbol", symbol)
+        
+        # Suggested SL/TP
+        sl_price = price * 0.985 if price else None
+        tp_price = price * 1.03 if price else None
+        
+        # Try to find matching trade (by symbol and approximate entry time within 5 min)
+        matched_trade = None
+        for trade in trades_data.get("trades", []):
+            tid = trade.get("trade_id", "")
+            if tid in processed_trades:
+                continue
+            if trade.get("symbol") == sym:
+                trade_entry_time = trade.get("entry_time", "")
+                if trade_entry_time:
+                    try:
+                        t1 = datetime.fromisoformat(ts)
+                        t2 = datetime.fromisoformat(trade_entry_time)
+                        if abs((t1 - t2).total_seconds()) < 300:  # 5 min window
+                            matched_trade = trade
+                            processed_trades.add(tid)
+                            break
+                    except Exception:
+                        pass
+        
+        # If no trade matched, try position
+        matched_position = None
+        if not matched_trade:
+            for pos in trades_data.get("positions", []):
+                pid = f"{pos.get('symbol')}:{pos.get('entry_time')}"
+                if pid in processed_positions:
+                    continue
+                if pos.get("symbol") == sym:
+                    pos_entry_time = pos.get("entry_time", "")
+                    if pos_entry_time:
+                        try:
+                            t1 = datetime.fromisoformat(ts)
+                            t2 = datetime.fromisoformat(pos_entry_time)
+                            if abs((t1 - t2).total_seconds()) < 300:
+                                matched_position = pos
+                                processed_positions.add(pid)
+                                break
+                        except Exception:
+                            pass
+        
+        # Determine entry/exit values
+        if matched_trade:
+            entry_price = matched_trade.get("entry_price")
+            exit_price = matched_trade.get("exit_price")
+        elif matched_position:
+            entry_price = matched_position.get("entry_price")
+            exit_price = None
+        else:
+            entry_price = price  # fallback to snapshot price
+            exit_price = None
+        
+        # Format time
+        try:
+            t = datetime.fromisoformat(ts)
+            time_str = t.strftime("%H:%M:%S")
+        except Exception:
+            time_str = str(ts)[:19]
+        
+        entry_str = f"${entry_price:,.2f}" if entry_price else "--"
+        sl_str = f"${sl_price:,.2f}" if sl_price else "--"
+        tp_str = f"${tp_price:,.2f}" if tp_price else "--"
+        
+        if matched_trade:
+            # Closed position
+            exit_str = f"${exit_price:,.2f}" if exit_price else "--"
+            pnl_pct = ((exit_price - entry_price) / entry_price * 100) if entry_price and exit_price else 0
+            pnl_str = f"{pnl_pct:+.2f}%"
+            pnl_color = "success" if pnl_pct >= 0 else "danger"
+            result_badge = dbc.Badge("Closed / 已平倉", color="secondary", className="px-2")
+        elif matched_position:
+            # Open position
+            exit_str = "—"
+            pnl_pct = ((current_price - entry_price) / entry_price * 100) if current_price and entry_price else 0
+            pnl_str = f"{pnl_pct:+.2f}%"
+            pnl_color = "success" if pnl_pct >= 0 else "danger"
+            result_badge = dbc.Badge("Holding / 持倉中", color="warning", className="px-2")
+        else:
+            # Signal but no trade executed
+            exit_str = "—"
+            pnl_str = "--"
+            pnl_color = "secondary"
+            result_badge = dbc.Badge("No Trade / 未成交", color="secondary", className="px-2")
+        
+        # Trigger indicator display
+        sig_data = sig.get("indicators", {})
+        trigger_indicators = []
+        if sig_data.get("rsi") is not None:
+            trigger_indicators.append(f"RSI:{sig_data['rsi']:.1f}")
+        if sig_data.get("ma5") is not None and sig_data.get("ma20") is not None:
+            trigger_indicators.append("MA5/MA20")
+        if sig_data.get("ht_sine") is not None:
+            trigger_indicators.append("HT")
+        if sig_data.get("stoch_fastk") is not None:
+            trigger_indicators.append(f"Stoch:{sig_data['stoch_fastk']:.1f}")
+        if sig_data.get("volume_ratio") is not None:
+            trigger_indicators.append(f"Vol:{sig_data['volume_ratio']:.1f}x")
+        
+        trigger_str = ", ".join(trigger_indicators) if trigger_indicators else strategy_id
+        
+        rows.append(html.Tr([
+            html.Td(time_str, className="font-monospace small"),
+            html.Td(sym),
+            html.Td(html.Small(trigger_str, className="text-muted")),
+            html.Td(entry_str),
+            html.Td(html.Small(sl_str, className="text-danger")),
+            html.Td(html.Small(tp_str, className="text-success")),
+            html.Td(exit_str),
+            html.Td(html.Span(pnl_str, className=f"text-{pnl_color} fw-bold")),
+            html.Td(result_badge),
+        ]))
+    
+    # Also add trades that weren't matched to any signal (e.g., time stop exits)
+    for trade in trades_data.get("trades", []):
+        tid = trade.get("trade_id", "")
+        if tid in processed_trades:
+            continue
+        
+        trade_entry_time = trade.get("entry_time", "")
+        entry_price = trade.get("entry_price")
+        exit_price = trade.get("exit_price")
+        sym = trade.get("symbol", symbol)
+        
+        try:
+            t = datetime.fromisoformat(trade_entry_time)
+            time_str = t.strftime("%H:%M:%S")
+        except Exception:
+            time_str = str(trade_entry_time)[:19] if trade_entry_time else "--"
+        
+        sl_price = entry_price * 0.985 if entry_price else None
+        tp_price = entry_price * 1.03 if entry_price else None
+        
+        entry_str = f"${entry_price:,.2f}" if entry_price else "--"
+        sl_str = f"${sl_price:,.2f}" if sl_price else "--"
+        tp_str = f"${tp_price:,.2f}" if tp_price else "--"
+        exit_str = f"${exit_price:,.2f}" if exit_price else "--"
+        
+        pnl_pct = ((exit_price - entry_price) / entry_price * 100) if entry_price and exit_price else 0
+        pnl_str = f"{pnl_pct:+.2f}%"
+        pnl_color = "success" if pnl_pct >= 0 else "danger"
+        result_badge = dbc.Badge("Closed / 已平倉", color="secondary", className="px-2")
+        
+        rows.append(html.Tr([
+            html.Td(time_str, className="font-monospace small"),
+            html.Td(sym),
+            html.Td(html.Small("—", className="text-muted")),
+            html.Td(entry_str),
+            html.Td(html.Small(sl_str, className="text-danger")),
+            html.Td(html.Small(tp_str, className="text-success")),
+            html.Td(exit_str),
+            html.Td(html.Span(pnl_str, className=f"text-{pnl_color} fw-bold")),
+            html.Td(result_badge),
+        ]))
+    
+    if not rows:
+        return dbc.Alert("No trading activity today / 今日無交易活動", color="info")
+    
+    return dbc.Table(
+        [
+            html.Thead(html.Tr([
+                html.Th("Time / 時間"),
+                html.Th("Symbol / 幣種"),
+                html.Th("Trigger / 觸發指標"),
+                html.Th("Entry / 進場價"),
+                html.Th(html.Small("SL / 止損", className="text-danger")),
+                html.Th(html.Small("TP / 止盈", className="text-success")),
+                html.Th("Exit / 出場價"),
+                html.Th("PnL% / 損益%"),
+                html.Th("Result / 結果"),
             ])),
             html.Tbody(rows)
         ],
