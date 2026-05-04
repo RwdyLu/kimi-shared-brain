@@ -76,6 +76,26 @@ class TradeExecutor:
     }
     EXIT_SIGNALS = {SignalType.EXIT_LONG, SignalType.EXIT_SHORT}
 
+    STRATEGIES_WITH_OWN_EXIT = [
+        'ma_cross_trend',
+        'ma_cross_trend_short',
+        'rsi_mid_bounce',
+        'rsi_trend',
+        'hilbert_cycle',
+        'stochastic_breakout',
+        'volume_spike',
+        'ema_cross_fast',
+        'ema_scalping',
+        'rsi_scalping',
+        'rsi_macd_confirm',
+        'momentum_divergence',
+        'roc_momentum',
+        'cci_reversal',
+        'price_channel_break',
+        'contrarian_watch_overheated',
+        'contrarian_watch_oversold',
+    ]
+
     MAX_HOLD_HOURS = 8
 
     def __init__(
@@ -114,27 +134,10 @@ class TradeExecutor:
 
     def _get_latest_indicators(self, symbol: str) -> dict:
         """
-        Read latest indicator snapshot for a symbol from indicator_snapshots.jsonl.
-        / 從 indicator_snapshots.jsonl 讀取最新一筆該幣種指標。
+        DEPRECATED: Real-time indicators are now passed directly from scheduler.
+        Kept as fallback for compatibility.
         """
-        import json
-        from pathlib import Path
-        result = {}
-        try:
-            snapshot_file = Path(__file__).resolve().parents[1] / "logs" / "indicator_snapshots.jsonl"
-            if not snapshot_file.exists():
-                return {}
-            with open(snapshot_file, 'r') as f:
-                for line in f:
-                    try:
-                        d = json.loads(line.strip())
-                        if d.get('symbol') == symbol:
-                            result = d
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        return result
+        return {}
 
     def _check_strategy_exit(self, strategy_id: str, position: dict, current_indicators: dict) -> tuple:
         """
@@ -254,6 +257,7 @@ class TradeExecutor:
         self,
         confirmed_signals: List,
         current_prices: Dict[str, float],
+        current_indicators: Optional[Dict[str, Dict]] = None,
     ) -> List[TradeResult]:
         """Execute trades for confirmed signals."""
         results = []
@@ -261,9 +265,11 @@ class TradeExecutor:
             self.logger.info("Trading disabled, skipping execution")
             return results
 
+        current_indicators = current_indicators or {}
+
         # Step 0: Check strategy-specific exits before new entries
         # / 步驟 0：在開新倉前先檢查策略專屬出場條件
-        exit_results = self._check_strategy_exits(current_prices)
+        exit_results = self._check_strategy_exits(current_prices, current_indicators)
         results.extend(exit_results)
 
         for signal in confirmed_signals:
@@ -272,7 +278,7 @@ class TradeExecutor:
                 results.append(result)
         return results
 
-    def _check_strategy_exits(self, current_prices: Dict[str, float]) -> List[TradeResult]:
+    def _check_strategy_exits(self, current_prices: Dict[str, float], current_indicators: Dict[str, Dict]) -> List[TradeResult]:
         """
         Scan all open positions for strategy-specific exit conditions.
         / 掃描所有未平倉位，檢查策略專屬出場條件。
@@ -286,8 +292,8 @@ class TradeExecutor:
                 if not positions:
                     continue
 
-                # Load indicators and inject current price / 載入指標並注入現價
-                indicators = self._get_latest_indicators(symbol)
+                # Use real-time indicators from scheduler / 使用排程器傳入的即時指標
+                indicators = current_indicators.get(symbol, {})
                 current_price = current_prices.get(symbol, 0)
                 if current_price > 0:
                     indicators["price"] = current_price
@@ -525,7 +531,11 @@ class TradeExecutor:
             )
 
     def check_time_stop_loss(self, current_prices: Dict[str, float]) -> List[TradeResult]:
-        """Exit positions held longer than MAX_HOLD_HOURS / 時間止損：持倉超過 8 小時自動平倉"""
+        """Exit positions held longer than MAX_HOLD_HOURS / 時間止損：持倉超過 8 小時自動平倉
+
+        Only applies to strategies WITHOUT their own exit logic.
+        Strategies with dedicated exit conditions (ma_cross, rsi, etc.) skip time stop.
+        """
         results = []
         if not self.paper:
             return results
@@ -534,6 +544,10 @@ class TradeExecutor:
         max_hold_delta = timedelta(hours=self.MAX_HOLD_HOURS)
 
         for strategy_id, acc in self.paper.strategies.items():
+            # Skip strategies that have their own exit logic / 有自己出場邏輯的策略不用時間止損
+            if strategy_id in self.STRATEGIES_WITH_OWN_EXIT:
+                continue
+
             for symbol, positions in list(acc.positions.items()):
                 if not positions:
                     continue

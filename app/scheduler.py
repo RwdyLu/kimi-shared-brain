@@ -546,9 +546,45 @@ class MonitoringScheduler:
                         if result.success and result.confirmed_signals:
                             confirmed_signals.extend(result.confirmed_signals)
                     
-                    # Execute trades
+                    # Build real-time indicators map from this run's results / 從本次執行結果建立即時指標映射
+                    current_indicators = {}
+                    for result in results:
+                        if result.success and result.current_price:
+                            indicators = {
+                                "price": result.current_price,
+                                "ma5": result.ma5,
+                                "ma20": result.ma20,
+                                "ma240": result.ma240,
+                                "volume_ratio": result.volume_ratio,
+                                "rsi": result.rsi,
+                                "rsi_prev": result.rsi_prev,
+                                "tema": result.tema,
+                                "tema_prev": result.tema_prev,
+                                "stoch_fastk": result.stoch_fastk,
+                                "stoch_fastd": result.stoch_fastd,
+                                "stoch_fastk_prev": result.stoch_fastk_prev,
+                                "stoch_fastd_prev": result.stoch_fastd_prev,
+                                "bb_upper": result.bb_upper,
+                                "bb_middle": result.bb_middle,
+                                "bb_lower": result.bb_lower,
+                                "sar": result.sar,
+                                "ht_sine": result.ht_sine,
+                                "ht_leadsine": result.ht_leadsine,
+                                "ht_sine_prev": result.ht_sine_prev,
+                                "ht_leadsine_prev": result.ht_leadsine_prev,
+                                "ema5": result.ema5,
+                                "ema10": result.ema10,
+                                "highs": result.highs,
+                                "closes": result.closes,
+                            }
+                            # Only include non-None values
+                            current_indicators[result.symbol] = {
+                                k: v for k, v in indicators.items() if v is not None
+                            }
+                    
+                    # Execute trades with real-time indicators / 以即時指標執行交易
                     trade_results = self.trade_executor.execute_signals(
-                        confirmed_signals, current_prices
+                        confirmed_signals, current_prices, current_indicators
                     )
                     trades_executed = len([t for t in trade_results if t.status == "executed"])
                     
