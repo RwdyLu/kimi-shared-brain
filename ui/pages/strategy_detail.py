@@ -438,6 +438,23 @@ def layout(strategy_name=None):
                 className="mb-4"
             ),
             
+            # Signal Simulation / 訊號模擬
+            dbc.Card(
+                [
+                    dbc.CardHeader([
+                        html.H5("📊 Signal Simulation / 訊號模擬", className="mb-0"),
+                        html.Small("Pure signal simulation: every signal enters, no capital constraints / 純訊號模擬：每個訊號都進場，不受資金限制", className="text-muted")
+                    ]),
+                    dbc.CardBody(
+                        id="strategy-signal-simulation",
+                        children=[
+                            html.P("Loading signal simulation... / 載入訊號模擬中...", className="text-muted")
+                        ]
+                    )
+                ],
+                className="mb-4"
+            ),
+            
             # Auto-refresh / 自動刷新
             dcc.Interval(
                 id="strategy-interval",
@@ -457,6 +474,7 @@ def layout(strategy_name=None):
     Output("strategy-indicators-body", "children"),
     Output("strategy-signal-history", "children"),
     Output("strategy-trading-log", "children"),
+    Output("strategy-signal-simulation", "children"),
     Input("strategy-coin-selector", "value"),
     Input("strategy-interval", "n_intervals"),
     Input("strategy-name-store", "data")
@@ -464,7 +482,7 @@ def layout(strategy_name=None):
 def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     """Update strategy detail content for selected coin"""
     if not strategy_name:
-        return "--", "--", html.P("No strategy selected / 未選擇策略", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted")
+        return "--", "--", html.P("No strategy selected / 未選擇策略", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted"), html.P("No strategy selected", className="text-muted")
     
     # Decode URL encoding and normalize: "Hilbert%20Cycle" → "hilbert_cycle"
     strategy_name = urllib.parse.unquote(strategy_name)
@@ -472,7 +490,7 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     
     strategy = find_strategy(strategy_name)
     if not strategy:
-        return "--", "--", dbc.Alert("Strategy not found / 策略未找到", color="danger"), html.Div(), html.Div(), html.Div()
+        return "--", "--", dbc.Alert("Strategy not found / 策略未找到", color="danger"), html.Div(), html.Div(), html.Div(), html.Div()
     
     # Get latest snapshot for selected symbol
     snapshot = get_latest_snapshot(selected_symbol)
@@ -510,7 +528,10 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     # Render trading log
     trading_log_component = render_trading_log(strategy, selected_symbol, price)
     
-    return price_display, score, conditions_component, indicators_component, signal_history_component, trading_log_component
+    # Render signal simulation
+    signal_simulation_component = render_signal_simulation(strategy, selected_symbol)
+    
+    return price_display, score, conditions_component, indicators_component, signal_history_component, trading_log_component, signal_simulation_component
 
 
 def render_conditions(strategy, snapshot):
@@ -1136,3 +1157,259 @@ def render_trading_log(strategy, symbol, current_price=None):
         responsive=True,
         className="mb-0"
     )
+
+
+
+def get_symbol_snapshots_today(symbol: str) -> list:
+    """Get all snapshots for a symbol today, sorted by time ascending"""
+    try:
+        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+        if not snapshot_file.exists():
+            return []
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        snapshots = []
+        
+        with open(snapshot_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    data = json.loads(line.strip())
+                    if data.get("symbol") != symbol:
+                        continue
+                    ts = data.get("timestamp", "")
+                    if not ts.startswith(today):
+                        continue
+                    snapshots.append(data)
+                except Exception:
+                    continue
+        
+        # Sort by timestamp ascending
+        snapshots.sort(key=lambda x: x.get("timestamp", ""))
+        return snapshots
+    except Exception as e:
+        print(f"Error reading snapshots: {e}")
+        return []
+
+
+def render_signal_simulation(strategy, symbol):
+    """Render signal simulation: pure signal-based, no capital constraints"""
+    strategy_id = strategy.get("id", "")
+    signal_type = strategy.get("signal_type", "")
+    
+    # Get all snapshots for this symbol today
+    all_snapshots = get_symbol_snapshots_today(symbol)
+    if not all_snapshots:
+        return dbc.Alert("No snapshot data today / 今日無快照資料", color="info")
+    
+    # Find entry signals (snapshots with this strategy's signal)
+    expected = signal_type.upper().replace(" ", "_")
+    entries = []
+    
+    for i, snap in enumerate(all_snapshots):
+        signal_types = snap.get("signal_types", [])
+        if not signal_types:
+            continue
+        
+        matched = any(
+            expected in st.upper() or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
+            for st in signal_types
+        )
+        
+        if matched:
+            entries.append({
+                "index": i,
+                "timestamp": snap.get("timestamp", ""),
+                "price": snap.get("price"),
+                "indicators": {
+                    "rsi": snap.get("rsi"),
+                    "ma5": snap.get("ma5"),
+                    "ma20": snap.get("ma20"),
+                    "ht_sine": snap.get("ht_sine"),
+                    "stoch_fastk": snap.get("stoch_fastk"),
+                    "volume_ratio": snap.get("volume_ratio"),
+                }
+            })
+    
+    if not entries:
+        return dbc.Alert("No signals today / 今日無訊號", color="info")
+    
+    # Simulate each entry
+    rows = []
+    total_signals = len(entries)
+    win_count = 0
+    loss_count = 0
+    total_pnl_pct = 0.0
+    
+    for entry in entries:
+        entry_price = entry.get("price")
+        if not entry_price:
+            continue
+        
+        entry_idx = entry.get("index", 0)
+        entry_ts = entry.get("timestamp", "")
+        
+        # SL / TP levels
+        sl_price = entry_price * 0.985
+        tp_price = entry_price * 1.03
+        
+        # Scan subsequent snapshots for exit
+        exit_price = None
+        exit_ts = None
+        exit_reason = None
+        pnl_pct = 0.0
+        
+        for j in range(entry_idx + 1, len(all_snapshots)):
+            snap = all_snapshots[j]
+            snap_price = snap.get("price")
+            if not snap_price:
+                continue
+            
+            # Check SL hit
+            if snap_price <= sl_price:
+                exit_price = snap_price
+                exit_ts = snap.get("timestamp", "")
+                exit_reason = "Stop Loss / 止損"
+                pnl_pct = (exit_price - entry_price) / entry_price * 100
+                break
+            
+            # Check TP hit
+            if snap_price >= tp_price:
+                exit_price = snap_price
+                exit_ts = snap.get("timestamp", "")
+                exit_reason = "Take Profit / 止盈"
+                pnl_pct = (exit_price - entry_price) / entry_price * 100
+                break
+            
+            # Check opposite signal (next entry = signal exit)
+            signal_types = snap.get("signal_types", [])
+            if signal_types:
+                matched = any(
+                    expected in st.upper() or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
+                    for st in signal_types
+                )
+                if matched:
+                    exit_price = snap_price
+                    exit_ts = snap.get("timestamp", "")
+                    exit_reason = "Signal Exit / 訊號出場"
+                    pnl_pct = (exit_price - entry_price) / entry_price * 100
+                    break
+        
+        # If no exit found, still holding
+        if exit_price is None:
+            # Use latest snapshot price
+            latest_snap = all_snapshots[-1]
+            current_price = latest_snap.get("price", entry_price)
+            exit_price = current_price
+            exit_ts = latest_snap.get("timestamp", "")
+            pnl_pct = (exit_price - entry_price) / entry_price * 100
+            exit_reason = "Holding / 持倉中"
+        
+        # Stats
+        total_pnl_pct += pnl_pct
+        if pnl_pct > 0:
+            win_count += 1
+        elif pnl_pct < 0:
+            loss_count += 1
+        
+        # Format display
+        try:
+            t = datetime.fromisoformat(entry_ts)
+            entry_time_str = t.strftime("%H:%M:%S")
+        except Exception:
+            entry_time_str = str(entry_ts)[:19]
+        
+        try:
+            t = datetime.fromisoformat(exit_ts)
+            exit_time_str = t.strftime("%H:%M:%S")
+        except Exception:
+            exit_time_str = str(exit_ts)[:19]
+        
+        entry_str = f"${entry_price:,.2f}"
+        sl_str = f"${sl_price:,.2f}"
+        tp_str = f"${tp_price:,.2f}"
+        
+        if exit_reason == "Holding / 持倉中":
+            exit_price_str = f"${exit_price:,.2f}"
+            exit_time_str_display = "—"
+        else:
+            exit_price_str = f"${exit_price:,.2f}"
+            exit_time_str_display = exit_time_str
+        
+        pnl_str = f"{pnl_pct:+.2f}%"
+        pnl_color = "success" if pnl_pct >= 0 else "danger"
+        
+        # Trigger indicator summary
+        ind = entry.get("indicators", {})
+        trigger_parts = []
+        if ind.get("rsi") is not None:
+            trigger_parts.append(f"RSI:{ind['rsi']:.1f}")
+        if ind.get("ma5") is not None and ind.get("ma20") is not None:
+            trigger_parts.append("MA")
+        if ind.get("ht_sine") is not None:
+            trigger_parts.append("HT")
+        if ind.get("stoch_fastk") is not None:
+            trigger_parts.append(f"Stoch:{ind['stoch_fastk']:.1f}")
+        if ind.get("volume_ratio") is not None:
+            trigger_parts.append(f"Vol:{ind['volume_ratio']:.1f}x")
+        trigger_str = ", ".join(trigger_parts) if trigger_parts else strategy_id
+        
+        # Reason badge
+        reason_colors = {
+            "Stop Loss / 止損": "danger",
+            "Take Profit / 止盈": "success",
+            "Signal Exit / 訊號出場": "info",
+            "Holding / 持倉中": "warning",
+        }
+        reason_color = reason_colors.get(exit_reason, "secondary")
+        reason_badge = dbc.Badge(exit_reason, color=reason_color, className="px-2")
+        
+        rows.append(html.Tr([
+            html.Td(entry_time_str, className="font-monospace small"),
+            html.Td(entry_str),
+            html.Td(html.Small(trigger_str, className="text-muted")),
+            html.Td(html.Small(sl_str, className="text-danger")),
+            html.Td(html.Small(tp_str, className="text-success")),
+            html.Td(exit_time_str_display, className="font-monospace small"),
+            html.Td(exit_price_str),
+            html.Td(html.Span(pnl_str, className=f"text-{pnl_color} fw-bold")),
+            html.Td(reason_badge),
+        ]))
+    
+    if not rows:
+        return dbc.Alert("No simulation data / 無模擬資料", color="info")
+    
+    # Stats
+    win_rate = (win_count / total_signals * 100) if total_signals > 0 else 0
+    avg_pnl = total_pnl_pct / total_signals if total_signals > 0 else 0
+    
+    stats_badge = html.Div([
+        dbc.Badge(f"Total / 總數: {total_signals}", color="primary", className="me-2 px-2 py-1"),
+        dbc.Badge(f"Win / 獲利: {win_count}", color="success", className="me-2 px-2 py-1"),
+        dbc.Badge(f"Loss / 虧損: {loss_count}", color="danger", className="me-2 px-2 py-1"),
+        dbc.Badge(f"Win Rate / 勝率: {win_rate:.1f}%", color="info", className="me-2 px-2 py-1"),
+        dbc.Badge(f"Avg PnL / 平均: {avg_pnl:+.2f}%", color="warning", className="px-2 py-1"),
+    ], className="mb-3")
+    
+    table = dbc.Table(
+        [
+            html.Thead(html.Tr([
+                html.Th("Time / 時間"),
+                html.Th("Entry / 進場價"),
+                html.Th("Trigger / 觸發指標"),
+                html.Th(html.Small("SL / 止損", className="text-danger")),
+                html.Th(html.Small("TP / 止盈", className="text-success")),
+                html.Th("Exit Time / 出場時間"),
+                html.Th("Exit / 出場價"),
+                html.Th("PnL% / 損益%"),
+                html.Th("Reason / 出場原因"),
+            ])),
+            html.Tbody(rows)
+        ],
+        bordered=True,
+        hover=True,
+        size="sm",
+        responsive=True,
+        className="mb-0"
+    )
+    
+    return html.Div([stats_badge, table])
