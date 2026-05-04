@@ -1117,6 +1117,96 @@ def calculate_roc(closes: List[float], period: int = 10) -> List[float]:
     return roc_values
 
 
+def calculate_atr(highs: List[float], lows: List[float], closes: List[float], period: int = 14) -> List[float]:
+    """
+    Calculate Average True Range (ATR) / 計算平均真實波幅
+    
+    TR = max(high-low, |high-prev_close|, |low-prev_close|)
+    ATR = Wilder smoothing of TR
+    
+    Args:
+        highs: List of high prices / 最高價列表
+        lows: List of low prices / 最低價列表
+        closes: List of closing prices / 收盤價列表
+        period: ATR period (default: 14) / ATR 週期（預設：14）
+        
+    Returns:
+        List of ATR values / ATR 值列表
+    """
+    if len(closes) < 2:
+        return []
+    
+    # Calculate True Range
+    trs = []
+    for i in range(1, len(closes)):
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i-1]),
+            abs(lows[i] - closes[i-1])
+        )
+        trs.append(tr)
+    
+    if len(trs) < period:
+        return [0.0] * len(closes)
+    
+    # First ATR = average of first 'period' TRs
+    atr_values = []
+    atr_val = sum(trs[:period]) / period
+    atr_values.append(atr_val)
+    
+    # Subsequent ATRs use Wilder smoothing
+    for i in range(period, len(trs)):
+        atr_val = (atr_val * (period - 1) + trs[i]) / period
+        atr_values.append(atr_val)
+    
+    # Pad to match closes length
+    result = [0.0] * (len(closes) - len(atr_values)) + atr_values
+    return result
+
+
+def calculate_ichimoku(highs: List[float], lows: List[float], closes: List[float]) -> Tuple[List[float], List[float], List[float], List[float]]:
+    """
+    Calculate Ichimoku Cloud / 計算一目均衡表
+    
+    Returns:
+        (tenkan, kijun, senkou_a, senkou_b) / (轉換線, 基準線, 先行帶A, 先行帶B)
+    """
+    def midpoint(h: List[float], l: List[float]) -> float:
+        return (max(h) + min(l)) / 2
+    
+    tenkan = []   # 轉換線 9
+    kijun = []    # 基準線 26
+    senkou_a = [] # 先行帶A
+    senkou_b = [] # 先行帶B 52
+    
+    for i in range(len(closes)):
+        # 轉換線 (9-period midpoint)
+        if i >= 8:
+            t = midpoint(highs[i-8:i+1], lows[i-8:i+1])
+        else:
+            t = (highs[i] + lows[i]) / 2
+        tenkan.append(t)
+        
+        # 基準線 (26-period midpoint)
+        if i >= 25:
+            k = midpoint(highs[i-25:i+1], lows[i-25:i+1])
+        else:
+            k = (highs[i] + lows[i]) / 2
+        kijun.append(k)
+        
+        # 先行帶A
+        senkou_a.append((t + k) / 2)
+        
+        # 先行帶B (52-period midpoint)
+        if i >= 51:
+            sb = midpoint(highs[i-51:i+1], lows[i-51:i+1])
+        else:
+            sb = (highs[i] + lows[i]) / 2
+        senkou_b.append(sb)
+    
+    return tenkan, kijun, senkou_a, senkou_b
+
+
 # Example usage / 使用範例
 if __name__ == "__main__":
     print("Indicator Calculator Module")

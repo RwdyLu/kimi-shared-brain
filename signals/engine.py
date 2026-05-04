@@ -31,7 +31,8 @@ from enum import Enum
 
 # Import from other layers / 從其他層級匯入
 import sys
-sys.path.insert(0, '/tmp/kimi-shared-brain')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data.fetcher import BinanceFetcher, KlineData, create_fetcher
 from indicators.calculator import (
@@ -71,6 +72,12 @@ class SignalType(Enum):
     # Exit signal types for position management
     EXIT_LONG = "exit_long"
     EXIT_SHORT = "exit_short"
+    # New strategies / 新增策略
+    SUPERTREND = "supertrend"
+    ICHIMOKU_CLOUD = "ichimoku_cloud"
+    WILLIAMS_R = "williams_r"
+    KELTNER_BREAKOUT = "keltner_breakout"
+    ATR_BREAKOUT = "atr_breakout"
 
 
 class SignalLevel(Enum):
@@ -124,6 +131,11 @@ class CooldownConfig:
     trend_long_seconds: int = None
     trend_short_seconds: int = None
     contrarian_watch_seconds: int = None
+    supertrend_seconds: int = None
+    ichimoku_seconds: int = None
+    williams_r_seconds: int = None
+    keltner_seconds: int = None
+    atr_breakout_seconds: int = None
     
     def __post_init__(self):
         """Load defaults from config if not provided"""
@@ -142,6 +154,17 @@ class CooldownConfig:
                 self.trend_short_seconds = 1800  # 30 minutes
             if self.contrarian_watch_seconds is None:
                 self.contrarian_watch_seconds = 900  # 15 minutes
+        # New strategy cooldowns / 新增策略冷卻期
+        if self.supertrend_seconds is None:
+            self.supertrend_seconds = 1800  # 30 minutes
+        if self.ichimoku_seconds is None:
+            self.ichimoku_seconds = 1800
+        if self.williams_r_seconds is None:
+            self.williams_r_seconds = 1800
+        if self.keltner_seconds is None:
+            self.keltner_seconds = 1800
+        if self.atr_breakout_seconds is None:
+            self.atr_breakout_seconds = 1800
 
 
 class CooldownManager:
@@ -177,6 +200,16 @@ class CooldownManager:
             SignalType.CONTRARIAN_OVERSOLD
         ]:
             return self.config.contrarian_watch_seconds
+        elif signal_type == SignalType.SUPERTREND:
+            return self.config.supertrend_seconds
+        elif signal_type == SignalType.ICHIMOKU_CLOUD:
+            return self.config.ichimoku_seconds
+        elif signal_type == SignalType.WILLIAMS_R:
+            return self.config.williams_r_seconds
+        elif signal_type == SignalType.KELTNER_BREAKOUT:
+            return self.config.keltner_seconds
+        elif signal_type == SignalType.ATR_BREAKOUT:
+            return self.config.atr_breakout_seconds
         return 0
     
     def can_emit(self, symbol: str, signal_type: SignalType) -> bool:
@@ -551,6 +584,434 @@ class SignalEngine:
         return signal
     
     # =========================================================================
+    # Supertrend Signal / Supertrend 訊號
+    # =========================================================================
+    
+    def _check_supertrend_conditions(
+        self,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float]
+    ) -> Tuple[bool, str, str]:
+        """
+        Check supertrend conditions / 檢查 Supertrend 條件
+        
+        Returns: (triggered, direction, reason)
+        """
+        if len(closes) < 2:
+            return False, None, "Not enough data"
+        
+        # Calculate ATR-based bands
+        n = 10
+        mult = 2.0
+        
+        # Use last n periods
+        slice_highs = highs[-n:] if len(highs) >= n else highs
+        slice_lows = lows[-n:] if len(lows) >= n else lows
+        slice_closes = closes[-n:] if len(closes) >= n else closes
+        
+        if len(slice_closes) < 2:
+            return False, None, "Not enough data"
+        
+        # Simple ATR proxy: rolling high-low
+        atr_vals = []
+        for i in range(len(slice_highs)):
+            atr_vals.append(slice_highs[i] - slice_lows[i])
+        
+        # hl2 and bands
+        hl2 = [(slice_highs[i] + slice_lows[i]) / 2 for i in range(len(slice_closes))]
+        
+        # Use current ATR
+        current_atr = sum(atr_vals) / len(atr_vals) if atr_vals else 0
+        current_hl2 = hl2[-1]
+        upper_band = current_hl2 + mult * current_atr
+        lower_band = current_hl2 - mult * current_atr
+        
+        current_close = closes[-1]
+        prev_close = closes[-2]
+        
+        # Supertrend direction flip detection
+        if prev_close <= lower_band and current_close > lower_band:
+            return True, "LONG", f"Supertrend flipped LONG: close {current_close:.2f} > lower {lower_band:.2f}"
+        elif prev_close >= upper_band and current_close < upper_band:
+            return True, "SHORT", f"Supertrend flipped SHORT: close {current_close:.2f} < upper {upper_band:.2f}"
+        
+        return False, None, f"Supertrend: close {current_close:.2f}, upper {upper_band:.2f}, lower {lower_band:.2f}"
+    
+    def generate_supertrend_signal(
+        self,
+        symbol: str,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        timestamp: Optional[int] = None
+    ) -> Optional[Signal]:
+        """Generate supertrend signal / 產生 Supertrend 訊號"""
+        if not self.cooldown.can_emit(symbol, SignalType.SUPERTREND):
+            return None
+        
+        triggered, direction, reason = self._check_supertrend_conditions(highs, lows, closes)
+        if not triggered:
+            return None
+        
+        signal = Signal(
+            signal_type=SignalType.SUPERTREND,
+            level=SignalLevel.CONFIRMED,
+            symbol=symbol,
+            timestamp=timestamp or int(time.time() * 1000),
+            price_data={
+                "close": closes[-1] if closes else 0,
+                "high": highs[-1] if highs else 0,
+                "low": lows[-1] if lows else 0,
+            },
+            conditions={"supertrend_flip": True, "direction": direction},
+            reason=reason,
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "supertrend", "direction": direction}
+        )
+        
+        self.cooldown.record_emission(symbol, SignalType.SUPERTREND)
+        return signal
+    
+    # =========================================================================
+    # Ichimoku Cloud Signal / 一目均衡表訊號
+    # =========================================================================
+    
+    def _check_ichimoku_conditions(
+        self,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float]
+    ) -> Tuple[bool, str, str]:
+        """
+        Check Ichimoku Cloud conditions / 檢查一目均衡表條件
+        
+        做多：收盤價 > 雲上方 + 轉換線 > 基準線
+        做空：收盤價 < 雲下方 + 轉換線 < 基準線
+        
+        Returns: (triggered, direction, reason)
+        """
+        if len(closes) < 52:
+            return False, None, "Not enough data (need 52 periods)"
+        
+        from indicators.calculator import calculate_ichimoku
+        
+        tenkan, kijun, senkou_a, senkou_b = calculate_ichimoku(highs, lows, closes)
+        
+        current_close = closes[-1]
+        current_tenkan = tenkan[-1]
+        current_kijun = kijun[-1]
+        current_a = senkou_a[-1]
+        current_b = senkou_b[-1]
+        
+        cloud_top = max(current_a, current_b)
+        cloud_bottom = min(current_a, current_b)
+        
+        # Long: above cloud + tenkan > kijun
+        if current_close > cloud_top and current_tenkan > current_kijun:
+            return True, "LONG", f"Ichimoku LONG: close {current_close:.2f} > cloud {cloud_top:.2f}, tenkan {current_tenkan:.2f} > kijun {current_kijun:.2f}"
+        
+        # Short: below cloud + tenkan < kijun
+        if current_close < cloud_bottom and current_tenkan < current_kijun:
+            return True, "SHORT", f"Ichimoku SHORT: close {current_close:.2f} < cloud {cloud_bottom:.2f}, tenkan {current_tenkan:.2f} < kijun {current_kijun:.2f}"
+        
+        return False, None, f"Ichimoku: close {current_close:.2f}, cloud [{cloud_bottom:.2f}-{cloud_top:.2f}], tenkan {current_tenkan:.2f}, kijun {current_kijun:.2f}"
+    
+    def generate_ichimoku_signal(
+        self,
+        symbol: str,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        timestamp: Optional[int] = None
+    ) -> Optional[Signal]:
+        """Generate Ichimoku Cloud signal / 產生一目均衡表訊號"""
+        if not self.cooldown.can_emit(symbol, SignalType.ICHIMOKU_CLOUD):
+            return None
+        
+        triggered, direction, reason = self._check_ichimoku_conditions(highs, lows, closes)
+        if not triggered:
+            return None
+        
+        signal = Signal(
+            signal_type=SignalType.ICHIMOKU_CLOUD,
+            level=SignalLevel.CONFIRMED,
+            symbol=symbol,
+            timestamp=timestamp or int(time.time() * 1000),
+            price_data={
+                "close": closes[-1] if closes else 0,
+                "high": highs[-1] if highs else 0,
+                "low": lows[-1] if lows else 0,
+            },
+            conditions={"above_cloud": direction == "LONG", "below_cloud": direction == "SHORT"},
+            reason=reason,
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "ichimoku_cloud", "direction": direction}
+        )
+        
+        self.cooldown.record_emission(symbol, SignalType.ICHIMOKU_CLOUD)
+        return signal
+    
+    # =========================================================================
+    # Williams %R Signal / Williams %R 訊號
+    # =========================================================================
+    
+    def _check_williams_r_conditions(
+        self,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float]
+    ) -> Tuple[bool, str, str]:
+        """
+        Check Williams %R conditions / 檢查 Williams %R 條件
+        
+        WR = (Highest High - Close) / (Highest High - Lowest Low) * -100
+        做多：WR 從 -80 以下反彈穿越 -80
+        做空：WR 從 -20 以上跌破 -20
+        
+        Returns: (triggered, direction, reason)
+        """
+        if len(closes) < 3:
+            return False, None, "Not enough data"
+        
+        period = 14
+        if len(closes) < period:
+            period = len(closes)
+        
+        # Calculate Williams %R for last 3 values
+        wr_values = []
+        for i in range(max(0, len(closes) - 3), len(closes)):
+            start = max(0, i - period + 1)
+            hh = max(highs[start:i+1])
+            ll = min(lows[start:i+1])
+            c = closes[i]
+            
+            if hh == ll:
+                wr = -50.0
+            else:
+                wr = ((hh - c) / (hh - ll)) * -100
+            wr_values.append(wr)
+        
+        if len(wr_values) < 3:
+            return False, None, "Not enough WR values"
+        
+        prev_wr = wr_values[-2]
+        current_wr = wr_values[-1]
+        
+        # Long: WR crosses above -80 from below (oversold bounce)
+        if prev_wr < -80 and current_wr >= -80:
+            return True, "LONG", f"Williams %R oversold bounce: {prev_wr:.1f} -> {current_wr:.1f}"
+        
+        # Short: WR crosses below -20 from above (overbought pullback)
+        if prev_wr > -20 and current_wr <= -20:
+            return True, "SHORT", f"Williams %R overbought pullback: {prev_wr:.1f} -> {current_wr:.1f}"
+        
+        return False, None, f"Williams %R: {current_wr:.1f}"
+    
+    def generate_williams_r_signal(
+        self,
+        symbol: str,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        timestamp: Optional[int] = None
+    ) -> Optional[Signal]:
+        """Generate Williams %R signal / 產生 Williams %R 訊號"""
+        if not self.cooldown.can_emit(symbol, SignalType.WILLIAMS_R):
+            return None
+        
+        triggered, direction, reason = self._check_williams_r_conditions(highs, lows, closes)
+        if not triggered:
+            return None
+        
+        signal = Signal(
+            signal_type=SignalType.WILLIAMS_R,
+            level=SignalLevel.CONFIRMED,
+            symbol=symbol,
+            timestamp=timestamp or int(time.time() * 1000),
+            price_data={
+                "close": closes[-1] if closes else 0,
+                "high": highs[-1] if highs else 0,
+                "low": lows[-1] if lows else 0,
+            },
+            conditions={"oversold_bounce": direction == "LONG", "overbought_pullback": direction == "SHORT"},
+            reason=reason,
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "williams_r", "direction": direction}
+        )
+        
+        self.cooldown.record_emission(symbol, SignalType.WILLIAMS_R)
+        return signal
+    
+    # =========================================================================
+    # Keltner Breakout Signal / Keltner 突破訊號
+    # =========================================================================
+    
+    def _check_keltner_conditions(
+        self,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float]
+    ) -> Tuple[bool, str, str]:
+        """
+        Check Keltner Channel breakout conditions / 檢查 Keltner 通道突破條件
+        
+        中線 = EMA(20)
+        上軌 = EMA(20) + 2 * ATR(10)
+        下軌 = EMA(20) - 2 * ATR(10)
+        
+        Returns: (triggered, direction, reason)
+        """
+        if len(closes) < 20:
+            return False, None, "Not enough data (need 20 periods)"
+        
+        from indicators.calculator import calculate_ema, calculate_atr
+        
+        # EMA(20)
+        ema20_values = calculate_ema(closes, 20)
+        if not ema20_values:
+            return False, None, "EMA calculation failed"
+        
+        ema20 = ema20_values[-1]
+        
+        # ATR(10)
+        atr_values = calculate_atr(highs, lows, closes, period=10)
+        if not atr_values or atr_values[-1] == 0:
+            return False, None, "ATR calculation failed"
+        
+        atr = atr_values[-1]
+        current_close = closes[-1]
+        
+        upper = ema20 + 2.0 * atr
+        lower = ema20 - 2.0 * atr
+        
+        # Long: close above upper band
+        if current_close > upper:
+            return True, "LONG", f"Keltner LONG: close {current_close:.2f} > upper {upper:.2f} (EMA20={ema20:.2f}, ATR={atr:.2f})"
+        
+        # Short: close below lower band
+        if current_close < lower:
+            return True, "SHORT", f"Keltner SHORT: close {current_close:.2f} < lower {lower:.2f} (EMA20={ema20:.2f}, ATR={atr:.2f})"
+        
+        return False, None, f"Keltner: close {current_close:.2f}, upper {upper:.2f}, lower {lower:.2f}"
+    
+    def generate_keltner_signal(
+        self,
+        symbol: str,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        timestamp: Optional[int] = None
+    ) -> Optional[Signal]:
+        """Generate Keltner breakout signal / 產生 Keltner 突破訊號"""
+        if not self.cooldown.can_emit(symbol, SignalType.KELTNER_BREAKOUT):
+            return None
+        
+        triggered, direction, reason = self._check_keltner_conditions(highs, lows, closes)
+        if not triggered:
+            return None
+        
+        signal = Signal(
+            signal_type=SignalType.KELTNER_BREAKOUT,
+            level=SignalLevel.CONFIRMED,
+            symbol=symbol,
+            timestamp=timestamp or int(time.time() * 1000),
+            price_data={
+                "close": closes[-1] if closes else 0,
+                "high": highs[-1] if highs else 0,
+                "low": lows[-1] if lows else 0,
+            },
+            conditions={"upper_breakout": direction == "LONG", "lower_breakdown": direction == "SHORT"},
+            reason=reason,
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "keltner_breakout", "direction": direction}
+        )
+        
+        self.cooldown.record_emission(symbol, SignalType.KELTNER_BREAKOUT)
+        return signal
+    
+    # =========================================================================
+    # ATR Breakout Signal / ATR 突破訊號
+    # =========================================================================
+    
+    def _check_atr_breakout_conditions(
+        self,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float]
+    ) -> Tuple[bool, str, str]:
+        """
+        Check ATR breakout conditions / 檢查 ATR 突破條件
+        
+        突破門檻 = 前一根收盤價 ± 1.5 * ATR(14)
+        做多：當前收盤 > 前收盤 + 1.5 * ATR
+        做空：當前收盤 < 前收盤 - 1.5 * ATR
+        
+        Returns: (triggered, direction, reason)
+        """
+        if len(closes) < 2:
+            return False, None, "Not enough data"
+        
+        from indicators.calculator import calculate_atr
+        
+        # ATR(14)
+        atr_values = calculate_atr(highs, lows, closes, period=14)
+        if not atr_values or atr_values[-1] == 0:
+            return False, None, "ATR calculation failed"
+        
+        atr = atr_values[-1]
+        current_close = closes[-1]
+        prev_close = closes[-2]
+        
+        upper = prev_close + 1.5 * atr
+        lower = prev_close - 1.5 * atr
+        
+        # Long: close above prev_close + 1.5*ATR
+        if current_close > upper:
+            return True, "LONG", f"ATR LONG: close {current_close:.2f} > threshold {upper:.2f} (prev={prev_close:.2f}, ATR={atr:.2f})"
+        
+        # Short: close below prev_close - 1.5*ATR
+        if current_close < lower:
+            return True, "SHORT", f"ATR SHORT: close {current_close:.2f} < threshold {lower:.2f} (prev={prev_close:.2f}, ATR={atr:.2f})"
+        
+        return False, None, f"ATR: close {current_close:.2f}, threshold [{lower:.2f}-{upper:.2f}]"
+    
+    def generate_atr_breakout_signal(
+        self,
+        symbol: str,
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        timestamp: Optional[int] = None
+    ) -> Optional[Signal]:
+        """Generate ATR breakout signal / 產生 ATR 突破訊號"""
+        if not self.cooldown.can_emit(symbol, SignalType.ATR_BREAKOUT):
+            return None
+        
+        triggered, direction, reason = self._check_atr_breakout_conditions(highs, lows, closes)
+        if not triggered:
+            return None
+        
+        signal = Signal(
+            signal_type=SignalType.ATR_BREAKOUT,
+            level=SignalLevel.CONFIRMED,
+            symbol=symbol,
+            timestamp=timestamp or int(time.time() * 1000),
+            price_data={
+                "close": closes[-1] if closes else 0,
+                "high": highs[-1] if highs else 0,
+                "low": lows[-1] if lows else 0,
+            },
+            conditions={"atr_upper_break": direction == "LONG", "atr_lower_break": direction == "SHORT"},
+            reason=reason,
+            warning="ALERT_ONLY_NO_AUTO_TRADE",
+            metadata={"strategy_name": "atr_breakout", "direction": direction}
+        )
+        
+        self.cooldown.record_emission(symbol, SignalType.ATR_BREAKOUT)
+        return signal
+    
+    # =========================================================================
     # High-Level Signal Processing / 高階訊號處理
     # =========================================================================
     
@@ -626,6 +1087,63 @@ class SignalEngine:
             )
             if contrarian:
                 signals.append(contrarian)
+        
+        # Generate supertrend signal / 產生 Supertrend 訊號
+        highs_5m = [k.high for k in data_5m]
+        lows_5m = [k.low for k in data_5m]
+        if highs_5m and lows_5m and closes_5m:
+            supertrend = self.generate_supertrend_signal(
+                symbol=symbol,
+                highs=highs_5m,
+                lows=lows_5m,
+                closes=closes_5m
+            )
+            if supertrend:
+                signals.append(supertrend)
+        
+        # Generate ichimoku_cloud signal / 產生 Ichimoku Cloud 訊號
+        if highs_5m and lows_5m and closes_5m:
+            ichimoku = self.generate_ichimoku_signal(
+                symbol=symbol,
+                highs=highs_5m,
+                lows=lows_5m,
+                closes=closes_5m
+            )
+            if ichimoku:
+                signals.append(ichimoku)
+        
+        # Generate williams_r signal / 產生 Williams %R 訊號
+        if highs_5m and lows_5m and closes_5m:
+            williams = self.generate_williams_r_signal(
+                symbol=symbol,
+                highs=highs_5m,
+                lows=lows_5m,
+                closes=closes_5m
+            )
+            if williams:
+                signals.append(williams)
+        
+        # Generate keltner_breakout signal / 產生 Keltner 突破訊號
+        if highs_5m and lows_5m and closes_5m:
+            keltner = self.generate_keltner_signal(
+                symbol=symbol,
+                highs=highs_5m,
+                lows=lows_5m,
+                closes=closes_5m
+            )
+            if keltner:
+                signals.append(keltner)
+        
+        # Generate atr_breakout signal / 產生 ATR 突破訊號
+        if highs_5m and lows_5m and closes_5m:
+            atr_breakout = self.generate_atr_breakout_signal(
+                symbol=symbol,
+                highs=highs_5m,
+                lows=lows_5m,
+                closes=closes_5m
+            )
+            if atr_breakout:
+                signals.append(atr_breakout)
         
         return signals
     
@@ -876,6 +1394,11 @@ class SignalEngine:
             ),
             "exit_long": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_LONG),
             "exit_short": self.cooldown.get_remaining_cooldown(symbol, SignalType.EXIT_SHORT),
+            "supertrend": self.cooldown.get_remaining_cooldown(symbol, SignalType.SUPERTREND),
+            "ichimoku_cloud": self.cooldown.get_remaining_cooldown(symbol, SignalType.ICHIMOKU_CLOUD),
+            "williams_r": self.cooldown.get_remaining_cooldown(symbol, SignalType.WILLIAMS_R),
+            "keltner_breakout": self.cooldown.get_remaining_cooldown(symbol, SignalType.KELTNER_BREAKOUT),
+            "atr_breakout": self.cooldown.get_remaining_cooldown(symbol, SignalType.ATR_BREAKOUT),
         }
 
 

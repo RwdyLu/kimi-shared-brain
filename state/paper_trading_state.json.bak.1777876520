@@ -1,0 +1,157 @@
+{
+  "strategies": {
+    "ma_cross_trend": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "ma_cross_trend_short": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "contrarian_watch_overheated": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "contrarian_watch_oversold": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "hilbert_cycle": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "stochastic_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "rsi_trend": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "ema_cross_fast": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "rsi_mid_bounce": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "volume_spike": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "price_channel_break": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "momentum_divergence": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "opening_range_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "vwap_reversion": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "rsi_macd_confirm": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "bb_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "ema_ribbon": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "momentum_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "supertrend": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "ichimoku_cloud": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "williams_r": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "atr_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "dual_thrust": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "parabolic_sar_v2": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    },
+    "keltner_breakout": {
+      "balance": 1000.0,
+      "initial": 1000.0,
+      "positions": {},
+      "trades": []
+    }
+  },
+  "total_initial": 25000.0,
+  "last_updated": "2026-05-04T14:29:13.420882",
+  "daily_settlements": {}
+}
