@@ -814,6 +814,116 @@ class BacktestRunner:
         
         return False, TradeDirection.LONG, f"RSI={current_rsi:.1f} no signal"
 
+    def _check_strategy_specific_exit(self, symbol: str, trade: TradeRecord, row: pd.Series, df: pd.DataFrame, idx: int) -> tuple:
+        """
+        策略專屬出場條件
+        跟 app/trade_executor.py 的 _check_strategy_exit() 保持一致
+        
+        Returns: (should_exit: bool, reason: str)
+        """
+        strategy_id = self.strategy_id
+        side = trade.direction  # "long" or "short"
+        entry_price = trade.entry_price
+        current_price = float(row.get('close', row.get('price', 0)))
+
+        if not current_price or entry_price <= 0:
+            return False, None
+
+        # Calculate PnL %
+        if side == "long":
+            pnl_pct = (current_price - entry_price) / entry_price
+        else:
+            pnl_pct = (entry_price - current_price) / entry_price
+
+        # Strategy-specific exit conditions / 各策略專屬出場條件
+        ma5 = float(row.get('ma5', 0)) if 'ma5' in row.index else 0
+        ma20 = float(row.get('ma20', 0)) if 'ma20' in row.index else 0
+        rsi = float(row.get('rsi', 50)) if 'rsi' in row.index else 50
+        ht_sine = float(row.get('ht_sine', 0)) if 'ht_sine' in row.index else 0
+        ht_leadsine = float(row.get('ht_leadsine', 0)) if 'ht_leadsine' in row.index else 0
+        stoch_k = float(row.get('stoch_fastk', 50)) if 'stoch_fastk' in row.index else 50
+        stoch_d = float(row.get('stoch_fastd', 50)) if 'stoch_fastd' in row.index else 50
+        volume_ratio = float(row.get('volume_ratio', 1)) if 'volume_ratio' in row.index else 1
+
+        if strategy_id == 'ma_cross_trend':
+            if ma5 and ma20 and ma5 < ma20 and side == 'long':
+                return True, 'ma_reverse'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit_2pct'
+
+        elif strategy_id == 'ma_cross_trend_short':
+            if ma5 and ma20 and ma5 > ma20 and side == 'short':
+                return True, 'ma_reverse'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit_2pct'
+
+        elif strategy_id == 'rsi_mid_bounce':
+            if rsi > 60 and side == 'long':
+                return True, 'rsi_overbought'
+            if rsi < 35 and side == 'long':
+                return True, 'rsi_failed'
+
+        elif strategy_id == 'rsi_trend':
+            if rsi < 45 and side == 'long':
+                return True, 'rsi_weakening'
+            if pnl_pct >= 0.025:
+                return True, 'take_profit'
+
+        elif strategy_id == 'hilbert_cycle':
+            if ht_sine and ht_leadsine and ht_sine < ht_leadsine and side == 'long':
+                return True, 'hilbert_reverse'
+            if ht_sine and ht_leadsine and ht_sine > ht_leadsine and side == 'short':
+                return True, 'hilbert_reverse'
+
+        elif strategy_id == 'stochastic_breakout':
+            if stoch_k and stoch_d and stoch_k < stoch_d and stoch_k > 50 and side == 'long':
+                return True, 'stoch_cross_down'
+            if stoch_k > 80 and side == 'long':
+                return True, 'stoch_overbought'
+
+        elif strategy_id == 'volume_spike':
+            if volume_ratio < 0.5 and pnl_pct > 0:
+                return True, 'volume_normalized'
+            if pnl_pct >= 0.015:
+                return True, 'take_profit'
+
+        elif strategy_id in ['ema_cross_fast', 'ema_scalping']:
+            if ma5 and ma20 and ma5 < ma20 and side == 'long':
+                return True, 'ema_reverse'
+            if pnl_pct >= 0.015:
+                return True, 'take_profit'
+
+        elif strategy_id in ['rsi_scalping', 'rsi_macd_confirm']:
+            if side == 'long' and rsi > 55:
+                return True, 'rsi_mid'
+            if side == 'short' and rsi < 45:
+                return True, 'rsi_mid'
+
+        elif strategy_id == 'contrarian_watch_overheated':
+            if rsi < 50 and side == 'short':
+                return True, 'rsi_cooled'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit'
+
+        elif strategy_id == 'contrarian_watch_oversold':
+            if rsi > 45 and side == 'long':
+                return True, 'rsi_recovered'
+            if pnl_pct >= 0.02:
+                return True, 'take_profit'
+
+        elif strategy_id == 'price_channel_break':
+            if pnl_pct >= 0.025:
+                return True, 'take_profit'
+
+        elif strategy_id in ['momentum_divergence', 'roc_momentum']:
+            if pnl_pct >= 0.02:
+                return True, 'take_profit'
+            if pnl_pct <= -0.015:
+                return True, 'stop_loss'
+
+        # Default: no strategy-specific exit
+        return False, None
+
     def _check_exit_conditions(self, symbol: str, timestamp: str, price: float, row: pd.Series, idx: int) -> None:
         """
         Check for exit conditions and close trades
@@ -865,6 +975,35 @@ class BacktestRunner:
                     exit_triggered = True
                     exit_price = tp_price
                     exit_reason = "take_profit"
+
+        if exit_triggered:
+            self._close_trade(symbol, timestamp, exit_price, exit_reason)
+            return
+
+        # After minimum hold period: check take profit (no exit_signal)
+        # 最少持倉期後：檢查止盈（不再檢查 exit_signal）
+        if not exit_triggered and self.config.take_profit_pct:
+            if trade.direction == "long":
+                tp_price = trade.entry_price * (1 + self.config.take_profit_pct / 100)
+                if price >= tp_price:
+                    exit_triggered = True
+                    exit_price = tp_price
+                    exit_reason = "take_profit"
+            else:  # short
+                tp_price = trade.entry_price * (1 - self.config.take_profit_pct / 100)
+                if price <= tp_price:
+                    exit_triggered = True
+                    exit_price = tp_price
+                    exit_reason = "take_profit"
+
+        # After minimum hold period: check strategy-specific exit conditions
+        # 最少持倉期後：檢查策略專屬出場條件
+        if not exit_triggered and candles_held >= self.MIN_HOLD_CANDLES:
+            strategy_exit, strategy_reason = self._check_strategy_specific_exit(symbol, trade, row, None, idx)
+            if strategy_exit:
+                exit_triggered = True
+                exit_price = price
+                exit_reason = strategy_reason
 
         if exit_triggered:
             self._close_trade(symbol, timestamp, exit_price, exit_reason)
