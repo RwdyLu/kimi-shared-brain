@@ -748,8 +748,13 @@ class StrategyConditions:
             )
 
     def _check_rsi_cross_above_40(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:
-        """Check if RSI crosses above 40 / 檢查RSI是否上穿40"""
+        """Check if RSI crosses above 40 / 檢查RSI是否上穿40
+
+        條件：前一根 RSI < 40，當前 RSI > 40（穿越）
+        不是只看當前 RSI > 40
+        """
         rsi = data.get("rsi")
+        prev_rsi = data.get("prev_rsi")
         
         if rsi is None:
             return ConditionCheck(
@@ -759,19 +764,29 @@ class StrategyConditions:
                 message="RSI data missing"
             )
         
-        if rsi > 40:
+        # 需要前一根 RSI 來判斷穿越
+        if prev_rsi is None:
+            return ConditionCheck(
+                condition="rsi_cross_above_40",
+                result=ConditionResult.FAILED,
+                details={"rsi": rsi},
+                message=f"RSI {rsi:.1f} — need prev RSI for cross detection"
+            )
+        
+        # RSI 從 40 以下穿越到 40 以上
+        if prev_rsi <= 40 and rsi > 40:
             return ConditionCheck(
                 condition="rsi_cross_above_40",
                 result=ConditionResult.PASSED,
-                details={"rsi": rsi},
-                message=f"RSI {rsi:.1f} above 40"
+                details={"rsi": rsi, "prev_rsi": prev_rsi},
+                message=f"RSI cross above 40: {prev_rsi:.1f} → {rsi:.1f}"
             )
         else:
             return ConditionCheck(
                 condition="rsi_cross_above_40",
                 result=ConditionResult.FAILED,
-                details={"rsi": rsi},
-                message=f"RSI {rsi:.1f} not above 40"
+                details={"rsi": rsi, "prev_rsi": prev_rsi},
+                message=f"RSI {rsi:.1f} (prev {prev_rsi:.1f}) — no cross above 40"
             )
 
     def _check_volume_above_avg_1_5x(self, data: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None) -> ConditionCheck:

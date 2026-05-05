@@ -528,7 +528,7 @@
       "id": "vwap_reversion",
       "name": "VWAP Reversion",
       "type": "mean_reversion",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT"
@@ -545,7 +545,7 @@
       "id": "rsi_macd_confirm",
       "name": "RSI + MACD Confirm",
       "type": "momentum",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT"
@@ -562,7 +562,7 @@
       "id": "bb_breakout",
       "name": "Bollinger Band Breakout",
       "type": "breakout",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -580,7 +580,7 @@
       "id": "ema_ribbon",
       "name": "EMA Ribbon",
       "type": "trend",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -598,7 +598,7 @@
       "id": "momentum_breakout",
       "name": "Momentum Breakout",
       "type": "momentum",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -634,7 +634,7 @@
       "id": "ichimoku_cloud",
       "name": "Ichimoku Cloud",
       "type": "trend",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -652,7 +652,7 @@
       "id": "williams_r",
       "name": "Williams %R Reversal",
       "type": "reversal",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -670,7 +670,7 @@
       "id": "atr_breakout",
       "name": "ATR Breakout",
       "type": "breakout",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -688,7 +688,7 @@
       "id": "dual_thrust",
       "name": "Dual Thrust",
       "type": "momentum",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -706,7 +706,7 @@
       "id": "parabolic_sar_v2",
       "name": "Parabolic SAR",
       "type": "trend",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
@@ -724,7 +724,7 @@
       "id": "keltner_breakout",
       "name": "Keltner Channel Breakout",
       "type": "breakout",
-      "enabled": true,
+      "enabled": false,
       "symbols": [
         "BTCUSDT",
         "ETHUSDT",
