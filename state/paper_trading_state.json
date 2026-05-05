@@ -1,16 +1,150 @@
 {
   "strategies": {
     "ma_cross_trend": {
-      "balance": 1000.0,
+      "balance": 899.89,
       "initial": 1000.0,
-      "positions": {},
-      "trades": []
+      "positions": {
+        "DOTUSDT": [
+          {
+            "symbol": "DOTUSDT",
+            "side": "buy",
+            "quantity": 79.36507936507937,
+            "entry_price": 1.26,
+            "entry_time": "2026-05-05T17:30:06.767607",
+            "strategy_id": "ma_cross_trend",
+            "position_id": "POS_20260505173006_DOTUSDT_ma_cross_trend_0"
+          }
+        ]
+      },
+      "trades": [
+        {
+          "trade_id": "PT_20260505173006_DOTUSDT_ma_cross_trend",
+          "symbol": "DOTUSDT",
+          "side": "buy",
+          "quantity": 79.36507936507937,
+          "entry_price": 1.26,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:30:06.767607",
+          "exit_time": null,
+          "slippage": 0.01,
+          "commission": 0.1,
+          "realized_pnl": 0.0,
+          "strategy_id": "ma_cross_trend",
+          "position_id": "POS_20260505173006_DOTUSDT_ma_cross_trend_0"
+        }
+      ]
     },
     "ma_cross_trend_short": {
-      "balance": 1000.0,
+      "balance": 655.7792988012085,
       "initial": 1000.0,
-      "positions": {},
-      "trades": []
+      "positions": {
+        "BTCUSDT": [
+          {
+            "symbol": "BTCUSDT",
+            "side": "sell",
+            "quantity": 0.001239592536016671,
+            "entry_price": 80671.67,
+            "entry_time": "2026-05-05T17:15:16.678039",
+            "strategy_id": "ma_cross_trend_short",
+            "position_id": "POS_20260505171516_BTCUSDT_ma_cross_trend_short_0"
+          }
+        ],
+        "ETHUSDT": [
+          {
+            "symbol": "ETHUSDT",
+            "side": "sell",
+            "quantity": 0.03798558903855164,
+            "entry_price": 2369.03,
+            "entry_time": "2026-05-05T17:15:16.678869",
+            "strategy_id": "ma_cross_trend_short",
+            "position_id": "POS_20260505171516_ETHUSDT_ma_cross_trend_short_0"
+          }
+        ],
+        "SOLUSDT": [
+          {
+            "symbol": "SOLUSDT",
+            "side": "sell",
+            "quantity": 0.9570996479139582,
+            "entry_price": 84.61,
+            "entry_time": "2026-05-05T17:15:16.680146",
+            "strategy_id": "ma_cross_trend_short",
+            "position_id": "POS_20260505171516_SOLUSDT_ma_cross_trend_short_0"
+          }
+        ],
+        "XRPUSDT": [
+          {
+            "symbol": "XRPUSDT",
+            "side": "sell",
+            "quantity": 51.87817560110123,
+            "entry_price": 1.4047,
+            "entry_time": "2026-05-05T17:15:16.681096",
+            "strategy_id": "ma_cross_trend_short",
+            "position_id": "POS_20260505171516_XRPUSDT_ma_cross_trend_short_0"
+          }
+        ]
+      },
+      "trades": [
+        {
+          "trade_id": "PT_20260505171516_BTCUSDT_ma_cross_trend_short",
+          "symbol": "BTCUSDT",
+          "side": "sell",
+          "quantity": 0.001239592536016671,
+          "entry_price": 80671.67,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.678039",
+          "exit_time": null,
+          "slippage": 0.01,
+          "commission": 0.1,
+          "realized_pnl": 0.0,
+          "strategy_id": "ma_cross_trend_short",
+          "position_id": "POS_20260505171516_BTCUSDT_ma_cross_trend_short_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_ETHUSDT_ma_cross_trend_short",
+          "symbol": "ETHUSDT",
+          "side": "sell",
+          "quantity": 0.03798558903855164,
+          "entry_price": 2369.03,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.678869",
+          "exit_time": null,
+          "slippage": 0.0089989,
+          "commission": 0.089989,
+          "realized_pnl": 0.0,
+          "strategy_id": "ma_cross_trend_short",
+          "position_id": "POS_20260505171516_ETHUSDT_ma_cross_trend_short_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_SOLUSDT_ma_cross_trend_short",
+          "symbol": "SOLUSDT",
+          "side": "sell",
+          "quantity": 0.9570996479139582,
+          "entry_price": 84.61,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.680146",
+          "exit_time": null,
+          "slippage": 0.008098020121,
+          "commission": 0.08098020121,
+          "realized_pnl": 0.0,
+          "strategy_id": "ma_cross_trend_short",
+          "position_id": "POS_20260505171516_SOLUSDT_ma_cross_trend_short_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_XRPUSDT_ma_cross_trend_short",
+          "symbol": "XRPUSDT",
+          "side": "sell",
+          "quantity": 51.87817560110123,
+          "entry_price": 1.4047,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.681096",
+          "exit_time": null,
+          "slippage": 0.00728732732668669,
+          "commission": 0.0728732732668669,
+          "realized_pnl": 0.0,
+          "strategy_id": "ma_cross_trend_short",
+          "position_id": "POS_20260505171516_XRPUSDT_ma_cross_trend_short_0"
+        }
+      ]
     },
     "contrarian_watch_overheated": {
       "balance": 1000.0,
@@ -25,10 +159,228 @@
       "trades": []
     },
     "hilbert_cycle": {
-      "balance": 1000.0,
+      "balance": 620.1627292118949,
       "initial": 1000.0,
-      "positions": {},
-      "trades": []
+      "positions": {
+        "AVAXUSDT": [
+          {
+            "symbol": "AVAXUSDT",
+            "side": "buy",
+            "quantity": 7.963020769146733,
+            "entry_price": 9.34,
+            "entry_time": "2026-05-05T17:24:47.023106",
+            "strategy_id": "hilbert_cycle",
+            "position_id": "POS_20260505172447_AVAXUSDT_hilbert_cycle_0"
+          },
+          {
+            "symbol": "AVAXUSDT",
+            "side": "buy",
+            "quantity": 7.997169783706489,
+            "entry_price": 9.36,
+            "entry_time": "2026-05-05T17:30:06.764661",
+            "strategy_id": "hilbert_cycle",
+            "position_id": "POS_20260505173006_AVAXUSDT_hilbert_cycle_1"
+          }
+        ],
+        "ETHUSDT": [
+          {
+            "symbol": "ETHUSDT",
+            "side": "buy",
+            "quantity": 0.03897337951676508,
+            "entry_price": 2371.73,
+            "entry_time": "2026-05-05T17:30:06.761779",
+            "strategy_id": "hilbert_cycle",
+            "position_id": "POS_20260505173006_ETHUSDT_hilbert_cycle_0"
+          },
+          {
+            "symbol": "ETHUSDT",
+            "side": "buy",
+            "quantity": 0.029077366029230747,
+            "entry_price": 2370.07,
+            "entry_time": "2026-05-05T17:35:24.717161",
+            "strategy_id": "hilbert_cycle",
+            "position_id": "POS_20260505173524_ETHUSDT_hilbert_cycle_1"
+          }
+        ],
+        "LINKUSDT": [
+          {
+            "symbol": "LINKUSDT",
+            "side": "buy",
+            "quantity": 7.038654584319138,
+            "entry_price": 9.57,
+            "entry_time": "2026-05-05T17:30:06.766577",
+            "strategy_id": "hilbert_cycle",
+            "position_id": "POS_20260505173006_LINKUSDT_hilbert_cycle_0"
+          }
+        ]
+      },
+      "trades": [
+        {
+          "trade_id": "PT_20260505171516_ADAUSDT_hilbert_cycle",
+          "symbol": "ADAUSDT",
+          "side": "buy",
+          "quantity": 387.5968992248062,
+          "entry_price": 0.258,
+          "exit_price": 0.2582,
+          "entry_time": "2026-05-05T17:15:16.681648",
+          "exit_time": "2026-05-05T17:30:06.757711",
+          "slippage": 0.01,
+          "commission": 0.1,
+          "realized_pnl": -0.03256589147287674,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505171516_ADAUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_DOTUSDT_hilbert_cycle",
+          "symbol": "DOTUSDT",
+          "side": "buy",
+          "quantity": 71.53338632750398,
+          "entry_price": 1.258,
+          "exit_price": 1.258,
+          "entry_time": "2026-05-05T17:15:16.683091",
+          "exit_time": "2026-05-05T17:24:47.018830",
+          "slippage": 0.0089989,
+          "commission": 0.089989,
+          "realized_pnl": -0.0989879,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505171516_DOTUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505172020_BNBUSDT_hilbert_cycle",
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.12914060824150414,
+          "entry_price": 627.07,
+          "exit_price": 626.49,
+          "entry_time": "2026-05-05T17:20:20.598171",
+          "exit_time": "2026-05-05T17:24:47.019540",
+          "slippage": 0.008098020121,
+          "commission": 0.08098020121,
+          "realized_pnl": -0.16389738240301963,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505172020_BNBUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505172020_ADAUSDT_hilbert_cycle",
+          "symbol": "ADAUSDT",
+          "side": "buy",
+          "quantity": 281.58142684260787,
+          "entry_price": 0.2588,
+          "exit_price": 0.2582,
+          "entry_time": "2026-05-05T17:20:20.599419",
+          "exit_time": "2026-05-05T17:30:06.758446",
+          "slippage": 0.00728732732668669,
+          "commission": 0.0728732732668669,
+          "realized_pnl": -0.2489236129573992,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505172020_ADAUSDT_hilbert_cycle_1"
+        },
+        {
+          "trade_id": "PT_20260505172447_ADAUSDT_hilbert_cycle",
+          "symbol": "ADAUSDT",
+          "side": "buy",
+          "quantity": 319.7236420614335,
+          "entry_price": 0.2585,
+          "exit_price": 0.2582,
+          "entry_time": "2026-05-05T17:24:47.021696",
+          "exit_time": "2026-05-05T17:30:06.759320",
+          "slippage": 0.008264856147288056,
+          "commission": 0.08264856147288056,
+          "realized_pnl": -0.18672500143672557,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505172447_ADAUSDT_hilbert_cycle_2"
+        },
+        {
+          "trade_id": "PT_20260505172447_AVAXUSDT_hilbert_cycle",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 7.963020769146733,
+          "entry_price": 9.34,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:24:47.023106",
+          "exit_time": null,
+          "slippage": 0.007437461398383049,
+          "commission": 0.07437461398383048,
+          "realized_pnl": 0.0,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505172447_AVAXUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505173006_ETHUSDT_hilbert_cycle",
+          "symbol": "ETHUSDT",
+          "side": "buy",
+          "quantity": 0.03897337951676508,
+          "entry_price": 2371.73,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:30:06.761779",
+          "exit_time": null,
+          "slippage": 0.009243433340129724,
+          "commission": 0.09243433340129724,
+          "realized_pnl": 0.0,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505173006_ETHUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505173006_XRPUSDT_hilbert_cycle",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 59.199154711047875,
+          "entry_price": 1.4051,
+          "exit_price": 1.4034,
+          "entry_time": "2026-05-05T17:30:06.763732",
+          "exit_time": "2026-05-05T17:35:24.714125",
+          "slippage": 0.008318073228449338,
+          "commission": 0.08318073228449338,
+          "realized_pnl": -0.1920266661024165,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505173006_XRPUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505173006_AVAXUSDT_hilbert_cycle",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 7.997169783706489,
+          "entry_price": 9.36,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:30:06.764661",
+          "exit_time": null,
+          "slippage": 0.0074853509175492735,
+          "commission": 0.07485350917549273,
+          "realized_pnl": 0.0,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505173006_AVAXUSDT_hilbert_cycle_1"
+        },
+        {
+          "trade_id": "PT_20260505173006_LINKUSDT_hilbert_cycle",
+          "symbol": "LINKUSDT",
+          "side": "buy",
+          "quantity": 7.038654584319138,
+          "entry_price": 9.57,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:30:06.766577",
+          "exit_time": null,
+          "slippage": 0.006735992437193416,
+          "commission": 0.06735992437193415,
+          "realized_pnl": 0.0,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505173006_LINKUSDT_hilbert_cycle_0"
+        },
+        {
+          "trade_id": "PT_20260505173524_ETHUSDT_hilbert_cycle",
+          "symbol": "ETHUSDT",
+          "side": "buy",
+          "quantity": 0.029077366029230747,
+          "entry_price": 2370.07,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:35:24.717161",
+          "exit_time": null,
+          "slippage": 0.006891539290489893,
+          "commission": 0.06891539290489893,
+          "realized_pnl": 0.0,
+          "strategy_id": "hilbert_cycle",
+          "position_id": "POS_20260505173524_ETHUSDT_hilbert_cycle_1"
+        }
+      ]
     },
     "stochastic_breakout": {
       "balance": 1000.0,
@@ -37,10 +389,174 @@
       "trades": []
     },
     "rsi_trend": {
-      "balance": 1000.0,
+      "balance": 662.3033603436405,
       "initial": 1000.0,
-      "positions": {},
-      "trades": []
+      "positions": {
+        "AVAXUSDT": [
+          {
+            "symbol": "AVAXUSDT",
+            "side": "buy",
+            "quantity": 9.634796573875803,
+            "entry_price": 9.34,
+            "entry_time": "2026-05-05T17:20:20.600049",
+            "strategy_id": "rsi_trend",
+            "position_id": "POS_20260505172020_AVAXUSDT_rsi_trend_0"
+          },
+          {
+            "symbol": "AVAXUSDT",
+            "side": "buy",
+            "quantity": 9.73593962519042,
+            "entry_price": 9.34,
+            "entry_time": "2026-05-05T17:24:47.023896",
+            "strategy_id": "rsi_trend",
+            "position_id": "POS_20260505172447_AVAXUSDT_rsi_trend_1"
+          }
+        ],
+        "ETHUSDT": [
+          {
+            "symbol": "ETHUSDT",
+            "side": "buy",
+            "quantity": 0.034507773115543934,
+            "entry_price": 2370.07,
+            "entry_time": "2026-05-05T17:35:24.718219",
+            "strategy_id": "rsi_trend",
+            "position_id": "POS_20260505173524_ETHUSDT_rsi_trend_0"
+          }
+        ],
+        "LINKUSDT": [
+          {
+            "symbol": "LINKUSDT",
+            "side": "buy",
+            "quantity": 7.6905180358412135,
+            "entry_price": 9.57,
+            "entry_time": "2026-05-05T17:35:24.719270",
+            "strategy_id": "rsi_trend",
+            "position_id": "POS_20260505173524_LINKUSDT_rsi_trend_0"
+          }
+        ]
+      },
+      "trades": [
+        {
+          "trade_id": "PT_20260505172020_BNBUSDT_rsi_trend",
+          "symbol": "BNBUSDT",
+          "side": "buy",
+          "quantity": 0.1594718293013539,
+          "entry_price": 627.07,
+          "exit_price": 626.49,
+          "entry_time": "2026-05-05T17:20:20.598762",
+          "exit_time": "2026-05-05T17:24:47.020253",
+          "slippage": 0.01,
+          "commission": 0.1,
+          "realized_pnl": -0.2023919179676975,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505172020_BNBUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505172020_AVAXUSDT_rsi_trend",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 9.634796573875803,
+          "entry_price": 9.34,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:20:20.600049",
+          "exit_time": null,
+          "slippage": 0.0089989,
+          "commission": 0.089989,
+          "realized_pnl": 0.0,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505172020_AVAXUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505172020_LINKUSDT_rsi_trend",
+          "symbol": "LINKUSDT",
+          "side": "buy",
+          "quantity": 8.479602220942407,
+          "entry_price": 9.55,
+          "exit_price": 9.54,
+          "entry_time": "2026-05-05T17:20:20.600771",
+          "exit_time": "2026-05-05T17:24:47.020961",
+          "slippage": 0.008098020120999999,
+          "commission": 0.08098020120999999,
+          "realized_pnl": -0.17378096791600695,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505172020_LINKUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505172447_AVAXUSDT_rsi_trend",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 9.73593962519042,
+          "entry_price": 9.34,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:24:47.023896",
+          "exit_time": null,
+          "slippage": 0.009093367609927853,
+          "commission": 0.09093367609927853,
+          "realized_pnl": 0.0,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505172447_AVAXUSDT_rsi_trend_1"
+        },
+        {
+          "trade_id": "PT_20260505173006_BTCUSDT_rsi_trend",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.0010144878663586115,
+          "entry_price": 80661.69,
+          "exit_price": 80611.2,
+          "entry_time": "2026-05-05T17:30:06.760950",
+          "exit_time": "2026-05-05T17:35:24.715057",
+          "slippage": 0.008183030578497976,
+          "commission": 0.08183030578497975,
+          "realized_pnl": -0.14117848509431963,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505173006_BTCUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505173006_ETHUSDT_rsi_trend",
+          "symbol": "ETHUSDT",
+          "side": "buy",
+          "quantity": 0.03104833765767833,
+          "entry_price": 2371.73,
+          "exit_price": 2370.07,
+          "entry_time": "2026-05-05T17:30:06.762679",
+          "exit_time": "2026-05-05T17:35:24.716147",
+          "slippage": 0.007363827387284544,
+          "commission": 0.07363827387284544,
+          "realized_pnl": -0.13248564750730857,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505173006_ETHUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505173524_ETHUSDT_rsi_trend",
+          "symbol": "ETHUSDT",
+          "side": "buy",
+          "quantity": 0.034507773115543934,
+          "entry_price": 2370.07,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:35:24.718219",
+          "exit_time": null,
+          "slippage": 0.008178583782795722,
+          "commission": 0.08178583782795723,
+          "realized_pnl": 0.0,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505173524_ETHUSDT_rsi_trend_0"
+        },
+        {
+          "trade_id": "PT_20260505173524_LINKUSDT_rsi_trend",
+          "symbol": "LINKUSDT",
+          "side": "buy",
+          "quantity": 7.6905180358412135,
+          "entry_price": 9.57,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:35:24.719270",
+          "exit_time": null,
+          "slippage": 0.007359825760300042,
+          "commission": 0.07359825760300043,
+          "realized_pnl": 0.0,
+          "strategy_id": "rsi_trend",
+          "position_id": "POS_20260505173524_LINKUSDT_rsi_trend_0"
+        }
+      ]
     },
     "ema_cross_fast": {
       "balance": 1000.0,
@@ -55,10 +571,135 @@
       "trades": []
     },
     "volume_spike": {
-      "balance": 1000.0,
+      "balance": 736.7201040201331,
       "initial": 1000.0,
-      "positions": {},
-      "trades": []
+      "positions": {
+        "BTCUSDT": [
+          {
+            "symbol": "BTCUSDT",
+            "side": "buy",
+            "quantity": 0.001239592536016671,
+            "entry_price": 80671.67,
+            "entry_time": "2026-05-05T17:15:16.678426",
+            "strategy_id": "volume_spike",
+            "position_id": "POS_20260505171516_BTCUSDT_volume_spike_0"
+          }
+        ],
+        "SOLUSDT": [
+          {
+            "symbol": "SOLUSDT",
+            "side": "buy",
+            "quantity": 0.9570996479139582,
+            "entry_price": 84.61,
+            "entry_time": "2026-05-05T17:15:16.680627",
+            "strategy_id": "volume_spike",
+            "position_id": "POS_20260505171516_SOLUSDT_volume_spike_0"
+          }
+        ],
+        "AVAXUSDT": [
+          {
+            "symbol": "AVAXUSDT",
+            "side": "buy",
+            "quantity": 8.746559337548346,
+            "entry_price": 9.36,
+            "entry_time": "2026-05-05T17:30:06.765589",
+            "strategy_id": "volume_spike",
+            "position_id": "POS_20260505173006_AVAXUSDT_volume_spike_0"
+          }
+        ]
+      },
+      "trades": [
+        {
+          "trade_id": "PT_20260505171516_BTCUSDT_volume_spike",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.001239592536016671,
+          "entry_price": 80671.67,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.678426",
+          "exit_time": null,
+          "slippage": 0.01,
+          "commission": 0.1,
+          "realized_pnl": 0.0,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505171516_BTCUSDT_volume_spike_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_ETHUSDT_volume_spike",
+          "symbol": "ETHUSDT",
+          "side": "buy",
+          "quantity": 0.03798558903855164,
+          "entry_price": 2369.03,
+          "exit_price": 2369.51,
+          "entry_time": "2026-05-05T17:15:16.679259",
+          "exit_time": "2026-05-05T17:20:20.596884",
+          "slippage": 0.0089989,
+          "commission": 0.089989,
+          "realized_pnl": -0.08077487365250689,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505171516_ETHUSDT_volume_spike_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_SOLUSDT_volume_spike",
+          "symbol": "SOLUSDT",
+          "side": "buy",
+          "quantity": 0.9570996479139582,
+          "entry_price": 84.61,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:15:16.680627",
+          "exit_time": null,
+          "slippage": 0.008098020121,
+          "commission": 0.08098020121,
+          "realized_pnl": 0.0,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505171516_SOLUSDT_volume_spike_0"
+        },
+        {
+          "trade_id": "PT_20260505171516_AVAXUSDT_volume_spike",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 7.8190207367882945,
+          "entry_price": 9.32,
+          "exit_price": 9.34,
+          "entry_time": "2026-05-05T17:15:16.682484",
+          "exit_time": "2026-05-05T17:20:20.597499",
+          "slippage": 0.00728732732668669,
+          "commission": 0.0728732732668669,
+          "realized_pnl": 0.07604779568599963,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505171516_AVAXUSDT_volume_spike_0"
+        },
+        {
+          "trade_id": "PT_20260505172447_DOGEUSDT_volume_spike",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 738.1756943102877,
+          "entry_price": 0.1109,
+          "exit_price": 0.1112,
+          "entry_time": "2026-05-05T17:24:47.022382",
+          "exit_time": "2026-05-05T17:30:06.760160",
+          "slippage": 0.00818636844990109,
+          "commission": 0.08186368449901091,
+          "realized_pnl": 0.13115905736504802,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505172447_DOGEUSDT_volume_spike_0"
+        },
+        {
+          "trade_id": "PT_20260505173006_AVAXUSDT_volume_spike",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 8.746559337548346,
+          "entry_price": 9.36,
+          "exit_price": null,
+          "entry_time": "2026-05-05T17:30:06.765589",
+          "exit_time": null,
+          "slippage": 0.008186779539945252,
+          "commission": 0.08186779539945252,
+          "realized_pnl": 0.0,
+          "strategy_id": "volume_spike",
+          "position_id": "POS_20260505173006_AVAXUSDT_volume_spike_0"
+        }
+      ]
     },
     "price_channel_break": {
       "balance": 1000.0,
@@ -78,80 +719,14 @@
       "positions": {},
       "trades": []
     },
-    "vwap_reversion": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "rsi_macd_confirm": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "bb_breakout": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "ema_ribbon": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "momentum_breakout": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
     "supertrend": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "ichimoku_cloud": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "williams_r": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "atr_breakout": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "dual_thrust": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "parabolic_sar_v2": {
-      "balance": 1000.0,
-      "initial": 1000.0,
-      "positions": {},
-      "trades": []
-    },
-    "keltner_breakout": {
       "balance": 1000.0,
       "initial": 1000.0,
       "positions": {},
       "trades": []
     }
   },
-  "total_initial": 25000.0,
-  "last_updated": "2026-05-04T14:35:23.345299",
+  "total_initial": 14000.0,
+  "last_updated": "2026-05-05T17:35:24.719299",
   "daily_settlements": {}
 }

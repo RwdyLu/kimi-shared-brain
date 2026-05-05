@@ -527,7 +527,7 @@ class MonitoringScheduler:
                         current_prices[result.symbol] = result.current_price
                 
                 # Fix A: Time stop-loss check — exit positions held > 8 hours before processing new signals
-                time_stop_results = self.trade_executor.check_time_stop_loss(current_prices)
+                time_stop_results = self.trade_executor.check_time_stop_loss(current_prices) or []
                 for tsr in time_stop_results:
                     status_icon = "⏰" if tsr.status == "time_stopped" else "⏭️"
                     self._log(f"    {status_icon} {tsr.symbol}: {tsr.side.upper()} {tsr.status} — {tsr.reason}")
@@ -623,10 +623,13 @@ class MonitoringScheduler:
                 self._send_notification(title, message)
 
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
             record.end_time = datetime.now()
             record.success = False
             record.error = str(e)
             self._log(f"Run #{run_id} failed: {e}")
+            self._log(f"Traceback:\n{tb}")
             self._send_notification("❌ Monitoring Error", f"Run #{run_id} failed: {e}")
 
         self._run_records.append(record)
