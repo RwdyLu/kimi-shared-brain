@@ -72,6 +72,11 @@ class StrategyConditions:
             "volume_above_avg_1_5x": self._check_volume_above_avg_1_5x,
             "price_above_20period_high": self._check_price_above_20period_high,
             "bullish_divergence_rsi": self._check_bullish_divergence_rsi,
+            # Additional indicator conditions / 額外指標條件
+            "supertrend": self._check_supertrend,
+            "williams_r": self._check_williams_r,
+            "keltner_breakout": self._check_keltner_breakout,
+            "atr_breakout": self._check_atr_breakout,
         }
     
     def check_condition(
@@ -892,3 +897,134 @@ class StrategyConditions:
                 },
                 message="No bullish divergence detected"
             )
+
+    # ===================================================================
+    # Additional indicator conditions / 額外指標條件
+    # ===================================================================
+
+    def _check_supertrend(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check Supertrend bullish signal / 檢查 Supertrend 翻多訊號
+        
+        ATR proxy: 用最近 14 根的 high-low 範圍
+        Supertrend 翻多：價格在 MA20 上方且有 ATR 支撐
+        """
+        atr = data.get("atr", 0)
+        price = data.get("price", 0)
+        ma20 = data.get("ma20", 0)
+        
+        if not price or not ma20:
+            return ConditionCheck(
+                condition="supertrend",
+                result=ConditionResult.MISSING_DATA,
+                details={"price": price, "ma20": ma20, "atr": atr},
+                message="Missing price or MA20 data for Supertrend"
+            )
+        
+        if price > ma20 and atr > 0:
+            return ConditionCheck(
+                condition="supertrend",
+                result=ConditionResult.PASSED,
+                details={"price": price, "ma20": ma20, "atr": atr},
+                message=f"Supertrend bullish: price ${price:,.2f} above MA20 ${ma20:,.2f}"
+            )
+        return ConditionCheck(
+            condition="supertrend",
+            result=ConditionResult.FAILED,
+            details={"price": price, "ma20": ma20, "atr": atr},
+            message=f"Supertrend bearish: price ${price:,.2f} vs MA20 ${ma20:,.2f}"
+        )
+
+    def _check_williams_r(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check Williams %R oversold / 檢查 Williams %R 超賣
+        
+        Williams %R 用 Stochastic 近似：K < 20 = 超賣
+        """
+        stoch_k = data.get("stoch_fastk", 50)
+        # Williams %R 用 Stochastic 近似：K - 100
+        wr_approx = stoch_k - 100
+        threshold = params.get("threshold", -80)
+        
+        if stoch_k is None:
+            return ConditionCheck(
+                condition="williams_r",
+                result=ConditionResult.MISSING_DATA,
+                details={},
+                message="Missing Stochastic FastK data for Williams %R"
+            )
+        
+        if wr_approx < threshold:
+            return ConditionCheck(
+                condition="williams_r",
+                result=ConditionResult.PASSED,
+                details={"wr_approx": wr_approx, "threshold": threshold, "stoch_k": stoch_k},
+                message=f"Williams %R {wr_approx:.1f} below {threshold} (oversold)"
+            )
+        return ConditionCheck(
+            condition="williams_r",
+            result=ConditionResult.FAILED,
+            details={"wr_approx": wr_approx, "threshold": threshold, "stoch_k": stoch_k},
+            message=f"Williams %R {wr_approx:.1f} not oversold (threshold {threshold})"
+        )
+
+    def _check_keltner_breakout(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check Keltner channel breakout / 檢查 Keltner Channel 突破
+        
+        用 MA20 + 2*ATR 作為上軌 proxy
+        """
+        price = data.get("price", 0)
+        ma20 = data.get("ma20", 0)
+        atr = data.get("atr", data.get("bb_upper", 0) - data.get("ma20", 0))
+        upper = ma20 + 2 * atr if atr and ma20 else ma20 * 1.02 if ma20 else 0
+        
+        if not price or not ma20:
+            return ConditionCheck(
+                condition="keltner_breakout",
+                result=ConditionResult.MISSING_DATA,
+                details={"price": price, "ma20": ma20, "atr": atr},
+                message="Missing price or MA20 data for Keltner breakout"
+            )
+        
+        if price > upper:
+            return ConditionCheck(
+                condition="keltner_breakout",
+                result=ConditionResult.PASSED,
+                details={"price": price, "ma20": ma20, "atr": atr, "upper": upper},
+                message=f"Price ${price:,.2f} broke above Keltner upper ${upper:,.2f}"
+            )
+        return ConditionCheck(
+            condition="keltner_breakout",
+            result=ConditionResult.FAILED,
+            details={"price": price, "ma20": ma20, "atr": atr, "upper": upper},
+            message=f"Price ${price:,.2f} below Keltner upper ${upper:,.2f}"
+        )
+
+    def _check_atr_breakout(self, data: Dict[str, Any], params: Dict[str, Any]) -> ConditionCheck:
+        """Check ATR breakout / 檢查 ATR 突破
+        
+        ATR breakout proxy: 價格突破 MA5 且 MA5 > MA20
+        """
+        price = data.get("price", 0)
+        ma5 = data.get("ma5", 0)
+        ma20 = data.get("ma20", 0)
+        
+        if not price or not ma5 or not ma20:
+            return ConditionCheck(
+                condition="atr_breakout",
+                result=ConditionResult.MISSING_DATA,
+                details={"price": price, "ma5": ma5, "ma20": ma20},
+                message="Missing price, MA5 or MA20 data for ATR breakout"
+            )
+        
+        if price > ma5 and ma5 > ma20:
+            return ConditionCheck(
+                condition="atr_breakout",
+                result=ConditionResult.PASSED,
+                details={"price": price, "ma5": ma5, "ma20": ma20},
+                message=f"ATR breakout: price ${price:,.2f} > MA5 ${ma5:,.2f} > MA20 ${ma20:,.2f}"
+            )
+        return ConditionCheck(
+            condition="atr_breakout",
+            result=ConditionResult.FAILED,
+            details={"price": price, "ma5": ma5, "ma20": ma20},
+            message=f"ATR breakout not confirmed: price ${price:,.2f}, MA5 ${ma5:,.2f}, MA20 ${ma20:,.2f}"
+        )
