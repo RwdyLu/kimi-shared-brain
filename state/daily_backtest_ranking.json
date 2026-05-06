@@ -1,16 +1,116 @@
 {
-  "updated_at": "2026-05-03T14:54:18.487277",
-  "period": "2025-05-03 ~ 2026-05-03",
+  "updated_at": "2026-05-06T02:00:54.272175",
+  "period": "2025-05-06 ~ 2026-05-06",
   "rankings": [
     {
+      "strategy_id": "volume_spike",
+      "total_trades": 30,
+      "total_return_pct": 26.06,
+      "win_rate": 73.3,
+      "max_drawdown_pct": 3.17,
+      "score": 19.076,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:28.997777"
+    },
+    {
+      "strategy_id": "hilbert_cycle",
+      "total_trades": 19,
+      "total_return_pct": 21.7,
+      "win_rate": 57.9,
+      "max_drawdown_pct": 3.19,
+      "score": 12.531,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:19.505718"
+    },
+    {
       "strategy_id": "roc_momentum",
-      "total_trades": 6,
-      "total_return_pct": 1.8,
-      "win_rate": 33.3,
-      "max_drawdown_pct": 3.22,
-      "score": 0.568,
+      "total_trades": 25,
+      "total_return_pct": 19.42,
+      "win_rate": 60.0,
+      "max_drawdown_pct": 3.4,
+      "score": 11.616,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:52.271956"
+    },
+    {
+      "strategy_id": "momentum_divergence",
+      "total_trades": 11,
+      "total_return_pct": 13.58,
+      "win_rate": 81.8,
+      "max_drawdown_pct": 1.61,
+      "score": 11.096,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:32.186384"
+    },
+    {
+      "strategy_id": "ma_cross_trend",
+      "total_trades": 7,
+      "total_return_pct": 10.23,
+      "win_rate": 85.7,
+      "max_drawdown_pct": 1.57,
+      "score": 8.755,
       "recommended": false,
-      "updated_at": "2026-05-03T14:54:16.487132"
+      "updated_at": "2026-05-06T02:00:06.010621"
+    },
+    {
+      "strategy_id": "ma_cross_trend_short",
+      "total_trades": 7,
+      "total_return_pct": 10.23,
+      "win_rate": 85.7,
+      "max_drawdown_pct": 1.57,
+      "score": 8.755,
+      "recommended": false,
+      "updated_at": "2026-05-06T02:00:09.533673"
+    },
+    {
+      "strategy_id": "rsi_mid_bounce",
+      "total_trades": 10,
+      "total_return_pct": 13.0,
+      "win_rate": 60.0,
+      "max_drawdown_pct": 1.57,
+      "score": 7.784,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:12.996890"
+    },
+    {
+      "strategy_id": "rsi_trend",
+      "total_trades": 5,
+      "total_return_pct": 8.3,
+      "win_rate": 80.0,
+      "max_drawdown_pct": 1.62,
+      "score": 6.627,
+      "recommended": false,
+      "updated_at": "2026-05-06T02:00:16.548011"
+    },
+    {
+      "strategy_id": "opening_range_breakout",
+      "total_trades": 11,
+      "total_return_pct": 6.8,
+      "win_rate": 45.5,
+      "max_drawdown_pct": 4.7,
+      "score": 3.044,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:38.176068"
+    },
+    {
+      "strategy_id": "stochastic_breakout",
+      "total_trades": 5,
+      "total_return_pct": 5.0,
+      "win_rate": 60.0,
+      "max_drawdown_pct": 1.65,
+      "score": 2.983,
+      "recommended": false,
+      "updated_at": "2026-05-06T02:00:22.813061"
+    },
+    {
+      "strategy_id": "rsi_scalping",
+      "total_trades": 5,
+      "total_return_pct": 0.5,
+      "win_rate": 40.0,
+      "max_drawdown_pct": 4.96,
+      "score": 0.15,
+      "recommended": false,
+      "updated_at": "2026-05-06T02:00:43.126032"
     },
     {
       "strategy_id": "price_channel_break",
@@ -20,138 +120,99 @@
       "max_drawdown_pct": 0.0,
       "score": 0.0,
       "recommended": false,
-      "updated_at": "2026-05-03T14:54:00.441473"
-    },
-    {
-      "strategy_id": "rsi_scalping",
-      "total_trades": 3,
-      "total_return_pct": -3.6,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 3.4,
-      "score": -3.6,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:54:08.137730"
-    },
-    {
-      "strategy_id": "opening_range_breakout",
-      "total_trades": 5,
-      "total_return_pct": -4.0,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 3.4,
-      "score": -4.0,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:54:03.297880"
-    },
-    {
-      "strategy_id": "ma_cross_trend",
-      "total_trades": 6,
-      "total_return_pct": -5.7,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 5.1,
-      "score": -5.7,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:34.598145"
-    },
-    {
-      "strategy_id": "ma_cross_trend_short",
-      "total_trades": 6,
-      "total_return_pct": -5.7,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 5.1,
-      "score": -5.7,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:37.701580"
-    },
-    {
-      "strategy_id": "stochastic_breakout",
-      "total_trades": 5,
-      "total_return_pct": -7.0,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 6.8,
-      "score": -7.0,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:49.548347"
-    },
-    {
-      "strategy_id": "rsi_trend",
-      "total_trades": 7,
-      "total_return_pct": -7.4,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 6.8,
-      "score": -7.4,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:43.630297"
+      "updated_at": "2026-05-06T02:00:35.206127"
     },
     {
       "strategy_id": "ema_scalping",
-      "total_trades": 7,
-      "total_return_pct": -7.4,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 6.8,
-      "score": -7.4,
+      "total_trades": 23,
+      "total_return_pct": -7.71,
+      "win_rate": 39.1,
+      "max_drawdown_pct": 10.25,
+      "score": -7.713,
       "recommended": false,
-      "updated_at": "2026-05-03T14:54:10.893741"
-    },
-    {
-      "strategy_id": "rsi_mid_bounce",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:40.940839"
-    },
-    {
-      "strategy_id": "hilbert_cycle",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:46.440146"
+      "updated_at": "2026-05-06T02:00:46.148296"
     },
     {
       "strategy_id": "ema_cross_fast",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
+      "total_trades": 20,
+      "total_return_pct": -12.35,
+      "win_rate": 30.0,
+      "max_drawdown_pct": 14.8,
+      "score": -12.35,
       "recommended": false,
-      "updated_at": "2026-05-03T14:53:52.242856"
-    },
-    {
-      "strategy_id": "volume_spike",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:54.952410"
-    },
-    {
-      "strategy_id": "momentum_divergence",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
-      "recommended": false,
-      "updated_at": "2026-05-03T14:53:57.776070"
+      "updated_at": "2026-05-06T02:00:25.715915"
     },
     {
       "strategy_id": "cci_reversal",
-      "total_trades": 8,
-      "total_return_pct": -9.1,
-      "win_rate": 0.0,
-      "max_drawdown_pct": 8.5,
-      "score": -9.1,
+      "total_trades": 23,
+      "total_return_pct": -27.1,
+      "win_rate": 8.7,
+      "max_drawdown_pct": 26.7,
+      "score": -27.1,
       "recommended": false,
-      "updated_at": "2026-05-03T14:54:13.620798"
+      "updated_at": "2026-05-06T02:00:49.215378"
     }
   ],
-  "recommended": []
+  "recommended": [
+    {
+      "strategy_id": "volume_spike",
+      "total_trades": 30,
+      "total_return_pct": 26.06,
+      "win_rate": 73.3,
+      "max_drawdown_pct": 3.17,
+      "score": 19.076,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:28.997777"
+    },
+    {
+      "strategy_id": "hilbert_cycle",
+      "total_trades": 19,
+      "total_return_pct": 21.7,
+      "win_rate": 57.9,
+      "max_drawdown_pct": 3.19,
+      "score": 12.531,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:19.505718"
+    },
+    {
+      "strategy_id": "roc_momentum",
+      "total_trades": 25,
+      "total_return_pct": 19.42,
+      "win_rate": 60.0,
+      "max_drawdown_pct": 3.4,
+      "score": 11.616,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:52.271956"
+    },
+    {
+      "strategy_id": "momentum_divergence",
+      "total_trades": 11,
+      "total_return_pct": 13.58,
+      "win_rate": 81.8,
+      "max_drawdown_pct": 1.61,
+      "score": 11.096,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:32.186384"
+    },
+    {
+      "strategy_id": "rsi_mid_bounce",
+      "total_trades": 10,
+      "total_return_pct": 13.0,
+      "win_rate": 60.0,
+      "max_drawdown_pct": 1.57,
+      "score": 7.784,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:12.996890"
+    },
+    {
+      "strategy_id": "opening_range_breakout",
+      "total_trades": 11,
+      "total_return_pct": 6.8,
+      "win_rate": 45.5,
+      "max_drawdown_pct": 4.7,
+      "score": 3.044,
+      "recommended": true,
+      "updated_at": "2026-05-06T02:00:38.176068"
+    }
+  ]
 }
