@@ -72,9 +72,15 @@ def load_paper_summary() -> dict:
     all_positions = {}
     all_trades = []
     for sid, acc in strategies.items():
-        for sym, pos in acc.get("positions", {}).items():
-            pos["strategy_id"] = sid
-            all_positions[sym] = pos
+        for sym, pos_list in acc.get("positions", {}).items():
+            # Positions are stored as lists / 倉位以列表儲存
+            if isinstance(pos_list, list):
+                for pos in pos_list:
+                    pos["strategy_id"] = sid
+                    all_positions[f"{sym}_{sid}_{pos.get('position_id', '')}"] = pos
+            else:
+                pos_list["strategy_id"] = sid
+                all_positions[sym] = pos_list
         all_trades.extend(acc.get("trades", []))
 
     open_count = len(all_positions)
@@ -83,7 +89,7 @@ def load_paper_summary() -> dict:
     max_hold_hours = 0
     now = datetime.now()
     for sym, pos in all_positions.items():
-        entry_time_str = pos.get("entry_time")
+        entry_time_str = pos.get("entry_time") if isinstance(pos, dict) else None
         if entry_time_str:
             try:
                 entry_time = datetime.fromisoformat(entry_time_str)
