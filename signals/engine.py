@@ -52,6 +52,9 @@ from indicators.calculator import (
 # Import config loader / 匯入配置載入器
 from config.loader import get_signal_params, get_cooldown_minutes, get_enabled_symbols
 
+# Import market direction filter / 匯入市場方向過濾器 (T-066)
+from app.market_direction_filter import MarketDirectionFilter, SignalSide
+
 
 class SignalType(Enum):
     """Signal types / 訊號類型"""
@@ -282,7 +285,8 @@ class SignalEngine:
     def __init__(
         self,
         fetcher: Optional[BinanceFetcher] = None,
-        cooldown_manager: Optional[CooldownManager] = None
+        cooldown_manager: Optional[CooldownManager] = None,
+        market_filter: Optional[MarketDirectionFilter] = None,
     ):
         """
         Initialize signal engine / 初始化訊號引擎
@@ -290,9 +294,11 @@ class SignalEngine:
         Args:
             fetcher: Data fetcher instance / 資料抓取器實例
             cooldown_manager: Cooldown manager instance / 冷卻管理器實例
+            market_filter: Market direction filter (T-066) / 市場方向過濾器
         """
         self.fetcher = fetcher or create_fetcher()
         self.cooldown = cooldown_manager or CooldownManager()
+        self.market_filter = market_filter or MarketDirectionFilter(fetcher=self.fetcher)
     
     # =========================================================================
     # Signal Condition Checks / 訊號條件檢查
@@ -1144,6 +1150,78 @@ class SignalEngine:
             )
             if atr_breakout:
                 signals.append(atr_breakout)
+        
+        # =========================================================================
+        # T-066: Market Direction Gate Check / 市場方向閘門檢查
+        # =========================================================================
+        if signals:
+            filtered_signals = []
+            filter_log_lines = []
+            
+            for signal in signals:
+                # Skip gate check for WATCH_ONLY signals (observation only)
+                if signal.level == SignalLevel.WATCH_ONLY:
+                    filtered_signals.append(signal)
+                    continue
+                
+                # Determine signal side from signal type
+                signal_side = SignalSide.UNKNOWN
+                long_types = [
+                    SignalType.MA_CROSS_TREND,
+                    SignalType.SUPERTREND,
+                    SignalType.ICHIMOKU_CLOUD,
+                    SignalType.KELTNER_BREAKOUT,
+                    SignalType.ATR_BREAKOUT,
+                    SignalType.EMA_CROSS_FAST,
+                    SignalType.RSI_MID_BOUNCE,
+                    SignalType.PRICE_CHANNEL_BREAK,
+                    SignalType.STOCHASTIC_BREAKOUT,
+                    SignalType.HILBERT_CYCLE,
+                    SignalType.RSI_TREND,
+                    SignalType.VOLUME_SPIKE,
+                    SignalType.BB_MEAN_REVERSION,
+                ]
+                short_types = [
+                    SignalType.MA_CROSS_TREND_SHORT,
+                    SignalType.EXIT_LONG,
+                ]
+                
+                if signal.signal_type in long_types:
+                    signal_side = SignalSide.LONG
+                elif signal.signal_type in short_types:
+                    signal_side = SignalSide.SHORT
+                elif hasattr(signal, 'metadata') and signal.metadata:
+                    direction = signal.metadata.get('direction', '')
+                    if direction == 'LONG':
+                        signal_side = SignalSide.LONG
+                    elif direction == 'SHORT':
+                        signal_side = SignalSide.SHORT
+                
+                if signal_side == SignalSide.UNKNOWN:
+                    # Cannot determine side, allow by default
+                    filtered_signals.append(signal)
+                    continue
+                
+                # Run gate check
+                filter_result = self.market_filter.gate_check(symbol, signal_side)
+                
+                if filter_result.allowed:
+                    filtered_signals.append(signal)
+                    filter_log_lines.append(
+                        f"  ✅ {symbol} | {signal.signal_type.value} ({signal_side.value}) | {filter_result.reason}"
+                    )
+                else:
+                    filter_log_lines.append(
+                        f"  ❌ {symbol} | {signal.signal_type.value} ({signal_side.value}) | BLOCKED | {filter_result.reason}"
+                    )
+            
+            # Log filter results
+            if filter_log_lines:
+                print(f"\n[Market Filter / 市場方向過濾] {symbol}:")
+                for line in filter_log_lines:
+                    print(line)
+            
+            signals = filtered_signals
         
         return signals
     

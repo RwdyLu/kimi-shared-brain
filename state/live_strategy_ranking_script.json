@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-06T10:27:44.254422",
-  "total_strategies": 14,
+  "timestamp": "2026-05-07T14:36:03.425667",
+  "total_strategies": 11,
   "total_symbols": 10,
   "strategy_ranking": [
     {
       "strategy_id": "ma_cross_trend_short",
       "name": "MA Cross Trend Short",
-      "avg_score": 76.7,
+      "avg_score": 86.7,
       "symbols_evaluated": 10,
       "max_score": 100.0,
       "min_score": 66.7,
@@ -15,9 +15,9 @@
     {
       "strategy_id": "ma_cross_trend",
       "name": "MA Cross Trend",
-      "avg_score": 66.7,
+      "avg_score": 76.7,
       "symbols_evaluated": 10,
-      "max_score": 66.7,
+      "max_score": 100.0,
       "min_score": 66.7,
       "rank": 2
     },
@@ -26,27 +26,18 @@
       "name": "Contrarian Watch - Overheated",
       "avg_score": 40.0,
       "symbols_evaluated": 10,
-      "max_score": 50.0,
+      "max_score": 100.0,
       "min_score": 0.0,
       "rank": 3
     },
     {
       "strategy_id": "contrarian_watch_oversold",
       "name": "Contrarian Watch - Oversold",
-      "avg_score": 25.0,
+      "avg_score": 30.0,
       "symbols_evaluated": 10,
-      "max_score": 100.0,
+      "max_score": 50.0,
       "min_score": 0.0,
       "rank": 4
-    },
-    {
-      "strategy_id": "hilbert_cycle",
-      "name": "Hilbert Cycle",
-      "avg_score": 0.0,
-      "symbols_evaluated": 10,
-      "max_score": 0.0,
-      "min_score": 0.0,
-      "rank": 5
     },
     {
       "strategy_id": "stochastic_breakout",
@@ -55,16 +46,7 @@
       "symbols_evaluated": 10,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 6
-    },
-    {
-      "strategy_id": "rsi_trend",
-      "name": "RSI Trend",
-      "avg_score": 0.0,
-      "symbols_evaluated": 10,
-      "max_score": 0.0,
-      "min_score": 0.0,
-      "rank": 7
+      "rank": 5
     },
     {
       "strategy_id": "ema_cross_fast",
@@ -73,7 +55,7 @@
       "symbols_evaluated": 10,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 8
+      "rank": 6
     },
     {
       "strategy_id": "rsi_mid_bounce",
@@ -82,16 +64,7 @@
       "symbols_evaluated": 10,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 9
-    },
-    {
-      "strategy_id": "volume_spike",
-      "name": "Volume Spike",
-      "avg_score": 0.0,
-      "symbols_evaluated": 10,
-      "max_score": 0.0,
-      "min_score": 0.0,
-      "rank": 10
+      "rank": 7
     },
     {
       "strategy_id": "price_channel_break",
@@ -100,7 +73,7 @@
       "symbols_evaluated": 10,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 11
+      "rank": 8
     },
     {
       "strategy_id": "momentum_divergence",
@@ -109,7 +82,7 @@
       "symbols_evaluated": 10,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 12
+      "rank": 9
     },
     {
       "strategy_id": "opening_range_breakout",
@@ -118,7 +91,7 @@
       "symbols_evaluated": 2,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 13
+      "rank": 10
     },
     {
       "strategy_id": "supertrend",
@@ -127,151 +100,119 @@
       "symbols_evaluated": 3,
       "max_score": 0.0,
       "min_score": 0.0,
-      "rank": 14
+      "rank": 11
     }
   ],
   "best_opportunities": [
     {
       "rank": 1,
+      "strategy_id": "ma_cross_trend",
+      "strategy_name": "MA Cross Trend",
+      "symbol": "BTCUSDT",
+      "score": 100.0,
+      "price": 81291.42
+    },
+    {
+      "rank": 2,
       "strategy_id": "ma_cross_trend_short",
       "strategy_name": "MA Cross Trend Short",
       "symbol": "ETHUSDT",
       "score": 100.0,
-      "price": 2365.67
-    },
-    {
-      "rank": 2,
-      "strategy_id": "contrarian_watch_oversold",
-      "strategy_name": "Contrarian Watch - Oversold",
-      "symbol": "ETHUSDT",
-      "score": 100.0,
-      "price": 2365.68
+      "price": 2334.67
     },
     {
       "rank": 3,
-      "strategy_id": "ma_cross_trend",
-      "strategy_name": "MA Cross Trend",
-      "symbol": "BTCUSDT",
-      "score": 66.7,
-      "price": 81201.41
+      "strategy_id": "contrarian_watch_overheated",
+      "strategy_name": "Contrarian Watch - Overheated",
+      "symbol": "SOLUSDT",
+      "score": 100.0,
+      "price": 88.99
     },
     {
       "rank": 4,
-      "strategy_id": "contrarian_watch_overheated",
-      "strategy_name": "Contrarian Watch - Overheated",
-      "symbol": "BNBUSDT",
+      "strategy_id": "contrarian_watch_oversold",
+      "strategy_name": "Contrarian Watch - Oversold",
+      "symbol": "BTCUSDT",
       "score": 50.0,
-      "price": 633.79
+      "price": 81284.7
     },
     {
       "rank": 5,
-      "strategy_id": "hilbert_cycle",
-      "strategy_name": "Hilbert Cycle",
-      "symbol": "BTCUSDT",
-      "score": 0.0,
-      "price": 81201.4
-    },
-    {
-      "rank": 6,
       "strategy_id": "stochastic_breakout",
       "strategy_name": "Stochastic Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81201.41
+      "price": 81274.25
     },
     {
-      "rank": 7,
-      "strategy_id": "rsi_trend",
-      "strategy_name": "RSI Trend",
-      "symbol": "BTCUSDT",
-      "score": 0.0,
-      "price": 81201.41
-    },
-    {
-      "rank": 8,
+      "rank": 6,
       "strategy_id": "ema_cross_fast",
       "strategy_name": "EMA Cross Fast",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81274.25
     },
     {
-      "rank": 9,
+      "rank": 7,
       "strategy_id": "rsi_mid_bounce",
       "strategy_name": "RSI Mid Bounce",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81274.24
     },
     {
-      "rank": 10,
-      "strategy_id": "volume_spike",
-      "strategy_name": "Volume Spike",
-      "symbol": "BTCUSDT",
-      "score": 0.0,
-      "price": 81200.21
-    },
-    {
-      "rank": 11,
+      "rank": 8,
       "strategy_id": "price_channel_break",
       "strategy_name": "Price Channel Break",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81270.43
     },
     {
-      "rank": 12,
+      "rank": 9,
       "strategy_id": "momentum_divergence",
       "strategy_name": "Momentum Divergence",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81270.44
     },
     {
-      "rank": 13,
+      "rank": 10,
       "strategy_id": "opening_range_breakout",
       "strategy_name": "Opening Range Breakout",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81277.67
     },
     {
-      "rank": 14,
+      "rank": 11,
       "strategy_id": "supertrend",
       "strategy_name": "Supertrend",
       "symbol": "BTCUSDT",
       "score": 0.0,
-      "price": 81200.22
+      "price": 81277.67
     }
   ],
   "symbol_scores": {
     "BTCUSDT": [
       {
         "strategy": "ma_cross_trend",
-        "score": 66.7
+        "score": 100.0
       },
       {
         "strategy": "ma_cross_trend_short",
         "score": 66.7
       },
       {
+        "strategy": "contrarian_watch_overheated",
+        "score": 50.0
+      },
+      {
         "strategy": "contrarian_watch_oversold",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_overheated",
-        "score": 0.0
-      },
-      {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -280,10 +221,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -309,27 +246,19 @@
         "score": 100.0
       },
       {
-        "strategy": "contrarian_watch_oversold",
-        "score": 100.0
-      },
-      {
         "strategy": "ma_cross_trend",
         "score": 66.7
+      },
+      {
+        "strategy": "contrarian_watch_oversold",
+        "score": 50.0
       },
       {
         "strategy": "contrarian_watch_overheated",
         "score": 0.0
       },
       {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -338,10 +267,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -379,15 +304,7 @@
         "score": 50.0
       },
       {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -396,10 +313,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -418,30 +331,22 @@
     "SOLUSDT": [
       {
         "strategy": "ma_cross_trend",
-        "score": 66.7
+        "score": 100.0
+      },
+      {
+        "strategy": "contrarian_watch_overheated",
+        "score": 100.0
       },
       {
         "strategy": "ma_cross_trend_short",
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_overheated",
-        "score": 50.0
-      },
-      {
         "strategy": "contrarian_watch_oversold",
         "score": 0.0
       },
       {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -450,10 +355,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -467,11 +368,11 @@
     ],
     "XRPUSDT": [
       {
-        "strategy": "ma_cross_trend",
-        "score": 66.7
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
       },
       {
-        "strategy": "ma_cross_trend_short",
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
@@ -480,18 +381,10 @@
       },
       {
         "strategy": "contrarian_watch_oversold",
-        "score": 0.0
-      },
-      {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
+        "score": 50.0
       },
       {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -500,10 +393,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -525,23 +414,15 @@
         "score": 66.7
       },
       {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_oversold",
-        "score": 0.0
-      },
-      {
-        "strategy": "hilbert_cycle",
+        "strategy": "contrarian_watch_overheated",
         "score": 0.0
       },
       {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -550,10 +431,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -567,31 +444,23 @@
     ],
     "DOGEUSDT": [
       {
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
+      },
+      {
         "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
-        "strategy": "ma_cross_trend_short",
-        "score": 66.7
-      },
-      {
-        "strategy": "contrarian_watch_overheated",
+        "strategy": "contrarian_watch_oversold",
         "score": 50.0
       },
       {
-        "strategy": "contrarian_watch_oversold",
-        "score": 0.0
-      },
-      {
-        "strategy": "hilbert_cycle",
+        "strategy": "contrarian_watch_overheated",
         "score": 0.0
       },
       {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -600,10 +469,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -617,11 +482,11 @@
     ],
     "AVAXUSDT": [
       {
-        "strategy": "ma_cross_trend",
-        "score": 66.7
+        "strategy": "ma_cross_trend_short",
+        "score": 100.0
       },
       {
-        "strategy": "ma_cross_trend_short",
+        "strategy": "ma_cross_trend",
         "score": 66.7
       },
       {
@@ -633,15 +498,7 @@
         "score": 0.0
       },
       {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -650,10 +507,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -683,15 +536,7 @@
         "score": 0.0
       },
       {
-        "strategy": "hilbert_cycle",
-        "score": 0.0
-      },
-      {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -700,10 +545,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {
@@ -718,7 +559,7 @@
     "DOTUSDT": [
       {
         "strategy": "ma_cross_trend",
-        "score": 66.7
+        "score": 100.0
       },
       {
         "strategy": "ma_cross_trend_short",
@@ -730,18 +571,10 @@
       },
       {
         "strategy": "contrarian_watch_oversold",
-        "score": 50.0
-      },
-      {
-        "strategy": "hilbert_cycle",
         "score": 0.0
       },
       {
         "strategy": "stochastic_breakout",
-        "score": 0.0
-      },
-      {
-        "strategy": "rsi_trend",
         "score": 0.0
       },
       {
@@ -750,10 +583,6 @@
       },
       {
         "strategy": "rsi_mid_bounce",
-        "score": 0.0
-      },
-      {
-        "strategy": "volume_spike",
         "score": 0.0
       },
       {

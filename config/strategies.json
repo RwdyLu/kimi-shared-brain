@@ -1,6 +1,6 @@
 {
   "version": "1.1.0",
-  "last_updated": "2026-04-23",
+  "last_updated": "2026-05-08",
   "description": "Strategy registry / 策略註冊表",
   "strategies": [
     {
@@ -148,7 +148,7 @@
       "name": "Hilbert Cycle",
       "name_zh": "希爾伯特週期",
       "type": "cycle",
-      "enabled": true,
+      "enabled": false,
       "description": "Hilbert Transform SineWave cycle detection (Open Source #1 Ranked)",
       "description_zh": "希爾伯特轉換正弦波週期檢測（開源策略排名第1）",
       "symbols": [
@@ -234,7 +234,7 @@
       "name": "RSI Trend",
       "name_zh": "RSI趨勢策略",
       "type": "momentum",
-      "enabled": true,
+      "enabled": false,
       "description": "RSI crossover with TEMA and Bollinger Bands confirmation (Open Source #3 Ranked)",
       "description_zh": "RSI交叉搭配TEMA和布林帶確認（開源策略排名第3）",
       "symbols": [
@@ -399,7 +399,7 @@
       "name": "Volume Spike",
       "name_zh": "成交量突增",
       "type": "momentum",
-      "enabled": true,
+      "enabled": false,
       "description": "Volume spike above 0.8x average",
       "description_zh": "成交量突增超過均量0.8倍",
       "symbols": [

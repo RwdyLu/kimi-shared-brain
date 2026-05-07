@@ -3,9 +3,10 @@
     {
       "id": "test-001",
       "command": "echo 'Hello from Second!' > /tmp/task_test.txt",
-      "status": "pending",
+      "status": "done",
       "created_at": "2026-05-07T09:03:54.806024",
-      "target": "second"
+      "target": "second",
+      "completed_at": "2026-05-07T14:38:35.708495"
     }
   ],
   "last_updated": "2026-05-07T09:03:54.806058"

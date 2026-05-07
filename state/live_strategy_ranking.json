@@ -1,142 +1,141 @@
 {
-  "last_updated": "2026-05-06T10:27:44.283105",
+  "last_updated": "2026-05-07T14:36:03.505634",
   "symbols": {
     "BTCUSDT": {
-      "price": 81201.41,
+      "price": 81300.01,
       "strategies": [
         {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.72,
+          "name": "ichimoku_cloud",
+          "status": "Confirmed",
+          "score": 1.0,
           "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.72,
-          "history": [
-            0.753,
-            0.738,
-            0.726,
-            0.717,
-            0.667
-          ]
+          "total_conditions": 0
         },
         {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.602,
+          "name": "keltner_breakout",
+          "status": "Confirmed",
+          "score": 1.0,
           "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.602,
-          "history": [
-            0.664,
-            0.604,
-            0.59,
-            0.583,
-            0.568
-          ]
+          "total_conditions": 0
         },
         {
           "name": "ma_cross_trend",
-          "status": "Idle",
-          "score": 0.563,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.563,
+          "status": "Confirmed",
+          "score": 0.466,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.466,
           "history": [
-            0.627,
-            0.56,
-            0.548,
-            0.547,
-            0.534
-          ]
-        },
-        {
-          "name": "contrarian_watch_oversold",
-          "status": "Idle",
-          "score": 0.554,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.554,
-          "history": [
-            0.553,
-            0.575,
-            0.599,
-            0.526,
-            0.518
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.458,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.458,
-          "history": [
-            0.49,
-            0.473,
-            0.457,
-            0.441,
-            0.426
+            0.293,
+            0.316,
+            0.344,
+            0.378,
+            1.0
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.335,
+          "score": 0.419,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.335,
+          "rolling_avg": 0.419,
           "history": [
-            0.359,
-            0.347,
-            0.335,
-            0.323,
-            0.312
+            0.449,
+            0.433,
+            0.419,
+            0.404,
+            0.39
+          ]
+        },
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Idle",
+          "score": 0.303,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.303,
+          "history": [
+            0.324,
+            0.313,
+            0.303,
+            0.292,
+            0.282
           ]
         },
         {
           "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.319,
+          "score": 0.112,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.319,
+          "rolling_avg": 0.112,
           "history": [
-            0.346,
-            0.333,
-            0.312,
-            0.305,
-            0.297
+            0.12,
+            0.116,
+            0.112,
+            0.108,
+            0.104
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "hilbert_cycle",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.073,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.073,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.078,
+            0.076,
+            0.073,
+            0.071,
+            0.068
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.056,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.056,
+          "history": [
+            0.06,
+            0.058,
+            0.056,
+            0.054,
+            0.053
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.034,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.034,
+          "history": [
+            0.036,
+            0.035,
+            0.034,
+            0.033,
+            0.031
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.0,
+          "score": 0.002,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.0,
+          "rolling_avg": 0.002,
           "history": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0
+            0.002,
+            0.002,
+            0.002,
+            0.002,
+            0.002
           ]
         },
         {
@@ -156,6 +155,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -202,141 +216,126 @@
       ]
     },
     "ETHUSDT": {
-      "price": 2365.77,
+      "price": 2334.83,
       "strategies": [
         {
           "name": "contrarian_watch_oversold",
-          "status": "Watch",
-          "score": 0.698,
-          "conditions_passed": 2,
-          "total_conditions": 2,
-          "rolling_avg": 0.698,
+          "status": "Idle",
+          "score": 0.619,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.619,
           "history": [
-            0.624,
-            0.638,
-            0.645,
-            0.581,
+            0.505,
+            0.492,
+            1.0,
+            0.547,
+            0.551
+          ]
+        },
+        {
+          "name": "ma_cross_trend_short",
+          "status": "Confirmed",
+          "score": 0.614,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.614,
+          "history": [
+            1.0,
+            0.335,
+            0.354,
+            0.379,
             1.0
-          ]
-        },
-        {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.597,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.597,
-          "history": [
-            0.641,
-            0.619,
-            0.595,
-            0.576,
-            0.556
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.517,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.517,
-          "history": [
-            0.553,
-            0.535,
-            0.516,
-            0.499,
-            0.482
           ]
         },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.458,
+          "score": 0.531,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.458,
+          "rolling_avg": 0.531,
           "history": [
-            0.537,
-            0.454,
-            0.439,
-            0.436,
-            0.427
-          ]
-        },
-        {
-          "name": "ma_cross_trend_short",
-          "status": "Idle",
-          "score": 0.39,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.39,
-          "history": [
-            0.417,
-            0.402,
-            0.389,
-            0.376,
-            0.363
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.382,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.382,
-          "history": [
-            0.413,
-            0.398,
-            0.377,
-            0.367,
-            0.356
+            0.514,
+            0.518,
+            0.526,
+            0.54,
+            0.558
           ]
         },
         {
           "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.078,
+          "score": 0.387,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.078,
+          "rolling_avg": 0.387,
           "history": [
-            0.083,
-            0.08,
-            0.077,
-            0.075,
-            0.072
+            0.095,
+            1.0,
+            0.252,
+            0.278,
+            0.31
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "hilbert_cycle",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.068,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.068,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.073,
+            0.07,
+            0.068,
+            0.065,
+            0.063
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.0,
+          "score": 0.066,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.0,
+          "rolling_avg": 0.066,
           "history": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0
+            0.071,
+            0.068,
+            0.066,
+            0.064,
+            0.061
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.059,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.059,
+          "history": [
+            0.063,
+            0.061,
+            0.059,
+            0.057,
+            0.055
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.02,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.02,
+          "history": [
+            0.021,
+            0.02,
+            0.02,
+            0.019,
+            0.018
           ]
         },
         {
@@ -356,6 +355,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -402,141 +416,133 @@
       ]
     },
     "BNBUSDT": {
-      "price": 633.8,
+      "price": 647.5,
       "strategies": [
         {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.85,
+          "name": "keltner_breakout",
+          "status": "Confirmed",
+          "score": 1.0,
           "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.85,
-          "history": [
-            0.794,
-            1.0,
-            0.822,
-            0.831,
-            0.8
-          ]
-        },
-        {
-          "name": "ma_cross_trend",
-          "status": "Idle",
-          "score": 0.702,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.702,
-          "history": [
-            1.0,
-            1.0,
-            0.451,
-            0.501,
-            0.561
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.483,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.483,
-          "history": [
-            0.25,
-            1.0,
-            0.37,
-            0.387,
-            0.408
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.467,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.467,
-          "history": [
-            0.5,
-            0.483,
-            0.466,
-            0.451,
-            0.435
-          ]
-        },
-        {
-          "name": "contrarian_watch_overheated",
-          "status": "Idle",
-          "score": 0.432,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.432,
-          "history": [
-            0.467,
-            0.456,
-            0.429,
-            0.409,
-            0.401
-          ]
+          "total_conditions": 0
         },
         {
           "name": "contrarian_watch_oversold",
           "status": "Idle",
-          "score": 0.408,
+          "score": 0.534,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.408,
+          "rolling_avg": 0.534,
           "history": [
-            0.424,
-            0.422,
-            0.405,
-            0.402,
-            0.39
+            0.55,
+            0.562,
+            0.572,
+            0.495,
+            0.489
+          ]
+        },
+        {
+          "name": "ma_cross_trend",
+          "status": "Confirmed",
+          "score": 0.524,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.524,
+          "history": [
+            0.377,
+            0.392,
+            0.411,
+            0.439,
+            1.0
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.355,
+          "score": 0.409,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.355,
+          "rolling_avg": 0.409,
           "history": [
-            0.38,
-            0.367,
-            0.355,
-            0.343,
-            0.331
+            0.438,
+            0.423,
+            0.409,
+            0.395,
+            0.381
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.091,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.091,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.097,
+            0.094,
+            0.091,
+            0.088,
+            0.085
+          ]
+        },
+        {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.079,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.079,
+          "history": [
+            0.085,
+            0.082,
+            0.079,
+            0.076,
+            0.074
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.0,
+          "score": 0.067,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.0,
+          "rolling_avg": 0.067,
           "history": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0
+            0.072,
+            0.069,
+            0.067,
+            0.065,
+            0.062
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.064,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.064,
+          "history": [
+            0.068,
+            0.066,
+            0.064,
+            0.062,
+            0.059
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.06,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.06,
+          "history": [
+            0.064,
+            0.062,
+            0.06,
+            0.058,
+            0.056
           ]
         },
         {
@@ -556,6 +562,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -602,126 +623,118 @@
       ]
     },
     "SOLUSDT": {
-      "price": 86.73,
+      "price": 89.0,
       "strategies": [
         {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.638,
+          "name": "keltner_breakout",
+          "status": "Confirmed",
+          "score": 1.0,
           "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.638,
-          "history": [
-            0.681,
-            0.661,
-            0.637,
-            0.616,
-            0.593
-          ]
+          "total_conditions": 0
         },
         {
           "name": "ma_cross_trend",
-          "status": "Idle",
-          "score": 0.503,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.503,
+          "status": "Confirmed",
+          "score": 0.36,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.36,
           "history": [
-            0.496,
-            0.507,
-            0.514,
-            0.54,
-            0.457
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.47,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.47,
-          "history": [
-            0.503,
-            0.486,
-            0.469,
-            0.453,
-            0.438
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.412,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.412,
-          "history": [
-            0.444,
-            0.428,
-            0.407,
-            0.395,
-            0.383
-          ]
-        },
-        {
-          "name": "contrarian_watch_oversold",
-          "status": "Idle",
-          "score": 0.312,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.312,
-          "history": [
-            0.294,
-            0.334,
-            0.382,
-            0.271,
-            0.278
+            0.211,
+            0.204,
+            0.197,
+            0.19,
+            1.0
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.295,
+          "score": 0.3,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.295,
+          "rolling_avg": 0.3,
           "history": [
-            0.316,
-            0.305,
-            0.294,
-            0.284,
-            0.275
+            0.321,
+            0.31,
+            0.3,
+            0.289,
+            0.28
+          ]
+        },
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Idle",
+          "score": 0.264,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.264,
+          "history": [
+            0.281,
+            0.279,
+            0.269,
+            0.248,
+            0.244
           ]
         },
         {
           "name": "contrarian_watch_overheated",
-          "status": "Idle",
-          "score": 0.29,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.29,
+          "status": "Watch",
+          "score": 0.263,
+          "conditions_passed": 2,
+          "total_conditions": 2,
+          "rolling_avg": 0.263,
           "history": [
-            0.315,
-            0.304,
-            0.283,
-            0.277,
-            0.27
+            0.083,
+            0.08,
+            0.077,
+            0.075,
+            1.0
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "hilbert_cycle",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.066,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.066,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.07,
+            0.068,
+            0.066,
+            0.063,
+            0.061
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.064,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.064,
+          "history": [
+            0.069,
+            0.066,
+            0.064,
+            0.062,
+            0.06
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.029,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.029,
+          "history": [
+            0.031,
+            0.03,
+            0.029,
+            0.028,
+            0.027
           ]
         },
         {
@@ -756,6 +769,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -802,130 +830,115 @@
       ]
     },
     "XRPUSDT": {
-      "price": 1.414,
+      "price": 1.4131,
       "strategies": [
         {
-          "name": "hilbert_cycle",
+          "name": "contrarian_watch_oversold",
           "status": "Idle",
-          "score": 0.676,
+          "score": 0.677,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.676,
+          "rolling_avg": 0.677,
           "history": [
-            0.724,
-            0.699,
-            0.675,
-            0.651,
-            0.629
+            0.575,
+            0.661,
+            0.762,
+            0.72,
+            0.669
           ]
         },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.609,
+          "score": 0.621,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.609,
+          "rolling_avg": 0.621,
           "history": [
-            0.659,
-            0.597,
-            0.604,
-            0.626,
-            0.559
+            0.681,
+            0.623,
+            0.615,
+            0.602,
+            0.585
+          ]
+        },
+        {
+          "name": "ma_cross_trend_short",
+          "status": "Confirmed",
+          "score": 0.531,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.531,
+          "history": [
+            0.385,
+            0.401,
+            0.421,
+            0.446,
+            1.0
+          ]
+        },
+        {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.064,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.064,
+          "history": [
+            0.068,
+            0.066,
+            0.064,
+            0.061,
+            0.059
           ]
         },
         {
           "name": "rsi_trend",
           "status": "Idle",
-          "score": 0.56,
+          "score": 0.055,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.56,
+          "rolling_avg": 0.055,
           "history": [
-            0.6,
-            0.58,
-            0.56,
-            0.54,
-            0.522
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.522,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.522,
-          "history": [
-            0.519,
-            0.528,
-            0.533,
-            0.556,
-            0.476
-          ]
-        },
-        {
-          "name": "contrarian_watch_oversold",
-          "status": "Idle",
-          "score": 0.374,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.374,
-          "history": [
-            0.382,
-            0.381,
-            0.378,
-            0.371,
-            0.358
-          ]
-        },
-        {
-          "name": "ma_cross_trend_short",
-          "status": "Idle",
-          "score": 0.359,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.359,
-          "history": [
-            0.384,
-            0.371,
-            0.358,
-            0.346,
-            0.334
-          ]
-        },
-        {
-          "name": "stochastic_breakout",
-          "status": "Idle",
-          "score": 0.111,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.111,
-          "history": [
-            0.119,
-            0.115,
-            0.111,
-            0.107,
-            0.104
+            0.059,
+            0.057,
+            0.055,
+            0.053,
+            0.051
           ]
         },
         {
           "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.023,
+          "score": 0.042,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.023,
+          "rolling_avg": 0.042,
           "history": [
-            0.024,
-            0.023,
-            0.023,
-            0.022,
-            0.021
+            0.045,
+            0.044,
+            0.042,
+            0.041,
+            0.039
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.032,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.032,
+          "history": [
+            0.035,
+            0.033,
+            0.032,
+            0.031,
+            0.03
+          ]
+        },
+        {
+          "name": "stochastic_breakout",
           "status": "Idle",
           "score": 0.001,
           "conditions_passed": 0,
@@ -956,6 +969,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1002,130 +1030,100 @@
       ]
     },
     "ADAUSDT": {
-      "price": 0.2615,
+      "price": 0.2666,
       "strategies": [
         {
-          "name": "hilbert_cycle",
+          "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.772,
+          "score": 0.511,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.772,
+          "rolling_avg": 0.511,
           "history": [
-            0.801,
-            0.795,
-            0.793,
-            0.756,
-            0.712
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.63,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.63,
-          "history": [
-            0.675,
-            0.651,
-            0.629,
-            0.608,
-            0.587
+            0.547,
+            0.528,
+            0.51,
+            0.492,
+            0.476
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.541,
+          "score": 0.373,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.541,
+          "rolling_avg": 0.373,
           "history": [
-            0.584,
-            0.558,
-            0.537,
-            0.521,
-            0.504
+            0.321,
+            0.341,
+            0.367,
+            0.399,
+            0.437
+          ]
+        },
+        {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.064,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.064,
+          "history": [
+            0.068,
+            0.066,
+            0.064,
+            0.061,
+            0.059
           ]
         },
         {
           "name": "volume_spike",
           "status": "Idle",
-          "score": 0.517,
+          "score": 0.064,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.517,
+          "rolling_avg": 0.064,
           "history": [
-            0.356,
-            0.343,
-            1.0,
-            0.437,
-            0.45
+            0.069,
+            0.066,
+            0.064,
+            0.062,
+            0.06
           ]
         },
         {
-          "name": "ma_cross_trend",
+          "name": "rsi_trend",
           "status": "Idle",
-          "score": 0.505,
+          "score": 0.058,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.505,
+          "rolling_avg": 0.058,
           "history": [
-            0.39,
-            0.28,
-            1.0,
-            0.418,
-            0.438
+            0.062,
+            0.06,
+            0.058,
+            0.056,
+            0.054
           ]
         },
         {
           "name": "contrarian_watch_oversold",
           "status": "Idle",
-          "score": 0.502,
+          "score": 0.038,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.502,
+          "rolling_avg": 0.038,
           "history": [
-            0.489,
-            0.521,
-            0.555,
-            0.475,
-            0.469
-          ]
-        },
-        {
-          "name": "stochastic_breakout",
-          "status": "Idle",
-          "score": 0.236,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.236,
-          "history": [
-            0.001,
-            0.001,
-            0.001,
-            1.0,
-            0.18
+            0.041,
+            0.039,
+            0.038,
+            0.037,
+            0.035
           ]
         },
         {
           "name": "contrarian_watch_overheated",
-          "status": "Idle",
-          "score": 0.083,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.083,
-          "history": [
-            0.089,
-            0.086,
-            0.083,
-            0.081,
-            0.078
-          ]
-        },
-        {
-          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.001,
           "conditions_passed": 0,
@@ -1137,6 +1135,21 @@
             0.001,
             0.001,
             0.001
+          ]
+        },
+        {
+          "name": "stochastic_breakout",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
           ]
         },
         {
@@ -1156,6 +1169,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1202,141 +1230,126 @@
       ]
     },
     "DOGEUSDT": {
-      "price": 0.11484,
+      "price": 0.11112,
       "strategies": [
         {
-          "name": "hilbert_cycle",
+          "name": "contrarian_watch_oversold",
           "status": "Idle",
-          "score": 0.929,
+          "score": 0.734,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.929,
+          "rolling_avg": 0.734,
           "history": [
             1.0,
-            1.0,
-            0.9,
-            0.882,
-            0.861
+            0.632,
+            0.653,
+            0.673,
+            0.712
           ]
         },
         {
-          "name": "ma_cross_trend",
+          "name": "ma_cross_trend_short",
           "status": "Confirmed",
-          "score": 0.713,
+          "score": 0.25,
           "conditions_passed": 3,
           "total_conditions": 3,
-          "rolling_avg": 0.713,
+          "rolling_avg": 0.25,
           "history": [
-            0.474,
-            0.478,
-            1.0,
-            0.615,
+            0.066,
+            0.064,
+            0.061,
+            0.059,
             1.0
-          ]
-        },
-        {
-          "name": "contrarian_watch_overheated",
-          "status": "Idle",
-          "score": 0.577,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.577,
-          "history": [
-            0.297,
-            1.0,
-            0.47,
-            0.526,
-            0.593
           ]
         },
         {
           "name": "rsi_trend",
           "status": "Idle",
-          "score": 0.562,
+          "score": 0.066,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.562,
+          "rolling_avg": 0.066,
           "history": [
-            0.601,
-            0.581,
-            0.561,
-            0.542,
-            0.523
+            0.071,
+            0.068,
+            0.066,
+            0.064,
+            0.062
+          ]
+        },
+        {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.065,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.065,
+          "history": [
+            0.07,
+            0.067,
+            0.065,
+            0.063,
+            0.061
           ]
         },
         {
           "name": "volume_spike",
-          "status": "Confirmed",
-          "score": 0.467,
-          "conditions_passed": 1,
-          "total_conditions": 1,
-          "rolling_avg": 0.467,
+          "status": "Idle",
+          "score": 0.063,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.063,
           "history": [
-            0.356,
-            0.343,
-            0.322,
-            0.315,
-            1.0
+            0.067,
+            0.065,
+            0.063,
+            0.061,
+            0.059
           ]
         },
         {
-          "name": "contrarian_watch_oversold",
+          "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.45,
+          "score": 0.044,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.45,
+          "rolling_avg": 0.044,
           "history": [
-            0.47,
-            0.465,
-            0.448,
-            0.441,
-            0.428
+            0.047,
+            0.045,
+            0.044,
+            0.042,
+            0.041
           ]
         },
         {
-          "name": "ma_cross_trend_short",
+          "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.328,
+          "score": 0.035,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.328,
+          "rolling_avg": 0.035,
           "history": [
-            0.351,
-            0.34,
-            0.328,
-            0.317,
-            0.306
+            0.037,
+            0.036,
+            0.035,
+            0.034,
+            0.033
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.055,
+          "score": 0.0,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.055,
+          "rolling_avg": 0.0,
           "history": [
-            0.059,
-            0.057,
-            0.055,
-            0.053,
-            0.051
-          ]
-        },
-        {
-          "name": "rsi_mid_bounce",
-          "status": "Idle",
-          "score": 0.001,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.001,
-          "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
           ]
         },
         {
@@ -1356,6 +1369,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1402,141 +1430,126 @@
       ]
     },
     "AVAXUSDT": {
-      "price": 9.46,
+      "price": 9.61,
       "strategies": [
         {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.737,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.737,
-          "history": [
-            0.773,
-            0.757,
-            0.742,
-            0.731,
-            0.683
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.533,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.533,
-          "history": [
-            0.571,
-            0.552,
-            0.533,
-            0.514,
-            0.497
-          ]
-        },
-        {
           "name": "ma_cross_trend_short",
-          "status": "Idle",
-          "score": 0.496,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.496,
+          "status": "Confirmed",
+          "score": 0.591,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.591,
           "history": [
-            0.531,
-            0.513,
-            0.495,
-            0.479,
-            0.462
-          ]
-        },
-        {
-          "name": "contrarian_watch_oversold",
-          "status": "Idle",
-          "score": 0.464,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.464,
-          "history": [
-            0.508,
-            0.42,
-            0.463,
-            0.508,
-            0.419
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.438,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.438,
-          "history": [
-            0.472,
-            0.455,
-            0.433,
-            0.421,
-            0.408
+            0.33,
+            0.318,
+            0.307,
+            1.0,
+            1.0
           ]
         },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.323,
+          "score": 0.406,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.323,
+          "rolling_avg": 0.406,
           "history": [
-            0.35,
-            0.338,
-            0.317,
-            0.309,
-            0.301
+            0.361,
+            0.379,
+            0.401,
+            0.428,
+            0.463
           ]
         },
         {
-          "name": "contrarian_watch_overheated",
+          "name": "hilbert_cycle",
           "status": "Idle",
-          "score": 0.224,
+          "score": 0.074,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.224,
+          "rolling_avg": 0.074,
           "history": [
-            0.246,
-            0.237,
-            0.216,
-            0.214,
-            0.209
+            0.08,
+            0.077,
+            0.074,
+            0.072,
+            0.069
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "rsi_trend",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.061,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.061,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.065,
+            0.063,
+            0.061,
+            0.059,
+            0.057
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.061,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.061,
+          "history": [
+            0.065,
+            0.063,
+            0.061,
+            0.059,
+            0.057
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.0,
+          "score": 0.013,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.0,
+          "rolling_avg": 0.013,
           "history": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0
+            0.014,
+            0.014,
+            0.013,
+            0.013,
+            0.013
+          ]
+        },
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Idle",
+          "score": 0.006,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.006,
+          "history": [
+            0.006,
+            0.006,
+            0.006,
+            0.006,
+            0.006
+          ]
+        },
+        {
+          "name": "contrarian_watch_overheated",
+          "status": "Idle",
+          "score": 0.004,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.004,
+          "history": [
+            0.004,
+            0.004,
+            0.004,
+            0.004,
+            0.004
           ]
         },
         {
@@ -1556,6 +1569,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1602,141 +1630,126 @@
       ]
     },
     "LINKUSDT": {
-      "price": 9.79,
+      "price": 10.02,
       "strategies": [
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.598,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.598,
-          "history": [
-            0.437,
-            1.0,
-            0.512,
-            0.517,
-            0.525
-          ]
-        },
-        {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.596,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.596,
-          "history": [
-            0.64,
-            0.618,
-            0.594,
-            0.575,
-            0.555
-          ]
-        },
         {
           "name": "ma_cross_trend",
           "status": "Idle",
-          "score": 0.574,
+          "score": 0.406,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.574,
+          "rolling_avg": 0.406,
           "history": [
-            0.644,
-            0.58,
-            0.561,
-            0.549,
-            0.535
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.435,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.435,
-          "history": [
-            0.232,
-            0.224,
-            1.0,
-            0.35,
-            0.368
+            0.361,
+            0.378,
+            0.401,
+            0.428,
+            0.462
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.422,
+          "score": 0.249,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.422,
+          "rolling_avg": 0.249,
           "history": [
-            0.212,
-            0.205,
-            1.0,
-            0.336,
-            0.355
+            0.267,
+            0.258,
+            0.249,
+            0.241,
+            0.232
           ]
         },
         {
-          "name": "contrarian_watch_oversold",
+          "name": "hilbert_cycle",
           "status": "Idle",
-          "score": 0.226,
+          "score": 0.074,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.226,
+          "rolling_avg": 0.074,
           "history": [
-            0.247,
-            0.238,
-            0.218,
-            0.215,
-            0.21
+            0.079,
+            0.076,
+            0.074,
+            0.071,
+            0.069
           ]
         },
         {
           "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.005,
+          "score": 0.072,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.005,
+          "rolling_avg": 0.072,
           "history": [
-            0.005,
-            0.005,
-            0.005,
-            0.005,
-            0.004
+            0.077,
+            0.074,
+            0.071,
+            0.069,
+            0.067
           ]
         },
         {
-          "name": "rsi_mid_bounce",
+          "name": "volume_spike",
           "status": "Idle",
-          "score": 0.001,
+          "score": 0.063,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.001,
+          "rolling_avg": 0.063,
           "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.067,
+            0.065,
+            0.063,
+            0.061,
+            0.059
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.059,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.059,
+          "history": [
+            0.063,
+            0.061,
+            0.059,
+            0.057,
+            0.055
+          ]
+        },
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Idle",
+          "score": 0.008,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.008,
+          "history": [
+            0.009,
+            0.009,
+            0.008,
+            0.008,
+            0.008
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.0,
+          "score": 0.006,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.0,
+          "rolling_avg": 0.006,
           "history": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0
+            0.007,
+            0.007,
+            0.006,
+            0.006,
+            0.006
           ]
         },
         {
@@ -1756,6 +1769,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -1802,141 +1830,133 @@
       ]
     },
     "DOTUSDT": {
-      "price": 1.286,
+      "price": 1.324,
       "strategies": [
         {
-          "name": "hilbert_cycle",
-          "status": "Idle",
-          "score": 0.796,
+          "name": "keltner_breakout",
+          "status": "Confirmed",
+          "score": 1.0,
           "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.796,
-          "history": [
-            0.843,
-            0.814,
-            0.81,
-            0.776,
-            0.736
-          ]
+          "total_conditions": 0
         },
         {
           "name": "ma_cross_trend",
-          "status": "Idle",
-          "score": 0.762,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.762,
+          "status": "Confirmed",
+          "score": 0.798,
+          "conditions_passed": 3,
+          "total_conditions": 3,
+          "rolling_avg": 0.798,
           "history": [
-            0.741,
-            0.694,
-            1.0,
-            0.688,
-            0.69
-          ]
-        },
-        {
-          "name": "volume_spike",
-          "status": "Idle",
-          "score": 0.562,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.562,
-          "history": [
-            0.633,
-            0.567,
-            0.548,
-            0.538,
-            0.524
-          ]
-        },
-        {
-          "name": "rsi_trend",
-          "status": "Idle",
-          "score": 0.52,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.52,
-          "history": [
-            0.557,
-            0.538,
-            0.519,
-            0.501,
-            0.484
+            0.749,
+            0.755,
+            0.766,
+            0.723,
+            1.0
           ]
         },
         {
           "name": "ma_cross_trend_short",
           "status": "Idle",
-          "score": 0.402,
+          "score": 0.195,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.402,
+          "rolling_avg": 0.195,
           "history": [
-            0.43,
-            0.415,
-            0.401,
-            0.387,
-            0.374
-          ]
-        },
-        {
-          "name": "contrarian_watch_oversold",
-          "status": "Idle",
-          "score": 0.242,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.242,
-          "history": [
-            0.265,
-            0.255,
-            0.234,
-            0.231,
-            0.225
+            0.208,
+            0.201,
+            0.194,
+            0.188,
+            0.181
           ]
         },
         {
           "name": "contrarian_watch_overheated",
           "status": "Idle",
-          "score": 0.033,
+          "score": 0.142,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.033,
+          "rolling_avg": 0.142,
           "history": [
-            0.036,
-            0.034,
-            0.033,
-            0.032,
-            0.031
+            0.152,
+            0.146,
+            0.141,
+            0.137,
+            0.132
+          ]
+        },
+        {
+          "name": "contrarian_watch_oversold",
+          "status": "Idle",
+          "score": 0.112,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.112,
+          "history": [
+            0.12,
+            0.116,
+            0.112,
+            0.108,
+            0.104
+          ]
+        },
+        {
+          "name": "volume_spike",
+          "status": "Idle",
+          "score": 0.079,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.079,
+          "history": [
+            0.085,
+            0.082,
+            0.079,
+            0.076,
+            0.074
+          ]
+        },
+        {
+          "name": "hilbert_cycle",
+          "status": "Idle",
+          "score": 0.075,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.075,
+          "history": [
+            0.08,
+            0.077,
+            0.075,
+            0.072,
+            0.07
+          ]
+        },
+        {
+          "name": "rsi_trend",
+          "status": "Idle",
+          "score": 0.058,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.058,
+          "history": [
+            0.062,
+            0.06,
+            0.058,
+            0.056,
+            0.054
           ]
         },
         {
           "name": "stochastic_breakout",
           "status": "Idle",
-          "score": 0.015,
+          "score": 0.012,
           "conditions_passed": 0,
           "total_conditions": 0,
-          "rolling_avg": 0.015,
+          "rolling_avg": 0.012,
           "history": [
-            0.016,
-            0.016,
-            0.015,
-            0.015,
-            0.014
-          ]
-        },
-        {
-          "name": "rsi_mid_bounce",
-          "status": "Idle",
-          "score": 0.001,
-          "conditions_passed": 0,
-          "total_conditions": 0,
-          "rolling_avg": 0.001,
-          "history": [
-            0.001,
-            0.001,
-            0.001,
-            0.001,
-            0.001
+            0.013,
+            0.013,
+            0.012,
+            0.012,
+            0.012
           ]
         },
         {
@@ -1956,6 +1976,21 @@
         },
         {
           "name": "ema_cross_fast",
+          "status": "Idle",
+          "score": 0.0,
+          "conditions_passed": 0,
+          "total_conditions": 0,
+          "rolling_avg": 0.0,
+          "history": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "rsi_mid_bounce",
           "status": "Idle",
           "score": 0.0,
           "conditions_passed": 0,
@@ -2004,53 +2039,53 @@
   },
   "rolling_scores": {
     "BTCUSDT:ma_cross_trend": [
-      0.6271171602199892,
-      0.5599982490595872,
-      0.5483255280577108,
-      0.5467066842256284,
-      0.5339061386945435
+      0.29309098206054457,
+      0.3160856461955728,
+      0.3442348996161624,
+      0.3784319151184487,
+      1.0
     ],
     "BTCUSDT:ma_cross_trend_short": [
-      0.359016313582207,
-      0.3467607561065254,
-      0.33492136354680113,
-      0.32349372373427937,
-      0.312460256721457
+      0.44874895541203114,
+      0.4334796403109429,
+      0.4185592034858066,
+      0.40418811057160725,
+      0.3904418630435117
     ],
     "BTCUSDT:contrarian_watch_overheated": [
-      0.34579523512995763,
-      0.33346760802022496,
-      0.3124183121713888,
-      0.30538691931711653,
-      0.29678683372655934
+      0.11990742993032144,
+      0.11581586615335138,
+      0.11186392458447778,
+      0.10804682583274146,
+      0.10435997074429534
     ],
     "BTCUSDT:contrarian_watch_oversold": [
-      0.5533017988738328,
-      0.5751045784528878,
-      0.5987259348246992,
-      0.5264966030931449,
-      0.5175128011824028
+      0.3244436303117651,
+      0.3133725990422563,
+      0.30268113454251405,
+      0.29235763441728263,
+      0.2823791015463067
     ],
     "BTCUSDT:hilbert_cycle": [
-      0.7528190099431681,
-      0.7379010077329383,
-      0.725621188804867,
-      0.7174126424121433,
-      0.6665469180463289
+      0.07825109664779707,
+      0.0755809568776267,
+      0.07300192952251162,
+      0.07051090557967744,
+      0.06810488213375541
     ],
     "BTCUSDT:stochastic_breakout": [
-      2.79402301264847e-05,
-      2.6986833652312166e-05,
-      2.6065969653099566e-05,
-      2.5176528032516895e-05,
-      2.4317436573733427e-05
+      0.001989050934251461,
+      0.0019211791186264581,
+      0.0018556232735364012,
+      0.0017923043717817191,
+      0.001731146082785347
     ],
     "BTCUSDT:rsi_trend": [
-      0.4902665872051056,
-      0.4732254540093754,
-      0.45675008024792596,
-      0.44143963391728547,
-      0.4264524330074862
+      0.060355736310269144,
+      0.05829623479815542,
+      0.05630700906656961,
+      0.0543856611151666,
+      0.05252987476988463
     ],
     "BTCUSDT:bb_mean_reversion": [
       0.0,
@@ -2067,18 +2102,18 @@
       0.0
     ],
     "BTCUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "BTCUSDT:volume_spike": [
-      0.6642080395876913,
-      0.6037654867134757,
-      0.5896669056086686,
-      0.5833308335366142,
-      0.568152325344585
+      0.036104205532070624,
+      0.03487223206250663,
+      0.03368229687090968,
+      0.03253296549692679,
+      0.03142285242834736
     ],
     "BTCUSDT:price_channel_break": [
       0.0,
@@ -2095,53 +2130,53 @@
       0.0
     ],
     "ETHUSDT:ma_cross_trend": [
-      0.5370812875158361,
-      0.4537559192686865,
-      0.4385909039648393,
-      0.4356647913673016,
-      0.4273902982489176
+      0.5141909779204027,
+      0.5184649877296263,
+      0.5262887530580809,
+      0.539583590155444,
+      0.5577350955954398
     ],
     "ETHUSDT:ma_cross_trend_short": [
-      0.4172018750922755,
-      0.40247131089346494,
-      0.38913177571795254,
-      0.3759673574139816,
-      0.3630926955091679
-    ],
-    "ETHUSDT:contrarian_watch_overheated": [
-      0.08299130050697598,
-      0.08015941204462058,
-      0.07742415571678272,
-      0.07478223352311027,
-      0.07223046065788293
-    ],
-    "ETHUSDT:contrarian_watch_oversold": [
-      0.6243046945427104,
-      0.6378850682260357,
-      0.6448011737147648,
-      0.5808653849834224,
+      1.0,
+      0.33482118000701994,
+      0.3543453251096173,
+      0.3787739642674292,
       1.0
     ],
+    "ETHUSDT:contrarian_watch_overheated": [
+      0.09455281232135045,
+      1.0,
+      0.2517713542573713,
+      0.278202410164899,
+      0.3100355586989308
+    ],
+    "ETHUSDT:contrarian_watch_oversold": [
+      0.5054470497647207,
+      0.49177541410609005,
+      1.0,
+      0.546970184646449,
+      0.5509038732168506
+    ],
     "ETHUSDT:hilbert_cycle": [
-      0.6407528332795683,
-      0.6190742408014049,
-      0.5954337068757555,
-      0.5756245753349066,
-      0.5564207458172559
+      0.0726245027003806,
+      0.07014635758495731,
+      0.0677527735058288,
+      0.06544086501101055,
+      0.06320784510795817
     ],
     "ETHUSDT:stochastic_breakout": [
-      4.387387592664423e-09,
-      4.237678021814842e-09,
-      4.093076947794088e-09,
-      3.9534100548272796e-09,
-      3.818508975266816e-09
+      0.0705525667361901,
+      0.06814512380907994,
+      0.06581982898750997,
+      0.06357387740847702,
+      0.061404563256985234
     ],
     "ETHUSDT:rsi_trend": [
-      0.553453837502511,
-      0.5345989587963804,
-      0.5161755466311044,
-      0.4986707491189268,
-      0.48165715496268585
+      0.06290512431314943,
+      0.06075863076402197,
+      0.05868538139979985,
+      0.05668287693012637,
+      0.05474870334721424
     ],
     "ETHUSDT:bb_mean_reversion": [
       0.0,
@@ -2158,18 +2193,18 @@
       0.0
     ],
     "ETHUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "ETHUSDT:volume_spike": [
-      0.41293775472518096,
-      0.3983878043918536,
-      0.3768057329531556,
-      0.36694635093423045,
-      0.3559381840508924
+      0.020929734443105197,
+      0.02021555510624609,
+      0.019525745506450917,
+      0.018859474082158153,
+      0.0182159376469434
     ],
     "ETHUSDT:price_channel_break": [
       0.0,
@@ -2186,53 +2221,53 @@
       0.0
     ],
     "BNBUSDT:ma_cross_trend": [
-      1.0,
-      1.0,
-      0.4509179205188433,
-      0.5007191262866245,
-      0.5605547676201241
+      0.3765473722859485,
+      0.39168932280234603,
+      0.41146115272886824,
+      0.43850447867962306,
+      1.0
     ],
     "BNBUSDT:ma_cross_trend_short": [
-      0.38014950268135256,
-      0.36716370001362947,
-      0.35461319467632724,
-      0.34250942220775316,
-      0.330832776605643
+      0.4380304252716147,
+      0.42321476704679756,
+      0.4086316330216624,
+      0.3945649730975555,
+      0.38114382624425425
     ],
     "BNBUSDT:contrarian_watch_overheated": [
-      0.4670436379829809,
-      0.4563353860581105,
-      0.42888468504449095,
-      0.40916646515768546,
-      0.40085382231618844
+      0.09735253072227788,
+      0.09403059818815225,
+      0.09082201903251347,
+      0.08772292528189221,
+      0.08472958100412985
     ],
     "BNBUSDT:contrarian_watch_oversold": [
-      0.4240821909699154,
-      0.4217064087615005,
-      0.40522258484677076,
-      0.4015412966788657,
-      0.38960757745218877
+      0.5501170657642693,
+      0.5615447505459575,
+      0.571980676461024,
+      0.4949371982240082,
+      0.48908807648760516
     ],
     "BNBUSDT:hilbert_cycle": [
-      0.7943477846976,
-      1.0,
-      0.8218029616231681,
-      0.8309071343377382,
-      0.8004704185185311
+      0.08477898185936551,
+      0.08188609293085564,
+      0.07909191722330276,
+      0.0763930863735705,
+      0.07378634695625252
     ],
     "BNBUSDT:stochastic_breakout": [
-      5.2982320680289034e-05,
-      5.117442011893381e-05,
-      4.942821003088705e-05,
-      4.774158536978817e-05,
-      4.61125129191709e-05
+      0.07173691386003724,
+      0.06928905839005661,
+      0.06692472178200802,
+      0.06464106551083239,
+      0.062435339153169366
     ],
     "BNBUSDT:rsi_trend": [
-      0.5004834221870383,
-      0.48311957554107027,
-      0.4663297257037133,
-      0.450667820145844,
-      0.43536047554713236
+      0.06443297447973508,
+      0.06223434653674831,
+      0.06011074174566128,
+      0.05805960011294262,
+      0.056078448998978986
     ],
     "BNBUSDT:bb_mean_reversion": [
       0.0,
@@ -2249,18 +2284,18 @@
       0.0
     ],
     "BNBUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "BNBUSDT:volume_spike": [
-      0.2503018229270716,
-      1.0,
-      0.36999528729208386,
-      0.38659495878250183,
-      0.4078871495682033
+      0.0682803464470842,
+      0.06595043573168974,
+      0.06370002789287037,
+      0.06152641007654232,
+      0.05942696199862667
     ],
     "BNBUSDT:price_channel_break": [
       0.0,
@@ -2277,53 +2312,53 @@
       0.0
     ],
     "SOLUSDT:ma_cross_trend": [
-      0.49586742857808613,
-      0.5070144459846083,
-      0.5141759853127157,
-      0.5398884107490404,
-      0.45706832468386766
+      0.21134358057853592,
+      0.20402541746185623,
+      0.19689008464104407,
+      0.19013255517844707,
+      1.0
     ],
     "SOLUSDT:ma_cross_trend_short": [
-      0.31577655657544723,
-      0.30492787553514195,
-      0.2944060251047976,
-      0.28433440187095627,
-      0.2747201101966489
+      0.32126612785245223,
+      0.3102956021973393,
+      0.29971181019161325,
+      0.2894918645943103,
+      0.279611562872999
     ],
     "SOLUSDT:contrarian_watch_overheated": [
-      0.31527226095146654,
-      0.30394433421397743,
-      0.2831375128360322,
-      0.2773924393334938,
-      0.2698915827873494
+      0.08290130356859164,
+      0.08007249948290557,
+      0.07734021104740747,
+      0.07470114761887903,
+      1.0
     ],
     "SOLUSDT:contrarian_watch_oversold": [
-      0.2944295385052251,
-      0.3344352673345031,
-      0.3820853355951344,
-      0.2708606960022586,
-      0.277690711165865
+      0.2813603653402098,
+      0.2788590225564457,
+      0.2687237718542728,
+      0.2482061473639567,
+      0.2439955278490484
     ],
     "SOLUSDT:hilbert_cycle": [
-      0.6811303902555479,
-      0.6609387797160833,
-      0.6373425512287333,
-      0.6162372640231362,
-      0.5930576072321307
+      0.0704543141502827,
+      0.0680502217575353,
+      0.06572816352126172,
+      0.06348534021336555,
+      0.06131904812314133
     ],
     "SOLUSDT:stochastic_breakout": [
-      5.810975394105832e-06,
-      5.612689144237321e-06,
-      5.421168959309784e-06,
-      5.236183962826155e-06,
-      5.0575111564219915e-06
+      8.695089874127243e-11,
+      8.398389811490744e-11,
+      8.111813960155436e-11,
+      7.835016854557338e-11,
+      7.567664817355019e-11
     ],
     "SOLUSDT:rsi_trend": [
-      0.5027292095301992,
-      0.48585146978384697,
-      0.46929616154619175,
-      0.4532064915589951,
-      0.4376867807995368
+      0.06874548503891847,
+      0.0663997025326647,
+      0.06413396449135181,
+      0.06194553958060811,
+      0.059831789666611054
     ],
     "SOLUSDT:bb_mean_reversion": [
       0.0,
@@ -2340,18 +2375,18 @@
       0.0
     ],
     "SOLUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "SOLUSDT:volume_spike": [
-      0.4440660888100793,
-      0.42844690502641053,
-      0.40657509351494175,
-      0.39534775013648843,
-      0.38329309088340946
+      0.030641602194003796,
+      0.029596027574092697,
+      0.028586130797620145,
+      0.027610694439747674,
+      0.02666854261747733
     ],
     "SOLUSDT:price_channel_break": [
       0.0,
@@ -2368,53 +2403,53 @@
       0.0
     ],
     "XRPUSDT:ma_cross_trend": [
-      0.6586288602500094,
-      0.5971820550950111,
-      0.6038508667548627,
-      0.6259717520271825,
-      0.5586466673920754
+      0.6808137821269743,
+      0.6233602629098297,
+      0.6147944554071889,
+      0.6024614436482056,
+      0.585167966871219
     ],
     "XRPUSDT:ma_cross_trend_short": [
-      0.38409570793508596,
-      0.3709532467044315,
-      0.35833804452531237,
-      0.34611778513886654,
-      0.3343023497742819
+      0.38543173543408615,
+      0.4007465426511713,
+      0.4206631268803814,
+      0.44594654081700913,
+      1.0
     ],
     "XRPUSDT:contrarian_watch_overheated": [
-      0.024137078341079834,
-      0.023313455726561554,
-      0.022517937350741698,
-      0.021749564220718276,
-      0.02100741006704584
+      0.04521851120288829,
+      0.04367553286047577,
+      0.04218520514887701,
+      0.04074573148168806,
+      0.03935537655710818
     ],
     "XRPUSDT:contrarian_watch_oversold": [
-      0.3816411802764064,
-      0.38133012959895485,
-      0.3781091793111516,
-      0.3708376773122287,
-      0.35781934831702195
+      0.5747271103283701,
+      0.6605130471265871,
+      0.7623432283418923,
+      0.7195650094434328,
+      0.6690867111432508
     ],
     "XRPUSDT:hilbert_cycle": [
-      0.7239326099431682,
-      0.6993036797329383,
-      0.6747529180848673,
-      0.6511064430201433,
-      0.6294852423861691
+      0.06822935915401199,
+      0.06590118826358422,
+      0.06365246088195994,
+      0.06148046618103516,
+      0.05938258583351687
     ],
     "XRPUSDT:stochastic_breakout": [
-      0.1190353470409359,
-      0.11497253914405343,
-      0.11105213133012662,
-      0.1072643970100027,
-      0.10360291229433644
+      0.0008036995460716376,
+      0.000776275136535639,
+      0.0007497865222754675,
+      0.0007242017714168155,
+      0.0006994900416875814
     ],
     "XRPUSDT:rsi_trend": [
-      0.6000519250282706,
-      0.5798724829955918,
-      0.5595895031031436,
-      0.540245423481035,
-      0.5218685722416257
+      0.05860094464846119,
+      0.05660132138988128,
+      0.05466993070332553,
+      0.052804444308265884,
+      0.051002613371431076
     ],
     "XRPUSDT:bb_mean_reversion": [
       0.0,
@@ -2431,18 +2466,18 @@
       0.0
     ],
     "XRPUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "XRPUSDT:volume_spike": [
-      0.5186336998073636,
-      0.5275064967002053,
-      0.532932446067956,
-      0.55562052671501,
-      0.47563222152371193
+      0.034678141453910814,
+      0.033494829160371525,
+      0.0323518946934779,
+      0.031247960252210154,
+      0.030181695049859212
     ],
     "XRPUSDT:price_channel_break": [
       0.0,
@@ -2459,53 +2494,53 @@
       0.0
     ],
     "ADAUSDT:ma_cross_trend": [
-      0.39015095659953536,
-      0.2803781287874517,
-      1.0,
-      0.4175083128771943,
-      0.43774178144579307
+      0.5474838811830355,
+      0.5284230752873283,
+      0.5098470914906141,
+      0.4924728170443077,
+      0.4760045239977461
     ],
     "ADAUSDT:ma_cross_trend_short": [
-      0.5842765361358839,
-      0.5583438201322529,
-      0.5365447665965122,
-      0.5212077140156198,
-      0.504473421623106
+      0.3207002155484255,
+      0.34139875016844073,
+      0.367086462195907,
+      0.3986183284344379,
+      0.437004676142498
     ],
     "ADAUSDT:contrarian_watch_overheated": [
-      0.08935497699594454,
-      0.08630594290087007,
-      0.0833609499163758,
-      0.08051644800101077,
-      0.07776900827198112
+      0.0013430706690009068,
+      0.001297241453042652,
+      0.0012529760543010375,
+      0.001210221111088853,
+      0.001168925082564465
     ],
     "ADAUSDT:contrarian_watch_oversold": [
-      0.48885825318286363,
-      0.5209700295833553,
-      0.5549828914803033,
-      0.4748798119467579,
-      0.46917360257658314
+      0.04055155285649014,
+      0.039167823827289346,
+      0.037831311387579426,
+      0.03654040437898643,
+      0.03529354662065269
     ],
     "ADAUSDT:hilbert_cycle": [
-      0.8014109846976001,
-      0.795239537943168,
-      0.7932806544529383,
-      0.7560711722544672,
-      0.7121639832602713
+      0.06822935915401199,
+      0.06590118826358422,
+      0.06365246088195994,
+      0.06148046618103516,
+      0.05938258583351687
     ],
     "ADAUSDT:stochastic_breakout": [
-      0.0006753629208688037,
-      0.00065231770525575,
-      0.0006300588549379199,
-      1.0,
-      0.18047825311746893
+      5.416916902956871e-06,
+      5.23207699817494e-06,
+      5.05354433254987e-06,
+      4.881103685965482e-06,
+      4.71454718220001e-06
     ],
     "ADAUSDT:rsi_trend": [
-      0.6747529180848673,
-      0.6511064430201433,
-      0.6294852423861691,
-      0.6081445607701115,
-      0.5873027119189613
+      0.0618635874996894,
+      0.05975263401308667,
+      0.057713711988011764,
+      0.0557443635155182,
+      0.0538422145571847
     ],
     "ADAUSDT:bb_mean_reversion": [
       0.0,
@@ -2522,18 +2557,18 @@
       0.0
     ],
     "ADAUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "ADAUSDT:volume_spike": [
-      0.35613904771191535,
-      0.34347260776357585,
-      1.0,
-      0.4368525706743529,
-      0.449836068892695
+      0.06879977375905186,
+      0.06645213877427153,
+      0.06418461146582333,
+      0.06199445834283708,
+      0.059879039188034174
     ],
     "ADAUSDT:price_channel_break": [
       0.0,
@@ -2550,53 +2585,53 @@
       0.0
     ],
     "DOGEUSDT:ma_cross_trend": [
-      0.4743233558270999,
-      0.47785311702681516,
-      1.0,
-      0.6152595521964679,
-      1.0
+      0.04690595973220144,
+      0.04530540109533074,
+      0.0437594578630496,
+      0.04226626640961692,
+      0.040824026700645284
     ],
     "DOGEUSDT:ma_cross_trend_short": [
-      0.35121046372473913,
-      0.33978492043811664,
-      0.3283158282998369,
-      0.31702462867102155,
-      0.30609571790136086
+      0.06575425246815106,
+      0.06351053893495963,
+      0.061343386997048936,
+      0.05925018416341399,
+      1.0
     ],
     "DOGEUSDT:contrarian_watch_overheated": [
-      0.29720093879838,
-      1.0,
-      0.4700629374779097,
-      0.5258999539916365,
-      0.5927694894482267
+      0.037422135785650006,
+      0.03614519096586505,
+      0.03491181895771407,
+      0.033720532949518,
+      0.03256989685753672
     ],
     "DOGEUSDT:contrarian_watch_oversold": [
-      0.47044249673440425,
-      0.46502718055563635,
-      0.4475447873217592,
-      0.4411018518736835,
-      0.4275609788421266
+      1.0,
+      0.6319796896052131,
+      0.6526616964916898,
+      0.6732117411433356,
+      0.712413562903243
     ],
     "DOGEUSDT:hilbert_cycle": [
-      1.0,
-      1.0,
-      0.9,
-      0.8820000000000001,
-      0.8607600000000001
+      0.06984486125674283,
+      0.06746156505058586,
+      0.06515959337854013,
+      0.06293617122685367,
+      0.060788618272777005
     ],
     "DOGEUSDT:stochastic_breakout": [
-      0.058979117086073715,
-      0.056966589690387204,
-      0.05502273490882362,
-      0.05314520977076899,
-      0.05133175103121918
+      8.825174579327451e-07,
+      8.524035673534679e-07,
+      8.233172444417414e-07,
+      7.952234258002069e-07,
+      7.680882444897762e-07
     ],
     "DOGEUSDT:rsi_trend": [
-      0.601313715523102,
-      0.5814080031445229,
-      0.561051169910957,
-      0.5416256633383906,
-      0.523171855488405
+      0.07091740439176228,
+      0.06849751010316939,
+      0.06616018917464701,
+      0.06390262397908394,
+      0.06172209303442052
     ],
     "DOGEUSDT:bb_mean_reversion": [
       0.0,
@@ -2613,18 +2648,18 @@
       0.0
     ],
     "DOGEUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "DOGEUSDT:volume_spike": [
-      0.3560767156216636,
-      0.3434122938277636,
-      0.3222813990527331,
-      0.31481682383867216,
-      1.0
+      0.06741143162367715,
+      0.06511117063789372,
+      0.0628894007991639,
+      0.06074344377938561,
+      0.058670712637510246
     ],
     "DOGEUSDT:price_channel_break": [
       0.0,
@@ -2641,53 +2676,53 @@
       0.0
     ],
     "AVAXUSDT:ma_cross_trend": [
-      0.35007503419237807,
-      0.33760717900578807,
-      0.3165239475795593,
-      0.30931228024010055,
-      0.30055802809090404
+      0.3614736283199965,
+      0.37879391087866093,
+      0.4008434916177877,
+      0.4284351246764031,
+      0.46251830798871274
     ],
     "AVAXUSDT:ma_cross_trend_short": [
-      0.5310041116984898,
-      0.5133117611779983,
-      0.49547409906235507,
-      0.47855650739850564,
-      0.4619512791792495
+      0.3295269903581604,
+      0.3182910060163656,
+      0.30742325930532455,
+      1.0,
+      1.0
     ],
     "AVAXUSDT:contrarian_watch_overheated": [
-      0.2456560474568011,
-      0.23660831994668835,
-      0.2163543967856177,
-      0.21354295172028886,
-      0.20854927842299711
+      0.004110656731279341,
+      0.003970389968393219,
+      0.003834909488102975,
+      0.0037040519694577566,
+      0.0035776596644607633
     ],
     "AVAXUSDT:contrarian_watch_oversold": [
-      0.5083116817819102,
-      0.4198077845026542,
-      0.46290679041780886,
-      0.5079371392358978,
-      0.4193658242983594
+      0.006464936639659437,
+      0.006244335457418009,
+      0.006031261786166832,
+      0.00582545876680328,
+      0.005626678304954362
     ],
     "AVAXUSDT:hilbert_cycle": [
-      0.7725245846976,
-      0.756642209943168,
-      0.7424123837329383,
-      0.7309446124848671,
-      0.6825146427321432
+      0.07961605636517746,
+      0.0768993404655779,
+      0.07427532628457446,
+      0.07174085058841355,
+      0.06929285808107047
     ],
     "AVAXUSDT:stochastic_breakout": [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+      0.014371747170700973,
+      0.0138813441561869,
+      0.013407675023349561,
+      0.012950168766735133,
+      0.012508273865145195
     ],
     "AVAXUSDT:rsi_trend": [
-      0.5713170675579093,
-      0.5518456217467801,
-      0.5325895549241567,
-      0.5143809861008332,
-      0.49704361755761767
+      0.06519155398936273,
+      0.06296704125492913,
+      0.060818434931722315,
+      0.05874314488700578,
+      0.05673866937039425
     ],
     "AVAXUSDT:bb_mean_reversion": [
       0.0,
@@ -2704,18 +2739,18 @@
       0.0
     ],
     "AVAXUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "AVAXUSDT:volume_spike": [
-      0.4719466303550425,
-      0.4548957915658292,
-      0.4330257110766508,
-      0.42094377796463534,
-      0.407802559930757
+      0.06541507213372856,
+      0.0631829323532462,
+      0.06102695923975332,
+      0.05894455377990808,
+      0.05693320564540602
     ],
     "AVAXUSDT:price_channel_break": [
       0.0,
@@ -2732,53 +2767,53 @@
       0.0
     ],
     "LINKUSDT:ma_cross_trend": [
-      0.644265231744849,
-      0.5802329734589218,
-      0.5611600361227677,
-      0.548821293005529,
-      0.5346936681105966
+      0.3611493090446524,
+      0.37848459018878977,
+      0.40056650203413363,
+      0.4281931279900236,
+      0.4623108352663679
     ],
     "LINKUSDT:ma_cross_trend_short": [
-      0.21220686075201134,
-      0.2049489485640621,
-      1.0,
-      0.33558797060472945,
-      0.35504572596595163
+      0.2670855757997591,
+      0.2579763281524529,
+      0.249150262124931,
+      0.2406346885320918,
+      0.23242920347313895
     ],
     "LINKUSDT:contrarian_watch_overheated": [
-      0.005148885584692656,
-      0.004973191635854684,
-      0.004803492841337105,
-      0.004639584630205275,
-      0.004481269412039987
+      0.07656496568593109,
+      0.0739523638909,
+      0.07142890285089779,
+      0.06899155180873622,
+      0.06663737497496146
     ],
     "LINKUSDT:contrarian_watch_oversold": [
-      0.24725356820303887,
-      0.23815351583796798,
-      0.2178869050082555,
-      0.2150081403666964,
-      0.20995693336481727
+      0.008859187366232825,
+      0.008556887851849304,
+      0.008264903617255981,
+      0.00798288267711353,
+      0.007710485056777589
     ],
     "LINKUSDT:hilbert_cycle": [
-      0.639547335310997,
-      0.6179103836980206,
-      0.5942716082544772,
-      0.5745025772194422,
-      0.5553448331292895
+      0.07913107455485285,
+      0.0764309075504799,
+      0.0738228775719478,
+      0.0713038406538523,
+      0.06887076011135528
     ],
     "LINKUSDT:stochastic_breakout": [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+      0.006906900799498265,
+      0.00667121860075148,
+      0.006443578518203925,
+      0.006223706133026746,
+      0.006011336390306226
     ],
     "LINKUSDT:rsi_trend": [
-      0.4371630393359083,
-      1.0,
-      0.5118208778876789,
-      0.5166258335902816,
-      0.5252765887682783
+      0.06299770139379561,
+      0.060848048863444436,
+      0.05877174831100584,
+      0.0567662967679447,
+      0.05482927667379056
     ],
     "LINKUSDT:bb_mean_reversion": [
       0.0,
@@ -2795,18 +2830,18 @@
       0.0
     ],
     "LINKUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "LINKUSDT:volume_spike": [
-      0.2316202986199972,
-      0.22370161269836747,
-      1.0,
-      0.3498206960222713,
-      0.3680949454595759
+      0.06734104753767504,
+      0.06504318824791774,
+      0.06282373815287759,
+      0.06068002172079159,
+      0.05860945471164263
     ],
     "LINKUSDT:price_channel_break": [
       0.0,
@@ -2823,53 +2858,53 @@
       0.0
     ],
     "DOTUSDT:ma_cross_trend": [
-      0.7405682219669204,
-      0.6938705019209659,
-      1.0,
-      0.6879513701417079,
-      0.6898199466596776
+      0.7485534052697367,
+      0.7547196920076292,
+      0.7655848067466474,
+      0.7233900719610438,
+      1.0
     ],
     "DOTUSDT:ma_cross_trend_short": [
-      0.42965773451191924,
-      0.41526476018031205,
-      0.40116196497053114,
-      0.3874949272721638,
-      0.374207147374962
+      0.20840745767047378,
+      0.2012960711654398,
+      0.1944271950559397,
+      0.18779277571960673,
+      0.18138481055215425
     ],
     "DOTUSDT:contrarian_watch_overheated": [
-      0.03571299257400634,
-      0.0344943683539385,
-      0.033317326897526256,
-      0.032180449288656966,
-      0.03108236502952389
+      0.1516299265058752,
+      0.1464347304353642,
+      0.14144656252511986,
+      0.13663771749478865,
+      0.131971022110375
     ],
     "DOTUSDT:contrarian_watch_oversold": [
-      0.2645411193180701,
-      0.2548748341783672,
-      0.2344709238984334,
-      0.23086366129034433,
-      0.22518985401160893
+      0.1196270030794143,
+      0.11554522038903417,
+      0.11160292075941036,
+      0.10779476707220058,
+      0.10411629375614141
     ],
     "DOTUSDT:hilbert_cycle": [
-      0.8425906243199999,
-      0.8142569366976,
-      0.8103977613031681,
-      0.7762693583377382,
-      0.7359978428385311
+      0.08008160748073188,
+      0.07734900571369156,
+      0.07470964773416673,
+      0.07216035181151724,
+      0.06969804478402263
     ],
     "DOTUSDT:stochastic_breakout": [
-      0.016452594248429913,
-      0.0158911870847662,
-      0.01534893665703302,
-      0.014825189285415735,
-      0.014319313595427992
+      0.013358924726262118,
+      0.012903081962079392,
+      0.01246279379004512,
+      0.012037529445264223,
+      0.011626776273980092
     ],
     "DOTUSDT:rsi_trend": [
-      0.5571243317303555,
-      0.5379006191165618,
-      0.5190244416502819,
-      0.501295798901929,
-      0.48447416047959363
+      0.06164158078660664,
+      0.05953820277151911,
+      0.05750659772231401,
+      0.05554431655061879,
+      0.05364899373760187
     ],
     "DOTUSDT:bb_mean_reversion": [
       0.0,
@@ -2886,18 +2921,18 @@
       0.0
     ],
     "DOTUSDT:rsi_mid_bounce": [
-      0.0012159560243787055,
-      0.001174464305049858,
-      0.0011343883957818585,
-      0.0010956799852933038,
-      0.0010582924108148155
+      1.819461656245098e-08,
+      1.757376687005282e-08,
+      1.6974102253978078e-08,
+      1.639489982193201e-08,
+      1.5835461348666707e-08
     ],
     "DOTUSDT:volume_spike": [
-      0.632786350193255,
-      0.566687893228041,
-      0.5484780485945778,
-      0.5377519721524796,
-      0.5237255010848388
+      0.08468568993121582,
+      0.08179598437628331,
+      0.07900488341685993,
+      0.07630902239680012,
+      0.07370515147062842
     ],
     "DOTUSDT:price_channel_break": [
       0.0,

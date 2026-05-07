@@ -44,6 +44,9 @@ from config.loader import get_enabled_symbols, get_monitoring_params, get_indica
 # Import strategy executor / 匯入策略執行器
 from app.strategy_executor import StrategyExecutor, StrategySignal
 
+# Import market direction filter (T-066)
+from app.market_direction_filter import MarketDirectionFilter, SignalSide
+
 
 # Default configuration (will be overridden by config files)
 # 預設配置（將被配置文件覆蓋）
@@ -213,6 +216,9 @@ class MonitorRunner:
         
         # Initialize strategy executor / 初始化策略執行器
         self.strategy_executor = StrategyExecutor()
+        
+        # Initialize market direction filter (T-066) / 初始化市場方向過濾器
+        self.market_filter = MarketDirectionFilter(fetcher=self.fetcher)
 
     def _create_default_notifier(self) -> Notifier:
         """Create default notifier / 建立預設通知器"""
@@ -542,6 +548,28 @@ class MonitorRunner:
         
         # Execute strategies
         strategy_signals = self.strategy_executor.execute_for_symbol(symbol, market_data)
+        
+        # T-066: Apply market direction filter to strategy signals
+        filtered_strategy_signals = []
+        for strat_sig in strategy_signals:
+            # Determine signal side
+            signal_side = SignalSide.UNKNOWN
+            if strat_sig.signal_type == SignalType.MA_CROSS_TREND or \
+               (hasattr(strat_sig, 'metadata') and strat_sig.metadata.get('direction') == 'LONG'):
+                signal_side = SignalSide.LONG
+            elif strat_sig.signal_type == SignalType.MA_CROSS_TREND_SHORT or \
+                 (hasattr(strat_sig, 'metadata') and strat_sig.metadata.get('direction') == 'SHORT'):
+                signal_side = SignalSide.SHORT
+            
+            if signal_side != SignalSide.UNKNOWN:
+                filter_result = self.market_filter.gate_check(symbol, signal_side)
+                if not filter_result.allowed:
+                    print(f"      ❌ {strat_sig.strategy_name} BLOCKED by market filter: {filter_result.reason}")
+                    continue
+            
+            filtered_strategy_signals.append(strat_sig)
+        
+        strategy_signals = filtered_strategy_signals
         
         # Convert StrategySignal to Signal
         for strat_sig in strategy_signals:
