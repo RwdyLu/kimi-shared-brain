@@ -1,4 +1,12 @@
 {
- "tasks": [],
- "last_updated": ""
+  "tasks": [
+    {
+      "id": "test-001",
+      "command": "echo 'Hello from Second!' > /tmp/task_test.txt",
+      "status": "pending",
+      "created_at": "2026-05-07T09:03:54.806024",
+      "target": "second"
+    }
+  ],
+  "last_updated": "2026-05-07T09:03:54.806058"
 }
