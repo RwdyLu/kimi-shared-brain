@@ -304,7 +304,9 @@ class MonitoringScheduler:
                 "contrarian_watch_overheated", "contrarian_watch_oversold",
                 "hilbert_cycle", "stochastic_breakout", "rsi_trend",
                 "bb_mean_reversion", "ema_cross_fast", "rsi_mid_bounce",
-                "volume_spike", "price_channel_break", "momentum_divergence"
+                "volume_spike", "price_channel_break", "momentum_divergence",
+                "supertrend", "ichimoku_cloud", "williams_r",
+                "keltner_breakout", "atr_breakout", "opening_range_breakout"
             ]
 
             # Load previous rolling scores / 載入之前的滾動分數
