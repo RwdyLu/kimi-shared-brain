@@ -1,0 +1,220 @@
+{
+  "task_id": "T-085",
+  "chromosome_id": "MUT_DAC146EA58C9",
+  "strategy_json": {
+    "id": "genetic_mut_dac146ea58c9",
+    "name": "GEN MUT_DAC1",
+    "name_zh": "\u57fa\u56e0\u7b56\u7565 MUT_DAC1",
+    "type": "trend",
+    "enabled": true,
+    "description": "[MUT_DAC1] G24 | Entry(OR): supertrend + supertrend + cci + ema_cross + macd + supertrend + supertrend | Exit(OR): momentum + bbands | Risk: SL=-4.4% TP=13.3% | fit=0.377",
+    "description_zh": "\u57fa\u56e0\u6f14\u7b97\u6cd5\u751f\u6210\uff0c\u4e16\u4ee3=24, \u89aa\u4ee3=['X_C13C3F75945A']",
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "ADAUSDT",
+      "DOGEUSDT",
+      "AVAXUSDT",
+      "LINKUSDT",
+      "DOTUSDT"
+    ],
+    "timeframes": [
+      "5m"
+    ],
+    "conditions": [
+      "supertrend",
+      "supertrend",
+      "rsi_cross_above_40",
+      "ema_cross_above",
+      "ema_cross_below",
+      "supertrend",
+      "supertrend",
+      "rsi_cross_above_30",
+      "price_below_bb_lower_pct"
+    ],
+    "parameters": {
+      "entry_logic": "OR",
+      "entry_min_weight": 0.41,
+      "entry_supertrend_period": 12,
+      "entry_supertrend_multiplier": 2.0,
+      "entry_supertrend_threshold": 13.447,
+      "entry_cci_period": 15,
+      "entry_cci_threshold": 129.969,
+      "entry_ema_cross_short_period": 22,
+      "entry_ema_cross_long_period": 41,
+      "entry_ema_cross_threshold": 62.602,
+      "entry_macd_fast": 14,
+      "entry_macd_slow": 35,
+      "entry_macd_signal": 15,
+      "entry_macd_threshold": 0.463,
+      "exit_momentum_period": 13,
+      "exit_momentum_threshold": -1.194,
+      "exit_bbands_period": 17,
+      "exit_bbands_std_dev": 2.47,
+      "exit_bbands_threshold": 2.255
+    },
+    "default_exit_params": {
+      "hard_stop_loss": -0.044,
+      "atr_stop_multiplier": 2.0,
+      "atr_min_floor": -0.022,
+      "ma_reverse_pnl_threshold": -0.015,
+      "ma_reverse_min_duration_min": 15,
+      "profit_targets": {
+        "0": 0.133,
+        "20": 0.113,
+        "40": 0.093,
+        "60": 0.073,
+        "120": 0.047
+      },
+      "trailing_stop_trigger": 0.04,
+      "trailing_stop_drawback": 0.015,
+      "time_stop_hours": 17.3,
+      "position_pct": 0.057,
+      "max_concurrent_positions": 3
+    },
+    "signal_type": "trend_long",
+    "signal_level": "genetic",
+    "meta": {
+      "factory_generated": true,
+      "generation": 24,
+      "chromosome_id": "MUT_DAC146EA58C9",
+      "fitness_score": 0.3770365581036309,
+      "fitness_details": {
+        "fitness": 0.377,
+        "total_trades": 102,
+        "avg_pnl_per_symbol": 0.0118,
+        "symbols_tested": 5
+      },
+      "parent_ids": [
+        "X_C13C3F75945A"
+      ],
+      "created_at": "2026-05-26T22:59:15.359201",
+      "source": "genetic_evolution"
+    }
+  },
+  "aggregate_fitness": 0.10695572352552937,
+  "per_symbol_metrics": {
+    "BTCUSDT": {
+      "total_trades": 89,
+      "winning_trades": 26,
+      "losing_trades": 63,
+      "win_rate": 0.29213483146067415,
+      "avg_profit": 0.0022314911589239664,
+      "avg_loss": -0.005153636294955849,
+      "total_pnl": -0.2666603164501953,
+      "max_drawdown": 0.23560968801609591,
+      "sharpe_ratio": -27.507302028369107,
+      "profit_factor": 0.17869574151746603,
+      "expectancy": -0.0029961833309010717,
+      "avg_trade_duration": 0.000247378277153558,
+      "consecutive_losses": 10,
+      "best_trade": 0.008361993065757137,
+      "worst_trade": -0.023619022759092348
+    },
+    "ETHUSDT": {
+      "total_trades": 90,
+      "winning_trades": 30,
+      "losing_trades": 60,
+      "win_rate": 0.3333333333333333,
+      "avg_profit": 0.002596045375261424,
+      "avg_loss": -0.006484763040711351,
+      "total_pnl": -0.3112044211848384,
+      "max_drawdown": 0.26968008265749577,
+      "sharpe_ratio": -25.55033044025938,
+      "profit_factor": 0.20016501443178777,
+      "expectancy": -0.0034578269020537605,
+      "avg_trade_duration": 0.00023037037037037036,
+      "consecutive_losses": 9,
+      "best_trade": 0.010452717922563592,
+      "worst_trade": -0.034434059868439025
+    },
+    "SOLUSDT": {
+      "total_trades": 74,
+      "winning_trades": 28,
+      "losing_trades": 46,
+      "win_rate": 0.3783783783783784,
+      "avg_profit": 0.0037568931828317097,
+      "avg_loss": -0.0075884601247106585,
+      "total_pnl": -0.24387615661740245,
+      "max_drawdown": 0.2187934242210389,
+      "sharpe_ratio": -21.601165913645747,
+      "profit_factor": 0.30135291066824565,
+      "expectancy": -0.003295623738073005,
+      "avg_trade_duration": 0.00021148648648648644,
+      "consecutive_losses": 9,
+      "best_trade": 0.013512986249853016,
+      "worst_trade": -0.02961159687068575
+    }
+  },
+  "total_trades": 253,
+  "sample_trades": [
+    {
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "entry_time": 1778799,
+      "entry_price": 81203.24,
+      "exit_time": 1778829,
+      "exit_price": 80908.1,
+      "exit_reason": "signal_exit",
+      "pnl_pct": -0.0056345840387649485,
+      "max_profit_pct": 0.005123071443947246,
+      "max_loss_pct": -0.010384191566740569,
+      "bars_held": 99
+    },
+    {
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "entry_time": 1778829,
+      "entry_price": 80915.0,
+      "exit_time": 1778842,
+      "exit_price": 80738.78,
+      "exit_reason": "signal_exit",
+      "pnl_pct": -0.004177840944200719,
+      "max_profit_pct": 0.0,
+      "max_loss_pct": -0.0064141382932707165,
+      "bars_held": 41
+    },
+    {
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "entry_time": 1778842,
+      "entry_price": 80716.23,
+      "exit_time": 1778852,
+      "exit_price": 79311.57,
+      "exit_reason": "signal_exit",
+      "pnl_pct": -0.01940244805784399,
+      "max_profit_pct": 0.0,
+      "max_loss_pct": -0.01740244805784399,
+      "bars_held": 32
+    },
+    {
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "entry_time": 1778862,
+      "entry_price": 79312.0,
+      "exit_time": 1778866,
+      "exit_price": 79452.54,
+      "exit_reason": "signal_exit",
+      "pnl_pct": -0.00022801089368577779,
+      "max_profit_pct": 0.0017719891063142223,
+      "max_loss_pct": -0.0009076810570910485,
+      "bars_held": 13
+    },
+    {
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "entry_time": 1778866,
+      "entry_price": 79475.94,
+      "exit_time": 1778889,
+      "exit_price": 79175.99,
+      "exit_reason": "signal_exit",
+      "pnl_pct": -0.005774098173610744,
+      "max_profit_pct": 0.0007037349919987485,
+      "max_loss_pct": -0.006321913273375594,
+      "bars_held": 78
+    }
+  ]
+}

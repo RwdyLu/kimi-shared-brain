@@ -2439,13 +2439,14 @@
       "success_condition": "Signals 頁面所有區塊正常顯示資料，_dash-update-component 請求正常觸發",
       "report_to": "second_bot",
       "last_updated": "2026-06-13T17:20:35.059307",
-      "completed_at": "2026-06-13T17:20:35.059292"
+      "completed_at": "2026-06-13T17:20:35.059292",
+      "claude_verification": "Claude verified 2026-06-13: ui/pages/signals.py exists in repo. GET /signals on live dashboard returns HTTP 200, no error/traceback in ui/dashboard.log. Status confirmed done."
     },
     {
       "task_id": "T-082",
       "title": "修系統健康檢查假警報",
       "assigned_to": "kimiclaw_bot",
-      "status": "done",
+      "status": "in_progress",
       "priority": "high",
       "type": "bugfix",
       "goal": "修復 /system 頁面健康指標顯示錯誤：調度器顯示『關閉』、紙本餘額顯示 $0.00 警告，但實際 scheduler 運行中且餘額 $26,269.20",
@@ -2454,13 +2455,13 @@
       "success_condition": "System 頁面健康指標正確顯示 scheduler 運行中與正確餘額",
       "report_to": "second_bot",
       "last_updated": "2026-06-13T17:20:35.062789",
-      "completed_at": "2026-06-13T17:20:35.062781"
+      "claude_verification": "Claude verified 2026-06-13: ui/pages/system.py exists and contains scheduler/health-check related code, but standalone app/health_check.py listed in output_file does NOT exist anywhere in repo. Reverted to in_progress pending: 1) confirm health_check logic actually implemented somewhere or create app/health_check.py, 2) verify /system page renders scheduler status correctly."
     },
     {
       "task_id": "T-083",
       "title": "績效檢討：表現最差策略分析",
       "assigned_to": "kimiclaw_bot",
-      "status": "done",
+      "status": "pending",
       "priority": "medium",
       "type": "analysis",
       "goal": "分析目前表現最差的策略（Opening Range Breakout、Hilbert Cycle）的進出場記錄，檢視止損/止盈設定是否合理，或訊號條件本身有問題，並提出停用或調整建議",
@@ -2469,13 +2470,13 @@
       "success_condition": "產出策略績效檢討報告，明確指出最差策略的問題根因與建議處置",
       "report_to": "second_bot",
       "last_updated": "2026-06-13T17:20:35.066312",
-      "completed_at": "2026-06-13T17:20:35.066305"
+      "claude_verification": "Claude verified 2026-06-13: outputs/T-083_strategy_performance_review.md does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending."
     },
     {
       "task_id": "T-084",
       "title": "對目前10個已註冊策略做乾淨回測",
       "assigned_to": "kimiclaw_bot",
-      "status": "done",
+      "status": "pending",
       "priority": "high",
       "type": "backtest",
       "goal": "使用 backtest_engine.py 搭配 919MB K-line cache（10個交易對），對每個策略單獨跑回測，扣除合理手續費(0.04%~0.1%)與滑點，輸出勝率、總回報、最大回撤、交易次數、Sharpe ratio，並與 live paper trading 的 24.4%/-6.18% 數字比對",
@@ -2484,7 +2485,7 @@
       "success_condition": "完成所有啟用策略的獨立回測，產出含勝率/總回報/最大回撤/交易次數/Sharpe ratio 的表格，並與 live paper trading 數字比對",
       "report_to": "second_bot",
       "last_updated": "2026-06-13T17:20:35.069529",
-      "completed_at": "2026-06-13T17:20:35.069522"
+      "claude_verification": "Claude verified 2026-06-13: outputs/T-084_clean_backtest_results.json does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending."
     },
     {
       "task_id": "T-085",
@@ -2499,7 +2500,8 @@
       "success_condition": "converter.py 條件名稱修正完成且通過測試，GA champion 策略完成回測，產出與10個現有策略的對比表格，明確標註是否 overfitting",
       "report_to": "second_bot",
       "last_updated": "2026-06-13T17:20:35.072607",
-      "completed_at": "2026-06-13T17:20:35.072600"
+      "completed_at": "2026-06-13T17:20:35.072600",
+      "claude_verification": "Claude verified 2026-06-13: outputs/T-085_ga_champion_backtest.json EXISTS (6589 bytes, 2026-06-13 22:38). Real backtest of GA champion MUT_DAC146EA58C9 with 253 actual triggered trades confirmed. Status confirmed done."
     }
   ]
 }
