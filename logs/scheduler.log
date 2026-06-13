@@ -234760,3 +234760,1292 @@ NBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'D
 [2026-06-13 18:08:02]   Symbols: 10/10
 [2026-06-13 18:08:02]   Signals: 4 (Confirmed: 0, Watch: 0)
 [2026-06-13 18:08:02] Next run at 18:13:02 (in 5 min)
+[2026-06-13 18:13:02]   Strategies reloaded: 10 enabled
+[2026-06-13 18:13:02] ============================================================
+[2026-06-13 18:13:02] Run #225 started at 2026-06-13 18:13:02.443967
+[2026-06-13 18:13:02] ============================================================
+[2026-06-13 18:13:16]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:13:16]   Paper Balance: $25,698.11
+[2026-06-13 18:13:16]   Open positions: 4
+[2026-06-13 18:13:16]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:13:16] Run #225 completed
+[2026-06-13 18:13:16]   Duration: 13.6s
+[2026-06-13 18:13:16]   Symbols: 10/10
+[2026-06-13 18:13:16]   Signals: 4 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:13:16] Next run at 18:18:16 (in 5 min)
+[2026-06-13 18:18:16]   Strategies reloaded: 10 enabled
+[2026-06-13 18:18:16] ============================================================
+[2026-06-13 18:18:16] Run #226 started at 2026-06-13 18:18:16.134635
+[2026-06-13 18:18:16] ============================================================
+[2026-06-13 18:18:39]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:18:39]   Paper Balance: $25,698.11
+[2026-06-13 18:18:39]   Open positions: 4
+[2026-06-13 18:18:39]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:18:39] Run #226 completed
+[2026-06-13 18:18:39]   Duration: 23.1s
+[2026-06-13 18:18:39]   Symbols: 10/10
+[2026-06-13 18:18:39]   Signals: 1 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:18:39] Next run at 18:23:39 (in 5 min)
+[2026-06-13 18:23:39]   Strategies reloaded: 10 enabled
+[2026-06-13 18:23:39] ============================================================
+[2026-06-13 18:23:39] Run #227 started at 2026-06-13 18:23:39.261174
+[2026-06-13 18:23:39] ============================================================
+[2026-06-13 18:23:52]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:23:52]   Paper Balance: $25,698.11
+[2026-06-13 18:23:52]   Open positions: 4
+[2026-06-13 18:23:52]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:23:52] Run #227 completed
+[2026-06-13 18:23:52]   Duration: 13.3s
+[2026-06-13 18:23:52]   Symbols: 10/10
+[2026-06-13 18:23:52]   Signals: 0 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:23:52] Next run at 18:28:52 (in 5 min)
+[2026-06-13 18:28:52]   Strategies reloaded: 10 enabled
+[2026-06-13 18:28:52] ============================================================
+[2026-06-13 18:28:52] Run #228 started at 2026-06-13 18:28:52.616869
+[2026-06-13 18:28:52] ============================================================
+[2026-06-13 18:29:08]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:29:08]   Paper Balance: $25,698.11
+[2026-06-13 18:29:08]   Open positions: 4
+[2026-06-13 18:29:08]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:29:08] Run #228 completed
+[2026-06-13 18:29:08]   Duration: 15.6s
+[2026-06-13 18:29:08]   Symbols: 10/10
+[2026-06-13 18:29:08]   Signals: 1 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:29:08] Next run at 18:34:08 (in 5 min)
+[2026-06-13 18:34:08]   Strategies reloaded: 10 enabled
+[2026-06-13 18:34:08] ============================================================
+[2026-06-13 18:34:08] Run #229 started at 2026-06-13 18:34:08.276963
+[2026-06-13 18:34:08] ============================================================
+[2026-06-13 18:34:23]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:34:23]   [Phase 2] Executing paper trades...
+[2026-06-13 18:34:24]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 18:34:24]        reason=Strategy exit: stoch_overbought
+[2026-06-13 18:34:24]        qty=17.027297 @ $7.96
+[2026-06-13 18:34:24]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 18:34:24]        reason=Strategy exit: stoch_overbought
+[2026-06-13 18:34:24]        qty=18.414046 @ $7.96
+[2026-06-13 18:34:24]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 18:34:24]        reason=Strategy exit: stoch_overbought
+[2026-06-13 18:34:24]        qty=17.903945 @ $7.96
+[2026-06-13 18:34:24]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 18:34:24]        reason=Strategy exit: stoch_overbought
+[2026-06-13 18:34:24]        qty=18.596163 @ $7.96
+[2026-06-13 18:34:24]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:34:24]        reason=Volume 2.8x EMA20 (threshold 2.0x) | RSI 64.8 below overbought threshold 65 | ADX 35.6 ≥ 20 (moderate trend)
+[2026-06-13 18:34:24]   Paper Balance: $26,122.48
+[2026-06-13 18:34:24]   Open positions: 1
+[2026-06-13 18:34:24]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:34:24] Run #229 completed
+[2026-06-13 18:34:24]   Duration: 15.1s
+[2026-06-13 18:34:24]   Symbols: 10/10
+[2026-06-13 18:34:24]   Signals: 8 (Confirmed: 1, Watch: 0)
+[2026-06-13 18:34:24] Next run at 18:39:24 (in 5 min)
+[2026-06-13 18:39:24]   Strategies reloaded: 10 enabled
+[2026-06-13 18:39:24] ============================================================
+[2026-06-13 18:39:24] Run #230 started at 2026-06-13 18:39:24.122934
+[2026-06-13 18:39:24] ============================================================
+[2026-06-13 18:39:39]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:39:39]   Paper Balance: $26,122.48
+[2026-06-13 18:39:39]   Open positions: 1
+[2026-06-13 18:39:39]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:39:39] Run #230 completed
+[2026-06-13 18:39:39]   Duration: 15.3s
+[2026-06-13 18:39:39]   Symbols: 10/10
+[2026-06-13 18:39:39]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:39:39] Next run at 18:44:39 (in 5 min)
+[2026-06-13 18:44:39]   Strategies reloaded: 10 enabled
+[2026-06-13 18:44:39] ============================================================
+[2026-06-13 18:44:39] Run #231 started at 2026-06-13 18:44:39.483745
+[2026-06-13 18:44:39] ============================================================
+[2026-06-13 18:44:53]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:44:53]   Paper Balance: $26,122.48
+[2026-06-13 18:44:53]   Open positions: 1
+[2026-06-13 18:44:53]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:44:53] Run #231 completed
+[2026-06-13 18:44:53]   Duration: 14.2s
+[2026-06-13 18:44:53]   Symbols: 10/10
+[2026-06-13 18:44:53]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:44:53] Next run at 18:49:53 (in 5 min)
+[2026-06-13 18:49:53]   Strategies reloaded: 10 enabled
+[2026-06-13 18:49:53] ============================================================
+[2026-06-13 18:49:53] Run #232 started at 2026-06-13 18:49:53.760926
+[2026-06-13 18:49:53] ============================================================
+[2026-06-13 18:50:10]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:50:10]   [Phase 2] Executing paper trades...
+[2026-06-13 18:50:11]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 18:50:11]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 18:50:11]        qty=129.183715 @ $1.15
+[2026-06-13 18:50:11]     ✅ SOLUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $67.52 within 0.59% of MA240 $67.13 | MA5 $67.48 above MA20 $67.42 | Volume ratio 1.22x exceeds threshold 1.2x | ADX 27.6 ≥ 20 (moderate trend)
+[2026-06-13 18:50:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $1.15 within 0.85% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.81x exceeds threshold 1.2x | ADX 36.3 ≥ 20 (moderate trend)
+[2026-06-13 18:50:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $1.15 within 0.85% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.81x exceeds threshold 1.5x | ADX 36.3 ≥ 18 (moderate trend)
+[2026-06-13 18:50:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $1.15 within 0.85% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.81x exceeds threshold 1.5x | ADX 36.3 ≥ 20 (moderate trend)
+[2026-06-13 18:50:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $1.15 within 0.85% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.81x exceeds threshold 2.0x | ADX 36.3 ≥ 18 (moderate trend)
+[2026-06-13 18:50:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 18:50:11]        reason=Price $1.15 within 0.85% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.81x exceeds threshold 1.2x | ADX 36.3 ≥ 28 (strong trend)
+[2026-06-13 18:50:11]   Paper Balance: $25,433.85
+[2026-06-13 18:50:11]   Open positions: 6
+[2026-06-13 18:50:11]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:50:11] Run #232 completed
+[2026-06-13 18:50:11]   Duration: 16.6s
+[2026-06-13 18:50:11]   Symbols: 10/10
+[2026-06-13 18:50:11]   Signals: 11 (Confirmed: 6, Watch: 0)
+[2026-06-13 18:50:11] Next run at 18:55:11 (in 5 min)
+[2026-06-13 18:55:11]   Strategies reloaded: 10 enabled
+[2026-06-13 18:55:11] ============================================================
+[2026-06-13 18:55:11] Run #233 started at 2026-06-13 18:55:11.366444
+[2026-06-13 18:55:11] ============================================================
+[2026-06-13 18:55:25]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 18:55:25]   Paper Balance: $25,433.85
+[2026-06-13 18:55:25]   Open positions: 6
+[2026-06-13 18:55:25]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 18:55:25] Run #233 completed
+[2026-06-13 18:55:25]   Duration: 14.0s
+[2026-06-13 18:55:25]   Symbols: 10/10
+[2026-06-13 18:55:25]   Signals: 4 (Confirmed: 0, Watch: 0)
+[2026-06-13 18:55:25] Next run at 19:00:25 (in 5 min)
+[2026-06-13 19:00:25]   Strategies reloaded: 10 enabled
+[2026-06-13 19:00:25] ============================================================
+[2026-06-13 19:00:25] Run #234 started at 2026-06-13 19:00:25.432999
+[2026-06-13 19:00:25] ============================================================
+[2026-06-13 19:00:39]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:00:39]   Paper Balance: $25,433.85
+[2026-06-13 19:00:39]   Open positions: 6
+[2026-06-13 19:00:39]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:00:39] Run #234 completed
+[2026-06-13 19:00:39]   Duration: 13.9s
+[2026-06-13 19:00:39]   Symbols: 10/10
+[2026-06-13 19:00:39]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:00:39] Next run at 19:05:39 (in 5 min)
+[2026-06-13 19:05:39]   Strategies reloaded: 10 enabled
+[2026-06-13 19:05:39] ============================================================
+[2026-06-13 19:05:39] Run #235 started at 2026-06-13 19:05:39.411350
+[2026-06-13 19:05:39] ============================================================
+[2026-06-13 19:05:54]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:05:54]   Paper Balance: $25,433.85
+[2026-06-13 19:05:54]   Open positions: 6
+[2026-06-13 19:05:54]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:05:54] Run #235 completed
+[2026-06-13 19:05:54]   Duration: 14.6s
+[2026-06-13 19:05:54]   Symbols: 10/10
+[2026-06-13 19:05:54]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:05:54] Next run at 19:10:54 (in 5 min)
+[2026-06-13 19:10:54]   Strategies reloaded: 10 enabled
+[2026-06-13 19:10:54] ============================================================
+[2026-06-13 19:10:54] Run #236 started at 2026-06-13 19:10:54.105211
+[2026-06-13 19:10:54] ============================================================
+[2026-06-13 19:11:09]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:11:09]   [Phase 2] Executing paper trades...
+[2026-06-13 19:11:12]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=2.007396 @ $67.52
+[2026-06-13 19:11:12]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=100.564073 @ $1.15
+[2026-06-13 19:11:12]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=127.971053 @ $1.15
+[2026-06-13 19:11:12]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=124.426038 @ $1.15
+[2026-06-13 19:11:12]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=128.924434 @ $1.15
+[2026-06-13 19:11:12]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:11:12]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:11:12]        qty=129.236705 @ $1.15
+[2026-06-13 19:11:12]     ✅ SOLUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $67.63 within 0.77% of MA240 $67.11 | MA5 $67.51 above MA20 $67.44 | Volume ratio 1.67x exceeds threshold 1.2x | ADX 25.5 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ SOLUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $67.63 within 0.77% of MA240 $67.11 | MA5 $67.51 above MA20 $67.44 | Volume ratio 1.67x exceeds threshold 1.5x | ADX 25.5 ≥ 18 (moderate trend)
+[2026-06-13 19:11:12]     ✅ SOLUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $67.63 within 0.77% of MA240 $67.11 | MA5 $67.51 above MA20 $67.44 | Volume ratio 1.67x exceeds threshold 1.5x | ADX 25.5 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $1.15 within 1.04% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.38x exceeds threshold 1.2x | ADX 32.1 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $1.15 within 1.04% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.38x exceeds threshold 1.5x | ADX 32.1 ≥ 18 (moderate trend)
+[2026-06-13 19:11:12]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $1.15 within 1.04% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.38x exceeds threshold 1.5x | ADX 32.1 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $1.15 within 1.04% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.38x exceeds threshold 2.0x | ADX 32.1 ≥ 18 (moderate trend)
+[2026-06-13 19:11:12]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $1.15 within 1.04% of MA240 $1.14 | MA5 $1.15 above MA20 $1.14 | Volume ratio 3.38x exceeds threshold 1.2x | ADX 32.1 ≥ 28 (strong trend)
+[2026-06-13 19:11:12]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $0.09 within 0.63% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 2.09x exceeds threshold 1.2x | ADX 29.7 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $0.09 within 0.63% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 2.09x exceeds threshold 1.5x | ADX 29.7 ≥ 18 (moderate trend)
+[2026-06-13 19:11:12]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $0.09 within 0.63% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 2.09x exceeds threshold 1.5x | ADX 29.7 ≥ 20 (moderate trend)
+[2026-06-13 19:11:12]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $0.09 within 0.63% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 2.09x exceeds threshold 2.0x | ADX 29.7 ≥ 18 (moderate trend)
+[2026-06-13 19:11:12]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 19:11:12]        reason=Price $0.09 within 0.63% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 2.09x exceeds threshold 1.2x | ADX 29.7 ≥ 28 (strong trend)
+[2026-06-13 19:11:12]   Paper Balance: $24,629.09
+[2026-06-13 19:11:12]   Open positions: 13
+[2026-06-13 19:11:12]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:11:12] Run #236 completed
+[2026-06-13 19:11:12]   Duration: 15.8s
+[2026-06-13 19:11:12]   Symbols: 10/10
+[2026-06-13 19:11:12]   Signals: 16 (Confirmed: 13, Watch: 0)
+[2026-06-13 19:11:12] Next run at 19:16:12 (in 5 min)
+[2026-06-13 19:16:12]   Strategies reloaded: 10 enabled
+[2026-06-13 19:16:12] ============================================================
+[2026-06-13 19:16:12] Run #237 started at 2026-06-13 19:16:12.526657
+[2026-06-13 19:16:12] ============================================================
+[2026-06-13 19:16:26]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:16:27]   Paper Balance: $24,629.09
+[2026-06-13 19:16:27]   Open positions: 13
+[2026-06-13 19:16:27]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:16:27] Run #237 completed
+[2026-06-13 19:16:27]   Duration: 14.4s
+[2026-06-13 19:16:27]   Symbols: 10/10
+[2026-06-13 19:16:27]   Signals: 7 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:16:27] Next run at 19:21:27 (in 5 min)
+[2026-06-13 19:21:27]   Strategies reloaded: 10 enabled
+[2026-06-13 19:21:27] ============================================================
+[2026-06-13 19:21:27] Run #238 started at 2026-06-13 19:21:27.052481
+[2026-06-13 19:21:27] ============================================================
+[2026-06-13 19:21:40]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:21:41]   [Phase 2] Executing paper trades...
+[2026-06-13 19:21:43]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=2.003864 @ $67.63
+[2026-06-13 19:21:43]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=100.366696 @ $1.15
+[2026-06-13 19:21:43]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=1117.435353 @ $0.09
+[2026-06-13 19:21:43]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=2.167233 @ $67.63
+[2026-06-13 19:21:43]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=108.549250 @ $1.15
+[2026-06-13 19:21:43]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=1208.536048 @ $0.09
+[2026-06-13 19:21:43]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=2.107197 @ $67.63
+[2026-06-13 19:21:43]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=105.542252 @ $1.15
+[2026-06-13 19:21:43]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=1175.057554 @ $0.09
+[2026-06-13 19:21:43]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=128.681379 @ $1.15
+[2026-06-13 19:21:43]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=1432.677656 @ $0.09
+[2026-06-13 19:21:43]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=128.993062 @ $1.15
+[2026-06-13 19:21:43]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 19:21:43]        reason=Strategy exit: stoch_overbought
+[2026-06-13 19:21:43]        qty=1436.147781 @ $0.09
+[2026-06-13 19:21:43]     ✅ SOLUSDT: BUY executed
+[2026-06-13 19:21:43]        reason=Price $67.89 within 1.17% of MA240 $67.11 | MA5 $67.70 above MA20 $67.50 | Volume ratio 1.25x exceeds threshold 1.2x | ADX 29.5 ≥ 20 (moderate trend)
+[2026-06-13 19:21:43]     ✅ SOLUSDT: BUY executed
+[2026-06-13 19:21:43]        reason=Price $67.89 within 1.17% of MA240 $67.11 | MA5 $67.70 above MA20 $67.50 | Volume ratio 1.25x exceeds threshold 1.2x | ADX 29.5 ≥ 28 (strong trend)
+[2026-06-13 19:21:43]   Paper Balance: $25,986.83
+[2026-06-13 19:21:43]   Open positions: 2
+[2026-06-13 19:21:43]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:21:43] Run #238 completed
+[2026-06-13 19:21:43]   Duration: 13.9s
+[2026-06-13 19:21:43]   Symbols: 10/10
+[2026-06-13 19:21:43]   Signals: 3 (Confirmed: 2, Watch: 0)
+[2026-06-13 19:21:43] Next run at 19:26:43 (in 5 min)
+[2026-06-13 19:26:43]   Strategies reloaded: 10 enabled
+[2026-06-13 19:26:43] ============================================================
+[2026-06-13 19:26:43] Run #239 started at 2026-06-13 19:26:43.054244
+[2026-06-13 19:26:43] ============================================================
+[2026-06-13 19:26:56]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:26:56]   Paper Balance: $25,986.83
+[2026-06-13 19:26:56]   Open positions: 2
+[2026-06-13 19:26:56]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:26:56] Run #239 completed
+[2026-06-13 19:26:56]   Duration: 13.2s
+[2026-06-13 19:26:56]   Symbols: 10/10
+[2026-06-13 19:26:56]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:26:56] Next run at 19:31:56 (in 5 min)
+[2026-06-13 19:31:56]   Strategies reloaded: 10 enabled
+[2026-06-13 19:31:56] ============================================================
+[2026-06-13 19:31:56] Run #240 started at 2026-06-13 19:31:56.311369
+[2026-06-13 19:31:56] ============================================================
+[2026-06-13 19:32:10]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:32:10]   Paper Balance: $25,986.83
+[2026-06-13 19:32:10]   Open positions: 2
+[2026-06-13 19:32:10]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:32:10] Run #240 completed
+[2026-06-13 19:32:10]   Duration: 14.5s
+[2026-06-13 19:32:10]   Symbols: 10/10
+[2026-06-13 19:32:10]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:32:10] Next run at 19:37:10 (in 5 min)
+[2026-06-13 19:37:10]   Strategies reloaded: 10 enabled
+[2026-06-13 19:37:10] ============================================================
+[2026-06-13 19:37:10] Run #241 started at 2026-06-13 19:37:10.841577
+[2026-06-13 19:37:10] ============================================================
+[2026-06-13 19:37:24]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:37:24]   Paper Balance: $25,986.83
+[2026-06-13 19:37:24]   Open positions: 2
+[2026-06-13 19:37:24]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:37:24] Run #241 completed
+[2026-06-13 19:37:24]   Duration: 14.1s
+[2026-06-13 19:37:24]   Symbols: 10/10
+[2026-06-13 19:37:24]   Signals: 1 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:37:24] Next run at 19:42:24 (in 5 min)
+[2026-06-13 19:42:25]   Strategies reloaded: 10 enabled
+[2026-06-13 19:42:25] ============================================================
+[2026-06-13 19:42:25] Run #242 started at 2026-06-13 19:42:25.016883
+[2026-06-13 19:42:25] ============================================================
+[2026-06-13 19:42:38]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:42:38]   Paper Balance: $25,986.83
+[2026-06-13 19:42:38]   Open positions: 2
+[2026-06-13 19:42:38]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:42:38] Run #242 completed
+[2026-06-13 19:42:38]   Duration: 13.4s
+[2026-06-13 19:42:38]   Symbols: 10/10
+[2026-06-13 19:42:38]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:42:38] Next run at 19:47:38 (in 5 min)
+[2026-06-13 19:47:38]   Strategies reloaded: 10 enabled
+[2026-06-13 19:47:38] ============================================================
+[2026-06-13 19:47:38] Run #243 started at 2026-06-13 19:47:38.532319
+[2026-06-13 19:47:38] ============================================================
+[2026-06-13 19:47:52]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:47:52]   [Phase 2] Executing paper trades...
+[2026-06-13 19:47:53]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:47:53]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 19:47:53]        qty=1.996708 @ $67.89
+[2026-06-13 19:47:53]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 19:47:53]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 19:47:53]        qty=2.180319 @ $67.89
+[2026-06-13 19:47:53]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:47:53]        reason=Price $1.15 within 1.05% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.66x exceeds threshold 1.2x | ADX 31.6 ≥ 20 (moderate trend)
+[2026-06-13 19:47:53]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:47:53]        reason=Price $1.15 within 1.05% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.66x exceeds threshold 1.5x | ADX 31.6 ≥ 18 (moderate trend)
+[2026-06-13 19:47:53]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:47:53]        reason=Price $1.15 within 1.05% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.66x exceeds threshold 1.5x | ADX 31.6 ≥ 20 (moderate trend)
+[2026-06-13 19:47:53]     ✅ XRPUSDT: BUY executed
+[2026-06-13 19:47:53]        reason=Price $1.15 within 1.05% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.66x exceeds threshold 1.2x | ADX 31.6 ≥ 28 (strong trend)
+[2026-06-13 19:47:53]   Paper Balance: $25,696.50
+[2026-06-13 19:47:53]   Open positions: 4
+[2026-06-13 19:47:53]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:47:53] Run #243 completed
+[2026-06-13 19:47:53]   Duration: 13.8s
+[2026-06-13 19:47:53]   Symbols: 10/10
+[2026-06-13 19:47:53]   Signals: 7 (Confirmed: 4, Watch: 0)
+[2026-06-13 19:47:53] Next run at 19:52:53 (in 5 min)
+[2026-06-13 19:52:53]   Strategies reloaded: 10 enabled
+[2026-06-13 19:52:53] ============================================================
+[2026-06-13 19:52:53] Run #244 started at 2026-06-13 19:52:53.178448
+[2026-06-13 19:52:53] ============================================================
+[2026-06-13 19:53:07]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:53:07]   Paper Balance: $25,696.50
+[2026-06-13 19:53:07]   Open positions: 4
+[2026-06-13 19:53:07]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:53:07] Run #244 completed
+[2026-06-13 19:53:07]   Duration: 14.1s
+[2026-06-13 19:53:07]   Symbols: 10/10
+[2026-06-13 19:53:07]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:53:07] Next run at 19:58:07 (in 5 min)
+[2026-06-13 19:58:07]   Strategies reloaded: 10 enabled
+[2026-06-13 19:58:07] ============================================================
+[2026-06-13 19:58:07] Run #245 started at 2026-06-13 19:58:07.338594
+[2026-06-13 19:58:07] ============================================================
+[2026-06-13 19:58:21]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 19:58:21]   Paper Balance: $25,696.50
+[2026-06-13 19:58:21]   Open positions: 4
+[2026-06-13 19:58:21]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 19:58:21] Run #245 completed
+[2026-06-13 19:58:21]   Duration: 14.2s
+[2026-06-13 19:58:21]   Symbols: 10/10
+[2026-06-13 19:58:21]   Signals: 4 (Confirmed: 0, Watch: 0)
+[2026-06-13 19:58:21] Next run at 20:03:21 (in 5 min)
+[2026-06-13 20:03:21]   Strategies reloaded: 10 enabled
+[2026-06-13 20:03:21] ============================================================
+[2026-06-13 20:03:21] Run #246 started at 2026-06-13 20:03:21.602111
+[2026-06-13 20:03:21] ============================================================
+[2026-06-13 20:03:35]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:03:35]   [Phase 2] Executing paper trades...
+[2026-06-13 20:03:37]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $67.84 within 1.09% of MA240 $67.11 | MA5 $67.83 above MA20 $67.68 | Volume ratio 2.77x exceeds threshold 1.2x | ADX 36.3 ≥ 20 (moderate trend)
+[2026-06-13 20:03:37]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $67.84 within 1.09% of MA240 $67.11 | MA5 $67.83 above MA20 $67.68 | Volume ratio 2.77x exceeds threshold 1.5x | ADX 36.3 ≥ 18 (moderate trend)
+[2026-06-13 20:03:37]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $67.84 within 1.09% of MA240 $67.11 | MA5 $67.83 above MA20 $67.68 | Volume ratio 2.77x exceeds threshold 1.5x | ADX 36.3 ≥ 20 (moderate trend)
+[2026-06-13 20:03:37]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $67.84 within 1.09% of MA240 $67.11 | MA5 $67.83 above MA20 $67.68 | Volume ratio 2.77x exceeds threshold 2.0x | ADX 36.3 ≥ 18 (moderate trend)
+[2026-06-13 20:03:37]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $67.84 within 1.09% of MA240 $67.11 | MA5 $67.83 above MA20 $67.68 | Volume ratio 2.77x exceeds threshold 1.2x | ADX 36.3 ≥ 28 (strong trend)
+[2026-06-13 20:03:37]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $1.15 within 1.02% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.57x exceeds threshold 1.2x | ADX 29.0 ≥ 20 (moderate trend)
+[2026-06-13 20:03:37]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $1.15 within 1.02% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.57x exceeds threshold 1.5x | ADX 29.0 ≥ 18 (moderate trend)
+[2026-06-13 20:03:37]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $1.15 within 1.02% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.57x exceeds threshold 1.5x | ADX 29.0 ≥ 20 (moderate trend)
+[2026-06-13 20:03:37]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:03:37]        reason=Price $1.15 within 1.02% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.57x exceeds threshold 1.2x | ADX 29.0 ≥ 28 (strong trend)
+[2026-06-13 20:03:37]   Paper Balance: $24,647.56
+[2026-06-13 20:03:37]   Open positions: 13
+[2026-06-13 20:03:37]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:03:37] Run #246 completed
+[2026-06-13 20:03:37]   Duration: 14.3s
+[2026-06-13 20:03:37]   Symbols: 10/10
+[2026-06-13 20:03:37]   Signals: 13 (Confirmed: 9, Watch: 0)
+[2026-06-13 20:03:37] Next run at 20:08:37 (in 5 min)
+[2026-06-13 20:08:37]   Strategies reloaded: 10 enabled
+[2026-06-13 20:08:37] ============================================================
+[2026-06-13 20:08:37] Run #247 started at 2026-06-13 20:08:37.319591
+[2026-06-13 20:08:37] ============================================================
+[2026-06-13 20:08:51]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:08:51]   Paper Balance: $24,647.56
+[2026-06-13 20:08:51]   Open positions: 13
+[2026-06-13 20:08:51]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:08:51] Run #247 completed
+[2026-06-13 20:08:51]   Duration: 14.1s
+[2026-06-13 20:08:51]   Symbols: 10/10
+[2026-06-13 20:08:51]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 20:08:51] Next run at 20:13:51 (in 5 min)
+[2026-06-13 20:13:51]   Strategies reloaded: 10 enabled
+[2026-06-13 20:13:51] ============================================================
+[2026-06-13 20:13:51] Run #248 started at 2026-06-13 20:13:51.472279
+[2026-06-13 20:13:51] ============================================================
+[2026-06-13 20:14:16]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:14:16]   [Phase 2] Executing paper trades...
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=118.048993 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=85.272147 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=127.740653 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=92.272873 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=124.202020 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=89.716758 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=128.904419 @ $1.15
+[2026-06-13 20:14:18]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:14:18]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:14:18]        qty=93.113515 @ $1.15
+[2026-06-13 20:14:18]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $67.88 within 1.14% of MA240 $67.11 | MA5 $67.86 above MA20 $67.72 | Volume ratio 5.73x exceeds threshold 1.2x | ADX 37.3 ≥ 20 (moderate trend)
+[2026-06-13 20:14:18]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $67.88 within 1.14% of MA240 $67.11 | MA5 $67.86 above MA20 $67.72 | Volume ratio 5.73x exceeds threshold 1.5x | ADX 37.3 ≥ 18 (moderate trend)
+[2026-06-13 20:14:18]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $67.88 within 1.14% of MA240 $67.11 | MA5 $67.86 above MA20 $67.72 | Volume ratio 5.73x exceeds threshold 1.5x | ADX 37.3 ≥ 20 (moderate trend)
+[2026-06-13 20:14:18]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $67.88 within 1.14% of MA240 $67.11 | MA5 $67.86 above MA20 $67.72 | Volume ratio 5.73x exceeds threshold 2.0x | ADX 37.3 ≥ 18 (moderate trend)
+[2026-06-13 20:14:18]     ✅ SOLUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $67.88 within 1.14% of MA240 $67.11 | MA5 $67.86 above MA20 $67.72 | Volume ratio 5.73x exceeds threshold 1.2x | ADX 37.3 ≥ 28 (strong trend)
+[2026-06-13 20:14:18]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $0.09 within 0.94% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 3.21x exceeds threshold 1.2x | ADX 37.7 ≥ 20 (moderate trend)
+[2026-06-13 20:14:18]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $0.09 within 0.94% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 3.21x exceeds threshold 1.5x | ADX 37.7 ≥ 18 (moderate trend)
+[2026-06-13 20:14:18]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $0.09 within 0.94% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 3.21x exceeds threshold 1.5x | ADX 37.7 ≥ 20 (moderate trend)
+[2026-06-13 20:14:18]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $0.09 within 0.94% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 3.21x exceeds threshold 2.0x | ADX 37.7 ≥ 18 (moderate trend)
+[2026-06-13 20:14:18]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 20:14:18]        reason=Price $0.09 within 0.94% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 3.21x exceeds threshold 1.2x | ADX 37.7 ≥ 28 (strong trend)
+[2026-06-13 20:14:18]   Paper Balance: $24,476.62
+[2026-06-13 20:14:18]   Open positions: 15
+[2026-06-13 20:14:18]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:14:18] Run #248 completed
+[2026-06-13 20:14:18]   Duration: 24.8s
+[2026-06-13 20:14:18]   Symbols: 10/10
+[2026-06-13 20:14:18]   Signals: 13 (Confirmed: 10, Watch: 0)
+[2026-06-13 20:14:18] Next run at 20:19:18 (in 5 min)
+[2026-06-13 20:19:18]   Strategies reloaded: 10 enabled
+[2026-06-13 20:19:18] ============================================================
+[2026-06-13 20:19:18] Run #249 started at 2026-06-13 20:19:18.727761
+[2026-06-13 20:19:18] ============================================================
+[2026-06-13 20:19:33]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:19:33]   [Phase 2] Executing paper trades...
+[2026-06-13 20:19:33]     ⏭️ LINKUSDT: BUY skipped
+[2026-06-13 20:19:33]        reason=Max strategy exposure reached
+[2026-06-13 20:19:33]     ⏭️ LINKUSDT: BUY skipped
+[2026-06-13 20:19:33]        reason=Max strategy exposure reached
+[2026-06-13 20:19:33]     ⏭️ LINKUSDT: BUY skipped
+[2026-06-13 20:19:33]        reason=Max strategy exposure reached
+[2026-06-13 20:19:33]     ⏭️ LINKUSDT: BUY skipped
+[2026-06-13 20:19:33]        reason=Max strategy exposure reached
+[2026-06-13 20:19:33]   Paper Balance: $24,476.62
+[2026-06-13 20:19:33]   Open positions: 15
+[2026-06-13 20:19:33]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:19:33] Run #249 completed
+[2026-06-13 20:19:33]   Duration: 14.9s
+[2026-06-13 20:19:33]   Symbols: 10/10
+[2026-06-13 20:19:33]   Signals: 9 (Confirmed: 4, Watch: 0)
+[2026-06-13 20:19:33] Next run at 20:24:33 (in 5 min)
+[2026-06-13 20:24:33]   Strategies reloaded: 10 enabled
+[2026-06-13 20:24:33] ============================================================
+[2026-06-13 20:24:33] Run #250 started at 2026-06-13 20:24:33.660984
+[2026-06-13 20:24:33] ============================================================
+[2026-06-13 20:24:48]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:24:48]   [Phase 2] Executing paper trades...
+[2026-06-13 20:24:48]     ✅ LINKUSDT: BUY executed
+[2026-06-13 20:24:48]        reason=Volume 2.5x EMA20 (threshold 2.0x) | RSI 63.6 below overbought threshold 65 | ADX 21.4 ≥ 20 (moderate trend)
+[2026-06-13 20:24:48]   Paper Balance: $24,328.52
+[2026-06-13 20:24:48]   Open positions: 16
+[2026-06-13 20:24:48]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:24:48] Run #250 completed
+[2026-06-13 20:24:48]   Duration: 14.6s
+[2026-06-13 20:24:48]   Symbols: 10/10
+[2026-06-13 20:24:48]   Signals: 5 (Confirmed: 1, Watch: 0)
+[2026-06-13 20:24:48] Next run at 20:29:48 (in 5 min)
+[2026-06-13 20:29:48]   Strategies reloaded: 10 enabled
+[2026-06-13 20:29:48] ============================================================
+[2026-06-13 20:29:48] Run #251 started at 2026-06-13 20:29:48.492299
+[2026-06-13 20:29:48] ============================================================
+[2026-06-13 20:30:05]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:30:05]   [Phase 2] Executing paper trades...
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.697225 @ $67.84
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.740719 @ $67.88
+[2026-06-13 20:30:08]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=18.504084 @ $8.00
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.836565 @ $67.84
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.883630 @ $67.88
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.785689 @ $67.84
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.831450 @ $67.88
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=2.176654 @ $67.84
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.848706 @ $67.88
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.853297 @ $67.84
+[2026-06-13 20:30:08]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 20:30:08]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 20:30:08]        qty=1.900791 @ $67.88
+[2026-06-13 20:30:08]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.71x exceeds threshold 1.2x | ADX 30.2 ≥ 20 (moderate trend)
+[2026-06-13 20:30:08]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.71x exceeds threshold 1.5x | ADX 30.2 ≥ 18 (moderate trend)
+[2026-06-13 20:30:08]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.71x exceeds threshold 1.5x | ADX 30.2 ≥ 20 (moderate trend)
+[2026-06-13 20:30:08]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.71x exceeds threshold 1.2x | ADX 30.2 ≥ 28 (strong trend)
+[2026-06-13 20:30:08]     ✅ ADAUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $0.17 within 1.22% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.01x exceeds threshold 1.2x | ADX 20.9 ≥ 20 (moderate trend)
+[2026-06-13 20:30:08]     ✅ ADAUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $0.17 within 1.22% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.01x exceeds threshold 1.5x | ADX 20.9 ≥ 18 (moderate trend)
+[2026-06-13 20:30:08]     ✅ ADAUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $0.17 within 1.22% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.01x exceeds threshold 1.5x | ADX 20.9 ≥ 20 (moderate trend)
+[2026-06-13 20:30:08]     ✅ ADAUSDT: BUY executed
+[2026-06-13 20:30:08]        reason=Price $0.17 within 1.22% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.01x exceeds threshold 2.0x | ADX 20.9 ≥ 18 (moderate trend)
+[2026-06-13 20:30:08]   Paper Balance: $24,772.44
+[2026-06-13 20:30:08]   Open positions: 13
+[2026-06-13 20:30:08]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:30:08] Run #251 completed
+[2026-06-13 20:30:08]   Duration: 16.9s
+[2026-06-13 20:30:08]   Symbols: 10/10
+[2026-06-13 20:30:08]   Signals: 11 (Confirmed: 8, Watch: 0)
+[2026-06-13 20:30:08] Next run at 20:35:08 (in 5 min)
+[2026-06-13 20:35:08]   Strategies reloaded: 10 enabled
+[2026-06-13 20:35:08] ============================================================
+[2026-06-13 20:35:08] Run #252 started at 2026-06-13 20:35:08.147372
+[2026-06-13 20:35:08] ============================================================
+[2026-06-13 20:35:25]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:35:25]   Paper Balance: $24,772.44
+[2026-06-13 20:35:25]   Open positions: 13
+[2026-06-13 20:35:25]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:35:25] Run #252 completed
+[2026-06-13 20:35:25]   Duration: 17.1s
+[2026-06-13 20:35:25]   Symbols: 10/10
+[2026-06-13 20:35:25]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 20:35:25] Next run at 20:40:25 (in 5 min)
+[2026-06-13 20:40:25]   Strategies reloaded: 10 enabled
+[2026-06-13 20:40:25] ============================================================
+[2026-06-13 20:40:25] Run #253 started at 2026-06-13 20:40:25.359720
+[2026-06-13 20:40:25] ============================================================
+[2026-06-13 20:40:40]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:40:40]   Paper Balance: $24,772.44
+[2026-06-13 20:40:40]   Open positions: 13
+[2026-06-13 20:40:40]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:40:40] Run #253 completed
+[2026-06-13 20:40:40]   Duration: 15.1s
+[2026-06-13 20:40:40]   Symbols: 10/10
+[2026-06-13 20:40:40]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 20:40:40] Next run at 20:45:40 (in 5 min)
+[2026-06-13 20:45:40]   Strategies reloaded: 10 enabled
+[2026-06-13 20:45:40] ============================================================
+[2026-06-13 20:45:40] Run #254 started at 2026-06-13 20:45:40.564863
+[2026-06-13 20:45:40] ============================================================
+[2026-06-13 20:45:54]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:45:54]   Paper Balance: $24,772.44
+[2026-06-13 20:45:54]   Open positions: 13
+[2026-06-13 20:45:54]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:45:54] Run #254 completed
+[2026-06-13 20:45:54]   Duration: 13.9s
+[2026-06-13 20:45:54]   Symbols: 10/10
+[2026-06-13 20:45:54]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 20:45:54] Next run at 20:50:54 (in 5 min)
+[2026-06-13 20:50:54]   Strategies reloaded: 10 enabled
+[2026-06-13 20:50:54] ============================================================
+[2026-06-13 20:50:54] Run #255 started at 2026-06-13 20:50:54.530908
+[2026-06-13 20:50:54] ============================================================
+[2026-06-13 20:51:08]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:51:08]   [Phase 2] Executing paper trades...
+[2026-06-13 20:51:11]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=1143.435742 @ $0.09
+[2026-06-13 20:51:11]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=104.562474 @ $1.15
+[2026-06-13 20:51:11]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=589.196090 @ $0.17
+[2026-06-13 20:51:11]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=1237.310243 @ $0.09
+[2026-06-13 20:51:11]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=113.146909 @ $1.15
+[2026-06-13 20:51:11]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=637.568277 @ $0.17
+[2026-06-13 20:51:11]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=1203.034654 @ $0.09
+[2026-06-13 20:51:11]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=110.012548 @ $1.15
+[2026-06-13 20:51:11]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=619.906557 @ $0.17
+[2026-06-13 20:51:11]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=1214.369863 @ $0.09
+[2026-06-13 20:51:11]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=758.239247 @ $0.17
+[2026-06-13 20:51:11]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=1248.582616 @ $0.09
+[2026-06-13 20:51:11]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 20:51:11]        reason=Strategy exit: stoch_overbought
+[2026-06-13 20:51:11]        qty=114.177721 @ $1.15
+[2026-06-13 20:51:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $1.15 within 1.43% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.51x exceeds threshold 1.2x | ADX 34.7 ≥ 20 (moderate trend)
+[2026-06-13 20:51:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $1.15 within 1.43% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.51x exceeds threshold 1.5x | ADX 34.7 ≥ 18 (moderate trend)
+[2026-06-13 20:51:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $1.15 within 1.43% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.51x exceeds threshold 1.5x | ADX 34.7 ≥ 20 (moderate trend)
+[2026-06-13 20:51:11]     ✅ XRPUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $1.15 within 1.43% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.51x exceeds threshold 1.2x | ADX 34.7 ≥ 28 (strong trend)
+[2026-06-13 20:51:11]     ✅ LINKUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $8.01 within 1.34% of MA240 $7.90 | MA5 $8.00 above MA20 $7.99 | Volume ratio 1.35x exceeds threshold 1.2x | ADX 29.1 ≥ 20 (moderate trend)
+[2026-06-13 20:51:11]     ✅ LINKUSDT: BUY executed
+[2026-06-13 20:51:11]        reason=Price $8.01 within 1.34% of MA240 $7.90 | MA5 $8.00 above MA20 $7.99 | Volume ratio 1.35x exceeds threshold 1.2x | ADX 29.1 ≥ 28 (strong trend)
+[2026-06-13 20:51:11]   Paper Balance: $25,454.35
+[2026-06-13 20:51:11]   Open positions: 6
+[2026-06-13 20:51:11]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:51:11] Run #255 completed
+[2026-06-13 20:51:11]   Duration: 14.3s
+[2026-06-13 20:51:11]   Symbols: 10/10
+[2026-06-13 20:51:11]   Signals: 14 (Confirmed: 6, Watch: 0)
+[2026-06-13 20:51:11] Next run at 20:56:11 (in 5 min)
+[2026-06-13 20:56:11]   Strategies reloaded: 10 enabled
+[2026-06-13 20:56:11] ============================================================
+[2026-06-13 20:56:11] Run #256 started at 2026-06-13 20:56:11.487050
+[2026-06-13 20:56:11] ============================================================
+[2026-06-13 20:56:26]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 20:56:26]   Paper Balance: $25,454.35
+[2026-06-13 20:56:26]   Open positions: 6
+[2026-06-13 20:56:26]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 20:56:26] Run #256 completed
+[2026-06-13 20:56:26]   Duration: 15.0s
+[2026-06-13 20:56:26]   Symbols: 10/10
+[2026-06-13 20:56:26]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 20:56:26] Next run at 21:01:26 (in 5 min)
+[2026-06-13 21:01:26]   Strategies reloaded: 10 enabled
+[2026-06-13 21:01:26] ============================================================
+[2026-06-13 21:01:26] Run #257 started at 2026-06-13 21:01:26.599013
+[2026-06-13 21:01:26] ============================================================
+[2026-06-13 21:01:42]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:01:42]   Paper Balance: $25,454.35
+[2026-06-13 21:01:42]   Open positions: 6
+[2026-06-13 21:01:42]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:01:42] Run #257 completed
+[2026-06-13 21:01:42]   Duration: 15.5s
+[2026-06-13 21:01:42]   Symbols: 10/10
+[2026-06-13 21:01:42]   Signals: 4 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:01:42] Next run at 21:06:42 (in 5 min)
+[2026-06-13 21:06:42]   Strategies reloaded: 10 enabled
+[2026-06-13 21:06:42] ============================================================
+[2026-06-13 21:06:42] Run #258 started at 2026-06-13 21:06:42.130172
+[2026-06-13 21:06:42] ============================================================
+[2026-06-13 21:06:56]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:06:56]   Paper Balance: $25,454.35
+[2026-06-13 21:06:56]   Open positions: 6
+[2026-06-13 21:06:56]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:06:56] Run #258 completed
+[2026-06-13 21:06:56]   Duration: 14.3s
+[2026-06-13 21:06:56]   Symbols: 10/10
+[2026-06-13 21:06:56]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:06:56] Next run at 21:11:56 (in 5 min)
+[2026-06-13 21:11:56]   Strategies reloaded: 10 enabled
+[2026-06-13 21:11:56] ============================================================
+[2026-06-13 21:11:56] Run #259 started at 2026-06-13 21:11:56.484999
+[2026-06-13 21:11:56] ============================================================
+[2026-06-13 21:12:13]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:12:13]   [Phase 2] Executing paper trades...
+[2026-06-13 21:12:14]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 21:12:14]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:12:14]        qty=14.373190 @ $8.01
+[2026-06-13 21:12:14]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 21:12:14]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:12:14]        qty=15.694722 @ $8.01
+[2026-06-13 21:12:14]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $0.09 within 1.59% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.57x exceeds threshold 1.2x | ADX 49.6 ≥ 20 (moderate trend)
+[2026-06-13 21:12:14]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $0.09 within 1.59% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.57x exceeds threshold 1.5x | ADX 49.6 ≥ 18 (moderate trend)
+[2026-06-13 21:12:14]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $0.09 within 1.59% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.57x exceeds threshold 1.5x | ADX 49.6 ≥ 20 (moderate trend)
+[2026-06-13 21:12:14]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $0.09 within 1.59% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.57x exceeds threshold 1.2x | ADX 49.6 ≥ 28 (strong trend)
+[2026-06-13 21:12:14]     ✅ AVAXUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $6.67 within 0.92% of MA240 $6.61 | MA5 $6.68 above MA20 $6.67 | Volume ratio 2.73x exceeds threshold 1.5x | ADX 18.3 ≥ 18 (moderate trend)
+[2026-06-13 21:12:14]     ✅ AVAXUSDT: BUY executed
+[2026-06-13 21:12:14]        reason=Price $6.67 within 0.92% of MA240 $6.61 | MA5 $6.68 above MA20 $6.67 | Volume ratio 2.73x exceeds threshold 2.0x | ADX 18.3 ≥ 18 (moderate trend)
+[2026-06-13 21:12:14]   Paper Balance: $24,954.02
+[2026-06-13 21:12:14]   Open positions: 10
+[2026-06-13 21:12:14]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:12:14] Run #259 completed
+[2026-06-13 21:12:14]   Duration: 17.3s
+[2026-06-13 21:12:14]   Symbols: 10/10
+[2026-06-13 21:12:14]   Signals: 12 (Confirmed: 6, Watch: 0)
+[2026-06-13 21:12:14] Next run at 21:17:14 (in 5 min)
+[2026-06-13 21:17:14]   Strategies reloaded: 10 enabled
+[2026-06-13 21:17:14] ============================================================
+[2026-06-13 21:17:14] Run #260 started at 2026-06-13 21:17:14.966722
+[2026-06-13 21:17:14] ============================================================
+[2026-06-13 21:17:35]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:17:35]   Paper Balance: $24,954.02
+[2026-06-13 21:17:35]   Open positions: 10
+[2026-06-13 21:17:35]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:17:35] Run #260 completed
+[2026-06-13 21:17:35]   Duration: 20.9s
+[2026-06-13 21:17:35]   Symbols: 10/10
+[2026-06-13 21:17:35]   Signals: 2 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:17:35] Next run at 21:22:35 (in 5 min)
+[2026-06-13 21:22:35]   Strategies reloaded: 10 enabled
+[2026-06-13 21:22:35] ============================================================
+[2026-06-13 21:22:35] Run #261 started at 2026-06-13 21:22:35.897805
+[2026-06-13 21:22:35] ============================================================
+[2026-06-13 21:22:49]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:22:49]   [Phase 2] Executing paper trades...
+[2026-06-13 21:22:51]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=117.491161 @ $1.15
+[2026-06-13 21:22:51]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=1301.947494 @ $0.09
+[2026-06-13 21:22:51]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=127.137024 @ $1.15
+[2026-06-13 21:22:51]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=1409.432545 @ $0.09
+[2026-06-13 21:22:51]     ⏭️ AVAXUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=15.861589 @ $6.67
+[2026-06-13 21:22:51]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=123.615113 @ $1.15
+[2026-06-13 21:22:51]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=1370.388877 @ $0.09
+[2026-06-13 21:22:51]     ⏭️ AVAXUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=22.125143 @ $6.67
+[2026-06-13 21:22:51]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=128.293796 @ $1.15
+[2026-06-13 21:22:51]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 21:22:51]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:22:51]        qty=1421.654060 @ $0.09
+[2026-06-13 21:22:51]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:22:51]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.31x exceeds threshold 1.2x | ADX 39.2 ≥ 20 (moderate trend)
+[2026-06-13 21:22:51]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:22:51]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.31x exceeds threshold 1.2x | ADX 39.2 ≥ 28 (strong trend)
+[2026-06-13 21:22:51]   Paper Balance: $25,981.02
+[2026-06-13 21:22:51]   Open positions: 2
+[2026-06-13 21:22:51]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:22:51] Run #261 completed
+[2026-06-13 21:22:51]   Duration: 13.9s
+[2026-06-13 21:22:51]   Symbols: 10/10
+[2026-06-13 21:22:51]   Signals: 7 (Confirmed: 2, Watch: 0)
+[2026-06-13 21:22:51] Next run at 21:27:51 (in 5 min)
+[2026-06-13 21:27:51]   Strategies reloaded: 10 enabled
+[2026-06-13 21:27:51] ============================================================
+[2026-06-13 21:27:51] Run #262 started at 2026-06-13 21:27:51.561578
+[2026-06-13 21:27:51] ============================================================
+[2026-06-13 21:28:06]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:28:06]   Paper Balance: $25,981.02
+[2026-06-13 21:28:06]   Open positions: 2
+[2026-06-13 21:28:06]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:28:06] Run #262 completed
+[2026-06-13 21:28:06]   Duration: 15.1s
+[2026-06-13 21:28:06]   Symbols: 10/10
+[2026-06-13 21:28:06]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:28:06] Next run at 21:33:06 (in 5 min)
+[2026-06-13 21:33:06]   Strategies reloaded: 10 enabled
+[2026-06-13 21:33:06] ============================================================
+[2026-06-13 21:33:06] Run #263 started at 2026-06-13 21:33:06.750349
+[2026-06-13 21:33:06] ============================================================
+[2026-06-13 21:33:21]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:33:21]   [Phase 2] Executing paper trades...
+[2026-06-13 21:33:21]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:33:21]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:33:21]        qty=117.425927 @ $1.15
+[2026-06-13 21:33:21]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 21:33:21]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:33:21]        qty=128.222564 @ $1.15
+[2026-06-13 21:33:21]     ✅ LINKUSDT: BUY executed
+[2026-06-13 21:33:21]        reason=Price $7.99 within 1.00% of MA240 $7.91 | MA5 $8.00 above MA20 $8.00 | Volume ratio 1.33x exceeds threshold 1.2x | ADX 30.6 ≥ 20 (moderate trend)
+[2026-06-13 21:33:21]     ✅ LINKUSDT: BUY executed
+[2026-06-13 21:33:21]        reason=Price $7.99 within 1.00% of MA240 $7.91 | MA5 $8.00 above MA20 $8.00 | Volume ratio 1.33x exceeds threshold 1.2x | ADX 30.6 ≥ 28 (strong trend)
+[2026-06-13 21:33:21]   Paper Balance: $25,980.34
+[2026-06-13 21:33:21]   Open positions: 2
+[2026-06-13 21:33:21]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:33:21] Run #263 completed
+[2026-06-13 21:33:21]   Duration: 14.4s
+[2026-06-13 21:33:21]   Symbols: 10/10
+[2026-06-13 21:33:21]   Signals: 12 (Confirmed: 2, Watch: 0)
+[2026-06-13 21:33:21] Next run at 21:38:21 (in 5 min)
+[2026-06-13 21:38:21]   Strategies reloaded: 10 enabled
+[2026-06-13 21:38:21] ============================================================
+[2026-06-13 21:38:21] Run #264 started at 2026-06-13 21:38:21.723323
+[2026-06-13 21:38:21] ============================================================
+[2026-06-13 21:38:35]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:38:35]   Paper Balance: $25,980.34
+[2026-06-13 21:38:35]   Open positions: 2
+[2026-06-13 21:38:35]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:38:35] Run #264 completed
+[2026-06-13 21:38:35]   Duration: 13.6s
+[2026-06-13 21:38:35]   Symbols: 10/10
+[2026-06-13 21:38:35]   Signals: 4 (Confirmed: 0, Watch: 1)
+[2026-06-13 21:38:35] Next run at 21:43:35 (in 5 min)
+[2026-06-13 21:43:35]   Strategies reloaded: 10 enabled
+[2026-06-13 21:43:35] ============================================================
+[2026-06-13 21:43:35] Run #265 started at 2026-06-13 21:43:35.369887
+[2026-06-13 21:43:35] ============================================================
+[2026-06-13 21:43:50]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:43:50]   [Phase 2] Executing paper trades...
+[2026-06-13 21:43:50]     ✅ SOLUSDT: BUY executed
+[2026-06-13 21:43:50]        reason=Volume 5.0x EMA20 (threshold 3.0x) | RSI 68.4 below overbought threshold 70 | ADX 42.0 ≥ 20 (moderate trend)
+[2026-06-13 21:43:50]   Paper Balance: $25,831.78
+[2026-06-13 21:43:50]   Open positions: 3
+[2026-06-13 21:43:50]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:43:50] Run #265 completed
+[2026-06-13 21:43:50]   Duration: 15.0s
+[2026-06-13 21:43:50]   Symbols: 10/10
+[2026-06-13 21:43:50]   Signals: 10 (Confirmed: 1, Watch: 1)
+[2026-06-13 21:43:50] Next run at 21:48:50 (in 5 min)
+[2026-06-13 21:48:50]   Strategies reloaded: 10 enabled
+[2026-06-13 21:48:50] ============================================================
+[2026-06-13 21:48:50] Run #266 started at 2026-06-13 21:48:50.628581
+[2026-06-13 21:48:50] ============================================================
+[2026-06-13 21:49:04]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:49:04]   [Phase 2] Executing paper trades...
+[2026-06-13 21:49:06]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 21:49:06]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:49:06]        qty=16.934784 @ $7.99
+[2026-06-13 21:49:06]     ⏭️ LINKUSDT: SELL exited
+[2026-06-13 21:49:06]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 21:49:06]        qty=18.491840 @ $7.99
+[2026-06-13 21:49:06]     ✅ SOLUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $68.10 within 1.44% of MA240 $67.13 | MA5 $68.05 above MA20 $67.92 | Volume ratio 1.26x exceeds threshold 1.2x | ADX 43.1 ≥ 20 (moderate trend)
+[2026-06-13 21:49:06]     ✅ SOLUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $68.10 within 1.44% of MA240 $67.13 | MA5 $68.05 above MA20 $67.92 | Volume ratio 1.26x exceeds threshold 1.2x | ADX 43.1 ≥ 28 (strong trend)
+[2026-06-13 21:49:06]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.90x exceeds threshold 1.2x | ADX 31.3 ≥ 20 (moderate trend)
+[2026-06-13 21:49:06]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.90x exceeds threshold 1.5x | ADX 31.3 ≥ 18 (moderate trend)
+[2026-06-13 21:49:06]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.90x exceeds threshold 1.5x | ADX 31.3 ≥ 20 (moderate trend)
+[2026-06-13 21:49:06]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.90x exceeds threshold 2.0x | ADX 31.3 ≥ 18 (moderate trend)
+[2026-06-13 21:49:06]     ✅ XRPUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $1.15 within 1.32% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.90x exceeds threshold 1.2x | ADX 31.3 ≥ 28 (strong trend)
+[2026-06-13 21:49:06]     ✅ ADAUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $0.17 within 1.42% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.59x exceeds threshold 1.5x | ADX 19.5 ≥ 18 (moderate trend)
+[2026-06-13 21:49:06]     ✅ ADAUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $0.17 within 1.42% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 2.59x exceeds threshold 2.0x | ADX 19.5 ≥ 18 (moderate trend)
+[2026-06-13 21:49:06]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $0.09 within 1.39% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.47x exceeds threshold 1.2x | ADX 37.6 ≥ 20 (moderate trend)
+[2026-06-13 21:49:06]     ✅ DOGEUSDT: BUY executed
+[2026-06-13 21:49:06]        reason=Price $0.09 within 1.39% of MA240 $0.09 | MA5 $0.09 above MA20 $0.09 | Volume ratio 1.47x exceeds threshold 1.2x | ADX 37.6 ≥ 28 (strong trend)
+[2026-06-13 21:49:06]   Paper Balance: $24,699.12
+[2026-06-13 21:49:06]   Open positions: 12
+[2026-06-13 21:49:06]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:49:06] Run #266 completed
+[2026-06-13 21:49:06]   Duration: 13.9s
+[2026-06-13 21:49:06]   Symbols: 10/10
+[2026-06-13 21:49:06]   Signals: 12 (Confirmed: 11, Watch: 0)
+[2026-06-13 21:49:06] Next run at 21:54:06 (in 5 min)
+[2026-06-13 21:54:06]   Strategies reloaded: 10 enabled
+[2026-06-13 21:54:06] ============================================================
+[2026-06-13 21:54:06] Run #267 started at 2026-06-13 21:54:06.382322
+[2026-06-13 21:54:06] ============================================================
+[2026-06-13 21:54:19]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:54:19]   Paper Balance: $24,699.12
+[2026-06-13 21:54:19]   Open positions: 12
+[2026-06-13 21:54:19]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:54:19] Run #267 completed
+[2026-06-13 21:54:19]   Duration: 13.3s
+[2026-06-13 21:54:19]   Symbols: 10/10
+[2026-06-13 21:54:19]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:54:19] Next run at 21:59:19 (in 5 min)
+[2026-06-13 21:59:19]   Strategies reloaded: 10 enabled
+[2026-06-13 21:59:19] ============================================================
+[2026-06-13 21:59:19] Run #268 started at 2026-06-13 21:59:19.753188
+[2026-06-13 21:59:19] ============================================================
+[2026-06-13 21:59:34]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 21:59:34]   Paper Balance: $24,699.12
+[2026-06-13 21:59:34]   Open positions: 12
+[2026-06-13 21:59:34]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 21:59:34] Run #268 completed
+[2026-06-13 21:59:34]   Duration: 14.3s
+[2026-06-13 21:59:34]   Symbols: 10/10
+[2026-06-13 21:59:34]   Signals: 4 (Confirmed: 0, Watch: 0)
+[2026-06-13 21:59:34] Next run at 22:04:34 (in 5 min)
+[2026-06-13 22:04:34]   Strategies reloaded: 10 enabled
+[2026-06-13 22:04:34] ============================================================
+[2026-06-13 22:04:34] Run #269 started at 2026-06-13 22:04:34.157036
+[2026-06-13 22:04:34] ============================================================
+[2026-06-13 22:04:47]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:04:47]   Paper Balance: $24,699.12
+[2026-06-13 22:04:47]   Open positions: 12
+[2026-06-13 22:04:47]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:04:47] Run #269 completed
+[2026-06-13 22:04:47]   Duration: 13.5s
+[2026-06-13 22:04:47]   Symbols: 10/10
+[2026-06-13 22:04:47]   Signals: 6 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:04:47] Next run at 22:09:47 (in 5 min)
+[2026-06-13 22:09:47]   Strategies reloaded: 10 enabled
+[2026-06-13 22:09:47] ============================================================
+[2026-06-13 22:09:47] Run #270 started at 2026-06-13 22:09:47.711021
+[2026-06-13 22:09:47] ============================================================
+[2026-06-13 22:10:03]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:10:03]   [Phase 2] Executing paper trades...
+[2026-06-13 22:10:04]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=1.985414 @ $68.10
+[2026-06-13 22:10:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=99.690607 @ $1.15
+[2026-06-13 22:10:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=127.046029 @ $1.15
+[2026-06-13 22:10:04]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=715.607265 @ $0.17
+[2026-06-13 22:10:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=123.548089 @ $1.15
+[2026-06-13 22:10:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=128.082369 @ $1.15
+[2026-06-13 22:10:04]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=721.444619 @ $0.17
+[2026-06-13 22:10:04]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=2.167962 @ $68.10
+[2026-06-13 22:10:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 22:10:04]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:10:04]        qty=108.856583 @ $1.15
+[2026-06-13 22:10:04]     ✅ ADAUSDT: BUY executed
+[2026-06-13 22:10:04]        reason=Volume 2.6x EMA20 (threshold 2.0x) | RSI 64.4 below overbought threshold 65 | ADX 21.0 ≥ 20 (moderate trend)
+[2026-06-13 22:10:04]   Paper Balance: $25,760.82
+[2026-06-13 22:10:04]   Open positions: 4
+[2026-06-13 22:10:04]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:10:04] Run #270 completed
+[2026-06-13 22:10:04]   Duration: 15.4s
+[2026-06-13 22:10:04]   Symbols: 10/10
+[2026-06-13 22:10:04]   Signals: 5 (Confirmed: 1, Watch: 0)
+[2026-06-13 22:10:04] Next run at 22:15:04 (in 5 min)
+[2026-06-13 22:15:04]   Strategies reloaded: 10 enabled
+[2026-06-13 22:15:04] ============================================================
+[2026-06-13 22:15:04] Run #271 started at 2026-06-13 22:15:04.495237
+[2026-06-13 22:15:04] ============================================================
+[2026-06-13 22:15:18]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:15:18]   Paper Balance: $25,760.82
+[2026-06-13 22:15:18]   Open positions: 4
+[2026-06-13 22:15:18]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:15:18] Run #271 completed
+[2026-06-13 22:15:18]   Duration: 13.8s
+[2026-06-13 22:15:18]   Symbols: 10/10
+[2026-06-13 22:15:18]   Signals: 6 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:15:18] Next run at 22:20:18 (in 5 min)
+[2026-06-13 22:20:18]   Strategies reloaded: 10 enabled
+[2026-06-13 22:20:18] ============================================================
+[2026-06-13 22:20:18] Run #272 started at 2026-06-13 22:20:18.405651
+[2026-06-13 22:20:18] ============================================================
+[2026-06-13 22:20:33]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:20:33]   Paper Balance: $25,760.82
+[2026-06-13 22:20:33]   Open positions: 4
+[2026-06-13 22:20:33]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:20:33] Run #272 completed
+[2026-06-13 22:20:33]   Duration: 15.0s
+[2026-06-13 22:20:33]   Symbols: 10/10
+[2026-06-13 22:20:33]   Signals: 4 (Confirmed: 0, Watch: 1)
+[2026-06-13 22:20:33] Next run at 22:25:33 (in 5 min)
+[2026-06-13 22:25:33]   Strategies reloaded: 10 enabled
+[2026-06-13 22:25:33] ============================================================
+[2026-06-13 22:25:33] Run #273 started at 2026-06-13 22:25:33.518981
+[2026-06-13 22:25:33] ============================================================
+[2026-06-13 22:25:47]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:25:47]   Paper Balance: $25,760.82
+[2026-06-13 22:25:47]   Open positions: 4
+[2026-06-13 22:25:47]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:25:47] Run #273 completed
+[2026-06-13 22:25:47]   Duration: 13.7s
+[2026-06-13 22:25:47]   Symbols: 10/10
+[2026-06-13 22:25:47]   Signals: 4 (Confirmed: 0, Watch: 1)
+[2026-06-13 22:25:47] Next run at 22:30:47 (in 5 min)
+[2026-06-13 22:30:47]   Strategies reloaded: 10 enabled
+[2026-06-13 22:30:47] ============================================================
+[2026-06-13 22:30:47] Run #274 started at 2026-06-13 22:30:47.310657
+[2026-06-13 22:30:47] ============================================================
+[2026-06-13 22:31:00]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:31:00]   Paper Balance: $25,760.82
+[2026-06-13 22:31:00]   Open positions: 4
+[2026-06-13 22:31:00]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:31:00] Run #274 completed
+[2026-06-13 22:31:00]   Duration: 13.4s
+[2026-06-13 22:31:00]   Symbols: 10/10
+[2026-06-13 22:31:00]   Signals: 4 (Confirmed: 0, Watch: 1)
+[2026-06-13 22:31:00] Next run at 22:36:00 (in 5 min)
+[2026-06-13 22:36:00]   Strategies reloaded: 10 enabled
+[2026-06-13 22:36:00] ============================================================
+[2026-06-13 22:36:00] Run #275 started at 2026-06-13 22:36:00.772853
+[2026-06-13 22:36:00] ============================================================
+[2026-06-13 22:36:15]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:36:15]   Paper Balance: $25,760.82
+[2026-06-13 22:36:15]   Open positions: 4
+[2026-06-13 22:36:15]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:36:15] Run #275 completed
+[2026-06-13 22:36:15]   Duration: 14.5s
+[2026-06-13 22:36:15]   Symbols: 10/10
+[2026-06-13 22:36:15]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:36:15] Next run at 22:41:15 (in 5 min)
+[2026-06-13 22:41:15]   Strategies reloaded: 10 enabled
+[2026-06-13 22:41:15] ============================================================
+[2026-06-13 22:41:15] Run #276 started at 2026-06-13 22:41:15.315901
+[2026-06-13 22:41:15] ============================================================
+[2026-06-13 22:41:30]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:41:30]   Paper Balance: $25,760.82
+[2026-06-13 22:41:30]   Open positions: 4
+[2026-06-13 22:41:30]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:41:30] Run #276 completed
+[2026-06-13 22:41:30]   Duration: 14.8s
+[2026-06-13 22:41:30]   Symbols: 10/10
+[2026-06-13 22:41:30]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:41:30] Next run at 22:46:30 (in 5 min)
+[2026-06-13 22:46:30]   Strategies reloaded: 10 enabled
+[2026-06-13 22:46:30] ============================================================
+[2026-06-13 22:46:30] Run #277 started at 2026-06-13 22:46:30.165464
+[2026-06-13 22:46:30] ============================================================
+[2026-06-13 22:46:44]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:46:44]   Paper Balance: $25,760.82
+[2026-06-13 22:46:44]   Open positions: 4
+[2026-06-13 22:46:44]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:46:44] Run #277 completed
+[2026-06-13 22:46:44]   Duration: 14.6s
+[2026-06-13 22:46:44]   Symbols: 10/10
+[2026-06-13 22:46:44]   Signals: 3 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:46:44] Next run at 22:51:44 (in 5 min)
+[2026-06-13 22:51:44]   Strategies reloaded: 10 enabled
+[2026-06-13 22:51:44] ============================================================
+[2026-06-13 22:51:44] Run #278 started at 2026-06-13 22:51:44.856756
+[2026-06-13 22:51:44] ============================================================
+[2026-06-13 22:51:58]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:51:58]   Paper Balance: $25,760.82
+[2026-06-13 22:51:58]   Open positions: 4
+[2026-06-13 22:51:58]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:51:58] Run #278 completed
+[2026-06-13 22:51:58]   Duration: 13.7s
+[2026-06-13 22:51:58]   Symbols: 10/10
+[2026-06-13 22:51:58]   Signals: 5 (Confirmed: 0, Watch: 0)
+[2026-06-13 22:51:58] Next run at 22:56:58 (in 5 min)
+[2026-06-13 22:56:58]   Strategies reloaded: 10 enabled
+[2026-06-13 22:56:58] ============================================================
+[2026-06-13 22:56:58] Run #279 started at 2026-06-13 22:56:58.641876
+[2026-06-13 22:56:58] ============================================================
+[2026-06-13 22:57:13]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 22:57:13]   [Phase 2] Executing paper trades...
+[2026-06-13 22:57:14]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 22:57:14]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:57:14]        qty=1107.130671 @ $0.09
+[2026-06-13 22:57:14]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 22:57:14]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:57:14]        qty=847.968974 @ $0.17
+[2026-06-13 22:57:14]     ⏭️ DOGEUSDT: SELL exited
+[2026-06-13 22:57:14]        reason=Strategy exit: stoch_overbought
+[2026-06-13 22:57:14]        qty=1208.924953 @ $0.09
+[2026-06-13 22:57:14]     ✅ SOLUSDT: BUY executed
+[2026-06-13 22:57:14]        reason=Price $68.25 within 1.58% of MA240 $67.19 | MA5 $68.22 above MA20 $68.14 | Volume ratio 1.24x exceeds threshold 1.2x | ADX 43.3 ≥ 20 (moderate trend)
+[2026-06-13 22:57:14]     ✅ SOLUSDT: BUY executed
+[2026-06-13 22:57:14]        reason=Price $68.25 within 1.58% of MA240 $67.19 | MA5 $68.22 above MA20 $68.14 | Volume ratio 1.24x exceeds threshold 1.2x | ADX 43.3 ≥ 28 (strong trend)
+[2026-06-13 22:57:14]     ✅ XRPUSDT: BUY executed
+[2026-06-13 22:57:14]        reason=Price $1.15 within 1.40% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 1.34x exceeds threshold 1.2x | ADX 23.8 ≥ 20 (moderate trend)
+[2026-06-13 22:57:14]     ✅ ADAUSDT: BUY executed
+[2026-06-13 22:57:14]        reason=Price $0.17 within 1.67% of MA240 $0.17 | MA5 $0.17 above MA20 $0.17 | Volume ratio 1.35x exceeds threshold 1.2x | ADX 23.0 ≥ 20 (moderate trend)
+[2026-06-13 22:57:14]   Paper Balance: $25,617.33
+[2026-06-13 22:57:14]   Open positions: 5
+[2026-06-13 22:57:14]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 22:57:14] Run #279 completed
+[2026-06-13 22:57:14]   Duration: 14.8s
+[2026-06-13 22:57:14]   Symbols: 10/10
+[2026-06-13 22:57:14]   Signals: 13 (Confirmed: 4, Watch: 1)
+[2026-06-13 22:57:14] Next run at 23:02:14 (in 5 min)
+[2026-06-13 23:02:14]   Strategies reloaded: 10 enabled
+[2026-06-13 23:02:14] ============================================================
+[2026-06-13 23:02:14] Run #280 started at 2026-06-13 23:02:14.541915
+[2026-06-13 23:02:14] ============================================================
+[2026-06-13 23:02:49]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 23:02:49]   Paper Balance: $25,617.33
+[2026-06-13 23:02:49]   Open positions: 5
+[2026-06-13 23:02:49]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 23:02:49] Run #280 completed
+[2026-06-13 23:02:49]   Duration: 34.7s
+[2026-06-13 23:02:49]   Symbols: 10/10
+[2026-06-13 23:02:49]   Signals: 6 (Confirmed: 0, Watch: 1)
+[2026-06-13 23:02:49] Next run at 23:07:49 (in 5 min)
+[2026-06-13 23:07:49]   Strategies reloaded: 10 enabled
+[2026-06-13 23:07:49] ============================================================
+[2026-06-13 23:07:49] Run #281 started at 2026-06-13 23:07:49.302476
+[2026-06-13 23:07:49] ============================================================
+[2026-06-13 23:08:03]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 23:08:03]   [Phase 2] Executing paper trades...
+[2026-06-13 23:08:04]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:08:04]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:08:04]        qty=99.465605 @ $1.15
+[2026-06-13 23:08:04]     ⏭️ ADAUSDT: SELL exited
+[2026-06-13 23:08:04]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:08:04]        qty=559.395393 @ $0.17
+[2026-06-13 23:08:04]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:08:04]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.15x exceeds threshold 1.2x | ADX 22.5 ≥ 20 (moderate trend)
+[2026-06-13 23:08:04]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:08:04]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.15x exceeds threshold 1.5x | ADX 22.5 ≥ 18 (moderate trend)
+[2026-06-13 23:08:04]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:08:04]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.15x exceeds threshold 1.5x | ADX 22.5 ≥ 20 (moderate trend)
+[2026-06-13 23:08:04]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:08:04]        reason=Price $1.15 within 1.24% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.15x exceeds threshold 2.0x | ADX 22.5 ≥ 18 (moderate trend)
+[2026-06-13 23:08:04]   Paper Balance: $25,277.55
+[2026-06-13 23:08:04]   Open positions: 7
+[2026-06-13 23:08:04]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 23:08:04] Run #281 completed
+[2026-06-13 23:08:04]   Duration: 14.5s
+[2026-06-13 23:08:04]   Symbols: 10/10
+[2026-06-13 23:08:04]   Signals: 10 (Confirmed: 4, Watch: 1)
+[2026-06-13 23:08:04] Next run at 23:13:04 (in 5 min)
+[2026-06-13 23:17:57] Starting interval scheduler / 啟動間隔排程器
+[2026-06-13 23:17:57] Interval: 5 minutes / 間隔：5 分鐘
+[2026-06-13 23:17:57] Press Ctrl+C to stop / 按 Ctrl+C 停止
+[2026-06-13 23:17:57] ============================================================
+[2026-06-13 23:17:57]   Strategies reloaded: 10 enabled
+[2026-06-13 23:17:57] ============================================================
+[2026-06-13 23:17:57] Run #1 started at 2026-06-13 23:17:57.858357
+[2026-06-13 23:17:57] ============================================================
+[2026-06-13 23:18:13]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 23:18:13]   [Phase 2] Executing paper trades...
+[2026-06-13 23:18:13]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:18:13]        reason=Price $1.16 within 1.40% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.89x exceeds threshold 1.2x | ADX 20.1 ≥ 20 (moderate trend)
+[2026-06-13 23:18:13]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:18:13]        reason=Price $1.16 within 1.40% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.89x exceeds threshold 1.5x | ADX 20.1 ≥ 18 (moderate trend)
+[2026-06-13 23:18:13]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:18:13]        reason=Price $1.16 within 1.40% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.89x exceeds threshold 1.5x | ADX 20.1 ≥ 20 (moderate trend)
+[2026-06-13 23:18:13]     ✅ XRPUSDT: BUY executed
+[2026-06-13 23:18:13]        reason=Price $1.16 within 1.40% of MA240 $1.14 | MA5 $1.15 above MA20 $1.15 | Volume ratio 2.89x exceeds threshold 2.0x | ADX 20.1 ≥ 18 (moderate trend)
+[2026-06-13 23:18:13]   Paper Balance: $24,808.66
+[2026-06-13 23:18:13]   Open positions: 11
+[2026-06-13 23:18:13]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 23:18:13] Run #1 completed
+[2026-06-13 23:18:13]   Duration: 15.5s
+[2026-06-13 23:18:13]   Symbols: 10/10
+[2026-06-13 23:18:13]   Signals: 31 (Confirmed: 4, Watch: 2)
+[2026-06-13 23:18:13] Next run at 23:23:13 (in 5 min)
+[2026-06-13 23:23:13]   Strategies reloaded: 10 enabled
+[2026-06-13 23:23:13] ============================================================
+[2026-06-13 23:23:13] Run #2 started at 2026-06-13 23:23:13.944748
+[2026-06-13 23:23:13] ============================================================
+[2026-06-13 23:23:28]   Prices saved: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT']
+[2026-06-13 23:23:28]   [Phase 2] Executing paper trades...
+[2026-06-13 23:23:29]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: stoch_overbought
+[2026-06-13 23:23:29]        qty=1.980352 @ $68.25
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=99.514928 @ $1.15
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=84.424838 @ $1.16
+[2026-06-13 23:23:29]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: stoch_overbought
+[2026-06-13 23:23:29]        qty=2.176230 @ $68.19
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=126.971468 @ $1.15
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=107.717966 @ $1.16
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=123.465001 @ $1.15
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=104.743207 @ $1.16
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=128.007200 @ $1.15
+[2026-06-13 23:23:29]     ⏭️ XRPUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: hilbert_reverse
+[2026-06-13 23:23:29]        qty=108.596643 @ $1.16
+[2026-06-13 23:23:29]     ⏭️ SOLUSDT: SELL exited
+[2026-06-13 23:23:29]        reason=Strategy exit: stoch_overbought
+[2026-06-13 23:23:29]        qty=2.162434 @ $68.25
+[2026-06-13 23:23:29]     ✅ DOTUSDT: BUY executed
+[2026-06-13 23:23:29]        reason=Volume 3.3x EMA20 (threshold 3.0x) | RSI 68.7 below overbought threshold 70 | ADX 20.4 ≥ 20 (moderate trend)
+[2026-06-13 23:23:29]   Paper Balance: $26,112.42
+[2026-06-13 23:23:29]   Open positions: 1
+[2026-06-13 23:23:29]   Live ranking updated: 10 monitored, all 10 symbols present
+[2026-06-13 23:23:29] Run #2 completed
+[2026-06-13 23:23:29]   Duration: 14.2s
+[2026-06-13 23:23:29]   Symbols: 10/10
+[2026-06-13 23:23:29]   Signals: 4 (Confirmed: 1, Watch: 2)
+[2026-06-13 23:23:29] Next run at 23:28:29 (in 5 min)

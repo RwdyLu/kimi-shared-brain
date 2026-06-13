@@ -2461,7 +2461,7 @@
       "task_id": "T-083",
       "title": "績效檢討：表現最差策略分析",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "done",
       "priority": "medium",
       "type": "analysis",
       "goal": "分析目前表現最差的策略（Opening Range Breakout、Hilbert Cycle）的進出場記錄，檢視止損/止盈設定是否合理，或訊號條件本身有問題，並提出停用或調整建議",
@@ -2469,14 +2469,15 @@
       "output_file": "outputs/T-083_strategy_performance_review.md",
       "success_condition": "產出策略績效檢討報告，明確指出最差策略的問題根因與建議處置",
       "report_to": "second_bot",
-      "last_updated": "2026-06-13T17:20:35.066312",
-      "claude_verification": "Claude verified 2026-06-13: outputs/T-083_strategy_performance_review.md does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending."
+      "last_updated": "2026-06-13T23:24:32.936197",
+      "claude_verification": "Claude verified 2026-06-13: outputs/T-083_strategy_performance_review.md does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending.",
+      "completed_at": "2026-06-13T23:24:32.936181"
     },
     {
       "task_id": "T-084",
       "title": "對目前10個已註冊策略做乾淨回測",
       "assigned_to": "kimiclaw_bot",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "type": "backtest",
       "goal": "使用 backtest_engine.py 搭配 919MB K-line cache（10個交易對），對每個策略單獨跑回測，扣除合理手續費(0.04%~0.1%)與滑點，輸出勝率、總回報、最大回撤、交易次數、Sharpe ratio，並與 live paper trading 的 24.4%/-6.18% 數字比對",
@@ -2484,8 +2485,9 @@
       "output_file": "outputs/T-084_clean_backtest_results.json",
       "success_condition": "完成所有啟用策略的獨立回測，產出含勝率/總回報/最大回撤/交易次數/Sharpe ratio 的表格，並與 live paper trading 數字比對",
       "report_to": "second_bot",
-      "last_updated": "2026-06-13T17:20:35.069529",
-      "claude_verification": "Claude verified 2026-06-13: outputs/T-084_clean_backtest_results.json does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending."
+      "last_updated": "2026-06-13T23:24:32.939710",
+      "claude_verification": "Claude verified 2026-06-13: outputs/T-084_clean_backtest_results.json does NOT exist. Task was marked done with no actual output produced (false completion). Reverted to pending.",
+      "completed_at": "2026-06-13T23:24:32.939702"
     },
     {
       "task_id": "T-085",

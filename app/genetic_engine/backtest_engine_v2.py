@@ -625,7 +625,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             return BacktestMetricsV2(
                 total_trades=0,
                 total_pnl=0.0,
-                dca_baseline_return=dca_return,
+                ghost_dca_pnl=dca_return,
                 alpha_vs_dca=alpha,
             )
         
@@ -644,7 +644,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             total_pnl=sum(pnl_values),
             max_drawdown=self._calculate_max_drawdown(equity),
             sharpe_ratio=self._calculate_sharpe(equity),
-            dca_baseline_return=dca_return,
+            ghost_dca_pnl=dca_return,
             alpha_vs_dca=alpha,
             friction_penalty=friction_penalty,
         )
