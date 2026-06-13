@@ -1,0 +1,11 @@
+{
+  "task_id": "T-002",
+  "agent": "kimiclaw_bot",
+  "result": "json_submission_complete",
+  "summary": "kimiclaw bot 已依照新規則使用 JSON 格式提交測試結果。",
+  "files_created": [
+    "outbox/T-002_result.json"
+  ],
+  "blockers": [],
+  "suggested_next_action": "請 second bot 先 git pull，再驗收結果並更新 state/tasks.json"
+}

@@ -1,0 +1,14 @@
+{
+  "correlation": 0.9092031175839503,
+  "correlation_strength": "Very Strong Positive",
+  "beta": 1.2248245538647067,
+  "btc_current": 71599.99,
+  "eth_current": 2214.73,
+  "btc_return_90d": -21.889499809087432,
+  "eth_return_90d": -29.245695920668847,
+  "btc_volatility": 1.0775882194353839,
+  "eth_volatility": 1.4516629833244497,
+  "r_squared": 0.9833033560672528,
+  "price_correlation": 0.9916165368060649,
+  "analysis_time": "2026-04-12T17:20:16.617196"
+}

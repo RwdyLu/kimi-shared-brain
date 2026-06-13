@@ -1,0 +1,26 @@
+{
+  "task_id": "T-072",
+  "title": "Update ui/pages/backtest.py",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-18T05:40:00+08:00",
+  "changes": {
+    "file": "ui/pages/backtest.py",
+    "modifications": [
+      "Added Run Backtest section with symbol dropdown, stop loss %, take profit %, and initial capital inputs",
+      "Added Run Backtest button that triggers backtest execution",
+      "Added 4 performance metric cards: Win Rate, Total Return, Max Drawdown, Total Trades",
+      "Added Equity Curve chart using dcc.Graph with plotly",
+      "Added Recent Trades table showing last 20 trades with symbol, direction, entry/exit prices, P&L %, result",
+      "Implemented run_backtest_callback() to execute backtest via backtest.runner.run_backtest()",
+      "Integrated with backtest history selector to view historical results"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "git_commit": "T-072: Update backtest page with run button, chart, and trade table",
+  "notes": "Complete UI overhaul for backtest page with T-072 requirements: configurable parameters, real-time execution, performance cards, equity chart, and trade table"
+}

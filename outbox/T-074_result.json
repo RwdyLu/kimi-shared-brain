@@ -1,0 +1,28 @@
+{
+  "task_id": "T-074",
+  "title": "Dark theme + 3-column layout",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:02:00+08:00",
+  "changes": {
+    "files_modified": [
+      "ui/app.py",
+      "ui/pages/dashboard.py"
+    ],
+    "modifications": [
+      "ui/app.py: Changed theme from BOOTSTRAP to DARKLY",
+      "ui/pages/dashboard.py: Added 3-column layout (left col-3 / center col-6 / right col-3)",
+      "ui/pages/dashboard.py: Left panel placeholder for T-075 (Agent Status)",
+      "ui/pages/dashboard.py: Center panel placeholders for T-076 (Strategy Ranking) and T-078 (FT Block)",
+      "ui/pages/dashboard.py: Right panel placeholder for T-077 (Signals & History)",
+      "ui/pages/dashboard.py: Added T-079 Discovery Count Badge below center panel"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "git_commit": "T-074: Dark theme + 3-column layout",
+  "notes": "Dashboard now uses DARKLY dark theme with responsive 3-column layout. Each column has placeholder cards ready for T-075/T-076/T-077 content."
+}

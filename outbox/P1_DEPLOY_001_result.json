@@ -1,0 +1,17 @@
+{
+  "task_id": "P1_DEPLOY_001",
+  "title": "Docker Containerization",
+  "status": "completed",
+  "priority": "P1",
+  "type": "deploy",
+  "completed_at": "2026-04-23T10:12:00+08:00",
+  "deliverables": [
+    "Dockerfile - 多階段建構",
+    "Python 3.11 slim 基底",
+    "系統依賴: gcc, postgresql-client, curl",
+    "開發/生產雙階段",
+    "健康檢查 (port 8050)",
+    "環境變數配置"
+  ],
+  "git_commit": "P1 batch: Data export + Docker + CI/CD + Config + Tests"
+}

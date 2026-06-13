@@ -1,0 +1,21 @@
+{
+  "task_id": "P1_TEST_001",
+  "title": "Integration Test Suite",
+  "status": "completed",
+  "priority": "P1",
+  "type": "test",
+  "completed_at": "2026-04-23T10:18:00+08:00",
+  "deliverables": [
+    "tests/integration/test_integration.py - 整合測試套件 (10.4KB)",
+    "Market Stream 測試 (WebSocket 連線/生命週期)",
+    "Order Execution 測試 (風險檢查/重試機制)",
+    "Position Sizing 測試 (Kelly/風險基礎)",
+    "OCO Orders 測試 (建立/取消/填單)",
+    "Alert System 測試 (路由/規則評估)",
+    "Strategy Validation 測試 (驗證期/評估)",
+    "Trade Storage 測試 (查詢/P&L計算)",
+    "Concurrency 測試 (樂觀鎖)",
+    "WebSocket 整合測試 (async)"
+  ],
+  "git_commit": "P1 batch: Data export + Docker + CI/CD + Config + Tests"
+}

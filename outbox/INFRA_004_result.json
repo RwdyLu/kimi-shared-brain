@@ -1,0 +1,19 @@
+{
+  "task_id": "INFRA_004",
+  "title": "實現並發控制",
+  "status": "completed",
+  "priority": "P0",
+  "type": "infrastructure",
+  "estimated_hours": 6,
+  "completed_at": "2026-04-20T17:10:00+08:00",
+  "deliverables": [
+    "app/concurrency.py",
+    "樂觀鎖 (OptimisticLock)",
+    "悲觀鎖 (PessimisticLock)",
+    "自適應鎖 (AdaptiveLock)",
+    "重試邏輯 (RetryWithBackoff)",
+    "衝突檢測與統計"
+  ],
+  "summary": "實現了完整的並發控制系統：樂觀鎖（版本號）、悲觀鎖（文件鎖）、自適應鎖（自動切換策略）、重試邏輯（指數退避）。",
+  "git_commit": "INFRA_004: Implement concurrency control with locks and retry"
+}

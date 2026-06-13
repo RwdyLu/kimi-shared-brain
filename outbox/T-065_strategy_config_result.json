@@ -1,0 +1,84 @@
+{
+  "task_id": "T-065",
+  "title": "優化 paper trading 策略配置（停用爛策略、保留優質策略）",
+  "completed_at": "2026-05-08T00:00:00+08:00",
+  "config_file": "config/strategies.json",
+  "actions_taken": {
+    "disabled": [
+      {
+        "id": "hilbert_cycle",
+        "name": "Hilbert Cycle",
+        "reason": "480筆交易、盈虧比0.29、-40%",
+        "previous_enabled": true,
+        "current_enabled": false
+      },
+      {
+        "id": "rsi_trend",
+        "name": "RSI Trend",
+        "reason": "213筆交易、勝率15%、-36.8%",
+        "previous_enabled": true,
+        "current_enabled": false
+      },
+      {
+        "id": "volume_spike",
+        "name": "Volume Spike",
+        "reason": "101筆交易、盈虧比0.82、-37.8%",
+        "previous_enabled": true,
+        "current_enabled": false
+      }
+    ],
+    "kept_enabled": [
+      {
+        "id": "stochastic_breakout",
+        "name": "Stochastic Breakout",
+        "reason": "勝率53.3%、最穩定",
+        "enabled": true
+      },
+      {
+        "id": "ma_cross_trend",
+        "name": "MA Cross Trend",
+        "reason": "盈虧比1.74、邏輯最好",
+        "enabled": true
+      },
+      {
+        "id": "supertrend",
+        "name": "Supertrend",
+        "reason": "尚未觸發，15m適用",
+        "enabled": true
+      }
+    ]
+  },
+  "all_strategies_status": {
+    "enabled": [
+      "ma_cross_trend",
+      "ma_cross_trend_short",
+      "contrarian_watch_overheated",
+      "contrarian_watch_oversold",
+      "stochastic_breakout",
+      "ema_cross_fast",
+      "rsi_mid_bounce",
+      "price_channel_break",
+      "momentum_divergence",
+      "opening_range_breakout",
+      "supertrend"
+    ],
+    "disabled": [
+      "hilbert_cycle",
+      "rsi_trend",
+      "volume_spike",
+      "bb_mean_reversion",
+      "vwap_reversion",
+      "rsi_macd_confirm",
+      "bb_breakout",
+      "ema_ribbon",
+      "momentum_breakout",
+      "ichimoku_cloud",
+      "williams_r",
+      "atr_breakout",
+      "dual_thrust",
+      "parabolic_sar_v2",
+      "keltner_breakout"
+    ]
+  },
+  "note": "UI dashboard /strategies 頁面目前為唯讀（MVP 設計），策略啟用/停用通過直接修改 config/strategies.json 完成。配置已更新，建議重啟 scheduler/app.py 使緩存重新載入。"
+}

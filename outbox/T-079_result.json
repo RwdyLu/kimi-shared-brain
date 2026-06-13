@@ -1,0 +1,23 @@
+{
+  "task_id": "T-079",
+  "title": "Discovery count badge",
+  "status": "completed",
+  "priority": "medium",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:20:00+08:00",
+  "changes": {
+    "file": "ui/pages/dashboard.py",
+    "callback": "update_discovery_count()",
+    "features": [
+      "Display today signal count below center panel",
+      "Uses get_today_signals() from monitor_service",
+      "Badge updates every 30 seconds"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "output_ids": ["discovery-count-badge"],
+  "git_commit": "T-079: Discovery count badge"
+}

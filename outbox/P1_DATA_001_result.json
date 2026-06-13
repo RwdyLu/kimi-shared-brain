@@ -1,0 +1,20 @@
+{
+  "task_id": "P1_DATA_001",
+  "title": "Trade Data Persistence",
+  "status": "completed",
+  "priority": "P1",
+  "type": "data",
+  "completed_at": "2026-04-23T05:56:00+08:00",
+  "deliverables": [
+    "app/trade_storage.py - 交易數據持久化 (16.1KB)",
+    "TradeRecord 數據結構 (入場/出場/P&L/風險)",
+    "PostgreSQL-ready 設計",
+    "記憶體快取層",
+    "交易查詢過濾 (symbol/status/strategy/time)",
+    "P&L 摘要統計",
+    "策略績效分析",
+    "交易匯入/匯出 JSON",
+    "備份功能"
+  ],
+  "git_commit": "P1 batch: Alert rules + Trade storage + Dashboard"
+}

@@ -1,0 +1,19 @@
+{
+  "task_id": "P2_STRATEGY_SNR_001",
+  "title": "SNR Support & Resistance Strategy",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T10:35:00+08:00",
+  "deliverables": [
+    "app/strategy_snr.py - 支撐阻力策略 (15.4KB)",
+    "SNRLevel 數據結構 (價格/類型/強度/觸及次數)",
+    "局部極值檢測 (local maxima/minima)",
+    "價位聚類 (cluster nearby levels)",
+    "4 種訊號類型: BUY_SUPPORT / SELL_RESISTANCE / BREAKOUT_UP / BREAKOUT_DOWN",
+    "動態停損停利計算",
+    "信心度評分 (基於 level strength + distance)",
+    "回測框架整合準備"
+  ],
+  "git_commit": "P2: SNR Support & Resistance Strategy"
+}

@@ -1,0 +1,14 @@
+{
+  "task_id": "P2_PORTFOLIO_001",
+  "title": "Strategy Portfolio Manager",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:20:00+08:00",
+  "deliverables": [
+    "app/strategy_portfolio.py - 策略組合管理 (8.8KB)",
+    "4 種資金分配: Equal/RiskParity/SharpeWeighted/InverseVol",
+    "相關性矩陣分析",
+    "動態再平衡"
+  ]
+}

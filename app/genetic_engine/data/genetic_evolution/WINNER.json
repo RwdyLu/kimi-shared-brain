@@ -1,0 +1,151 @@
+{
+  "chromosome_id": "MUT_DAC146EA58C9",
+  "entry_genes": [
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 58.491,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "5m",
+      "params": {
+        "period": 11,
+        "multiplier": 2.11
+      },
+      "condition": "cross_down",
+      "threshold": 68.018,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "cci",
+      "indicator_type": "momentum",
+      "timeframe": "15m",
+      "params": {
+        "period": 15
+      },
+      "condition": "above",
+      "threshold": 129.969,
+      "threshold2": null,
+      "weight": 1.17
+    },
+    {
+      "name": "ema_cross",
+      "indicator_type": "trend",
+      "timeframe": "5m",
+      "params": {
+        "short_period": 22,
+        "long_period": 41
+      },
+      "condition": "cross_up",
+      "threshold": 62.602,
+      "threshold2": null,
+      "weight": 0.58
+    },
+    {
+      "name": "macd",
+      "indicator_type": "trend",
+      "timeframe": "5m",
+      "params": {
+        "fast": 14,
+        "slow": 35,
+        "signal": 15
+      },
+      "condition": "cross_down",
+      "threshold": 0.463,
+      "threshold2": null,
+      "weight": 0.67
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 62.277,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 13.447,
+      "threshold2": null,
+      "weight": 1.1
+    }
+  ],
+  "entry_logic": "OR",
+  "entry_min_weight": 0.41,
+  "exit_genes": [
+    {
+      "name": "momentum",
+      "indicator_type": "momentum",
+      "timeframe": "5m",
+      "params": {
+        "period": 13
+      },
+      "condition": "below",
+      "threshold": -1.194,
+      "threshold2": null,
+      "weight": 1.21
+    },
+    {
+      "name": "bbands",
+      "indicator_type": "volatility",
+      "timeframe": "5m",
+      "params": {
+        "period": 17,
+        "std_dev": 2.47
+      },
+      "condition": "above",
+      "threshold": 2.255,
+      "threshold2": null,
+      "weight": 0.94
+    }
+  ],
+  "exit_logic": "OR",
+  "exit_min_weight": 0.3,
+  "risk_genes": {
+    "stop_loss_pct": -0.044,
+    "take_profit_pct": 0.133,
+    "position_pct": 0.057,
+    "max_hold_bars": 208,
+    "trailing_stop": false,
+    "trailing_stop_pct": null
+  },
+  "trend_filter": null,
+  "volume_filter": null,
+  "generation": 24,
+  "parent_ids": [
+    "X_C13C3F75945A"
+  ],
+  "created_at": "2026-05-26T22:59:15.359201",
+  "fitness_score": 0.3770365581036309,
+  "fitness_details": {
+    "fitness": 0.377,
+    "total_trades": 102,
+    "avg_pnl_per_symbol": 0.0118,
+    "symbols_tested": 5
+  },
+  "paper_trades": 0,
+  "paper_pnl": 0.0
+}

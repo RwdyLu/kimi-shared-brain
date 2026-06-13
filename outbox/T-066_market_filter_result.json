@@ -1,0 +1,128 @@
+{
+  "task_id": "T-066",
+  "title": "實作各幣種獨立市場方向過濾邏輯",
+  "completed_at": "2026-05-08T00:00:00+08:00",
+  "files_created": [
+    "app/market_direction_filter.py"
+  ],
+  "files_modified": [
+    "signals/engine.py (process_symbol method, added T-066 gate check block after all signal generation)",
+    "app/monitor_runner.py (added MarketDirectionFilter to MonitorRunner, gate check for strategy signals)"
+  ],
+  "logic": {
+    "timeframe": "15m",
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "sideways_threshold_pct": 0.3,
+    "rules": [
+      "EMA20 > EMA50 → Trend UP → Allow LONG only",
+      "EMA20 < EMA50 → Trend DOWN → Allow SHORT only",
+      "Gap < 0.3% → Sideways → Block ALL signals"
+    ]
+  },
+  "integration_points": {
+    "signals_engine_py": {
+      "file": "signals/engine.py",
+      "location": "SignalEngine.__init__() — added market_filter parameter + MarketDirectionFilter init",
+      "gate_check": "process_symbol() return statement — added T-066 gate check block that filters all CONFIRMED signals by direction",
+      "watch_only_exemption": "WATCH_ONLY signals (contrarian watch) are NOT filtered — they remain observation-only"
+    },
+    "monitor_runner_py": {
+      "file": "app/monitor_runner.py",
+      "location": "MonitorRunner.__init__() — added self.market_filter = MarketDirectionFilter()",
+      "gate_check": "run_for_symbol() strategy execution section — added gate check loop for StrategySignal before converting to Signal"
+    }
+  },
+  "current_market_directions": {
+    "BTCUSDT": {
+      "ema20": 81338.19,
+      "ema50": 81586.15,
+      "direction": "down",
+      "gap_pct": 0.3039,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 81338.19 < EMA50 81586.15 (down, gap=0.30%)"
+    },
+    "ETHUSDT": {
+      "ema20": 2347.55,
+      "ema50": 2361.17,
+      "direction": "down",
+      "gap_pct": 0.577,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 2347.55 < EMA50 2361.17 (down, gap=0.58%)"
+    },
+    "BNBUSDT": {
+      "ema20": 647.59,
+      "ema50": 648.61,
+      "direction": "sideways",
+      "gap_pct": 0.1577,
+      "long_allowed": false,
+      "short_allowed": false,
+      "reason": "Gap 0.16% < 0.3% (sideways)"
+    },
+    "SOLUSDT": {
+      "ema20": 88.96,
+      "ema50": 89.03,
+      "direction": "sideways",
+      "gap_pct": 0.0687,
+      "long_allowed": false,
+      "short_allowed": false,
+      "reason": "Gap 0.07% < 0.3% (sideways)"
+    },
+    "XRPUSDT": {
+      "ema20": 1.42,
+      "ema50": 1.43,
+      "direction": "down",
+      "gap_pct": 0.3747,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 1.42 < EMA50 1.43 (down, gap=0.37%)"
+    },
+    "ADAUSDT": {
+      "ema20": 0.27,
+      "ema50": 0.27,
+      "direction": "down",
+      "gap_pct": 0.301,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 0.27 < EMA50 0.27 (down, gap=0.30%)"
+    },
+    "DOGEUSDT": {
+      "ema20": 0.11,
+      "ema50": 0.11,
+      "direction": "down",
+      "gap_pct": 0.7993,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 0.11 < EMA50 0.11 (down, gap=0.80%)"
+    },
+    "AVAXUSDT": {
+      "ema20": 9.59,
+      "ema50": 9.62,
+      "direction": "sideways",
+      "gap_pct": 0.2727,
+      "long_allowed": false,
+      "short_allowed": false,
+      "reason": "Gap 0.27% < 0.3% (sideways)"
+    },
+    "LINKUSDT": {
+      "ema20": 9.98,
+      "ema50": 10.02,
+      "direction": "down",
+      "gap_pct": 0.3661,
+      "long_allowed": false,
+      "short_allowed": true,
+      "reason": "EMA20 9.98 < EMA50 10.02 (down, gap=0.37%)"
+    },
+    "DOTUSDT": {
+      "ema20": 1.31,
+      "ema50": 1.31,
+      "direction": "sideways",
+      "gap_pct": 0.0205,
+      "long_allowed": false,
+      "short_allowed": false,
+      "reason": "Gap 0.02% < 0.3% (sideways)"
+    }
+  }
+}

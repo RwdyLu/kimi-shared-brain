@@ -1,0 +1,25 @@
+{
+  "task_id": "EXEC_004",
+  "title": "自動止損 + 止盈訂單",
+  "status": "completed",
+  "priority": "P0",
+  "type": "execution",
+  "estimated_hours": 6,
+  "completed_at": "2026-04-21T05:35:00+08:00",
+  "deliverables": [
+    "app/oco_orders.py - OCO 訂單管理系統",
+    "OCO 訂單對設定 (STOP_LOSS_LIMIT + TAKE_PROFIT_LIMIT)",
+    "成交確認機制 (polling until one fills)",
+    "PnL 自動計算",
+    "訂單修改功能"
+  ],
+  "features": [
+    "Place OCO order pair with validation",
+    "Auto-monitor until stop or profit triggers",
+    "Cancel remaining order when one fills",
+    "Calculate PnL on fill",
+    "Modify OCO prices (cancel + replace)",
+    "Risk/Reward ratio calculation"
+  ],
+  "git_commit": "EXEC_004: Implement OCO orders with stop-loss and take-profit"
+}

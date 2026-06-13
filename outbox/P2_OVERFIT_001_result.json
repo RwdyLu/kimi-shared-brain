@@ -1,0 +1,15 @@
+{
+  "task_id": "P2_OVERFIT_001",
+  "title": "Overfitting Detection System",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:15:00+08:00",
+  "deliverables": [
+    "app/overfit_detector.py - 過度擬合檢測 (11.6KB)",
+    "4 種檢測: 樣本內外退化、Monte Carlo、參數穩定性、交易一致性",
+    "嚴重程度分級: None/Mild/Moderate/Severe",
+    "P-value 檢驗",
+    "警告系統"
+  ]
+}

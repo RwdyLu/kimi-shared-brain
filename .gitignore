@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/*.log
+logs/*.jsonl
+
+# Backtest runtime
+backtest/backtest_results.jsonl
+backtest/*.jsonl
+
+# Runtime state
+state/.monitor.pid
+state/prices.json
+state/screening_history.json
+state/screening_results.json
+state/strategy_ranking.json
+state/tasks_new.json
+state/p0_EXEC_tasks.json
+
+# Local environment
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Keep directory structure
+!logs/.gitkeep
+!state/actions/.gitkeep
+freqtrade_repo/
+*.pyc
+__pycache__/
+data/kline_cache/
+logs/
+*.log
+*.out
+data/scan_results.db
+outbox/equity_chart_*.html
+state/paper_trading_state.json.bak.*
+data/genetic_evolution/generation_*.json
+app/genetic_engine/data/genetic_evolution/generation_*.json
+data/genetic_evolution/gen_*_best_*.json
+app/genetic_engine/data/genetic_evolution/gen_*_best_*.json
+backup/
+config/*.bak*
+state/tuning_history/
+backtest_results/
+state/config_backups/
+state/strategy_mining_report.json
+state/reverse_test_plan.json
+state/v2_initial_tuning_report.json
+.last_dashboard_update
+web/server.pid
+app/genetic_engine/data/genetic_evolution/hunt.log
+state/live_strategy_ranking.json
+state/live_strategy_ranking_script.json
+backtest/backtest_results.jsonl
+logs/indicator_snapshots.jsonl
+logs/crypto_monitor.log
+logs/scheduler.log
+logs/scheduler_nohup.out

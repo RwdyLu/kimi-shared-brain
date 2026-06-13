@@ -1,0 +1,11 @@
+{
+  "scan_id": "TEST_100_BG",
+  "timestamp": "2026-06-01T13:33:37.867056",
+  "total_evaluated": 100,
+  "passed_count": 0,
+  "target_pass": 100,
+  "max_total": 50000,
+  "batch_time_sec": 381.98,
+  "current_top_pnl": null,
+  "status": "running"
+}

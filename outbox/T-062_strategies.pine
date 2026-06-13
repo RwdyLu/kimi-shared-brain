@@ -1,0 +1,52 @@
+//@version=5
+strategy("BTC/ETH Multi-Strategy", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, 
+         default_qty_value=10)
+
+// === 策略 1：MA Cross Trend Long ===
+// MA5 上穿 MA20 + 成交量大於 20 期均量
+ma5 = ta.sma(close, 5)
+ma20 = ta.sma(close, 20)
+ma240 = ta.sma(close, 240)
+vol_avg = ta.sma(volume, 20)
+
+trend_long = ta.crossover(ma5, ma20) and volume > vol_avg
+trend_short = ta.crossunder(ma5, ma20)
+
+// === 策略 2：Contrarian Watch ===
+red_candle = close < open
+green_candle = close > open
+four_red = red_candle[0] and red_candle[1] and red_candle[2] and red_candle[3]
+four_green = green_candle[0] and green_candle[1] and green_candle[2] and green_candle[3]
+low_vol = volume < vol_avg
+high_vol = volume > vol_avg
+
+contrarian_long = four_red and low_vol
+contrarian_short = four_green and high_vol
+
+// === 進出場 ===
+if trend_long
+    strategy.entry("TrendL", strategy.long)
+if trend_short
+    strategy.entry("TrendS", strategy.short)
+if contrarian_long
+    strategy.entry("ContraL", strategy.long)
+if contrarian_short
+    strategy.entry("ContraS", strategy.short)
+
+// === 停損 2% ===
+strategy.exit("TrendL_exit", "TrendL", loss=close*0.02/syminfo.mintick)
+strategy.exit("TrendS_exit", "TrendS", loss=close*0.02/syminfo.mintick)
+strategy.exit("ContraL_exit", "ContraL", loss=close*0.02/syminfo.mintick)
+strategy.exit("ContraS_exit", "ContraS", loss=close*0.02/syminfo.mintick)
+
+// === 在圖上標示訊號 ===
+plotshape(trend_long, style=shape.triangleup, color=color.green, size=size.small, location=location.belowbar, title="Trend Long")
+plotshape(trend_short, style=shape.triangledown, color=color.red, size=size.small, location=location.abovebar, title="Trend Short")
+plotshape(contrarian_long, style=shape.circle, color=color.blue, size=size.small, location=location.belowbar, title="Contra Long")
+plotshape(contrarian_short, style=shape.circle, color=color.orange, size=size.small, location=location.abovebar, title="Contra Short")
+
+// === 顯示 MA 線 ===
+plot(ma5, color=color.yellow, title="MA5")
+plot(ma20, color=color.white, title="MA20")
+plot(ma240, color=color.gray, title="MA240")

@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-04-07",
+  "description": "Core monitoring system parameters / 核心監測系統參數",
+  
+  "monitoring": {
+    "check_interval_minutes": 5,
+    "max_run_history": 100,
+    "prevent_overlap": true,
+    "log_file": "/tmp/kimi-shared-brain/logs/scheduler.log",
+    "enable_file_logging": true
+  },
+  
+  "indicators": {
+    "ma_periods": {
+      "short": 5,
+      "medium": 20,
+      "long": 240,
+      "description": "Moving average periods in candles / 移動平均週期（K線數）"
+    },
+    "volume": {
+      "window": 20,
+      "spike_threshold": 1.5,
+      "description": "Volume analysis window and spike threshold / 成交量分析視窗與爆量閾值"
+    },
+    "patterns": {
+      "consecutive_candles": 4,
+      "description": "Number of consecutive candles for pattern detection / 連續K線型態檢測數量"
+    }
+  },
+  
+  "signals": {
+    "cooldown_minutes": {
+      "trend_long": 30,
+      "trend_short": 30,
+      "contrarian_watch": 15,
+      "description": "Minimum time between signals of same type / 同類型訊號最小間隔時間"
+    },
+    "confirmation_levels": {
+      "trend_long": "confirmed",
+      "trend_short": "confirmed",
+      "contrarian_watch": "watch_only"
+    }
+  },
+  
+  "notifications": {
+    "default_language": "zh",
+    "default_format": "markdown",
+    "channels": ["console", "discord"],
+    "alert_prefix": "🔔",
+    "watch_prefix": "👁️",
+    "warning_banners": {
+      "alert_only": "⚠️  ALERT ONLY - NO AUTO TRADING / 僅提醒 - 無自動交易",
+      "watch_only": "⚠️  WATCH ONLY SIGNAL - NOT FOR EXECUTION / 僅觀察訊號 - 非執行訊號"
+    }
+  },
+  
+  "data": {
+    "exchange": "binance",
+    "base_url": "https://api.binance.com",
+    "klines_endpoint": "/api/v3/klines",
+    "timeframes": ["1m", "5m", "15m"],
+    "default_limit": 300,
+    "timeout_seconds": 30
+  }
+}

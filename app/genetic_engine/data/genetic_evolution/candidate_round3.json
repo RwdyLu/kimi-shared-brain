@@ -1,0 +1,123 @@
+{
+  "chromosome_id": "MUT_6565D25A0E83",
+  "entry_genes": [
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 100,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "1h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.11
+      },
+      "condition": "cross_down",
+      "threshold": 68.018,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "cci",
+      "indicator_type": "momentum",
+      "timeframe": "15m",
+      "params": {
+        "period": 14
+      },
+      "condition": "above",
+      "threshold": 98.764,
+      "threshold2": null,
+      "weight": 1.17
+    },
+    {
+      "name": "rsi",
+      "indicator_type": "momentum",
+      "timeframe": "5m",
+      "params": {
+        "period": 17
+      },
+      "condition": "below",
+      "threshold": 20,
+      "threshold2": null,
+      "weight": 0.56
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "5m",
+      "params": {
+        "period": 13,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 100,
+      "threshold2": null,
+      "weight": 1.1
+    }
+  ],
+  "entry_logic": "OR",
+  "entry_min_weight": 0.42,
+  "exit_genes": [
+    {
+      "name": "momentum",
+      "indicator_type": "momentum",
+      "timeframe": "15m",
+      "params": {
+        "period": 13
+      },
+      "condition": "below",
+      "threshold": -1.787,
+      "threshold2": null,
+      "weight": 1.21
+    },
+    {
+      "name": "bbands",
+      "indicator_type": "volatility",
+      "timeframe": "4h",
+      "params": {
+        "period": 20,
+        "std_dev": 2.04
+      },
+      "condition": "above",
+      "threshold": 2.255,
+      "threshold2": null,
+      "weight": 0.94
+    }
+  ],
+  "exit_logic": "OR",
+  "exit_min_weight": 0.3,
+  "risk_genes": {
+    "stop_loss_pct": -0.051,
+    "take_profit_pct": 0.126,
+    "position_pct": 0.066,
+    "max_hold_bars": 202,
+    "trailing_stop": false,
+    "trailing_stop_pct": null
+  },
+  "trend_filter": null,
+  "volume_filter": null,
+  "generation": 22,
+  "parent_ids": [
+    "MUT_E5F7C6F7ABAE"
+  ],
+  "created_at": "2026-05-26T21:14:36.431623",
+  "fitness_score": 0.28388353792827525,
+  "fitness_details": {
+    "fitness": 0.2839,
+    "total_trades": 129,
+    "avg_pnl_per_symbol": -0.0589,
+    "symbols_tested": 5
+  },
+  "paper_trades": 0,
+  "paper_pnl": 0.0
+}

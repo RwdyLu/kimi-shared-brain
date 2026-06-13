@@ -1,0 +1,18 @@
+{
+  "task_id": "P1_DATA_003",
+  "title": "Data Export & Backup",
+  "status": "completed",
+  "priority": "P1",
+  "type": "data",
+  "completed_at": "2026-04-23T10:10:00+08:00",
+  "deliverables": [
+    "app/data_export.py - 數據匯出與備份 (7.8KB)",
+    "多格式支援: JSON / CSV",
+    "手動備份與自動排程",
+    "備份保留策略 (retention_days)",
+    "備份還原功能",
+    "備份清理 (自動刪除過期)",
+    "備份列表與統計"
+  ],
+  "git_commit": "P1 batch: Data export + Docker + CI/CD + Config + Tests"
+}

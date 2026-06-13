@@ -1,0 +1,17 @@
+{
+  "task_id": "INFRA_003",
+  "title": "實現任務狀態機",
+  "status": "completed",
+  "priority": "P0",
+  "type": "infrastructure",
+  "estimated_hours": 6,
+  "completed_at": "2026-04-20T16:50:00+08:00",
+  "deliverables": [
+    "app/state_machine.py",
+    "狀態轉移邏輯",
+    "超時控制機制",
+    "樂觀鎖支援"
+  ],
+  "summary": "實現了完整的任務狀態機：PENDING → ASSIGNED → PROCESSING → VALIDATED → COMPLETED，包含超時控制和樂觀鎖機制。",
+  "git_commit": "INFRA_003: Implement task state machine with timeout control"
+}

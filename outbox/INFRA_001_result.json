@@ -1,0 +1,18 @@
+{
+  "task_id": "INFRA_001",
+  "title": "分析 tasks.json 結構並規劃 PostgreSQL 遷移",
+  "status": "completed",
+  "priority": "P0",
+  "type": "infrastructure",
+  "estimated_hours": 8,
+  "completed_at": "2026-04-20T05:37:00+08:00",
+  "deliverables": [
+    "✅ docs/infra/postgres_migration_plan.md",
+    "✅ PostgreSQL schema design",
+    "✅ Concurrency control (optimistic locking)",
+    "✅ Migration scripts"
+  ],
+  "summary": "Completed PostgreSQL migration plan with full schema design, state machine, concurrency control, and migration steps. Ready for INFRA_002 implementation.",
+  "next_tasks": ["INFRA_002"],
+  "git_commit": "INFRA_001: Add PostgreSQL migration plan"
+}

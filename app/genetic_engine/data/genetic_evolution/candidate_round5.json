@@ -1,0 +1,136 @@
+{
+  "chromosome_id": "MUT_4CF905B0578B",
+  "entry_genes": [
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 62.277,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "1h",
+      "params": {
+        "period": 13,
+        "multiplier": 2.11
+      },
+      "condition": "cross_down",
+      "threshold": 68.018,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "cci",
+      "indicator_type": "momentum",
+      "timeframe": "15m",
+      "params": {
+        "period": 15
+      },
+      "condition": "above",
+      "threshold": 131.712,
+      "threshold2": null,
+      "weight": 1.17
+    },
+    {
+      "name": "rsi",
+      "indicator_type": "momentum",
+      "timeframe": "4h",
+      "params": {
+        "period": 17
+      },
+      "condition": "below",
+      "threshold": 20,
+      "threshold2": null,
+      "weight": 0.56
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "5m",
+      "params": {
+        "period": 14,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 100,
+      "threshold2": null,
+      "weight": 1.1
+    },
+    {
+      "name": "supertrend",
+      "indicator_type": "trend",
+      "timeframe": "4h",
+      "params": {
+        "period": 12,
+        "multiplier": 2.0
+      },
+      "condition": "cross_down",
+      "threshold": 71.077,
+      "threshold2": null,
+      "weight": 1.1
+    }
+  ],
+  "entry_logic": "OR",
+  "entry_min_weight": 0.42,
+  "exit_genes": [
+    {
+      "name": "momentum",
+      "indicator_type": "momentum",
+      "timeframe": "15m",
+      "params": {
+        "period": 13
+      },
+      "condition": "below",
+      "threshold": -1.787,
+      "threshold2": null,
+      "weight": 1.21
+    },
+    {
+      "name": "bbands",
+      "indicator_type": "volatility",
+      "timeframe": "5m",
+      "params": {
+        "period": 23,
+        "std_dev": 2.29
+      },
+      "condition": "above",
+      "threshold": 2.255,
+      "threshold2": null,
+      "weight": 0.94
+    }
+  ],
+  "exit_logic": "OR",
+  "exit_min_weight": 0.3,
+  "risk_genes": {
+    "stop_loss_pct": -0.062,
+    "take_profit_pct": 0.12,
+    "position_pct": 0.058,
+    "max_hold_bars": 192,
+    "trailing_stop": false,
+    "trailing_stop_pct": null
+  },
+  "trend_filter": null,
+  "volume_filter": null,
+  "generation": 5,
+  "parent_ids": [
+    "X_46BAA88C655A"
+  ],
+  "created_at": "2026-05-26T21:38:12.503402",
+  "fitness_score": 0.31512720418702256,
+  "fitness_details": {
+    "fitness": 0.3151,
+    "total_trades": 123,
+    "avg_pnl_per_symbol": -0.0342,
+    "symbols_tested": 5
+  },
+  "paper_trades": 0,
+  "paper_pnl": 0.0
+}

@@ -1,0 +1,25 @@
+{
+  "task_id": "EXEC_002",
+  "title": "訂單驗證與 Binance API 確認機制",
+  "status": "completed",
+  "priority": "P0",
+  "type": "execution",
+  "estimated_hours": 6,
+  "completed_at": "2026-04-20T20:30:00+08:00",
+  "deliverables": [
+    "app/order_verification.py - 訂單驗證系統",
+    "訂單輪詢機制 (polling with configurable interval)",
+    "超時控制 (configurable timeouts)",
+    "手續費計算 (fee calculation)",
+    "OrderResult 資料類別"
+  ],
+  "features": [
+    "Place order and auto-verify execution",
+    "Poll order status until filled/timeout/canceled",
+    "Timeout control: submit(10s), first_fill(60s), full_fill(300s)",
+    "Fee calculation with currency tracking",
+    "Average fill price calculation",
+    "Order cancellation support"
+  ],
+  "git_commit": "EXEC_002: Implement order verification with Binance API"
+}

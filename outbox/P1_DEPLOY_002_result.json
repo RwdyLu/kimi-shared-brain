@@ -1,0 +1,18 @@
+{
+  "task_id": "P1_DEPLOY_002",
+  "title": "CI/CD Pipeline",
+  "status": "completed",
+  "priority": "P1",
+  "type": "deploy",
+  "completed_at": "2026-04-23T10:14:00+08:00",
+  "deliverables": [
+    ".github/workflows/ci.yml - GitHub Actions 工作流",
+    "3 階段: test / build / deploy",
+    "PostgreSQL 服務容器 (測試用)",
+    "自動化測試: pytest + coverage",
+    "程式碼檢查: flake8 + black",
+    "Docker 映像建構與測試",
+    "自動部署 (main branch)"
+  ],
+  "git_commit": "P1 batch: Data export + Docker + CI/CD + Config + Tests"
+}

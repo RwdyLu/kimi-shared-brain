@@ -1,0 +1,20 @@
+{
+  "run1_time": "2026-04-07T18:09:02.031131",
+  "run2_time": "2026-04-07T18:10:14.457565",
+  "btc_1m": {
+    "run1_price": 69016.09,
+    "run2_price": 68891.84,
+    "run1_time": "2026-04-07T18:09:00",
+    "run2_time": "2026-04-07T18:10:00",
+    "price_change": -124.25,
+    "time_delta_seconds": 60.0
+  },
+  "eth_1m": {
+    "run1_price": 2124.05,
+    "run2_price": 2119.84,
+    "run1_time": "2026-04-07T18:09:00",
+    "run2_time": "2026-04-07T18:10:00",
+    "price_change": -4.210000000000036,
+    "time_delta_seconds": 60.0
+  }
+}

@@ -1,0 +1,317 @@
+{
+  "version": "2.0.0",
+  "last_updated": "2026-04-23",
+  "description": "Open source strategy collection integrated from freqtrade community",
+  "source": "https://github.com/freqtrade/freqtrade",
+  
+  "strategies": [
+    {
+      "id": "rsi_trend",
+      "name": "RSI Trend",
+      "name_zh": "RSI趨勢策略",
+      "type": "momentum",
+      "enabled": true,
+      "description": "RSI crossover with TEMA and Bollinger Bands confirmation",
+      "description_zh": "RSI交叉搭配TEMA和布林帶確認",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m", "1h"],
+      "indicators": ["RSI", "TEMA", "BollingerBands"],
+      "entry_conditions": [
+        "rsi_cross_above_30",
+        "tema_below_bb_middle",
+        "tema_rising"
+      ],
+      "exit_conditions": [
+        "rsi_cross_above_70",
+        "tema_above_bb_middle",
+        "tema_falling"
+      ],
+      "parameters": {
+        "rsi_period": 14,
+        "tema_period": 9,
+        "bb_period": 20,
+        "bb_std": 2.0
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "macd_momentum",
+      "name": "MACD Momentum",
+      "name_zh": "MACD動量策略",
+      "type": "momentum",
+      "enabled": true,
+      "description": "MACD histogram crossover with volume confirmation",
+      "description_zh": "MACD柱狀圖交叉搭配成交量確認",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["15m", "1h", "4h"],
+      "indicators": ["MACD", "Volume"],
+      "entry_conditions": [
+        "macd_cross_above_signal",
+        "histogram_turn_positive",
+        "volume_above_average"
+      ],
+      "exit_conditions": [
+        "macd_cross_below_signal",
+        "histogram_turn_negative"
+      ],
+      "parameters": {
+        "fast_period": 12,
+        "slow_period": 26,
+        "signal_period": 9,
+        "volume_multiplier": 1.5
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "bb_mean_reversion",
+      "name": "Bollinger Bands Mean Reversion",
+      "name_zh": "布林帶均值回歸",
+      "type": "mean_reversion",
+      "enabled": true,
+      "description": "Price touches BB bands and reverts to mean",
+      "description_zh": "價格觸碰布林帶後回歸均值",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m"],
+      "indicators": ["BollingerBands", "RSI", "Volume"],
+      "entry_conditions": [
+        "price_below_bb_lower",
+        "rsi_below_30",
+        "volume_spike"
+      ],
+      "exit_conditions": [
+        "price_above_bb_middle",
+        "rsi_above_50"
+      ],
+      "parameters": {
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "rsi_period": 14,
+        "volume_threshold": 1.5
+      },
+      "signal_type": "mean_reversion",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "stochastic_breakout",
+      "name": "Stochastic Breakout",
+      "name_zh": "隨機指標突破",
+      "type": "breakout",
+      "enabled": true,
+      "description": "Stochastic fast crossover with trend confirmation",
+      "description_zh": "快速隨機指標交叉搭配趨勢確認",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m"],
+      "indicators": ["Stochastic", "SAR"],
+      "entry_conditions": [
+        "fastk_cross_above_fastd",
+        "fastk_below_20",
+        "sar_below_price"
+      ],
+      "exit_conditions": [
+        "fastk_cross_below_fastd",
+        "fastk_above_80"
+      ],
+      "parameters": {
+        "fastk_period": 5,
+        "fastd_period": 3,
+        "sar_acceleration": 0.02,
+        "sar_maximum": 0.2
+      },
+      "signal_type": "breakout",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "adx_trend_strength",
+      "name": "ADX Trend Strength",
+      "name_zh": "ADX趨勢強度",
+      "type": "trend",
+      "enabled": true,
+      "description": "ADX confirms trend strength with MFI",
+      "description_zh": "ADX確認趨勢強度搭配MFI",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["1h", "4h"],
+      "indicators": ["ADX", "MFI", "TEMA"],
+      "entry_conditions": [
+        "adx_above_25",
+        "mfi_between_20_80",
+        "tema_rising"
+      ],
+      "exit_conditions": [
+        "adx_below_20",
+        "mfi_above_80_or_below_20"
+      ],
+      "parameters": {
+        "adx_period": 14,
+        "mfi_period": 14,
+        "tema_period": 9
+      },
+      "signal_type": "trend",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "mfi_volume",
+      "name": "MFI Volume Strategy",
+      "name_zh": "MFI成交量策略",
+      "type": "volume",
+      "enabled": true,
+      "description": "Money Flow Index with volume spike detection",
+      "description_zh": "資金流量指數搭配成交量突增檢測",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["15m", "1h"],
+      "indicators": ["MFI", "Volume", "BB"],
+      "entry_conditions": [
+        "mfi_below_20",
+        "volume_above_average_1.5x",
+        "price_below_bb_lower"
+      ],
+      "exit_conditions": [
+        "mfi_above_80",
+        "volume_declining"
+      ],
+      "parameters": {
+        "mfi_period": 14,
+        "volume_average_period": 20,
+        "volume_multiplier": 1.5,
+        "bb_period": 20
+      },
+      "signal_type": "volume",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "hilbert_cycle",
+      "name": "Hilbert Cycle",
+      "name_zh": "希爾伯特週期",
+      "type": "cycle",
+      "enabled": true,
+      "description": "Hilbert Transform SineWave cycle detection",
+      "description_zh": "希爾伯特轉換正弦波週期檢測",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["1h", "4h"],
+      "indicators": ["HT_SINE", "TEMA"],
+      "entry_conditions": [
+        "sine_cross_above_leadsine",
+        "tema_rising"
+      ],
+      "exit_conditions": [
+        "sine_cross_below_leadsine",
+        "tema_falling"
+      ],
+      "parameters": {
+        "tema_period": 9
+      },
+      "signal_type": "cycle",
+      "signal_level": "experimental",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "composite_multi",
+      "name": "Composite Multi-Indicator",
+      "name_zh": "複合多指標策略",
+      "type": "composite",
+      "enabled": true,
+      "description": "Combines RSI, MACD, and Stochastic for confirmation",
+      "description_zh": "結合RSI、MACD和隨機指標確認",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["15m", "1h"],
+      "indicators": ["RSI", "MACD", "Stochastic", "BB"],
+      "entry_conditions": [
+        "rsi_between_30_50",
+        "macd_above_signal",
+        "fastk_above_fastd",
+        "price_below_bb_upper"
+      ],
+      "exit_conditions": [
+        "rsi_above_70",
+        "macd_below_signal",
+        "fastk_below_fastd"
+      ],
+      "parameters": {
+        "rsi_period": 14,
+        "macd_fast": 12,
+        "macd_slow": 26,
+        "macd_signal": 9,
+        "stoch_k": 5,
+        "stoch_d": 3
+      },
+      "signal_type": "composite",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "parabolic_sar_trend",
+      "name": "Parabolic SAR Trend",
+      "name_zh": "拋物線SAR趨勢",
+      "type": "trend",
+      "enabled": true,
+      "description": "Parabolic SAR with TEMA trend confirmation",
+      "description_zh": "拋物線SAR搭配TEMA趨勢確認",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["15m", "1h", "4h"],
+      "indicators": ["SAR", "TEMA", "ADX"],
+      "entry_conditions": [
+        "sar_flip_below_price",
+        "tema_rising",
+        "adx_above_20"
+      ],
+      "exit_conditions": [
+        "sar_flip_above_price",
+        "tema_falling"
+      ],
+      "parameters": {
+        "sar_acceleration": 0.02,
+        "sar_maximum": 0.2,
+        "tema_period": 9,
+        "adx_period": 14
+      },
+      "signal_type": "trend",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    },
+    {
+      "id": "volume_profile",
+      "name": "Volume Profile Break",
+      "name_zh": "成交量分布突破",
+      "type": "volume",
+      "enabled": true,
+      "description": "Volume profile analysis with BB breakout",
+      "description_zh": "成交量分布分析搭配布林帶突破",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframes": ["5m", "15m"],
+      "indicators": ["Volume", "BB", "MFI"],
+      "entry_conditions": [
+        "volume_above_average_2x",
+        "price_breaks_bb_upper",
+        "mfi_between_40_60"
+      ],
+      "exit_conditions": [
+        "volume_below_average",
+        "price_below_bb_middle"
+      ],
+      "parameters": {
+        "volume_average_period": 20,
+        "volume_multiplier": 2.0,
+        "bb_period": 20,
+        "mfi_period": 14
+      },
+      "signal_type": "volume",
+      "signal_level": "confirmed",
+      "source": "freqtrade_sample"
+    }
+  ],
+  
+  "registry_settings": {
+    "auto_load": true,
+    "validate_on_load": true,
+    "allow_duplicate_ids": false,
+    "backtest_all_on_load": true,
+    "ranking_metric": "sharpe_ratio"
+  }
+}

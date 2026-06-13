@@ -1,0 +1,11 @@
+# Action Queue State Directory
+# 行動佇列狀態目錄
+
+This directory stores runtime state for the action queue:
+- queue.json: Pending actions / 待處理行動
+- history.json: Action history / 行動歷史
+
+These files are created automatically at runtime if they don't exist.
+此目錄中的檔案會在執行時自動建立（如果不存在）。
+
+⚠️ Note: This directory is for runtime state only. Configuration is in config/action_queue.json

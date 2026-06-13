@@ -1,0 +1,24 @@
+{
+  "task_id": "T-078",
+  "title": "Commit to FT block",
+  "status": "completed",
+  "priority": "medium",
+  "type": "feature",
+  "completed_at": "2026-04-18T21:20:00+08:00",
+  "changes": {
+    "file": "ui/pages/dashboard.py",
+    "callback": "update_ft_block()",
+    "features": [
+      "Read state/tasks.json for completed but unreviewed tasks",
+      "Display pending acceptance tasks with task_id and title",
+      "Show completion timestamp",
+      "Max 5 tasks displayed"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success"
+  },
+  "output_ids": ["center-panel-ft-block"],
+  "git_commit": "T-078: Commit to FT block"
+}

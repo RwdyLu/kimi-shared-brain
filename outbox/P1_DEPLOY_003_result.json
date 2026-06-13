@@ -1,0 +1,19 @@
+{
+  "task_id": "P1_DEPLOY_003",
+  "title": "Environment Configuration",
+  "status": "completed",
+  "priority": "P1",
+  "type": "deploy",
+  "completed_at": "2026-04-23T10:16:00+08:00",
+  "deliverables": [
+    "app/config_manager.py - 環境配置管理 (6.9KB)",
+    "DatabaseConfig: PostgreSQL 連線設定",
+    "TradingConfig: 交易參數 (標的/時間框架/風險)",
+    "多環境支援: dev/staging/prod",
+    "環境變數載入",
+    "JSON 配置文件",
+    "配置驗證",
+    "功能開關 (feature flags)"
+  ],
+  "git_commit": "P1 batch: Data export + Docker + CI/CD + Config + Tests"
+}

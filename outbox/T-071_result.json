@@ -1,0 +1,38 @@
+{
+  "task_id": "T-071",
+  "title": "Add backtest/runner.py",
+  "status": "completed",
+  "priority": "high",
+  "type": "feature",
+  "completed_at": "2026-04-17T19:25:00+08:00",
+  "changes": {
+    "file": "backtest/runner.py",
+    "modifications": [
+      "Added plotly import with fallback for chart generation",
+      "Updated _fetch_historical_data() to support configurable interval and limit (default: 5m, 500 bars)",
+      "Updated _backtest_symbol() to use 5m interval and 500 bars as per T-071 requirements",
+      "Added build_equity_chart() method using plotly with equity curve + drawdown subplots",
+      "Added save_equity_chart() method to export charts as HTML",
+      "Updated run() method to auto-generate and save equity charts after backtest"
+    ]
+  },
+  "verification": {
+    "syntax_check": "passed",
+    "py_compile": "success",
+    "methods_implemented": [
+      "run(config) - Execute backtest",
+      "_backtest_symbol() - Run backtest for single symbol (T-071: uses 5m interval, 500 bars)",
+      "_build_summary() - Build performance summary",
+      "build_equity_chart() - Generate plotly equity curve + drawdown chart (NEW)",
+      "save_equity_chart() - Save chart to HTML (NEW)"
+    ],
+    "integrations": [
+      "data.fetcher.BinanceFetcher - For historical kline data",
+      "signals.engine.SignalEngine - For signal generation",
+      "backtest.BacktestStorage - For saving results",
+      "plotly - For chart generation (with graceful fallback)"
+    ]
+  },
+  "git_commit": "T-071: Add backtest/runner.py with chart generation and 5m interval support",
+  "notes": "Enhanced existing backtest/runner.py with T-071 requirements: 500 bars of 5m K-lines, plotly equity curve + drawdown charts, auto-save to HTML"
+}

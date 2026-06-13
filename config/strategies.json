@@ -1,0 +1,1416 @@
+{
+  "version": "2.0.0",
+  "last_updated": "2026-05-18",
+  "description": "Optimized strategy registry - Freqtrade-inspired risk management",
+  "strategies": [
+    {
+      "id": "ma_cross_trend_v2",
+      "name": "MA Cross Trend V2",
+      "name_zh": "MA\u4ea4\u53c9\u9806\u52e2\u7b56\u7565 V2",
+      "type": "trend",
+      "enabled": true,
+      "description": "Trend following with ADX filter and strict volume confirmation. Only trades in moderate+ trends.",
+      "description_zh": "ADX\u8da8\u52e2\u904e\u6ffe + \u56b4\u683c\u6210\u4ea4\u91cf\u78ba\u8a8d\u7684\u9806\u52e2\u7b56\u7565\uff0c\u53ea\u5728\u4e2d\u7b49\u4ee5\u4e0a\u8da8\u52e2\u4e2d\u4ea4\u6613",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "volume_threshold": 1.2,
+        "consecutive_required": false,
+        "adx_threshold": 20,
+        "hour_restrictions": {
+          "forbidden_hours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            10,
+            11,
+            12,
+            14,
+            15,
+            17,
+            18,
+            23
+          ],
+          "boost_hours": [
+            20,
+            22
+          ],
+          "boost_multiplier": 1.5
+        }
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "volume_breakout_v2",
+      "name": "Volume Breakout V2",
+      "name_zh": "\u6210\u4ea4\u91cf\u7206\u767c\u7b56\u7565 V2",
+      "type": "momentum",
+      "enabled": true,
+      "description": "Volume EMA spike with RSI and ADX confirmation. Strategy005-inspired.",
+      "description_zh": "\u6210\u4ea4\u91cfEMA\u7206\u767c + RSI\u8207ADX\u78ba\u8a8d\uff08Strategy005\u98a8\u683c\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "volume_ema_spike",
+        "rsi_not_overbought",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "volume_multiplier": 3.0,
+        "rsi_overbought": 70,
+        "adx_threshold": 20,
+        "hard_stop": -0.06,
+        "atr_multiplier": 2.0,
+        "ma_reverse_threshold": -0.015,
+        "trailing_trigger": 0.04,
+        "trailing_drawback": 0.015,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.12
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "cluc_bounce",
+      "name": "Cluc Bounce",
+      "name_zh": "\u8d85\u8dcc\u53cd\u5f48\u7b56\u7565",
+      "type": "mean_reversion",
+      "enabled": false,
+      "description": "Price below BB lower band with RSI oversold and ADX filter. ClucMay72018-inspired mean reversion.",
+      "description_zh": "\u50f9\u683c\u4f4e\u65bc\u5e03\u6797\u4e0b\u8ecc + RSI\u8d85\u8ce3 + ADX\u904e\u6ffe\uff08ClucMay72018\u98a8\u683c\u5747\u503c\u56de\u6b78\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "conditions": [
+        "price_below_bb_lower_pct",
+        "rsi_below_30",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "bb_lower_pct": 0.985,
+        "rsi_period": 14,
+        "adx_threshold": 20
+      },
+      "signal_type": "mean_reversion_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "supertrend_trend",
+      "name": "Supertrend Trend",
+      "name_zh": "Supertrend\u8da8\u52e2\u7b56\u7565",
+      "type": "trend",
+      "enabled": false,
+      "description": "Stochastic momentum with SAR support and strong ADX trend filter.",
+      "description_zh": "\u96a8\u6a5f\u6307\u6a19\u52d5\u91cf + SAR\u652f\u6490 + \u5f37ADX\u8da8\u52e2\u904e\u6ffe",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "conditions": [
+        "fastk_cross_above_fastd",
+        "sar_below_price",
+        "adx_above_25"
+      ],
+      "parameters": {
+        "fastk_period": 5,
+        "fastd_period": 3,
+        "sar_acceleration": 0.02,
+        "sar_maximum": 0.2,
+        "adx_threshold": 25
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "ma_cross_trend_short",
+      "name": "MA Cross Trend Short",
+      "name_zh": "MA\u4ea4\u53c9\u9806\u52e2\u505a\u7a7a\u7b56\u7565",
+      "type": "trend",
+      "enabled": false,
+      "description": "Short trend following with ADX filter (DISABLED - focus on long-only in current market)",
+      "description_zh": "ADX\u904e\u6ffe\u9806\u52e2\u505a\u7a7a\uff08\u505c\u7528 - \u7576\u524d\u5e02\u5834\u805a\u7126\u591a\u982d\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_below_ma20",
+        "volume_spike",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "volume_threshold": 1.2,
+        "adx_threshold": 20
+      },
+      "signal_type": "trend_short",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "contrarian_watch_overheated",
+      "name": "Contrarian Watch - Overheated",
+      "name_zh": "\u9006\u52e2\u89c0\u5bdf - \u904e\u71b1",
+      "type": "contrarian",
+      "enabled": false,
+      "description": "Watch only - not for execution",
+      "description_zh": "\u50c5\u89c0\u5bdf - \u975e\u57f7\u884c\u8a0a\u865f",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_above_ma240",
+        "consecutive_green"
+      ],
+      "parameters": {
+        "consecutive_count": 4,
+        "volume_threshold": 1.0
+      },
+      "signal_type": "contrarian_watch_overheated",
+      "signal_level": "watch_only",
+      "warning": "WATCH ONLY - NOT FOR EXECUTION / \u50c5\u89c0\u5bdf - \u975e\u57f7\u884c\u8a0a\u865f"
+    },
+    {
+      "id": "contrarian_watch_oversold",
+      "name": "Contrarian Watch - Oversold",
+      "name_zh": "\u9006\u52e2\u89c0\u5bdf - \u8d85\u8dcc",
+      "type": "contrarian",
+      "enabled": false,
+      "description": "Watch only - not for execution",
+      "description_zh": "\u50c5\u89c0\u5bdf - \u975e\u57f7\u884c\u8a0a\u865f",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_below_ma240",
+        "consecutive_red"
+      ],
+      "parameters": {
+        "consecutive_count": 4,
+        "volume_threshold": 1.0
+      },
+      "signal_type": "contrarian_watch_oversold",
+      "signal_level": "watch_only",
+      "warning": "WATCH ONLY - NOT FOR EXECUTION / \u50c5\u89c0\u5bdf - \u975e\u57f7\u884c\u8a0a\u865f"
+    },
+    {
+      "id": "hilbert_cycle",
+      "name": "Hilbert Cycle",
+      "name_zh": "\u5e0c\u723e\u4f2f\u7279\u9031\u671f",
+      "type": "cycle",
+      "enabled": false,
+      "description": "Hilbert Transform SineWave (DISABLED - low profitability)",
+      "description_zh": "\u5e0c\u723e\u4f2f\u7279\u8f49\u63db\u6b63\u5f26\u6ce2\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "1h",
+        "4h"
+      ],
+      "conditions": [
+        "sine_cross_above_leadsine",
+        "tema_rising"
+      ],
+      "parameters": {
+        "tema_period": 9,
+        "reverse_mode": true,
+        "reverse_mode_note": "When strategy signals LONG, paper trade SHORT and vice versa"
+      },
+      "signal_type": "cycle",
+      "signal_level": "confirmed",
+      "meta": {
+        "culled_at": "2026-05-25T16:19:25.853890",
+        "cull_reason": "balance $517.52 < $950.0",
+        "disabled_at": "2026-05-30T16:39:00",
+        "disabled_reason": "Manual disable: heavy bleeding (-38% and -35%)"
+      }
+    },
+    {
+      "id": "stochastic_breakout",
+      "name": "Stochastic Breakout",
+      "name_zh": "\u96a8\u6a5f\u6307\u6a19\u7a81\u7834",
+      "type": "breakout",
+      "enabled": false,
+      "description": "Stochastic breakout (DISABLED - replaced by supertrend_trend)",
+      "description_zh": "\u96a8\u6a5f\u6307\u6a19\u7a81\u7834\uff08\u505c\u7528 - \u7531 supertrend_trend \u66ff\u4ee3\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "conditions": [
+        "fastk_cross_above_fastd",
+        "fastk_below_20",
+        "sar_below_price"
+      ],
+      "parameters": {
+        "fastk_period": 5,
+        "fastd_period": 3,
+        "sar_acceleration": 0.02,
+        "sar_maximum": 0.2
+      },
+      "signal_type": "breakout",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "rsi_trend",
+      "name": "RSI Trend",
+      "name_zh": "RSI\u8da8\u52e2\u7b56\u7565",
+      "type": "momentum",
+      "enabled": false,
+      "description": "RSI trend (DISABLED - low profitability)",
+      "description_zh": "RSI\u8da8\u52e2\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m",
+        "1h"
+      ],
+      "conditions": [
+        "rsi_cross_above_30",
+        "tema_below_bb_middle",
+        "tema_rising"
+      ],
+      "parameters": {
+        "rsi_period": 14,
+        "tema_period": 9,
+        "bb_period": 20,
+        "bb_std": 2.0
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "bb_mean_reversion",
+      "name": "Bollinger Bands Mean Reversion",
+      "name_zh": "\u5e03\u6797\u5e36\u5747\u503c\u56de\u6b78",
+      "type": "mean_reversion",
+      "enabled": false,
+      "description": "BB mean reversion (DISABLED - replaced by cluc_bounce)",
+      "description_zh": "\u5e03\u6797\u5e36\u5747\u503c\u56de\u6b78\uff08\u505c\u7528 - \u7531 cluc_bounce \u66ff\u4ee3\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m"
+      ],
+      "conditions": [
+        "price_below_bb_lower",
+        "rsi_below_30",
+        "volume_spike"
+      ],
+      "parameters": {
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "rsi_period": 14,
+        "volume_threshold": 0.8
+      },
+      "signal_type": "mean_reversion",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "composite_ema_rsi_vol_long",
+      "name": "Composite EMA+RSI+Volume Long",
+      "name_zh": "EMA+RSI+\u6210\u4ea4\u91cf \u8907\u5408\u591a\u982d\u7b56\u7565",
+      "type": "freqtrade_port",
+      "enabled": false,
+      "description": "Composite trend (DISABLED - needs rework before re-enabling)",
+      "description_zh": "\u8907\u5408\u8da8\u52e2\u7b56\u7565\uff08\u505c\u7528 - \u9700\u91cd\u8a2d\u8a08\u5f8c\u518d\u555f\u7528\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m",
+        "1h"
+      ],
+      "conditions": [
+        "ema_cross_above",
+        "rsi_not_overbought",
+        "volume_confirmed",
+        "price_above_trend"
+      ],
+      "parameters": {
+        "ema_fast_period": 8,
+        "ema_slow_period": 21,
+        "rsi_overbought": 70,
+        "volume_multiplier": 1.2
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "warning": "DISABLED - requires parameter rework"
+    },
+    {
+      "id": "composite_ema_rsi_vol_short",
+      "name": "Composite EMA+RSI+Volume Short",
+      "name_zh": "EMA+RSI+\u6210\u4ea4\u91cf \u8907\u5408\u7a7a\u982d\u7b56\u7565",
+      "type": "freqtrade_port",
+      "enabled": false,
+      "description": "Composite short (DISABLED - focus on long-only)",
+      "description_zh": "\u8907\u5408\u7a7a\u982d\u7b56\u7565\uff08\u505c\u7528 - \u805a\u7126\u591a\u982d\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m",
+        "15m",
+        "1h"
+      ],
+      "conditions": [
+        "ema_cross_below",
+        "rsi_not_oversold",
+        "volume_confirmed"
+      ],
+      "parameters": {
+        "ema_fast_period": 8,
+        "ema_slow_period": 21,
+        "rsi_oversold": 30,
+        "volume_multiplier": 1.2
+      },
+      "signal_type": "trend_short",
+      "signal_level": "confirmed",
+      "warning": "DISABLED - focus on long-only"
+    },
+    {
+      "id": "ema_cross_fast",
+      "name": "EMA Cross Fast",
+      "name_zh": "\u5feb\u901fEMA\u4ea4\u53c9",
+      "type": "trend",
+      "enabled": false,
+      "description": "Fast EMA crossover (DISABLED - too many false signals)",
+      "description_zh": "\u5feb\u901fEMA\u4ea4\u53c9\uff08\u505c\u7528 - \u5047\u8a0a\u865f\u904e\u591a\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "ema5_cross_above_ema10"
+      ],
+      "parameters": {
+        "ema_fast": 5,
+        "ema_slow": 10
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "rsi_mid_bounce",
+      "name": "RSI Mid Bounce",
+      "name_zh": "RSI\u4e2d\u7dda\u53cd\u5f48",
+      "type": "reversal",
+      "enabled": false,
+      "description": "RSI mid bounce (DISABLED - low profitability)",
+      "description_zh": "RSI\u4e2d\u7dda\u53cd\u5f48\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "rsi_cross_above_40"
+      ],
+      "parameters": {
+        "rsi_period": 14,
+        "rsi_threshold": 40,
+        "hour_restrictions": {
+          "forbidden_hours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            10,
+            11,
+            12,
+            14,
+            15,
+            17,
+            18,
+            23
+          ],
+          "boost_hours": [
+            20,
+            22
+          ],
+          "boost_multiplier": 1.5
+        }
+      },
+      "signal_type": "reversal_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "culled_at": "2026-05-25T16:19:25.853972",
+        "cull_reason": "win rate 22.7% < 25%"
+      }
+    },
+    {
+      "id": "volume_spike",
+      "name": "Volume Spike (Legacy)",
+      "name_zh": "\u6210\u4ea4\u91cf\u7a81\u589e\uff08\u820a\u7248\uff09",
+      "type": "momentum",
+      "enabled": false,
+      "description": "Legacy volume spike (DISABLED - replaced by volume_breakout_v2)",
+      "description_zh": "\u820a\u7248\u6210\u4ea4\u91cf\u7a81\u589e\uff08\u505c\u7528 - \u7531 volume_breakout_v2 \u66ff\u4ee3\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "volume_above_avg_1_5x"
+      ],
+      "parameters": {
+        "volume_period": 20,
+        "volume_multiplier": 0.8
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "price_channel_break",
+      "name": "Price Channel Break",
+      "name_zh": "\u50f9\u683c\u901a\u9053\u7a81\u7834",
+      "type": "breakout",
+      "enabled": false,
+      "description": "Price channel breakout (DISABLED - low profitability)",
+      "description_zh": "\u50f9\u683c\u901a\u9053\u7a81\u7834\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "1h"
+      ],
+      "conditions": [
+        "price_above_20period_high"
+      ],
+      "parameters": {
+        "channel_period": 20
+      },
+      "signal_type": "breakout_long",
+      "signal_level": "confirmed"
+    },
+    {
+      "id": "momentum_divergence",
+      "name": "Momentum Divergence",
+      "name_zh": "\u52d5\u80fd\u80cc\u96e2",
+      "type": "reversal",
+      "enabled": false,
+      "description": "Momentum divergence (DISABLED - low profitability)",
+      "description_zh": "\u52d5\u80fd\u80cc\u96e2\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "4h"
+      ],
+      "conditions": [
+        "bullish_divergence_rsi"
+      ],
+      "parameters": {
+        "lookback_period": 14,
+        "divergence_threshold": 0.02
+      },
+      "signal_type": "reversal_long",
+      "signal_level": "watch_only"
+    },
+    {
+      "id": "opening_range_breakout",
+      "name": "Opening Range Breakout",
+      "name_zh": "\u958b\u76e4\u5340\u9593\u7a81\u7834",
+      "type": "momentum",
+      "enabled": false,
+      "description": "Opening range breakout (DISABLED - low profitability)",
+      "description_zh": "\u958b\u76e4\u5340\u9593\u7a81\u7834\uff08\u505c\u7528 - \u7372\u5229\u6027\u4f4e\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "opening_range_breakout"
+      ],
+      "parameters": {
+        "reverse_mode": true,
+        "reverse_mode_note": "When strategy signals LONG, paper trade SHORT and vice versa"
+      },
+      "signal_type": "momentum",
+      "signal_level": "confirmed",
+      "meta": {
+        "culled_at": "2026-05-25T16:19:25.854144",
+        "cull_reason": "balance $826.59 < $950.0",
+        "disabled_at": "2026-05-30T16:39:00",
+        "disabled_reason": "Manual disable: heavy bleeding (-38% and -35%)"
+      }
+    },
+    {
+      "id": "supertrend",
+      "name": "Supertrend (Legacy)",
+      "name_zh": "Supertrend\uff08\u820a\u7248\uff09",
+      "type": "trend",
+      "enabled": false,
+      "description": "Legacy supertrend (DISABLED - replaced by supertrend_trend)",
+      "description_zh": "\u820a\u7248Supertrend\uff08\u505c\u7528 - \u7531 supertrend_trend \u66ff\u4ee3\uff09",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "supertrend"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ichimoku_cloud",
+      "name": "Ichimoku Cloud",
+      "type": "trend",
+      "enabled": false,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "ichimoku_cloud"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "williams_r",
+      "name": "Williams %R Reversal",
+      "type": "reversal",
+      "enabled": false,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "williams_r"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "atr_breakout",
+      "name": "ATR Breakout",
+      "type": "breakout",
+      "enabled": false,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "atr_breakout"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "dual_thrust",
+      "name": "Dual Thrust",
+      "type": "momentum",
+      "enabled": false,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "dual_thrust"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "parabolic_sar_v2",
+      "name": "Parabolic SAR",
+      "type": "trend",
+      "enabled": true,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "parabolic_sar_v2"
+      ],
+      "parameters": {
+        "hard_stop": -0.06,
+        "atr_multiplier": 2.0,
+        "ma_reverse_threshold": -0.015,
+        "trailing_trigger": 0.04,
+        "trailing_drawback": 0.015,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.12
+      }
+    },
+    {
+      "id": "keltner_breakout",
+      "name": "Keltner Channel Breakout",
+      "type": "breakout",
+      "enabled": false,
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT"
+      ],
+      "timeframes": [
+        "15m"
+      ],
+      "conditions": [
+        "keltner_breakout"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "volume_breakout_g1_05251619_wyw",
+      "name": "Volume Breakout G1",
+      "name_zh": "Volume Breakout \u7b2c1\u4ee3",
+      "type": "momentum",
+      "enabled": true,
+      "description": "Auto-generated variant of volume_breakout | Gen:1 | Parent:root",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "volume_ema_spike",
+        "rsi_not_overbought",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "volume_multiplier": 2.0,
+        "rsi_overbought": 65,
+        "adx_threshold": 20,
+        "hard_stop": -0.1,
+        "time_stop_hours": 20.0,
+        "position_pct": 0.12
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.1,
+        "atr_stop_multiplier": 2.0,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.06,
+          "20": 0.049999999999999996,
+          "40": 0.039999999999999994,
+          "60": 0.03,
+          "120": 0.019999999999999997
+        },
+        "trailing_stop_trigger": 0.04,
+        "trailing_stop_drawback": 0.015,
+        "time_stop_hours": 20.0,
+        "position_pct": 0.12
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 1,
+        "parent_id": null,
+        "created_at": "2026-05-25T16:19:25.855162"
+      }
+    },
+    {
+      "id": "trend_follower_g1_05251619_iwy",
+      "name": "Trend Follower G1",
+      "name_zh": "Trend Follower \u7b2c1\u4ee3",
+      "type": "trend",
+      "enabled": true,
+      "description": "Auto-generated variant of trend_follower | Gen:1 | Parent:root",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike",
+        "adx_above_18"
+      ],
+      "parameters": {
+        "adx_threshold": 18,
+        "volume_threshold": 1.5,
+        "hard_stop": -0.05,
+        "atr_multiplier": 1.5,
+        "trailing_trigger": 0.08,
+        "trailing_drawback": 0.015,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.1
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.05,
+        "atr_stop_multiplier": 1.5,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.06,
+          "20": 0.049999999999999996,
+          "40": 0.039999999999999994,
+          "60": 0.03,
+          "120": 0.019999999999999997
+        },
+        "trailing_stop_trigger": 0.08,
+        "trailing_stop_drawback": 0.015,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.1
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 1,
+        "parent_id": null,
+        "created_at": "2026-05-25T16:19:25.922203"
+      }
+    },
+    {
+      "id": "trend_follower_g2_05251619_cpy",
+      "name": "Trend Follower G2",
+      "name_zh": "Trend Follower \u7b2c2\u4ee3",
+      "type": "trend",
+      "enabled": true,
+      "description": "Auto-generated variant of trend_follower | Gen:2 | Parent:parabolic_sar_v2",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike",
+        "adx_above_20"
+      ],
+      "parameters": {
+        "adx_threshold": 20,
+        "volume_threshold": 1.5,
+        "hard_stop": -0.1,
+        "atr_multiplier": 2.5,
+        "trailing_trigger": 0.06,
+        "trailing_drawback": 0.01,
+        "time_stop_hours": 16.0,
+        "position_pct": 0.1
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.1,
+        "atr_stop_multiplier": 2.5,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.06,
+          "20": 0.049999999999999996,
+          "40": 0.039999999999999994,
+          "60": 0.03,
+          "120": 0.019999999999999997
+        },
+        "trailing_stop_trigger": 0.06,
+        "trailing_stop_drawback": 0.01,
+        "time_stop_hours": 16.0,
+        "position_pct": 0.1
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 2,
+        "parent_id": "parabolic_sar_v2",
+        "created_at": "2026-05-25T16:19:25.995592"
+      }
+    },
+    {
+      "id": "mean_reversion_g1_05251619_roh",
+      "name": "Mean Reversion G1",
+      "name_zh": "Mean Reversion \u7b2c1\u4ee3",
+      "type": "contrarian",
+      "enabled": true,
+      "description": "Auto-generated variant of mean_reversion | Gen:1 | Parent:root",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "rsi_extreme",
+        "price_vs_bollinger",
+        "volume_confirm"
+      ],
+      "parameters": {
+        "rsi_oversold": 20,
+        "rsi_overbought": 80,
+        "hard_stop": -0.05,
+        "time_stop_hours": 6.0,
+        "position_pct": 0.15
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.05,
+        "atr_stop_multiplier": 2.0,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.1,
+          "20": 0.09000000000000001,
+          "40": 0.08,
+          "60": 0.07,
+          "120": 0.060000000000000005
+        },
+        "trailing_stop_trigger": 0.04,
+        "trailing_stop_drawback": 0.015,
+        "time_stop_hours": 6.0,
+        "position_pct": 0.15
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 1,
+        "parent_id": null,
+        "created_at": "2026-05-25T16:19:26.062956"
+      }
+    },
+    {
+      "id": "trend_follower_g2_05251619_qhf",
+      "name": "Trend Follower G2",
+      "name_zh": "Trend Follower \u7b2c2\u4ee3",
+      "type": "trend",
+      "enabled": true,
+      "description": "Auto-generated variant of trend_follower | Gen:2 | Parent:parabolic_sar_v2",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike",
+        "adx_above_18"
+      ],
+      "parameters": {
+        "adx_threshold": 18,
+        "volume_threshold": 2.0,
+        "hard_stop": -0.04,
+        "atr_multiplier": 1.5,
+        "trailing_trigger": 0.03,
+        "trailing_drawback": 0.02,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.08
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.04,
+        "atr_stop_multiplier": 1.5,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.06,
+          "20": 0.049999999999999996,
+          "40": 0.039999999999999994,
+          "60": 0.03,
+          "120": 0.019999999999999997
+        },
+        "trailing_stop_trigger": 0.03,
+        "trailing_stop_drawback": 0.02,
+        "time_stop_hours": 10.0,
+        "position_pct": 0.08
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 2,
+        "parent_id": "parabolic_sar_v2",
+        "created_at": "2026-05-25T16:19:26.128504"
+      }
+    },
+    {
+      "id": "trend_follower_g2_05251619_bhz",
+      "name": "Trend Follower G2",
+      "name_zh": "Trend Follower \u7b2c2\u4ee3",
+      "type": "trend",
+      "enabled": true,
+      "description": "Auto-generated variant of trend_follower | Gen:2 | Parent:volume_breakout_v2",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "close_vs_ma240",
+        "ma5_cross_ma20",
+        "volume_spike",
+        "adx_above_28"
+      ],
+      "parameters": {
+        "adx_threshold": 28,
+        "volume_threshold": 1.2,
+        "hard_stop": -0.05,
+        "atr_multiplier": 2.5,
+        "trailing_trigger": 0.03,
+        "trailing_drawback": 0.01,
+        "time_stop_hours": 16.0,
+        "position_pct": 0.15
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.05,
+        "atr_stop_multiplier": 2.5,
+        "ma_reverse_pnl_threshold": -0.015,
+        "profit_targets": {
+          "0": 0.06,
+          "20": 0.049999999999999996,
+          "40": 0.039999999999999994,
+          "60": 0.03,
+          "120": 0.019999999999999997
+        },
+        "trailing_stop_trigger": 0.03,
+        "trailing_stop_drawback": 0.01,
+        "time_stop_hours": 16.0,
+        "position_pct": 0.15
+      },
+      "signal_type": "trend_long",
+      "signal_level": "confirmed",
+      "meta": {
+        "factory_generated": true,
+        "generation": 2,
+        "parent_id": "volume_breakout_v2",
+        "created_at": "2026-05-25T16:19:26.192768"
+      }
+    },
+    {
+      "id": "genetic_x_14ddf6519470",
+      "name": "GEN X_14DDF6",
+      "name_zh": "\u57fa\u56e0\u7b56\u7565 X_14DDF6",
+      "type": "momentum",
+      "enabled": true,
+      "description": "[X_14DDF6] G47 | Entry(WEIGHTED): sma_cross + momentum + sma_cross + momentum + stochastic | Exit(OR): stochastic + keltner | Risk: SL=-6.3% TP=4.2% | fit=0.813",
+      "description_zh": "\u57fa\u56e0\u6f14\u7b97\u6cd5\u751f\u6210\uff0c\u4e16\u4ee3=47, \u89aa\u4ee3=['X_4D2AD7E1EB5F', 'MUT_B0DC4A17A189']",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT"
+      ],
+      "timeframes": [
+        "5m"
+      ],
+      "conditions": [
+        "ma5_cross_ma20",
+        "rsi_cross_above_30",
+        "ma5_cross_ma20",
+        "rsi_cross_above_30",
+        "fastk_cross_above_fastd",
+        "keltner_breakout",
+        "adx_above_25"
+      ],
+      "parameters": {
+        "entry_logic": "WEIGHTED",
+        "entry_min_weight": 0.57,
+        "entry_sma_cross_short_period": 29,
+        "entry_sma_cross_long_period": 29,
+        "entry_sma_cross_threshold": 47.64,
+        "entry_momentum_period": 12,
+        "entry_momentum_threshold": 4.259,
+        "entry_stochastic_k_period": 20,
+        "entry_stochastic_d_period": 5,
+        "entry_stochastic_smooth": 2,
+        "entry_stochastic_threshold": 45.703,
+        "exit_stochastic_k_period": 15,
+        "exit_stochastic_d_period": 6,
+        "exit_stochastic_smooth": 3,
+        "exit_stochastic_threshold": 65.068,
+        "exit_keltner_ema_period": 19,
+        "exit_keltner_atr_period": 7,
+        "exit_keltner_multiplier": 2.41,
+        "exit_keltner_threshold": 1.174
+      },
+      "default_exit_params": {
+        "hard_stop_loss": -0.063,
+        "atr_stop_multiplier": 2.0,
+        "atr_min_floor": -0.0315,
+        "ma_reverse_pnl_threshold": -0.015,
+        "ma_reverse_min_duration_min": 15,
+        "profit_targets": {
+          "0": 0.042,
+          "20": 0.036,
+          "40": 0.029,
+          "60": 0.023,
+          "120": 0.015
+        },
+        "trailing_stop_trigger": 0.04,
+        "trailing_stop_drawback": 0.015,
+        "time_stop_hours": 15.4,
+        "position_pct": 0.139,
+        "max_concurrent_positions": 3
+      },
+      "signal_type": "momentum_long",
+      "signal_level": "genetic",
+      "meta": {
+        "factory_generated": true,
+        "generation": 47,
+        "chromosome_id": "X_14DDF6519470",
+        "fitness_score": 0.8126524581904573,
+        "fitness_details": {
+          "fitness": 0.8127,
+          "total_trades": 283,
+          "avg_pnl_per_symbol": 0.098,
+          "max_drawdown": 0.0552,
+          "win_rate": 0.6855,
+          "sharpe_ratio": 15.985,
+          "profit_factor": 2.5336,
+          "symbols_tested": 10
+        },
+        "parent_ids": [
+          "X_4D2AD7E1EB5F",
+          "MUT_B0DC4A17A189"
+        ],
+        "created_at": "2026-06-10T01:14:45.134858",
+        "source": "genetic_evolution"
+      }
+    }
+  ],
+  "registry_settings": {
+    "auto_load": true,
+    "validate_on_load": true,
+    "allow_duplicate_ids": false,
+    "backtest_all_on_load": false,
+    "ranking_metric": "profit_factor"
+  },
+  "default_params": {
+    "hard_stop_loss": -0.06,
+    "atr_stop_multiplier": 2.0,
+    "atr_min_floor": -0.025,
+    "ma_reverse_pnl_threshold": -0.015,
+    "ma_reverse_min_duration_min": 15,
+    "profit_targets": {
+      "0": 0.06,
+      "20": 0.05,
+      "40": 0.04,
+      "60": 0.03,
+      "120": 0.02,
+      "240": 0.01
+    },
+    "trailing_stop_trigger": 0.04,
+    "trailing_stop_drawback": 0.015,
+    "time_stop_hours": 10.0,
+    "position_pct": 0.12,
+    "max_concurrent_positions": 3,
+    "adx_min_for_entry": 22,
+    "adx_strong_trend": 28,
+    "volume_ema_multiplier": 2.5,
+    "_tuned_at": "2026-05-21T10:23:40.489994",
+    "_tuned_from": "v2_initial_tuning_based_on_2103_old_trades"
+  },
+  "settings": {
+    "max_active_strategies": 4,
+    "reverse_test_active": true,
+    "reverse_test_started": "2026-05-23T05:55:54.511509",
+    "reverse_test_candidates": [
+      "opening_range_breakout",
+      "hilbert_cycle"
+    ],
+    "reverse_test_control": [
+      "ma_cross_trend",
+      "rsi_mid_bounce"
+    ],
+    "dual_track_active": true,
+    "dual_track_started": "2026-05-23T05:56:38.938099",
+    "track_a_forward": [
+      "ma_cross_trend_v2",
+      "rsi_mid_bounce"
+    ],
+    "track_b_reverse": [
+      "hilbert_cycle",
+      "opening_range_breakout"
+    ]
+  }
+}

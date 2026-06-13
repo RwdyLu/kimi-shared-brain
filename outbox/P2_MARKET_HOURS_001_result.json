@@ -1,0 +1,14 @@
+{
+  "task_id": "P2_MARKET_HOURS_001",
+  "title": "Multi-Market Trading Hours Manager",
+  "status": "completed",
+  "priority": "P2",
+  "type": "strategy",
+  "completed_at": "2026-04-23T11:28:00+08:00",
+  "deliverables": [
+    "app/market_hours.py - 多市場時段 (5.2KB)",
+    "支援 Crypto/TWSE/US/Forex",
+    "市場開閉狀態",
+    "開市倒數計時"
+  ]
+}
