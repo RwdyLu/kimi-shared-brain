@@ -364,6 +364,7 @@ class BinanceFetcher:
         limit: int = 1000,
         validate: bool = True,
         verbose: bool = False,
+        max_pages: int = 50,
     ) -> Tuple[List[List], Dict[str, Any]]:
         """
         Paginated kline fetcher for large date ranges / 大範圍分頁 K 線抓取器
@@ -384,6 +385,10 @@ class BinanceFetcher:
             limit: Candles per page (max 1000) / 每頁 K 線數量
             validate: Whether to validate data / 是否驗證資料
             verbose: Whether to print progress / 是否輸出進度
+            max_pages: Maximum number of pages to fetch (safety cap) / 最多抓取的頁數（安全上限）
+                     Default 50 = 50,000 candles at 1000/page. For 2-year backtest
+                     set to ~600, for 5-year ~1500, for 10-year ~3000.
+                     預設 50 = 每頁 1000 根時共 50,000 根。2 年回測約需 600，5 年約需 1500，10 年約需 3000。
 
         Returns:
             Tuple of (klines, validation_result) / (K 線資料, 驗證結果)
@@ -398,7 +403,6 @@ class BinanceFetcher:
         page_size = min(limit, 1000)
         all_klines: List[List] = []
         page_count = 0
-        max_pages = 50  # Safety cap / 安全上限
 
         current_start = start_time
 
