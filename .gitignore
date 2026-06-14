@@ -102,3 +102,6 @@ logs/indicator_snapshots.jsonl
 logs/crypto_monitor.log
 logs/scheduler.log
 logs/scheduler_nohup.out
+
+# Local notification secrets
+config/channel_config.json
