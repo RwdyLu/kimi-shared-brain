@@ -37,7 +37,7 @@ from .windows import (
 from .fitness_v2 import (
     BacktestMetricsV2, compute_fitness_v2,
     compute_fitness_details_v2, aggregate_fitness_v2,
-    calculate_ruin_probability, compute_fitness_v2_from_v1
+    calculate_monte_carlo_report, compute_fitness_v2_from_v1
 )
 from .environment import (
     Environment, SeasonConfig, SeasonSampler,
@@ -87,6 +87,10 @@ DEFAULT_CONFIG_V2 = {
     "multi_window_history_days": 10 * 365,
     "n_season_segments": 4,
     "ruin_probability_warn_threshold": 0.05,  # 3rd-chapter: Monte Carlo final-review warn level
+    "monte_carlo_interval": "1m",
+    "monte_carlo_history_days": 90,
+    "monte_carlo_simulations": 1000,
+    "monte_carlo_seed": 42,
 }
 
 
@@ -592,29 +596,26 @@ class EvolutionEngineV2:
         
         # Epoch 結束：最佳個體作為挑戰者寫入檔案館
         if best_ever:
-            # 3rd-chapter: Monte Carlo final review (Epoch-end only, does not affect fitness)
+            fitness_before_review = best_ever.fitness_score
             try:
-                _, _, mc_trades = evaluate_chromosome_multi_symbol_v2(
-                    best_ever,
-                    symbols=self.config["symbols"],
-                    engine=self.backtest_engine,
-                    interval=self.config["backtest_interval"],
-                    days=self.config["backtest_days"],
-                    seasons=self.three_layer.seasons,
-                    environment=self.three_layer.environment,
-                    verbose=False,
-                )
-                ruin_prob = calculate_ruin_probability(
-                    [{"pnl_pct": t.pnl_pct} for t in mc_trades]
-                )
-                best_ever.fitness_details["ruin_probability"] = round(ruin_prob, 4)
+                report = self._run_monte_carlo_final_review(best_ever)
+                best_ever.fitness_details["monte_carlo_final_review"] = report
+                ruin_prob = report.get("ruin_probability")
                 warn_threshold = self.config.get("ruin_probability_warn_threshold", 0.05)
-                if ruin_prob > warn_threshold:
+                if ruin_prob is None:
+                    print("  Monte Carlo final review: insufficient 1m trade samples")
+                elif ruin_prob > warn_threshold:
                     print(f"  \u26a0\ufe0f Warn: Ruin probability {ruin_prob:.4f} exceeds threshold {warn_threshold:.4f} (fitness unchanged)")
                 else:
                     print(f"  Monte Carlo final review: ruin probability = {ruin_prob:.4f}")
             except Exception as e:
+                best_ever.fitness_details["monte_carlo_final_review"] = {
+                    "error": str(e),
+                    "interval": "1m",
+                }
                 print(f"  Monte Carlo final review failed: {e}")
+            finally:
+                best_ever.fitness_score = fitness_before_review
             self._archive_challenger(best_ever)
         
         print(f"\n{'='*70}")
@@ -625,6 +626,40 @@ class EvolutionEngineV2:
             print(f"Summary: {best_ever.summary()}")
         
         return best_ever or (self.population[0] if self.population else None)
+
+    def _run_monte_carlo_final_review(
+        self,
+        challenger: StrategyChromosomeV2,
+    ) -> Dict[str, Any]:
+        """Run once per Epoch on the final Challenger using the complete 1m sample."""
+        interval = self.config.get("monte_carlo_interval", "1m")
+        if interval != "1m":
+            raise ValueError("Monte Carlo final review interval must be 1m")
+
+        days = int(self.config.get("monte_carlo_history_days", 90))
+        _, _, trades = evaluate_chromosome_multi_symbol_v2(
+            challenger,
+            symbols=self.config["symbols"],
+            engine=self.backtest_engine,
+            interval=interval,
+            days=days,
+            seasons=self.three_layer.seasons,
+            environment=self.three_layer.environment,
+            verbose=False,
+        )
+        report = calculate_monte_carlo_report(
+            [{"pnl_pct": t.pnl_pct} for t in trades],
+            initial_capital=self.backtest_engine.initial_capital,
+            n_simulations=int(self.config.get("monte_carlo_simulations", 1000)),
+            seed=int(self.config.get("monte_carlo_seed", 42)),
+        )
+        report.update({
+            "interval": interval,
+            "history_days": days,
+            "symbols": list(self.config["symbols"]),
+            "fitness_unchanged": True,
+        })
+        return report
     
     # ═══════════════════════════════════════════════════════
     # 保存與檔案
