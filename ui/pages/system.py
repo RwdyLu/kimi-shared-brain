@@ -33,18 +33,9 @@ from config.paths import PROJECT_ROOT, CONFIG_DIR, LOGS_DIR, OUTPUTS_DIR, STATE_
 # ─── New Feature E: Health check helpers / 健康檢查輔助函數 ───
 
 def check_scheduler_alive() -> tuple:
-    """Check if scheduler is alive via .scheduler.lock / 檢查 scheduler 是否存活"""
-    lock_file = STATE_DIR / ".scheduler.lock"
-    if not lock_file.exists():
-        return False, "No lock file"
-    try:
-        mtime = lock_file.stat().st_mtime
-        age_min = (datetime.now().timestamp() - mtime) / 60
-        if age_min < 10:
-            return True, f"Active ({age_min:.0f}m ago)"
-        return False, f"Stale ({age_min:.0f}m ago)"
-    except Exception as e:
-        return False, str(e)
+    """Use the same process-aware scheduler check as the navbar."""
+    status = get_scheduler_status()
+    return status.get("running", False), status.get("status_text", "Unknown")
 
 
 def check_binance_ping() -> tuple:
@@ -87,9 +78,14 @@ def check_paper_balance() -> tuple:
             return False, "No state"
         with open(state_file, 'r', encoding='utf-8') as f:
             state = json.load(f)
-        balance = state.get("balance", 0)
-        ok = balance > 1000
-        return ok, f"${balance:,.2f}"
+        strategies = state.get("strategies", {})
+        balance = sum(acc.get("balance", 0) for acc in strategies.values())
+        initial = state.get(
+            "total_initial",
+            sum(acc.get("initial", 0) for acc in strategies.values()),
+        )
+        ok = bool(strategies) and balance > 0
+        return ok, f"${balance:,.2f} / ${initial:,.2f}"
     except Exception as e:
         return False, str(e)[:30]
 
@@ -102,12 +98,18 @@ def check_max_hold_time() -> tuple:
             return True, "No positions"
         with open(state_file, 'r', encoding='utf-8') as f:
             state = json.load(f)
-        positions = state.get("positions", {})
+        positions = []
+        for account in state.get("strategies", {}).values():
+            for symbol_positions in account.get("positions", {}).values():
+                if isinstance(symbol_positions, list):
+                    positions.extend(symbol_positions)
+                elif isinstance(symbol_positions, dict):
+                    positions.append(symbol_positions)
         if not positions:
             return True, "No positions"
         now = datetime.now()
         max_hours = 0
-        for sym, pos in positions.items():
+        for pos in positions:
             entry_time_str = pos.get("entry_time")
             if entry_time_str:
                 try:
@@ -367,7 +369,7 @@ layout = dbc.Container(
                                         ]),
                                         html.Tr([
                                             html.Td("PID File / PID 檔案"),
-                                            html.Td(html.Code(str(PROJECT_ROOT / ".monitor.pid")))
+                                        html.Td(html.Code(str(STATE_DIR / ".monitor.pid")))
                                         ]),
                                         html.Tr([
                                             html.Td("Outputs / 輸出"),
@@ -400,7 +402,7 @@ layout = dbc.Container(
                                 dbc.Col(
                                     [
                                         html.H6("UI Version"),
-                                        html.P("1.0.0", className="text-muted")
+                                        html.P("1.1.0", className="text-muted")
                                     ],
                                     width=6,
                                     md=3
@@ -424,7 +426,7 @@ layout = dbc.Container(
                                 dbc.Col(
                                     [
                                         html.H6("Last Updated"),
-                                        html.P("2026-04-07", className="text-muted")
+                                        html.P("2026-06-14", className="text-muted")
                                     ],
                                     width=6,
                                     md=3
@@ -482,15 +484,13 @@ def update_system_info(n_intervals, n_clicks):
         balance_ok, balance_msg = check_paper_balance()
         hold_ok, hold_msg = check_max_hold_time()
         
-        indicators = dbc.Row(
-            [
-                _health_indicator("Scheduler / 排程器", sched_ok, sched_msg),
-                _health_indicator("Binance API", binance_ok, binance_msg),
-                _health_indicator("State Write / 資料寫入", state_ok, state_msg),
-                _health_indicator("Paper Balance / 餘額", balance_ok, balance_msg),
-                _health_indicator("Hold Time / 持倉時間", hold_ok, hold_msg),
-            ]
-        )
+        indicators = [
+            _health_indicator("Scheduler / 排程器", sched_ok, sched_msg),
+            _health_indicator("Binance API", binance_ok, binance_msg),
+            _health_indicator("State Write / 資料寫入", state_ok, state_msg),
+            _health_indicator("Paper Balance / 餘額", balance_ok, balance_msg),
+            _health_indicator("Hold Time / 持倉時間", hold_ok, hold_msg),
+        ]
         
         # ─── Recent Runs Mini-Map / 最近執行迷你圖 ───
         runs = load_recent_runs(10)

@@ -17,7 +17,8 @@ from ui.services.monitor_service import (
     get_last_run_info,
     get_today_signals,
     get_recent_runs,
-    get_current_prices  # T-051: Add current prices / 新增當前價格
+    get_current_prices,
+    read_recent_jsonl,
 )
 from config.loader import get_enabled_symbols
 
@@ -157,24 +158,15 @@ def load_today_trigger_counts() -> dict:
         today_str = datetime.now().strftime("%Y-%m-%d")
         counts: dict = {}
         
-        with open(snapshots_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    snap = json.loads(line)
-                    ts = snap.get("timestamp", "")
-                    if not ts or not ts.startswith(today_str):
-                        continue
-                    
-                    # signal_types is a list of strategy names that triggered
-                    sig_types = snap.get("signal_types", [])
-                    if isinstance(sig_types, list):
-                        for st in sig_types:
-                            counts[st] = counts.get(st, 0) + 1
-                except Exception:
-                    continue
+        for snap in read_recent_jsonl(snapshots_file):
+            ts = snap.get("timestamp", "")
+            if not ts.startswith(today_str):
+                continue
+
+            sig_types = snap.get("signal_types", [])
+            if isinstance(sig_types, list):
+                for st in sig_types:
+                    counts[st] = counts.get(st, 0) + 1
         
         return counts
     except Exception:
@@ -1066,7 +1058,7 @@ def update_health_timestamp(n):
         time_str = now.strftime("%H:%M:%S")
         
         # Store last update time in a file for persistence
-        last_update_file = Path("/root/.openclaw/workspace/kimi-shared-brain/.last_dashboard_update")
+        last_update_file = project_root / ".last_dashboard_update"
         last_update_file.write_text(now.isoformat())
         
         return time_str, "badge bg-success"
@@ -1081,7 +1073,7 @@ def get_health_status():
     try:
         from datetime import datetime, timedelta
         
-        last_update_file = Path("/root/.openclaw/workspace/kimi-shared-brain/.last_dashboard_update")
+        last_update_file = project_root / ".last_dashboard_update"
         if not last_update_file.exists():
             return "--", "badge bg-secondary"
         
@@ -1337,80 +1329,25 @@ def update_check_history(n):
 
 
 def _load_check_history(limit: int = 10) -> list:
-    """
-    Load check history from indicator_snapshots.jsonl
-    從 indicator_snapshots.jsonl 載入檢查歷史
-    
-    Args:
-        limit: Maximum number of checks to return
-        
-    Returns:
-        List of check records with time, prices, and signals
-    """
-    try:
-        from config.paths import LOGS_DIR
-        import json
-        from collections import defaultdict
-        
-        snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
-            return []
-        
-        # Group by run_id
-        runs = defaultdict(lambda: {"btc_price": None, "eth_price": None, "signals_count": 0, "confirmed_signals": 0})
-        
-        with open(snapshot_file, 'r') as f:
-            for line in f:
-                try:
-                    record = json.loads(line.strip())
-                    run_id = str(record.get("run_id", ""))
-                    symbol = record.get("symbol")
-                    price = record.get("price")
-                    ts_str = record.get("timestamp", "")
-                    signals = record.get("signals_count", 0)
-                    
-                    if not run_id or not ts_str:
-                        continue
-                    
-                    # Parse timestamp
-                    try:
-                        ts = datetime.fromisoformat(ts_str)
-                        time_str = ts.strftime("%H:%M:%S")
-                    except:
-                        time_str = ts_str
-                    
-                    runs[run_id]["time"] = time_str
-                    runs[run_id]["timestamp"] = ts_str
-                    
-                    if symbol == "BTCUSDT" and price:
-                        runs[run_id]["btc_price"] = price
-                    elif symbol == "ETHUSDT" and price:
-                        runs[run_id]["eth_price"] = price
-                    
-                    runs[run_id]["signals_count"] = max(runs[run_id]["signals_count"], signals)
-                    
-                except Exception:
-                    continue
-        
-        # Convert to list and sort by timestamp (newest first)
-        history = []
-        for run_id, data in runs.items():
-            if data.get("btc_price") or data.get("eth_price"):
-                history.append({
-                    "run_id": run_id,
-                    "time": data.get("time", "--"),
-                    "timestamp": data.get("timestamp", ""),
-                    "btc_price": data.get("btc_price"),
-                    "eth_price": data.get("eth_price"),
-                    "signals_count": data.get("signals_count", 0),
-                    "confirmed_signals": data.get("confirmed_signals", 0)
-                })
-        
-        history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-        return history[:limit]
-        
-    except Exception:
-        return []
+    """Load recent checks from the scheduler log, the signal source of truth."""
+    history = []
+    for run in get_recent_runs(limit):
+        prices = run.get("prices", {})
+        timestamp = run.get("completed_at") or run.get("started_at", "")
+        try:
+            time_str = datetime.fromisoformat(timestamp).strftime("%H:%M:%S")
+        except (TypeError, ValueError):
+            time_str = timestamp or "--"
+        history.append({
+            "run_id": str(run.get("run_id", "")),
+            "time": time_str,
+            "timestamp": timestamp,
+            "btc_price": prices.get("BTCUSDT"),
+            "eth_price": prices.get("ETHUSDT"),
+            "signals_count": run.get("signals", 0),
+            "confirmed_signals": run.get("confirmed", 0),
+        })
+    return history
 
 
 # ============================================================================
@@ -1428,7 +1365,7 @@ def update_agent_status(n):
         import json
         from pathlib import Path
         
-        tasks_file = Path("/root/.openclaw/workspace/kimi-shared-brain/state/tasks.json")
+        tasks_file = project_root / "state" / "tasks.json"
         if not tasks_file.exists():
             return html.P("Tasks file not found", className="text-muted")
         
@@ -1509,15 +1446,17 @@ def update_strategy_ranking(n, selected_symbol):
     
     Uses live strategy ranking data for all symbols / 使用所有幣種的即時策略排名資料
     """
+    pt = None
+    strategy_accounts = {}
+    daily_settlement = {}
+    today_str = datetime.now().strftime("%Y-%m-%d")
     try:
-        # Load paper trading state for per-strategy metrics / 載入模擬交易狀態取得策略指標
-        pt = get_pt_cached()
-        strategy_accounts = pt.strategies if pt else {}
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        daily_settlement = pt.get_daily_settlement(today_str) if pt else {}
-    except Exception:
-        strategy_accounts = {}
-        daily_settlement = {}
+        with open(_PAPER_STATE_FILE, "r", encoding="utf-8") as f:
+            pt = json.load(f)
+        strategy_accounts = pt.get("strategies", {})
+        daily_settlement = pt.get("daily_settlements", {}).get(today_str, {})
+    except (OSError, ValueError):
+        pass
     
     try:
         # Load live strategy ranking / 載入即時策略排名
@@ -1587,6 +1526,13 @@ def update_strategy_ranking(n, selected_symbol):
         symbol_scores = ranking_data.get("symbols", {})
         symbol_entry = symbol_scores.get(selected_symbol, {})
         symbol_data = symbol_entry.get("strategies", [])
+        if not symbol_data:
+            script_file = project_root / "state" / "live_strategy_ranking_script.json"
+            if script_file.exists():
+                with open(script_file, "r", encoding="utf-8") as f:
+                    script_data = json.load(f)
+                symbol_data = script_data.get("symbol_scores", {}).get(selected_symbol, [])
+                ranking_data = script_data
         
         if not symbol_data:
             return html.Div([
@@ -1601,8 +1547,9 @@ def update_strategy_ranking(n, selected_symbol):
         
         rows = []
         for i, item in enumerate(symbol_data, 1):
-            strategy = item.get("name", "Unknown")
-            score = item.get("score", 0) * 100  # 0-1 → percentage
+            strategy = item.get("name") or item.get("strategy") or item.get("strategy_id") or "Unknown"
+            raw_score = float(item.get("score", 0) or 0)
+            score = raw_score * 100 if abs(raw_score) <= 1 else raw_score
             
             # Color coding based on score / 根據分數顏色編碼
             if score >= 60:
@@ -1631,19 +1578,20 @@ def update_strategy_ranking(n, selected_symbol):
             # ─── Per-Strategy Paper Trading Metrics / 策略模擬交易指標 ───
             # Today PnL / 今日損益
             today_pnl = 0.0
-            if pt:
-                today_pnl = pt.get_strategy_today_pnl(strategy)
-                # Also include any force-closed settlement from today
-                if strategy in daily_settlement:
-                    today_pnl += daily_settlement[strategy].get("realized_pnl", 0)
+            acc = strategy_accounts.get(strategy, {})
+            for trade in acc.get("trades", []):
+                if str(trade.get("exit_time", "")).startswith(today_str):
+                    today_pnl += trade.get("realized_pnl", 0)
+            if strategy in daily_settlement:
+                today_pnl += daily_settlement[strategy].get("realized_pnl", 0)
             today_pnl_display = f"${today_pnl:+.2f}" if today_pnl != 0 else "-"
             today_pnl_color = "text-success" if today_pnl > 0 else "text-danger" if today_pnl < 0 else "text-muted"
             
             # Balance / 策略餘額
-            acc = strategy_accounts.get(strategy)
+            acc = strategy_accounts.get(strategy, {})
             if acc:
-                balance = acc.balance
-                initial = acc.initial
+                balance = acc.get("balance", 0)
+                initial = acc.get("initial", 1000)
             else:
                 balance = 0
                 initial = 1000
@@ -1696,7 +1644,7 @@ def update_strategy_ranking(n, selected_symbol):
                 )
             ])
         
-        timestamp = ranking_data.get("timestamp", "")
+        timestamp = ranking_data.get("last_updated") or ranking_data.get("timestamp", "")
         time_display = datetime.fromisoformat(timestamp).strftime('%H:%M:%S') if timestamp else "Recently"
         
         return html.Div([
@@ -1796,7 +1744,7 @@ def update_ft_block(n):
         import json
         from pathlib import Path
         
-        tasks_file = Path("/root/.openclaw/workspace/kimi-shared-brain/state/tasks.json")
+        tasks_file = project_root / "state" / "tasks.json"
         if not tasks_file.exists():
             return html.P("No pending tasks", className="text-muted")
         
@@ -1993,4 +1941,3 @@ def update_paper_summary(n):
         ),
         hold_display,
     )
-

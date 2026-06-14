@@ -24,6 +24,7 @@ sys.path.insert(0, str(project_root))
 
 from app.strategy_conditions import StrategyConditions, ConditionResult
 from config.paths import PROJECT_ROOT, LOGS_DIR
+from ui.services.monitor_service import read_recent_jsonl
 
 # Register page with dynamic route / 註冊動態路由頁面
 dash.register_page(__name__, path_template="/strategy/<strategy_name>", title="Strategy Detail")
@@ -81,15 +82,9 @@ def get_latest_snapshot(symbol: str) -> dict:
             return {}
         
         latest = {}
-        with open(snapshot_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                try:
-                    data = json.loads(line.strip())
-                    if data.get("symbol") == symbol:
-                        # Keep the latest entry for this symbol
-                        latest = data
-                except json.JSONDecodeError:
-                    continue
+        for data in read_recent_jsonl(snapshot_file):
+            if data.get("symbol") == symbol:
+                latest = data
         return latest
     except Exception as e:
         print(f"Error reading snapshot for {symbol}: {e}")
@@ -107,28 +102,20 @@ def get_signal_history(strategy_id: str, strategy_signal_type: str, symbol: str,
         expected_signal = strategy_signal_type.upper().replace(" ", "_")
         
         runs = defaultdict(list)
-        with open(snapshot_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        # Scan from most recent
-        for line in reversed(lines):
-            try:
-                data = json.loads(line.strip())
-                if data.get("symbol") != symbol:
-                    continue
-                
-                signal_types = data.get("signal_types", [])
-                if not signal_types:
-                    continue
-                
-                # Check if this snapshot contains our strategy's signal
-                matched = any(expected_signal in st.upper() or strategy_id.upper().replace("_", "") in st.upper().replace("_", "") for st in signal_types)
-                
-                if matched:
-                    run_id = data.get("run_id", data.get("timestamp", "unknown"))
-                    runs[str(run_id)].append(data)
-            except json.JSONDecodeError:
+        for data in reversed(read_recent_jsonl(snapshot_file)):
+            if data.get("symbol") != symbol:
                 continue
+            signal_types = data.get("signal_types", [])
+            if not signal_types:
+                continue
+            matched = any(
+                expected_signal in st.upper()
+                or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
+                for st in signal_types
+            )
+            if matched:
+                run_id = data.get("run_id", data.get("timestamp", "unknown"))
+                runs[str(run_id)].append(data)
         
         # Get last N runs
         result = []
@@ -160,23 +147,14 @@ def get_recent_runs_for_strategy(strategy_signal_type: str, symbol: str, limit: 
             return []
         
         runs = {}
-        with open(snapshot_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        for line in reversed(lines):
-            try:
-                data = json.loads(line.strip())
-                if data.get("symbol") != symbol:
-                    continue
-                
-                run_id = str(data.get("run_id", data.get("timestamp", "unknown")))
-                if run_id not in runs:
-                    runs[run_id] = data
-                
-                if len(runs) >= limit * 3:  # Get more to have enough distinct runs
-                    break
-            except json.JSONDecodeError:
+        for data in reversed(read_recent_jsonl(snapshot_file)):
+            if data.get("symbol") != symbol:
                 continue
+            run_id = str(data.get("run_id", data.get("timestamp", "unknown")))
+            if run_id not in runs:
+                runs[run_id] = data
+            if len(runs) >= limit * 3:
+                break
         
         # Sort by run_id (timestamp-based) descending, take limit
         sorted_runs = sorted(runs.values(), key=lambda x: x.get("timestamp", ""), reverse=True)[:limit]
@@ -880,44 +858,34 @@ def get_today_signals_for_strategy(strategy_id: str, signal_type: str, symbol: s
         today = datetime.now().strftime("%Y-%m-%d")
         
         signals = []
-        with open(snapshot_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        for line in lines:
-            try:
-                data = json.loads(line.strip())
-                if data.get("symbol") != symbol:
-                    continue
-                
-                ts = data.get("timestamp", "")
-                if not ts.startswith(today):
-                    continue
-                
-                signal_types = data.get("signal_types", [])
-                if not signal_types:
-                    continue
-                
-                matched = any(
-                    expected in st.upper() or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
-                    for st in signal_types
-                )
-                
-                if matched:
-                    signals.append({
-                        "timestamp": ts,
-                        "symbol": symbol,
-                        "price": data.get("price"),
-                        "indicators": {
-                            "rsi": data.get("rsi"),
-                            "ma5": data.get("ma5"),
-                            "ma20": data.get("ma20"),
-                            "ht_sine": data.get("ht_sine"),
-                            "stoch_fastk": data.get("stoch_fastk"),
-                            "volume_ratio": data.get("volume_ratio"),
-                        }
-                    })
-            except Exception:
+        for data in read_recent_jsonl(snapshot_file):
+            if data.get("symbol") != symbol:
                 continue
+            ts = data.get("timestamp", "")
+            if not ts.startswith(today):
+                continue
+            signal_types = data.get("signal_types", [])
+            if not signal_types:
+                continue
+            matched = any(
+                expected in st.upper()
+                or strategy_id.upper().replace("_", "") in st.upper().replace("_", "")
+                for st in signal_types
+            )
+            if matched:
+                signals.append({
+                    "timestamp": ts,
+                    "symbol": symbol,
+                    "price": data.get("price"),
+                    "indicators": {
+                        "rsi": data.get("rsi"),
+                        "ma5": data.get("ma5"),
+                        "ma20": data.get("ma20"),
+                        "ht_sine": data.get("ht_sine"),
+                        "stoch_fastk": data.get("stoch_fastk"),
+                        "volume_ratio": data.get("volume_ratio"),
+                    }
+                })
         
         return signals
     except Exception as e:
@@ -1170,18 +1138,12 @@ def get_symbol_snapshots_today(symbol: str) -> list:
         today = datetime.now().strftime("%Y-%m-%d")
         snapshots = []
         
-        with open(snapshot_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                try:
-                    data = json.loads(line.strip())
-                    if data.get("symbol") != symbol:
-                        continue
-                    ts = data.get("timestamp", "")
-                    if not ts.startswith(today):
-                        continue
-                    snapshots.append(data)
-                except Exception:
-                    continue
+        for data in read_recent_jsonl(snapshot_file):
+            if data.get("symbol") != symbol:
+                continue
+            ts = data.get("timestamp", "")
+            if ts.startswith(today):
+                snapshots.append(data)
         
         # Sort by timestamp ascending
         snapshots.sort(key=lambda x: x.get("timestamp", ""))

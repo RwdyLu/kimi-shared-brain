@@ -17,7 +17,12 @@ project_root = script_dir.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import monitor service / 匯入監測服務
-from ui.services.monitor_service import get_recent_runs, get_today_signals, get_latest_indicator_snapshots
+from ui.services.monitor_service import (
+    get_recent_runs,
+    get_today_signals,
+    get_latest_indicator_snapshots,
+    read_recent_jsonl,
+)
 
 # Register page / 註冊頁面
 dash.register_page(__name__, path="/signals", title="Signals")
@@ -342,18 +347,18 @@ layout = dbc.Container(
             className="mb-4"
         ),
         
-        # Alert-Only Notice / 僅提醒通知
+        # Paper trading notice / 模擬交易通知
         dbc.Alert(
             [
-                html.H5("⚠️ Alert-Only System / 僅提醒系統", className="alert-heading"),
+                html.H5("Paper Trading System / 模擬交易系統", className="alert-heading"),
                 html.P(
-                    "This monitoring system generates ALERTS ONLY. No automatic trading is performed. "
-                    "All trading decisions require manual confirmation.",
+                    "Signals may be executed by the paper-trading simulator. "
+                    "No real exchange orders are submitted.",
                     className="mb-0"
                 ),
                 html.Hr(),
                 html.P(
-                    "本監測系統僅產生提醒，不執行自動交易。所有交易決策需人工確認。",
+                    "訊號可能由模擬交易系統自動執行，但不會向交易所送出真實訂單。",
                     className="mb-0 small"
                 )
             ],
@@ -658,10 +663,8 @@ def update_signals_feed(n_intervals, n_clicks, filter_type, filter_symbol, filte
         signals = []
         seen = set()
         
-        with open(snapshot_file, 'r') as f:
-            for line in f:
-                try:
-                    record = json.loads(line.strip())
+        for record in read_recent_jsonl(snapshot_file):
+            try:
                     symbol = record.get("symbol")
                     signal_types = record.get("signal_types", [])
                     ts_str = record.get("timestamp", "")
@@ -697,9 +700,8 @@ def update_signals_feed(n_intervals, n_clicks, filter_type, filter_symbol, filte
                     seen.add(key)
                     
                     signals.append(record)
-                    
-                except Exception:
-                    continue
+            except Exception:
+                continue
         
         # Sort by timestamp descending / 按時間降序排序
         signals.sort(key=lambda x: x.get("timestamp", ""), reverse=True)

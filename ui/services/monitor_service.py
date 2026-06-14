@@ -25,6 +25,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from config.paths import PROJECT_ROOT, LOGS_DIR, STATE_DIR
 
 
+def read_recent_jsonl(path: Path, max_bytes: int = 8 * 1024 * 1024) -> List[Dict[str, Any]]:
+    """Read complete JSONL records from the tail of a potentially large file."""
+    if not path.exists():
+        return []
+
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            start = max(0, size - max_bytes)
+            f.seek(start)
+            data = f.read()
+
+        if start:
+            newline = data.find(b"\n")
+            data = data[newline + 1:] if newline >= 0 else b""
+
+        records = []
+        for line in data.decode("utf-8", errors="ignore").splitlines():
+            try:
+                records.append(json.loads(line))
+            except (TypeError, ValueError):
+                continue
+        return records
+    except OSError:
+        return []
+
+
 class MonitorService:
     """
     Service for querying monitoring system status
@@ -338,20 +366,26 @@ class MonitorService:
             if run_match:
                 result["run_id"] = int(run_match.group(1))
             
-            # Find the corresponding run details
-            for line in reversed(lines):
-                if result["run_id"] and f"Run #{result['run_id']}" in line:
-                    # Duration
-                    duration_match = re.search(r'Duration: ([\d.]+)s', line)
-                    if duration_match:
-                        result["duration"] = float(duration_match.group(1))
-                    
-                    # Signals
-                    signals_match = re.search(r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line)
-                    if signals_match:
-                        result["signals"] = int(signals_match.group(1))
-                        result["confirmed"] = int(signals_match.group(2))
-                        result["watch_only"] = int(signals_match.group(3))
+            # Scan only this run's log block. Signal lines do not include the run ID.
+            completion_index = lines.index(last_run_line)
+            for line in reversed(lines[:completion_index + 1]):
+                start_match = re.search(r'Run #(\d+) started', line)
+                if start_match:
+                    if int(start_match.group(1)) == result["run_id"]:
+                        break
+                    continue
+
+                duration_match = re.search(r'Duration: ([\d.]+)s', line)
+                if duration_match:
+                    result["duration"] = float(duration_match.group(1))
+
+                signals_match = re.search(
+                    r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line
+                )
+                if signals_match:
+                    result["signals"] = int(signals_match.group(1))
+                    result["confirmed"] = int(signals_match.group(2))
+                    result["watch_only"] = int(signals_match.group(3))
             
             # Build result text
             if result["signals"] > 0:
@@ -381,48 +415,53 @@ class MonitorService:
             if not lines:
                 return runs
             
-            # Find completed runs - process from most recent
-            run_info = {}
-            for line in reversed(lines):
+            # Parse complete run blocks in chronological order.
+            completed_runs = []
+            current_run = None
+            for line in lines:
                 timestamp_match = re.match(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]', line)
-                if not timestamp_match:
+                timestamp_str = timestamp_match.group(1) if timestamp_match else None
+
+                start_match = re.search(r'Run #(\d+) started', line)
+                if start_match:
+                    current_run = {
+                        "run_id": int(start_match.group(1)),
+                        "timestamp": timestamp_str,
+                        "signals": 0,
+                        "confirmed": 0,
+                        "watch_only": 0,
+                    }
                     continue
-                
-                timestamp_str = timestamp_match.group(1)
-                
-                # Check for run completion
+
+                signals_match = re.search(
+                    r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line
+                )
+                if signals_match and current_run:
+                    current_run["signals"] = int(signals_match.group(1))
+                    current_run["confirmed"] = int(signals_match.group(2))
+                    current_run["watch_only"] = int(signals_match.group(3))
+                    continue
+
                 run_match = re.search(r'Run #(\d+) completed', line)
                 if run_match:
                     run_id = int(run_match.group(1))
-                    if run_id not in run_info:
-                        run_info[run_id] = {
+                    if not current_run or current_run["run_id"] != run_id:
+                        current_run = {
                             "run_id": run_id,
                             "timestamp": timestamp_str,
-                            "time_ago": self._format_time_ago(
-                                datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                            ),
                             "signals": 0,
                             "confirmed": 0,
-                            "watch_only": 0
+                            "watch_only": 0,
                         }
-                        # Stop once we have enough runs
-                        if len(run_info) >= count:
-                            break
-                
-                # Extract signal counts - match the run that needs signal info
-                signals_match = re.search(r'Signals: (\d+) \(Confirmed: (\d+), Watch: (\d+)\)', line)
-                if signals_match and run_info:
-                    # Find the most recent run without signal counts
-                    for run_id in sorted(run_info.keys(), reverse=True):
-                        if run_info[run_id]["signals"] == 0:
-                            run_info[run_id]["signals"] = int(signals_match.group(1))
-                            run_info[run_id]["confirmed"] = int(signals_match.group(2))
-                            run_info[run_id]["watch_only"] = int(signals_match.group(3))
-                            break
-            
-            # Convert to list and sort by run_id descending (most recent first)
-            runs = list(run_info.values())
-            runs.sort(key=lambda x: x["run_id"], reverse=True)
+                    current_run["timestamp"] = timestamp_str or current_run.get("timestamp")
+                    if current_run["timestamp"]:
+                        current_run["time_ago"] = self._format_time_ago(
+                            datetime.strptime(current_run["timestamp"], "%Y-%m-%d %H:%M:%S")
+                        )
+                    completed_runs.append(current_run)
+                    current_run = None
+
+            runs = list(reversed(completed_runs[-count:]))
             
             # Only get symbol breakdown for runs that will be displayed
             if runs:
@@ -481,34 +520,25 @@ class MonitorService:
             # Also match by run_id if available
             run_id_str = str(run_id)
             
-            with open(snapshot_file, 'r') as f:
-                for line in f:
+            for record in read_recent_jsonl(snapshot_file):
+                record_run_id = str(record.get("run_id", ""))
+                ts_str = record.get("timestamp", "")
+
+                matched = record_run_id == run_id_str if record_run_id else False
+                if not matched and ts_str:
                     try:
-                        record = json.loads(line.strip())
-                        
-                        # Match by run_id or timestamp
-                        record_run_id = str(record.get("run_id", ""))
-                        ts_str = record.get("timestamp", "")
-                        
-                        matched = False
-                        if record_run_id and record_run_id == run_id_str:
-                            matched = True
-                        elif ts_str:
-                            try:
-                                record_ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00').replace('+00:00', ''))
-                                if window_start <= record_ts <= window_end:
-                                    matched = True
-                            except:
-                                pass
-                        
-                        if matched:
-                            symbol = record.get("symbol")
-                            price = record.get("price")
-                            if symbol and price is not None:
-                                prices[symbol] = price
-                                
-                    except Exception:
-                        continue
+                        record_ts = datetime.fromisoformat(
+                            ts_str.replace('Z', '+00:00').replace('+00:00', '')
+                        )
+                        matched = window_start <= record_ts <= window_end
+                    except ValueError:
+                        pass
+
+                if matched:
+                    symbol = record.get("symbol")
+                    price = record.get("price")
+                    if symbol and price is not None:
+                        prices[symbol] = price
                         
         except Exception:
             pass
@@ -778,37 +808,21 @@ def _get_prices_from_snapshot() -> Dict[str, Any]:
         latest_prices = {}
         latest_timestamp = None
         
-        with open(snapshot_file, 'r') as f:
-            for line in f:
-                try:
-                    record = json.loads(line.strip())
-                    symbol = record.get("symbol")
-                    price = record.get("price")
-                    ts_str = record.get("timestamp", "")
-                    
-                    if not symbol or price is None or not ts_str:
-                        continue
-                    
-                    try:
-                        ts = datetime.fromisoformat(ts_str)
-                    except:
-                        continue
-                    
-                    if latest_timestamp is None or ts > latest_timestamp:
-                        latest_timestamp = ts
-                    
-                    if symbol not in latest_prices:
-                        latest_prices[symbol] = {"price": price, "timestamp": ts_str}
-                    else:
-                        existing_ts = latest_prices[symbol]["timestamp"]
-                        try:
-                            if ts > datetime.fromisoformat(existing_ts):
-                                latest_prices[symbol] = {"price": price, "timestamp": ts_str}
-                        except:
-                            pass
-                            
-                except Exception:
-                    continue
+        for record in read_recent_jsonl(snapshot_file):
+            symbol = record.get("symbol")
+            price = record.get("price")
+            ts_str = record.get("timestamp", "")
+            if not symbol or price is None or not ts_str:
+                continue
+            try:
+                ts = datetime.fromisoformat(ts_str)
+            except ValueError:
+                continue
+            if latest_timestamp is None or ts > latest_timestamp:
+                latest_timestamp = ts
+            existing = latest_prices.get(symbol)
+            if not existing or ts > datetime.fromisoformat(existing["timestamp"]):
+                latest_prices[symbol] = {"price": price, "timestamp": ts_str}
         
         if not latest_prices:
             return {}
@@ -841,16 +855,10 @@ def get_latest_indicator_snapshots() -> Dict[str, Any]:
             return {}
         
         latest = {}
-        with open(snapshot_file, 'r') as f:
-            for line in f:
-                try:
-                    data = json.loads(line.strip())
-                    symbol = data.get("symbol")
-                    if symbol:
-                        # Keep only the latest for each symbol
-                        latest[symbol] = data
-                except json.JSONDecodeError:
-                    continue
+        for data in read_recent_jsonl(snapshot_file):
+            symbol = data.get("symbol")
+            if symbol:
+                latest[symbol] = data
         
         return latest
     except Exception as e:
