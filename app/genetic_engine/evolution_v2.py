@@ -228,7 +228,7 @@ class EvolutionEngineV2:
                 print(f"   [{i+1}/{len(self.population)}] {chrom.chromosome_id[:8]}...", end=" ")
             
             try:
-                use_multi_window = self.config.get("use_multi_window", False)
+                use_multi_window = self.config.get("use_multi_window", True)
 
                 if use_multi_window:
                     # ── Stage 3: multi-window cross-validation ────────────────
