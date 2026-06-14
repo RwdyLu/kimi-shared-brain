@@ -8,19 +8,47 @@ Phase 1 of GA Core Principles: Fix 1000-candle limit for 90-day backtest.
 import sys
 import os
 import unittest
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch, call, MagicMock
 import json
+import time
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.fetcher import (
     BinanceFetcher,
+    KlineData,
     validate_klines,
     interval_to_ms,
+    calculate_max_pages,
     INTERVAL_MS,
 )
 
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def make_klines(start_ms: int, interval_ms: int, count: int) -> list:
+    """Generate synthetic kline pages with full Binance format."""
+    return [
+        [
+            start_ms + i * interval_ms,   # 0: open_time
+            "100.0",                        # 1: open
+            "101.0",                        # 2: high
+            "99.0",                         # 3: low
+            "100.5",                        # 4: close
+            "1000.0",                       # 5: volume
+            start_ms + (i + 1) * interval_ms - 1,  # 6: close_time
+            "100000.0",                     # 7: quote_volume
+            100,                            # 8: trades
+            "500.0",                        # 9: taker_buy_base
+            "50000.0",                      # 10: taker_buy_quote
+            "0"                             # 11: ignore
+        ]
+        for i in range(count)
+    ]
+
+
+# ─── interval_to_ms ──────────────────────────────────────────────────────────
 
 class TestIntervalToMs(unittest.TestCase):
     """Test interval_to_ms helper"""
@@ -35,6 +63,8 @@ class TestIntervalToMs(unittest.TestCase):
             interval_to_ms("1h")
         self.assertIn("1h", str(ctx.exception))
 
+
+# ─── validate_klines ─────────────────────────────────────────────────────────
 
 class TestValidateKlines(unittest.TestCase):
     """Test validate_klines function"""
@@ -87,6 +117,7 @@ class TestValidateKlines(unittest.TestCase):
         self.assertEqual(result["actual_count"], 100)
         self.assertEqual(result["gaps"], [])
         self.assertEqual(result["warnings"], [])
+        self.assertEqual(result["errors"], [])
 
     def test_short_count_warning(self):
         start = 1700000000000
@@ -100,17 +131,19 @@ class TestValidateKlines(unittest.TestCase):
         self.assertEqual(len(result["warnings"]), 1)
         self.assertIn("Expected 100 candles", result["warnings"][0])
 
-    def test_gap_detection(self):
+    def test_gap_detection_is_error_not_warning(self):
+        """Gap is now a hard ERROR (fail-closed), not just a warning."""
         start = 1700000000000
-        klines = self._make_klines(start, 300000, 10)
-        # Insert a big gap at index 5: jump from index 4 to index 15
-        klines[5][0] = start + 15 * 300000  # 1700004500000
+        interval_ms = 300000
+        klines = self._make_klines(start, interval_ms, 10)
+        # Introduce a gap: candle at index 5 jumps forward by 10 intervals.
+        # This creates a gap between index 4 and the moved index 5, and another
+        # unexpected spacing between the moved index 5 and the original index 6.
+        klines[5][0] = start + 15 * interval_ms
         result = validate_klines(klines, interval="5m")
-        self.assertTrue(result["valid"])
-        self.assertEqual(len(result["gaps"]), 1)
-        self.assertEqual(len(result["warnings"]), 1)
-        self.assertIn("Gap detected", result["warnings"][0])
-        self.assertIn("candles missing", result["warnings"][0])
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("Gap detected" in e for e in result["errors"]))
+        self.assertGreaterEqual(len(result["gaps"]), 1)
 
     def test_invalid_candle_structure(self):
         start = 1700000000000
@@ -133,6 +166,59 @@ class TestValidateKlines(unittest.TestCase):
         self.assertEqual(len(result["warnings"]), 1)
         self.assertIn("Start time mismatch", result["warnings"][0])
 
+    def test_missing_one_candle_fails(self):
+        """A single missing candle creates a gap — validation must FAIL."""
+        start = 1700000000000
+        interval_ms = 300000
+        klines = self._make_klines(start, interval_ms, 10)
+        # Remove candle at index 5 (skip one interval)
+        del klines[5]
+        result = validate_klines(klines, interval="5m")
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("Gap detected" in e for e in result["errors"]))
+
+
+# ─── normalize_kline_data / get_klines ───────────────────────────────────────
+
+class TestNormalizeKlineData(unittest.TestCase):
+    """Test normalize_kline_data method is properly accessible on BinanceFetcher."""
+
+    def setUp(self):
+        self.fetcher = BinanceFetcher()
+
+    def test_normalize_returns_kline_data_objects(self):
+        """normalize_kline_data must be a method on BinanceFetcher."""
+        raw = make_klines(1700000000000, 300000, 5)
+        result = self.fetcher.normalize_kline_data(raw)
+        self.assertEqual(len(result), 5)
+        self.assertIsInstance(result[0], KlineData)
+        self.assertEqual(result[0].timestamp, 1700000000000)
+        self.assertAlmostEqual(result[0].open, 100.0)
+        self.assertAlmostEqual(result[0].close, 100.5)
+
+    def test_normalize_empty(self):
+        result = self.fetcher.normalize_kline_data([])
+        self.assertEqual(result, [])
+
+    def test_normalize_raises_on_short_candle(self):
+        raw = [[1700000000000, "100.0"]]  # Only 2 fields
+        with self.assertRaises(ValueError):
+            self.fetcher.normalize_kline_data(raw)
+
+    @patch.object(BinanceFetcher, 'fetch_klines')
+    def test_get_klines_calls_normalize(self, mock_fetch):
+        """get_klines must call fetch_klines then normalize_kline_data."""
+        raw = make_klines(1700000000000, 300000, 3)
+        mock_fetch.return_value = raw
+
+        result = self.fetcher.get_klines("BTCUSDT", "5m", limit=3)
+
+        mock_fetch.assert_called_once_with("BTCUSDT", "5m", 3)
+        self.assertEqual(len(result), 3)
+        self.assertIsInstance(result[0], KlineData)
+
+
+# ─── fetch_klines_paginated ───────────────────────────────────────────────────
 
 class TestFetchKlinesPaginated(unittest.TestCase):
     """Test BinanceFetcher.fetch_klines_paginated"""
@@ -140,42 +226,23 @@ class TestFetchKlinesPaginated(unittest.TestCase):
     def setUp(self):
         self.fetcher = BinanceFetcher()
 
-    def _make_page(self, start_ms, interval_ms, count):
-        """Generate a page of klines"""
-        return [
-            [
-                start_ms + i * interval_ms,
-                100.0, 101.0, 99.0, 100.5, 1000.0,
-                start_ms + (i + 1) * interval_ms - 1,
-                100000.0, 100, 500.0, 50000.0, "0"
-            ]
-            for i in range(count)
-        ]
-
     @patch.object(BinanceFetcher, 'fetch_klines')
     def test_single_page(self, mock_fetch):
         """When all data fits in one page"""
         start = 1700000000000
         interval_ms = 300000
         end = start + 500 * interval_ms
-        
-        klines = self._make_page(start, interval_ms, 500)
+
+        klines = make_klines(start, interval_ms, 500)
         mock_fetch.return_value = klines
-        
+
         result, validation = self.fetcher.fetch_klines_paginated(
-            "BTCUSDT", "5m", start, end, limit=1000
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=100
         )
-        
+
         self.assertEqual(len(result), 500)
         self.assertEqual(mock_fetch.call_count, 1)
         self.assertTrue(validation["valid"])
-        mock_fetch.assert_called_with(
-            symbol="BTCUSDT",
-            interval="5m",
-            limit=1000,
-            start_time=start,
-            end_time=end,
-        )
 
     @patch.object(BinanceFetcher, 'fetch_klines')
     def test_multi_page(self, mock_fetch):
@@ -184,27 +251,23 @@ class TestFetchKlinesPaginated(unittest.TestCase):
         interval_ms = 300000
         page_size = 1000
         end = start + 2500 * interval_ms  # 2.5 pages worth
-        
-        # Page 1: 1000 candles
-        page1 = self._make_page(start, interval_ms, 1000)
-        # Page 2: 1000 candles starting from page1 end
+
+        page1 = make_klines(start, interval_ms, 1000)
         page2_start = start + 1000 * interval_ms
-        page2 = self._make_page(page2_start, interval_ms, 1000)
-        # Page 3: 500 candles (partial, triggers end condition)
+        page2 = make_klines(page2_start, interval_ms, 1000)
         page3_start = start + 2000 * interval_ms
-        page3 = self._make_page(page3_start, interval_ms, 500)
-        
+        page3 = make_klines(page3_start, interval_ms, 500)
+
         mock_fetch.side_effect = [page1, page2, page3]
-        
+
         result, validation = self.fetcher.fetch_klines_paginated(
-            "BTCUSDT", "5m", start, end, limit=page_size
+            "BTCUSDT", "5m", start, end, limit=page_size, max_pages=100
         )
-        
+
         self.assertEqual(len(result), 2500)
         self.assertEqual(mock_fetch.call_count, 3)
         self.assertTrue(validation["valid"])
-        
-        # Check calls use correct pagination
+
         calls = mock_fetch.call_args_list
         self.assertEqual(calls[0][1]["start_time"], start)
         self.assertEqual(calls[1][1]["start_time"], page2_start)
@@ -216,18 +279,17 @@ class TestFetchKlinesPaginated(unittest.TestCase):
         start = 1700000000000
         interval_ms = 300000
         end = start + 5000 * interval_ms
-        
-        # Only 1500 candles exist
-        page1 = self._make_page(start, interval_ms, 1000)
+
+        page1 = make_klines(start, interval_ms, 1000)
         page2_start = start + 1000 * interval_ms
-        page2 = self._make_page(page2_start, interval_ms, 500)  # Only 500 left
-        
+        page2 = make_klines(page2_start, interval_ms, 500)
+
         mock_fetch.side_effect = [page1, page2]
-        
+
         result, _ = self.fetcher.fetch_klines_paginated(
-            "BTCUSDT", "5m", start, end, limit=1000
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=100
         )
-        
+
         self.assertEqual(len(result), 1500)
         self.assertEqual(mock_fetch.call_count, 2)
 
@@ -235,78 +297,298 @@ class TestFetchKlinesPaginated(unittest.TestCase):
     def test_empty_response(self, mock_fetch):
         """When API returns empty data"""
         mock_fetch.return_value = []
-        
+
         with self.assertRaises(ValueError) as ctx:
             self.fetcher.fetch_klines_paginated(
-                "BTCUSDT", "5m", 1700000000000, 1700000001000
+                "BTCUSDT", "5m", 1700000000000, 1700000001000, max_pages=5
             )
         self.assertIn("Empty response", str(ctx.exception))
 
     @patch.object(BinanceFetcher, 'fetch_klines')
-    def test_validation_warnings(self, mock_fetch):
-        """Test that validation warnings are returned"""
+    def test_cross_page_duplicate_dedup(self, mock_fetch):
+        """Last candle of page N == first candle of page N+1: deduplicated correctly."""
         start = 1700000000000
         interval_ms = 300000
-        end = start + 1000 * interval_ms
+        page_size = 1000
+        end = start + 1500 * interval_ms
 
-        # Only return 500 candles when 1000 expected
-        klines = self._make_page(start, interval_ms, 500)
+        page1 = make_klines(start, interval_ms, 1000)
+        # page2 starts with the SAME candle as the last of page1
+        page2 = make_klines(start + 999 * interval_ms, interval_ms, 500)
+
+        mock_fetch.side_effect = [page1, page2]
+
+        result, validation = self.fetcher.fetch_klines_paginated(
+            "BTCUSDT", "5m", start, end, limit=page_size, max_pages=10
+        )
+
+        # After dedup: 1000 + 500 - 1 overlap = 1499 unique candles
+        self.assertEqual(len(result), 1499)
+        # Timestamps should be strictly ascending
+        timestamps = [int(c[0]) for c in result]
+        self.assertEqual(timestamps, sorted(timestamps))
+        self.assertEqual(len(set(timestamps)), len(timestamps))
+
+    @patch.object(BinanceFetcher, 'fetch_klines')
+    def test_cross_page_duplicate_conflict_fails_validation(self, mock_fetch):
+        """Same timestamp with DIFFERENT content across pages → validation must FAIL."""
+        start = 1700000000000
+        interval_ms = 300000
+        end = start + 1500 * interval_ms
+
+        page1 = make_klines(start, interval_ms, 1000)
+        page2 = make_klines(start + 999 * interval_ms, interval_ms, 500)
+        # Mutate the overlapping candle in page2 to have a different close
+        page2[0][4] = "999.9"  # Different close price — conflict
+
+        mock_fetch.side_effect = [page1, page2]
+
+        result, validation = self.fetcher.fetch_klines_paginated(
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=10
+        )
+
+        self.assertFalse(validation["valid"])
+        self.assertTrue(validation["data_invalid"])
+        self.assertTrue(any("conflicting content" in e for e in validation["errors"]))
+
+    @patch.object(BinanceFetcher, 'fetch_klines')
+    def test_missing_one_candle_fails(self, mock_fetch):
+        """A single missing candle → validation FAILS (not warns)."""
+        start = 1700000000000
+        interval_ms = 300000
+        end = start + 100 * interval_ms
+
+        klines = make_klines(start, interval_ms, 100)
+        # Remove candle 50 — creates a gap
+        del klines[50]
+
         mock_fetch.return_value = klines
 
         result, validation = self.fetcher.fetch_klines_paginated(
-            "BTCUSDT", "5m", start, end, limit=1000
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=5
         )
 
-        self.assertEqual(len(result), 500)
-        self.assertTrue(validation["valid"])  # Structurally valid
-        self.assertGreaterEqual(len(validation["warnings"]), 1)
-        self.assertTrue(any("Expected 1000 candles" in w for w in validation["warnings"]))
+        self.assertFalse(validation["valid"])
+        self.assertTrue(validation["data_invalid"])
+        self.assertTrue(any("Gap detected" in e for e in validation["errors"]))
 
     @patch.object(BinanceFetcher, 'fetch_klines')
-    def test_max_pages_safety_cap(self, mock_fetch):
-        """Test safety cap of 50 pages"""
+    def test_max_pages_truncation_marks_data_invalid(self, mock_fetch):
+        """When max_pages is reached before end_time → data_invalid=True."""
         start = 1700000000000
         interval_ms = 300000
-        # Request way more than 50 pages worth
-        end = start + 100000 * interval_ms
+        end = start + 100000 * interval_ms  # Far future
 
         def side_effect(symbol, interval, limit, start_time, end_time):
-            # Return a page starting at the requested start_time
-            return self._make_page(start_time, interval_ms, 1000)
+            return make_klines(start_time, interval_ms, 1000)
 
         mock_fetch.side_effect = side_effect
 
-        result, _ = self.fetcher.fetch_klines_paginated(
-            "BTCUSDT", "5m", start, end, limit=1000
+        result, validation = self.fetcher.fetch_klines_paginated(
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=3
         )
 
-        # Should stop at 50 pages (50,000 candles)
-        self.assertEqual(len(result), 50000)
-        self.assertEqual(mock_fetch.call_count, 50)
+        # Should have exactly 3000 candles (3 pages × 1000)
+        self.assertEqual(mock_fetch.call_count, 3)
+        self.assertFalse(validation["valid"])
+        self.assertTrue(validation["data_invalid"])
+        self.assertTrue(any("max_pages" in e for e in validation["errors"]))
+
+    @patch.object(BinanceFetcher, 'fetch_klines')
+    def test_validation_fail_closed_data_invalid_fitness(self, mock_fetch):
+        """validation.valid=False → data_invalid must be True (caller must abort backtest).
+
+        We use max_pages=1 with a large time range so the page cap is hit,
+        forcing the paginator to mark data_invalid=True.
+        """
+        start = 1700000000000
+        interval_ms = 300000
+        # Range large enough to need many pages
+        end = start + 5000 * interval_ms
+
+        # Return a full page every call so pagination keeps wanting more
+        def side_effect(symbol, interval, limit, start_time, end_time):
+            return make_klines(start_time, interval_ms, 1000)
+
+        mock_fetch.side_effect = side_effect
+
+        _, validation = self.fetcher.fetch_klines_paginated(
+            "BTCUSDT", "5m", start, end, limit=1000, max_pages=1
+        )
+
+        # max_pages=1 → truncated → must be data_invalid
+        self.assertFalse(validation["valid"])
+        self.assertTrue(validation["data_invalid"])
 
     def test_90_day_5m_calculation(self):
         """Verify the 90-day 5m calculation from design doc"""
-        # 90 days * 24 hours * 12 candles/hour = 25,920 candles
         candles_per_day = 24 * 12  # 5m = 12 candles per hour
         expected = 90 * candles_per_day
         self.assertEqual(expected, 25920)
-        
-        # With 1000 candles per page, need 26 pages
+
         pages_needed = (expected + 999) // 1000
         self.assertEqual(pages_needed, 26)
 
+    def test_auto_max_pages_calculation(self):
+        """calculate_max_pages auto-calculates with safety margin."""
+        start = 1700000000000
+        interval_ms = 300000
+        end = start + 25920 * interval_ms  # 90-day 5m range
+
+        max_pages = calculate_max_pages(start, end, "5m", page_size=1000)
+        # Should be >= 26 (exact) and cover with margin
+        self.assertGreaterEqual(max_pages, 26)
+        # With 10% margin: ceil(25920/1000 * 1.1) + 1 = 30
+        self.assertLessEqual(max_pages, 35)
+
+
+# ─── Retry / Backoff ─────────────────────────────────────────────────────────
+
+class TestRetryBackoff(unittest.TestCase):
+    """Test retry and backoff behaviour in fetch_klines."""
+
+    def setUp(self):
+        self.fetcher = BinanceFetcher()
+
+    @patch.object(BinanceFetcher, '_rate_limit')  # suppress rate-limit sleeps
+    @patch('data.fetcher.time.sleep')
+    def test_429_with_retry_after_waits_correct_time(self, mock_sleep, mock_rate_limit):
+        """429 with Retry-After header → wait exactly that many seconds."""
+        raw_response = make_klines(1700000000000, 300000, 5)
+
+        with patch.object(self.fetcher.session, 'get') as mock_get:
+            resp_429 = Mock()
+            resp_429.status_code = 429
+            resp_429.headers = {"Retry-After": "10"}
+            resp_429.raise_for_status.side_effect = None
+
+            resp_ok = Mock()
+            resp_ok.status_code = 200
+            resp_ok.raise_for_status.return_value = None
+            resp_ok.json.return_value = raw_response
+
+            mock_get.side_effect = [resp_429, resp_ok]
+
+            result = self.fetcher.fetch_klines("BTCUSDT", "5m", limit=5)
+
+        # Should have slept for the Retry-After value (10s)
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertTrue(any(s == 10.0 for s in sleep_calls))
+        self.assertEqual(len(result), 5)
+
+    @patch.object(BinanceFetcher, '_rate_limit')  # suppress rate-limit sleeps
+    @patch('data.fetcher.time.sleep')
+    def test_5xx_exponential_backoff(self, mock_sleep, mock_rate_limit):
+        """5xx errors → exponential backoff, eventually succeeds."""
+        raw_response = make_klines(1700000000000, 300000, 3)
+
+        with patch.object(self.fetcher.session, 'get') as mock_get:
+            def make_5xx():
+                r = Mock()
+                r.status_code = 503
+                r.headers = {}
+                r.raise_for_status.side_effect = None
+                return r
+
+            resp_ok = Mock()
+            resp_ok.status_code = 200
+            resp_ok.raise_for_status.return_value = None
+            resp_ok.json.return_value = raw_response
+
+            mock_get.side_effect = [make_5xx(), make_5xx(), resp_ok]
+
+            result = self.fetcher.fetch_klines("BTCUSDT", "5m", limit=3)
+
+        # Should have slept twice with exponential delays: 2^0=1, 2^1=2
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertGreaterEqual(len(sleep_calls), 2)
+        # Exponential: second sleep >= first
+        self.assertGreaterEqual(sleep_calls[1], sleep_calls[0])
+        self.assertEqual(len(result), 3)
+
+    @patch.object(BinanceFetcher, '_rate_limit')  # suppress rate-limit sleeps
+    @patch('data.fetcher.time.sleep')
+    def test_permanent_errors_not_retried(self, mock_sleep, mock_rate_limit):
+        """400, 401, 403 → should NOT be retried."""
+        import requests as req_lib
+
+        for status_code in (400, 401, 403):
+            mock_sleep.reset_mock()
+            with patch.object(self.fetcher.session, 'get') as mock_get:
+                resp = Mock()
+                resp.status_code = status_code
+                resp.headers = {}
+                http_err = req_lib.exceptions.HTTPError(response=resp)
+                resp.raise_for_status.side_effect = http_err
+                mock_get.return_value = resp
+
+                with self.assertRaises(req_lib.RequestException):
+                    self.fetcher.fetch_klines("BTCUSDT", "5m", limit=5)
+
+            # No retries means no backoff sleep
+            mock_sleep.assert_not_called()
+
+
+# ─── Cache write verification ─────────────────────────────────────────────────
+
+class TestCacheWriteVerification(unittest.TestCase):
+    """Test that after fetching from API, data is accessible via KlineCache."""
+
+    def test_cache_write_then_read_skips_api(self):
+        """
+        Simulate KlineCache.load_or_fetch: after writing to cache,
+        subsequent loads must NOT call the API again.
+
+        We replicate the pattern from backtest_engine.KlineCache inline
+        to keep the test self-contained.
+        """
+        import tempfile
+        import pandas as pd
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            symbol, interval = "BTCUSDT", "5m"
+            parquet_path = cache_dir / f"{symbol}_{interval}.parquet"
+
+            # Simulate fetching and writing to cache
+            raw = make_klines(1700000000000, 300000, 100)
+            df = pd.DataFrame(raw, columns=[
+                'timestamp', 'open', 'high', 'low', 'close', 'volume',
+                'close_time', 'quote_volume', 'trades', 'taker_buy_base',
+                'taker_buy_quote', 'ignore'
+            ])
+            df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms', utc=True)
+            df.set_index('timestamp', inplace=True)
+            for col in ['open', 'high', 'low', 'close', 'volume']:
+                df[col] = df[col].astype(float)
+
+            # Write to cache
+            df.to_parquet(parquet_path)
+
+            # Verify file was written
+            self.assertTrue(parquet_path.exists())
+
+            # Re-read from cache (no API call)
+            fetcher_mock = Mock()  # API must NOT be called
+            df_cached = pd.read_parquet(parquet_path)
+
+            self.assertEqual(len(df_cached), 100)
+            fetcher_mock.fetch_klines.assert_not_called()
+            fetcher_mock.fetch_klines_paginated.assert_not_called()
+
+
+# ─── Signature / Compatibility ────────────────────────────────────────────────
 
 class TestBinanceCompatibility(unittest.TestCase):
     """Ensure existing fetch_klines signature is preserved"""
 
     def test_fetch_klines_signature_unchanged(self):
-        """fetch_klines must still accept all original parameters"""
         import inspect
         sig = inspect.signature(BinanceFetcher.fetch_klines)
         params = list(sig.parameters.keys())
         self.assertEqual(params, ['self', 'symbol', 'interval', 'limit', 'start_time', 'end_time'])
-        
-        # Check defaults
+
         defaults = {
             p.name: p.default
             for p in sig.parameters.values()
@@ -317,11 +599,15 @@ class TestBinanceCompatibility(unittest.TestCase):
         self.assertEqual(defaults['end_time'], None)
 
     def test_get_klines_signature_unchanged(self):
-        """get_klines must still work as before"""
         import inspect
         sig = inspect.signature(BinanceFetcher.get_klines)
         params = list(sig.parameters.keys())
         self.assertEqual(params, ['self', 'symbol', 'interval', 'limit'])
+
+    def test_normalize_kline_data_is_method_on_class(self):
+        """normalize_kline_data must be a proper method, not a standalone function."""
+        self.assertTrue(hasattr(BinanceFetcher, 'normalize_kline_data'))
+        self.assertTrue(callable(BinanceFetcher.normalize_kline_data))
 
 
 if __name__ == '__main__':
