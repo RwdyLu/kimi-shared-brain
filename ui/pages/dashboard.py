@@ -1460,9 +1460,6 @@ def update_strategy_ranking(n, selected_symbol):
     
     try:
         # Load live strategy ranking / 載入即時策略排名
-        import json
-        from pathlib import Path
-        
         ranking_file = Path(__file__).resolve().parents[2] / "state" / "live_strategy_ranking.json"
         if not ranking_file.exists():
             # Fallback to backtest storage
