@@ -57,44 +57,115 @@ class KlineCache:
     
     def load(self, symbol: str, interval: str,
              start_ms: Optional[int] = None,
-             end_ms: Optional[int] = None) -> Optional[pd.DataFrame]:
+             end_ms: Optional[int] = None) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
         從快取載入 K 線 DataFrame，可選時間過濾。
         使用記憶體二級快取加速重複讀取。
+
+        Returns:
+            (df, validation) tuple.
+            - (df, {"valid": True, ...}) on a good cache hit
+            - (None, {"valid": False, "data_invalid": True, "errors": [...]}) on miss or bad data
+              Never returns validation=None; the caller can always inspect the dict.
         """
+        from data.fetcher import interval_to_ms as _interval_to_ms
+
+        def _miss(reason: str) -> Tuple[None, Dict]:
+            return None, {
+                "valid": False,
+                "data_invalid": True,
+                "errors": [f"cache miss: {reason}"],
+            }
+
         key = self._cache_key(symbol, interval)
-        
+
         # 記憶體快取
         if key in self._memory_cache:
-            df = self._memory_cache[key]
+            df_full = self._memory_cache[key]
         else:
             path = self._parquet_path(symbol, interval)
             if not path.exists():
-                return None
-            
-            df = pd.read_parquet(path)
+                return _miss("no parquet file")
+
+            df_full = pd.read_parquet(path)
             # 確保 timestamp 是 datetime
-            if 'timestamp' in df.columns:
-                if df['timestamp'].dtype == 'int64':
-                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
-                elif not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-            
+            if 'timestamp' in df_full.columns:
+                if df_full['timestamp'].dtype == 'int64':
+                    df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], unit='ms', utc=True)
+                elif not pd.api.types.is_datetime64_any_dtype(df_full['timestamp']):
+                    df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], utc=True)
+
             # 設為索引
-            if 'timestamp' in df.columns:
-                df = df.set_index('timestamp').sort_index()
-            
-            self._memory_cache[key] = df
-        
-        # 時間過濾
+            if 'timestamp' in df_full.columns:
+                df_full = df_full.set_index('timestamp').sort_index()
+
+            self._memory_cache[key] = df_full
+
+        # ── Coverage validation ────────────────────────────────────────────────
+        if start_ms is not None and end_ms is not None:
+            try:
+                iv_ms = _interval_to_ms(interval)
+            except ValueError:
+                iv_ms = None
+
+            # Check that cached data covers the requested range
+            if len(df_full) == 0:
+                return _miss("empty cache")
+
+            cache_start_ms = int(df_full.index[0].timestamp() * 1000)
+            cache_end_ms = int(df_full.index[-1].timestamp() * 1000)
+
+            # Stale: cache ends more than 1 interval before requested end
+            margin = iv_ms if iv_ms else 60_000
+            if cache_end_ms < end_ms - margin:
+                return _miss(
+                    f"cache end {cache_end_ms} is before requested end {end_ms} "
+                    f"(stale by {(end_ms - cache_end_ms) // 1000}s)"
+                )
+
+            # Does not cover start
+            if cache_start_ms > start_ms + margin:
+                return _miss(
+                    f"cache start {cache_start_ms} is after requested start {start_ms}"
+                )
+
+            # Check candle count vs expected
+            if iv_ms is not None:
+                expected_count = (end_ms - start_ms) // iv_ms
+                # Filter to requested window first
+                start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
+                end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
+                df_window = df_full[(df_full.index >= start_dt) & (df_full.index <= end_dt)]
+                actual_count = len(df_window)
+
+                if actual_count < expected_count:
+                    return _miss(
+                        f"partial data: have {actual_count} candles, "
+                        f"need {expected_count} for {interval} from {start_ms} to {end_ms}"
+                    )
+
+                # Check sorted and continuous (no gaps)
+                if actual_count > 1:
+                    ts_ms = (df_window.index.astype('int64') // 10**6).values
+                    diffs = ts_ms[1:] - ts_ms[:-1]
+                    if not (diffs == iv_ms).all():
+                        return _miss("gap or duplicate detected in cached data")
+
+                return df_window.copy(), {"valid": True, "data_invalid": False, "errors": []}
+
+        # 時間過濾 (when start_ms/end_ms not both provided, return raw slice)
+        df = df_full
         if start_ms is not None:
             start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
             df = df[df.index >= start_dt]
         if end_ms is not None:
             end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
             df = df[df.index <= end_dt]
-        
-        return df.copy()  # 避免修改記憶體快取
+
+        if len(df) == 0:
+            return _miss("filtered range is empty")
+
+        return df.copy(), {"valid": True, "data_invalid": False, "errors": []}
     
     def save(self, df: pd.DataFrame, symbol: str, interval: str) -> None:
         """
@@ -114,7 +185,8 @@ class KlineCache:
                       start_ms: Optional[int] = None,
                       end_ms: Optional[int] = None,
                       limit: int = 1000,
-                      paginate: bool = True) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
+                      paginate: bool = True,
+                      strict_validation: bool = False) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
         優先讀取本地快取，不存在則呼叫 API（分頁抓取），成功後寫入快取。
 
@@ -126,9 +198,9 @@ class KlineCache:
         Args:
             paginate: 若 True 且時間範圍大，使用分頁抓取以取得完整資料
         """
-        df = self.load(symbol, interval, start_ms, end_ms)
-        if df is not None:
-            return df, None
+        df, cache_validation = self.load(symbol, interval, start_ms, end_ms)
+        if df is not None and cache_validation is not None and cache_validation.get("valid"):
+            return df, cache_validation
 
         # 回退到 API
         validation: Optional[Dict] = None
@@ -141,6 +213,7 @@ class KlineCache:
                 limit=limit,
                 validate=True,
                 verbose=False,
+                strict_validation=strict_validation,
             )
             if not klines:
                 return None, validation
@@ -445,7 +518,8 @@ class GeneBacktestEngine:
 
         df, validation = self.cache.load_or_fetch(
             self.fetcher, symbol, interval,
-            start_ms=start_ms, end_ms=end_ms, limit=1000, paginate=True
+            start_ms=start_ms, end_ms=end_ms, limit=1000, paginate=True,
+            strict_validation=True,
         )
 
         # Fail-closed: abort immediately on invalid data

@@ -640,8 +640,10 @@ class TestKlineCacheIntegration(unittest.TestCase):
             # API should only have been called once total
             fetcher.fetch_klines_paginated.assert_called_once()
             self.assertIsNotNone(df2)
-            # validation is None when served from cache
-            self.assertIsNone(validation2)
+            # validation is a valid dict when served from cache (never None)
+            self.assertIsNotNone(validation2)
+            self.assertTrue(validation2.get("valid"), "cache hit must return valid=True")
+            self.assertFalse(validation2.get("data_invalid"), "cache hit must not be data_invalid")
 
     def test_load_or_fetch_does_not_cache_invalid_data(self):
         """When API returns data_invalid=True, no cache file must be written."""

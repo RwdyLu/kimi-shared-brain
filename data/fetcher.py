@@ -486,6 +486,7 @@ class BinanceFetcher:
         validate: bool = True,
         verbose: bool = False,
         max_pages: Optional[int] = None,
+        strict_validation: bool = False,
     ) -> Tuple[List[List], Dict[str, Any]]:
         """
         Paginated kline fetcher for large date ranges / 大範圍分頁 K 線抓取器
@@ -635,6 +636,7 @@ class BinanceFetcher:
                 expected_count=expected_count,
                 interval=interval,
                 symbol=symbol,
+                strict=strict_validation,
             )
             # Merge validation results
             validation["actual_count"] = v["actual_count"]

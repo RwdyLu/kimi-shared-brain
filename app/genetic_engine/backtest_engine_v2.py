@@ -234,6 +234,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             limit=1000,
             validate=True,
             verbose=False,
+            strict_validation=True,
         )
 
         # Fail-closed: abort immediately on invalid data — do NOT proceed to backtest
