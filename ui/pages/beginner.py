@@ -399,16 +399,16 @@ def _build_beginner_grid():
                                     html.Small("進場參考: ", className="text-muted"),
                                     html.Span(ref_display, className="fw-bold")
                                 ]),
-                                html.Div([
-                                    html.Small("建議止損: ", className="text-muted"),
-                                    html.Span(sl_display, className="text-danger fw-bold"),
-                                    html.Small(f" ({sl_pct})", className="text-danger") if sl_pct else None
-                                ]),
-                                html.Div([
-                                    html.Small("建議止盈: ", className="text-muted"),
-                                    html.Span(tp_display, className="text-success fw-bold"),
-                                    html.Small(f" ({tp_pct})", className="text-success") if tp_pct else None
-                                ]),
+                                html.Div(
+                                    [html.Small("建議止損: ", className="text-muted"),
+                                     html.Span(sl_display, className="text-danger fw-bold")]
+                                    + ([html.Small(f" ({sl_pct})", className="text-danger")] if sl_pct else [])
+                                ),
+                                html.Div(
+                                    [html.Small("建議止盈: ", className="text-muted"),
+                                     html.Span(tp_display, className="text-success fw-bold")]
+                                    + ([html.Small(f" ({tp_pct})", className="text-success")] if tp_pct else [])
+                                ),
                             ], className="text-center small mb-2"),
 
                             # Disclaimer / 免責聲明

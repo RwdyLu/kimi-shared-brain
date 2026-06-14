@@ -182,9 +182,7 @@ layout = dbc.Container(
                 ),
                 dbc.CardBody(
                     id="signals-run-history",
-                    children=[
-                        html.P("Loading run history...", className="text-muted")
-                    ]
+                    children=[]
                 )
             ],
             className="mb-4"
@@ -488,7 +486,7 @@ def update_signals_page(n_intervals, n_clicks):
         return str(total), str(confirmed), str(watch), run_history
         
     except Exception as e:
-        return "--", "--", "--", dbc.Alert(f"Error loading data: {e}", color="danger")
+        return "0", "0", "0", html.P(f"資料載入失敗：{str(e)[:80]}", className="text-warning")
 
 
 # T-052-D: Handle run row clicks and show modal with indicator details

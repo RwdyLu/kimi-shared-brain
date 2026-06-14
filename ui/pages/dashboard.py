@@ -363,9 +363,7 @@ layout = dbc.Container(
                                 dbc.CardHeader("📊 Rankings / 排名", className="fw-bold"),
                                 dbc.CardBody(
                                     id="center-panel-strategy-ranking",
-                                    children=[
-                                        html.P("Loading strategy data...", className="text-muted")
-                                    ]
+                                    children=[]
                                 )
                             ],
                             color="dark",
@@ -1460,16 +1458,11 @@ def update_strategy_ranking(n, selected_symbol):
         # Load live strategy ranking / 載入即時策略排名
         ranking_file = Path(__file__).resolve().parents[2] / "state" / "live_strategy_ranking.json"
         if not ranking_file.exists():
-            # Fallback to backtest storage
-            from backtest import BacktestStorage
-            storage = BacktestStorage()
-            backtests = storage.get_latest_backtests(limit=100)
-            
-            if not backtests:
-                return html.Div([
-                    html.P("No strategy data available", className="text-muted text-center"),
-                    html.Small("Run monitoring to generate strategy rankings", className="text-muted d-block text-center")
-                ])
+            # Fallback: show empty state (no backtest storage dependency)
+            return html.Div([
+                html.P("尚無策略排名資料", className="text-muted text-center"),
+                html.Small("監控運行後會自動產生排名", className="text-muted d-block text-center")
+            ])
             
             symbol_backtests = [bt for bt in backtests if selected_symbol in bt.get("symbols", [])]
             if not symbol_backtests:
