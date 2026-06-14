@@ -36,6 +36,8 @@ from .backtest_engine import (
 from .chromosome_v2 import StrategyChromosomeV2, MacroGenes, MicroGenes, RiskGenesV2
 from .environment import SeasonConfig, SeasonApplier, Environment
 from .fitness_v2 import BacktestMetricsV2, calculate_metrics_v2
+from .market_rules import MarketRules, MARKET_RULES, SYMBOL_MARKETS
+from data.providers import DataProvider
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -226,14 +228,53 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         fee_rate: float = 0.001,
         lot_step: float = 0.001,  # 最小交易單位
         lot_min: float = 0.001,   # 最小下單量
+        data_provider: Optional[DataProvider] = None,
+        market_rules: Optional[MarketRules] = None,
+        official_ranking: bool = True,
     ):
-        super().__init__(initial_capital=initial_capital, fee_rate=fee_rate)
-        self.lot_step = lot_step
-        self.lot_min = lot_min
-        self.dca_engine = GhostDCABaseline(
+        rules = market_rules or MARKET_RULES["crypto_spot"]
+        super().__init__(
             initial_capital=initial_capital,
             fee_rate=fee_rate,
+            data_provider=data_provider,
+            official_ranking=official_ranking,
         )
+        self.market_rules = rules
+        self._explicit_market_rules = market_rules is not None
+        self._constructor_lot_step = lot_step
+        self._constructor_lot_min = lot_min
+        self._constructor_fee_rate = fee_rate
+        self.lot_step = rules.lot_step if market_rules else lot_step
+        self.lot_min = rules.lot_min if market_rules else lot_min
+        self.buy_fee_rate = rules.buy_commission_rate if market_rules else fee_rate
+        self.sell_fee_rate = (
+            rules.sell_commission_rate + rules.sell_tax_rate
+            if market_rules else fee_rate
+        )
+        self.dca_engine = GhostDCABaseline(
+            initial_capital=initial_capital,
+            fee_rate=self.buy_fee_rate,
+        )
+
+    def _apply_market_rules_for_symbol(self, symbol: str) -> None:
+        if self._explicit_market_rules:
+            rules = self.market_rules
+        elif symbol in SYMBOL_MARKETS:
+            rules = MARKET_RULES[SYMBOL_MARKETS[symbol]]
+        else:
+            self.lot_step = self._constructor_lot_step
+            self.lot_min = self._constructor_lot_min
+            self.buy_fee_rate = self._constructor_fee_rate
+            self.sell_fee_rate = self._constructor_fee_rate
+            self.dca_engine.fee_rate = self.buy_fee_rate
+            return
+
+        self.market_rules = rules
+        self.lot_step = rules.lot_step
+        self.lot_min = rules.lot_min
+        self.buy_fee_rate = rules.buy_commission_rate
+        self.sell_fee_rate = rules.sell_commission_rate + rules.sell_tax_rate
+        self.dca_engine.fee_rate = self.buy_fee_rate
     
     def evaluate_v2(
         self,
@@ -249,6 +290,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         """
         V2 評估：策略 + Ghost DCA 並行回測
         """
+        self._apply_market_rules_for_symbol(symbol)
         # 獲取數據 — 優先讀快取，快取不足才呼叫 API（避免重複打 Binance）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
@@ -578,7 +620,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
                     if exit_qty >= self.lot_min and exit_qty <= max_sellable:
                         sell_value = exit_qty * current_price
-                        sell_fee = sell_value * self.fee_rate
+                        sell_fee = sell_value * self.sell_fee_rate
                         exit_avg_cost = position_avg_cost
                         realized = exit_qty * (current_price - exit_avg_cost) - sell_fee
                         cash += (sell_value - sell_fee)
@@ -650,7 +692,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
                 if qty >= self.lot_min and invest_amount <= cash * usable_cash_ratio:
                     buy_value = qty * current_price
-                    buy_fee = buy_value * self.fee_rate
+                    buy_fee = buy_value * self.buy_fee_rate
                     total_cost = buy_value + buy_fee
 
                     if total_cost <= cash:
@@ -695,7 +737,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
             if exit_qty >= self.lot_min:
                 sell_value = exit_qty * last_price
-                sell_fee = sell_value * self.fee_rate
+                sell_fee = sell_value * self.sell_fee_rate
                 exit_avg_cost = position_avg_cost
                 realized = exit_qty * (last_price - exit_avg_cost) - sell_fee
                 cash += (sell_value - sell_fee)

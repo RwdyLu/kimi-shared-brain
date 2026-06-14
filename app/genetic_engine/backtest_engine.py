@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from data.fetcher import BinanceFetcher, KlineData
+from data.providers import DataProvider, require_official_data
 from .gene_library import IndicatorGene, IndicatorType, ConditionType
 from .chromosome import StrategyChromosome, RiskGenes
 from .fitness import calculate_metrics, compute_fitness, compute_fitness_details, BacktestMetrics
@@ -47,17 +48,19 @@ class KlineCache:
         self._memory_cache: Dict[str, pd.DataFrame] = {}
     
     def _cache_key(self, symbol: str, interval: str) -> str:
-        return f"{symbol}_{interval}"
+        safe_symbol = symbol.replace("/", "_").replace(":", "_")
+        return f"{safe_symbol}_{interval}"
     
     def _parquet_path(self, symbol: str, interval: str) -> Path:
-        return self.cache_dir / f"{symbol}_{interval}.parquet"
+        return self.cache_dir / f"{self._cache_key(symbol, interval)}.parquet"
     
     def has_cache(self, symbol: str, interval: str) -> bool:
         return self._parquet_path(symbol, interval).exists()
     
     def load(self, symbol: str, interval: str,
              start_ms: Optional[int] = None,
-             end_ms: Optional[int] = None) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
+             end_ms: Optional[int] = None,
+             session_based: bool = False) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
         從快取載入 K 線 DataFrame，可選時間過濾。
         使用記憶體二級快取加速重複讀取。
@@ -129,8 +132,9 @@ class KlineCache:
                     f"cache start {cache_start_ms} is after requested start {start_ms}"
                 )
 
-            # Check candle count vs expected
-            if iv_ms is not None:
+            # Continuous markets require every interval. Exchange-session data
+            # legitimately contains overnight, weekend and holiday gaps.
+            if iv_ms is not None and not session_based:
                 expected_count = (end_ms - start_ms) // iv_ms
                 # Filter to requested window first
                 start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
@@ -180,7 +184,7 @@ class KlineCache:
         key = self._cache_key(symbol, interval)
         self._memory_cache.pop(key, None)
 
-    def load_or_fetch(self, fetcher: BinanceFetcher,
+    def load_or_fetch(self, fetcher: DataProvider,
                       symbol: str, interval: str,
                       start_ms: Optional[int] = None,
                       end_ms: Optional[int] = None,
@@ -198,7 +202,13 @@ class KlineCache:
         Args:
             paginate: 若 True 且時間範圍大，使用分頁抓取以取得完整資料
         """
-        df, cache_validation = self.load(symbol, interval, start_ms, end_ms)
+        session_detector = getattr(fetcher, "is_session_based", None)
+        session_based = (
+            callable(session_detector) and session_detector(symbol) is True
+        )
+        df, cache_validation = self.load(
+            symbol, interval, start_ms, end_ms, session_based=session_based
+        )
         if df is not None and cache_validation is not None and cache_validation.get("valid"):
             return df, cache_validation
 
@@ -483,10 +493,21 @@ class GeneBacktestEngine:
     每個策略基因體會被評估其在歷史數據上的表現。
     """
     
-    def __init__(self, initial_capital: float = 1000.0, fee_rate: float = 0.001):
+    def __init__(
+        self,
+        initial_capital: float = 1000.0,
+        fee_rate: float = 0.001,
+        data_provider: Optional[DataProvider] = None,
+        official_ranking: bool = True,
+    ):
         self.initial_capital = initial_capital
         self.fee_rate = fee_rate  # 0.1% per trade
-        self.fetcher = BinanceFetcher()
+        self.data_provider = data_provider or BinanceFetcher()
+        if official_ranking:
+            require_official_data(self.data_provider)
+        # Backward-compatible alias used by existing cache and tests.
+        self.fetcher = self.data_provider
+        self.data_provenance = self.data_provider.provenance
         self.calculator = IndicatorCalculator()
         self.cache = KlineCache()
     

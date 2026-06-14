@@ -35,13 +35,15 @@ SUPPORTED_SYMBOLS = [
 ]
 
 # Supported intervals / 支援的時間框架
-SUPPORTED_INTERVALS = ["1m", "5m", "15m"]
+SUPPORTED_INTERVALS = ["1m", "5m", "15m", "4h", "1d"]
 
 # Interval to milliseconds mapping / 時間框架對應毫秒數
 INTERVAL_MS = {
     "1m": 60 * 1000,
     "5m": 5 * 60 * 1000,
     "15m": 15 * 60 * 1000,
+    "4h": 4 * 60 * 60 * 1000,
+    "1d": 24 * 60 * 60 * 1000,
 }
 
 # Retry configuration / 重試設定
@@ -314,6 +316,13 @@ class BinanceFetcher:
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self._last_request_time: Optional[float] = None
+        from data.providers import DataProvenance
+        self.provenance = DataProvenance(
+            provider_id="binance_spot",
+            source_type="exchange_api",
+            is_mock=False,
+            is_verified=True,
+        )
 
     def _rate_limit(self) -> None:
         """

@@ -345,6 +345,7 @@ class EvolutionEngineV2:
                         "failed_symbols": failed_symbols,
                         "insufficient_data": bool(failed_symbols),
                         "per_window": per_window_summary,
+                        "data_provenance": self.backtest_engine.data_provenance.to_dict(),
                         "stage": "stage3_multi_window",
                     }
 
@@ -386,6 +387,7 @@ class EvolutionEngineV2:
                         "total_friction": round(total_friction, 4),
                         "symbols_tested": len(per_symbol),
                         "seasons_applied": len(self.three_layer.seasons),
+                        "data_provenance": self.backtest_engine.data_provenance.to_dict(),
                     }
 
                     if verbose:
@@ -657,6 +659,7 @@ class EvolutionEngineV2:
             "interval": interval,
             "history_days": days,
             "symbols": list(self.config["symbols"]),
+            "data_provenance": self.backtest_engine.data_provenance.to_dict(),
             "fitness_unchanged": True,
         })
         return report

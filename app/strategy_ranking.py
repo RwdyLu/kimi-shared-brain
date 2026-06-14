@@ -42,6 +42,9 @@ class StrategyScore:
     composite_score: float = 0.0
     rank: int = 0
     tier: str = "unranked"
+    data_source: str = "unknown"
+    data_is_mock: bool = False
+    data_validated: bool = False
 
     def to_dict(self) -> Dict:
         return {
@@ -57,6 +60,9 @@ class StrategyScore:
             "composite_score": self.composite_score,
             "rank": self.rank,
             "tier": self.tier,
+            "data_source": self.data_source,
+            "data_is_mock": self.data_is_mock,
+            "data_validated": self.data_validated,
         }
 
 
@@ -68,8 +74,9 @@ class StrategyRanking:
     ranked lists with tier assignments (S/A/B/C/D).
     """
 
-    def __init__(self):
+    def __init__(self, official: bool = True):
         self.logger = logging.getLogger(__name__)
+        self.official = official
 
         # Scoring weights for composite ranking
         self.weights = {
@@ -96,6 +103,10 @@ class StrategyRanking:
 
     def add_strategy(self, score: StrategyScore):
         """Add strategy for ranking."""
+        if self.official and (score.data_is_mock or not score.data_validated):
+            raise ValueError(
+                "Official ranking rejects mock, random, demo, or unverified market data"
+            )
         self.rankings.append(score)
 
     def calculate_composite(self, score: StrategyScore) -> float:
@@ -271,7 +282,7 @@ if __name__ == "__main__":
     # Example usage
     logging.basicConfig(level=logging.INFO)
 
-    ranking = StrategyRanking()
+    ranking = StrategyRanking(official=False)
 
     # Add sample strategies
     strategies = [
