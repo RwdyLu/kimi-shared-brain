@@ -211,36 +211,26 @@ def cmd_archive(args):
 
 
 def cmd_deploy(args):
-    """部署策略到 Paper Trading"""
-    print(f"📋 Deploying top {args.top} strategies")
+    """Deploy promoted Champions only; use built-in default when none exists."""
+    print("📋 Deploying promoted Champion strategies")
     
     archive = StrategyArchive()
     
-    # 獲取最佳策略
     from .converter import convert_to_strategy_json
-    
+
     deployed = []
-    
-    # 先嘗試從演化結果載入
-    save_dir = Path(args.save_dir)
-    best_files = sorted(save_dir.glob("best_strategy_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    
-    if best_files:
-        for bf in best_files[:args.top]:
-            with open(bf) as f:
-                chrom = StrategyChromosomeV2.from_dict(json.load(f))
-                strategy_json = convert_to_strategy_json(chrom)
-                deployed.append(strategy_json)
-                print(f"   ✅ {chrom.chromosome_id[:8]} | {chrom.summary()}")
-    
-    # 如果沒有，嘗試從檔案館獲取冠軍
-    if not deployed:
-        champions = archive.get_all_champions()
+    champions = archive.get_all_champions()
+    if champions:
         for symbol, rec in list(champions.items())[:args.top]:
             chrom = StrategyChromosomeV2.from_dict(rec.chromosome_data)
-            strategy_json = convert_to_strategy_json(chrom)
-            deployed.append(strategy_json)
+            deployed.append(convert_to_strategy_json(chrom))
             print(f"   🏆 Champion {symbol}: {rec.chromosome_id[:8]}")
+    else:
+        chrom = StrategyChromosomeV2.from_dict(
+            archive.get_runtime_chromosome_data("default")
+        )
+        deployed.append(convert_to_strategy_json(chrom))
+        print("   Default: built_in_default")
     
     if deployed:
         output = {

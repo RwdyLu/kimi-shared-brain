@@ -409,10 +409,9 @@ class GeneticIntegration:
         
         不跑演化，直接部署已有的
         """
-        logger.info(f"Quick deploying top {top_n} genetic strategies...")
-        self.live_pool_size = top_n
-        path = self.write_merged_config()
-        return path
+        raise RuntimeError(
+            "Quick deploy is disabled; manually Promote a Challenger to Champion."
+        )
     
     def status(self) -> Dict[str, Any]:
         """取得整合狀態"""
@@ -492,9 +491,6 @@ def start_evolution(
         strategies_config_path=strategies_config_path,
         live_pool_size=live_pool_size,
     )
-    
-    # 先部署現有的
-    integration.quick_deploy(top_n=live_pool_size)
     
     # 啟動背景演化
     integration.start_continuous_evolution(

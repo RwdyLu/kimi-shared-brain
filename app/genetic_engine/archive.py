@@ -189,6 +189,15 @@ class StrategyArchive:
     def get_champion(self, symbol: str = "default") -> Optional[ArchiveRecord]:
         """獲取當前冠軍"""
         return self.champions.get(symbol)
+
+    def get_runtime_chromosome_data(self, symbol: str = "default") -> Dict[str, Any]:
+        """Return only a promoted Champion, or the deterministic built-in default."""
+        champion = self.get_champion(symbol)
+        if champion:
+            return champion.chromosome_data
+
+        from .chromosome_v2 import built_in_default_chromosome
+        return built_in_default_chromosome(symbol).to_dict()
     
     def get_challenger(self, symbol: str = "default") -> Optional[ArchiveRecord]:
         """獲取當前挑戰者"""

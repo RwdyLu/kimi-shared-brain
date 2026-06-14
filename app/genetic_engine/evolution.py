@@ -654,8 +654,7 @@ class ContinuousEvolution:
             top_strategies = self.engine.get_top_strategies(self.live_pool_size)
             self.live_pool = top_strategies
             
-            # 4. 轉換為可部署格式
-            self._deploy_to_paper(top_strategies)
+            # Stage 7: research results stay in the research pool.
             
             # 5. 等待下一輪
             if self.running:
@@ -670,8 +669,11 @@ class ContinuousEvolution:
     
     def _deploy_to_paper(self, strategies: List[StrategyChromosome]) -> None:
         """
-        將策略轉換為現有系統格式並準備部署
+        Disabled: only manually promoted V2 Champions may enter runtime.
         """
+        raise RuntimeError("Direct GA deployment is disabled; manually Promote a Challenger.")
+
+        # Legacy implementation retained below for migration reference only.
         from .converter import convert_to_strategy_json
         
         deployed = []

@@ -212,9 +212,7 @@ class MonitoringScheduler:
             try:
                 from app.genetic_integration import GeneticIntegration
                 self.genetic_integration = GeneticIntegration()
-                # Quick deploy existing best strategies
-                deployed_path = self.genetic_integration.quick_deploy(top_n=5)
-                self._log(f"🧬 Genetic strategies deployed: {deployed_path}")
+                self._log("🧬 Genetic integration ready; runtime deployment requires manual Promote")
             except Exception as e:
                 self._log(f"🧬 Genetic integration init error: {e}")
         

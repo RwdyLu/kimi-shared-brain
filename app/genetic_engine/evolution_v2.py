@@ -686,7 +686,7 @@ class ContinuousEvolutionV2:
     
     - 每 X 小時執行一輪（較短世代數）
     - 每次用全歷史數據回測
-    - 自動將最佳部署到 Paper Trading
+    - Epoch 最佳只進 Challenger，不會自動部署
     - 表現差的自動淘汰，從基因池補新血
     """
     
@@ -738,10 +738,9 @@ class ContinuousEvolutionV2:
             
             best = self.engine.run(max_generations=10, verbose=True)
             
-            top_strategies = self.engine.get_top_strategies(self.live_pool_size)
-            self.live_pool = top_strategies
-            
-            self._deploy_to_paper(top_strategies)
+            # Research continuity only. These strategies remain candidates and
+            # must never become runtime strategies without manual Promote.
+            self.live_pool = self.engine.get_top_strategies(self.live_pool_size)
             
             if self.running:
                 sleep_seconds = int(self.evolution_interval_hours * 3600)
@@ -752,13 +751,14 @@ class ContinuousEvolutionV2:
         self.running = False
         print("🛑 Continuous Evolution V2 stopped")
     
-    def _deploy_to_paper(self, strategies: List[StrategyChromosomeV2]) -> None:
+    def _deploy_to_paper(self, strategies: Optional[List[StrategyChromosomeV2]] = None) -> None:
+        """Write only the promoted Champion, or the deterministic fallback."""
         from .converter import convert_to_strategy_json
-        
-        deployed = []
-        for chrom in strategies:
-            strategy_json = convert_to_strategy_json(chrom)
-            deployed.append(strategy_json)
+
+        chrom = StrategyChromosomeV2.from_dict(
+            self.engine.archive.get_runtime_chromosome_data("default")
+        )
+        deployed = [convert_to_strategy_json(chrom)]
         
         save_path = Path("data/genetic_evolution_v2/live_pool_strategies.json")
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -770,7 +770,7 @@ class ContinuousEvolutionV2:
                 "strategies": deployed,
             }, f, indent=2)
         
-        print(f"\n📋 Deployed {len(deployed)} strategies to live pool")
+        print(f"\n📋 Runtime strategy refreshed from Champion/default")
 
 
 if __name__ == "__main__":

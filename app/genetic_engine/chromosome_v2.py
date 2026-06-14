@@ -468,23 +468,57 @@ class StrategyChromosomeV2:
             epoch_id=d.get("epoch_id", "epoch_0"),
             symbol=d.get("symbol", "default"),
         )
-    
+
     def summary(self) -> str:
         """簡短文字描述"""
         entry_names = " + ".join([g.name for g in self.entry_genes])
         exit_names = " + ".join([g.name for g in self.exit_genes])
-        
+
         fit = f"fit={self.fitness_score:.3f}" if self.fitness_score else "fit=??"
-        
+
         return (
             f"[{self.chromosome_id[:8]}] G{self.generation} | "
             f"Entry({self.entry_logic}): {entry_names} | "
             f"Exit({self.exit_logic}): {exit_names} | "
-            f"Macro: DCA={self.macro_genes.max_dca_months}mo β={self.macro_genes.beta_threshold:.1%} | "
+            f"Macro: DCA={self.macro_genes.dca_interval} bars | "
             f"Micro: kp={self.micro_genes.kp:.2f} kv={self.micro_genes.kv:.2f} ka={self.micro_genes.ka:.2f} | "
             f"Risk: SL={self.risk_genes.stop_loss_pct:.1%} TP={self.risk_genes.take_profit_pct:.1%} | "
             f"{fit}"
         )
+
+
+def built_in_default_chromosome(symbol: str = "default") -> StrategyChromosomeV2:
+    """Deterministic spot-only fallback used when no Champion has been promoted."""
+    return StrategyChromosomeV2(
+        chromosome_id=f"builtin_default_{symbol.lower()}",
+        entry_genes=[
+            IndicatorGene(
+                name="ema_cross",
+                indicator_type=IndicatorType.TREND,
+                timeframe="5m",
+                params={"short_period": 12, "long_period": 48},
+                condition=ConditionType.CROSS_UP,
+                threshold=0.0,
+            )
+        ],
+        exit_genes=[
+            IndicatorGene(
+                name="ema_cross",
+                indicator_type=IndicatorType.TREND,
+                timeframe="5m",
+                params={"short_period": 12, "long_period": 48},
+                condition=ConditionType.CROSS_DOWN,
+                threshold=0.0,
+            )
+        ],
+        entry_logic="AND",
+        exit_logic="OR",
+        macro_genes=MacroGenes(),
+        micro_genes=MicroGenes(),
+        risk_genes=RiskGenesV2(),
+        symbol=symbol,
+        fitness_details={"source": "built_in_default"},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
