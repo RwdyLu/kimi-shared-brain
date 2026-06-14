@@ -219,11 +219,24 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         """
         V2 評估：策略 + Ghost DCA 並行回測
         """
-        # 獲取數據（與父類相同）
+        # 獲取數據 — 使用分頁抓取確保 90 天 5m 資料完整（~25,920 根）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
         
-        klines = self.fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=1000)
+        klines, validation = self.fetcher.fetch_klines_paginated(
+            symbol=symbol,
+            interval=interval,
+            start_time=start_ms,
+            end_time=end_ms,
+            limit=1000,
+            validate=True,
+            verbose=False,
+        )
+        
+        if validation.get("warnings"):
+            for w in validation["warnings"]:
+                if verbose:
+                    print(f"   ⚠️ {w}")
         
         if not klines or len(klines) < 100:
             if verbose:

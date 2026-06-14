@@ -37,6 +37,152 @@ SUPPORTED_SYMBOLS = [
 # Supported intervals / 支援的時間框架
 SUPPORTED_INTERVALS = ["1m", "5m", "15m"]
 
+# Interval to milliseconds mapping / 時間框架對應毫秒數
+INTERVAL_MS = {
+    "1m": 60 * 1000,
+    "5m": 5 * 60 * 1000,
+    "15m": 15 * 60 * 1000,
+}
+
+
+def interval_to_ms(interval: str) -> int:
+    """
+    Convert interval string to milliseconds / 將時間框架字串轉換為毫秒數
+    
+    Args:
+        interval: Kline interval (e.g., "5m") / K 線時間框架
+        
+    Returns:
+        Milliseconds per candle / 每根 K 線的毫秒數
+        
+    Raises:
+        ValueError: If interval is not supported / 若時間框架不受支援
+    """
+    if interval not in INTERVAL_MS:
+        raise ValueError(
+            f"Interval '{interval}' not supported for pagination. "
+            f"Supported: {list(INTERVAL_MS.keys())}"
+        )
+    return INTERVAL_MS[interval]
+
+
+def validate_klines(
+    klines: List[List],
+    expected_start_ms: Optional[int] = None,
+    expected_end_ms: Optional[int] = None,
+    expected_count: Optional[int] = None,
+    interval: Optional[str] = None,
+    symbol: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Validate kline data integrity / 驗證 K 線資料完整性
+    
+    Args:
+        klines: Raw kline data from Binance API / 原始 K 線資料
+        expected_start_ms: Expected start timestamp (ms) / 預期開始時間戳
+        expected_end_ms: Expected end timestamp (ms) / 預期結束時間戳
+        expected_count: Expected number of candles / 預期 K 線數量
+        interval: Kline interval for continuity check / 時間框架（用於連續性檢查）
+        symbol: Symbol for error messages / 標的（用於錯誤訊息）
+        
+    Returns:
+        Validation result dict / 驗證結果字典
+        {
+            "valid": bool,
+            "actual_count": int,
+            "actual_start_ms": int,
+            "actual_end_ms": int,
+            "duration_ms": int,
+            "gaps": List[Tuple[int, int]],  # 時間缺口列表
+            "warnings": List[str],
+            "errors": List[str],
+        }
+    """
+    result = {
+        "valid": False,
+        "actual_count": len(klines),
+        "actual_start_ms": None,
+        "actual_end_ms": None,
+        "duration_ms": None,
+        "gaps": [],
+        "warnings": [],
+        "errors": [],
+    }
+    
+    prefix = f"[{symbol}] " if symbol else ""
+    
+    if not klines:
+        result["errors"].append(f"{prefix}Empty kline data")
+        return result
+    
+    # Extract timestamps
+    timestamps = [int(c[0]) for c in klines if len(c) >= 1]
+    if not timestamps:
+        result["errors"].append(f"{prefix}No valid timestamps found")
+        return result
+    
+    result["actual_start_ms"] = min(timestamps)
+    result["actual_end_ms"] = max(timestamps)
+    result["duration_ms"] = result["actual_end_ms"] - result["actual_start_ms"]
+    
+    # Check expected count
+    if expected_count is not None and len(klines) < expected_count:
+        result["warnings"].append(
+            f"{prefix}Expected {expected_count} candles, got {len(klines)} "
+            f"(short by {expected_count - len(klines)})"
+        )
+    
+    # Check expected start time
+    if expected_start_ms is not None:
+        margin_ms = interval_to_ms(interval) * 2 if interval else 60000
+        if abs(result["actual_start_ms"] - expected_start_ms) > margin_ms:
+            result["warnings"].append(
+                f"{prefix}Start time mismatch: expected {expected_start_ms}, "
+                f"got {result['actual_start_ms']}"
+            )
+    
+    # Check expected end time
+    if expected_end_ms is not None:
+        margin_ms = interval_to_ms(interval) * 2 if interval else 60000
+        if abs(result["actual_end_ms"] - expected_end_ms) > margin_ms:
+            result["warnings"].append(
+                f"{prefix}End time mismatch: expected {expected_end_ms}, "
+                f"got {result['actual_end_ms']}"
+            )
+    
+    # Check for gaps
+    if interval and len(timestamps) > 1:
+        interval_ms = interval_to_ms(interval)
+        sorted_ts = sorted(timestamps)
+        for i in range(1, len(sorted_ts)):
+            gap = sorted_ts[i] - sorted_ts[i-1]
+            if gap > interval_ms * 2:  # Allow 1 candle gap (e.g., exchange maintenance)
+                result["gaps"].append((sorted_ts[i-1], sorted_ts[i]))
+                result["warnings"].append(
+                    f"{prefix}Gap detected: {sorted_ts[i-1]} -> {sorted_ts[i]} "
+                    f"({gap // interval_ms} candles missing)"
+                )
+    
+    # Validate individual candle structure
+    invalid_candles = 0
+    for i, candle in enumerate(klines):
+        if len(candle) < 6:
+            invalid_candles += 1
+            continue
+        try:
+            float(candle[1])  # open
+            float(candle[4])  # close
+        except (ValueError, IndexError):
+            invalid_candles += 1
+    
+    if invalid_candles > 0:
+        result["warnings"].append(
+            f"{prefix}{invalid_candles}/{len(klines)} candles have invalid structure"
+        )
+    
+    result["valid"] = len(result["errors"]) == 0 and invalid_candles == 0
+    return result
+
 
 @dataclass
 class KlineData:
@@ -208,8 +354,115 @@ class BinanceFetcher:
             raise requests.RequestException(f"HTTP error {e.response.status_code}: {e.response.text}")
         except requests.exceptions.RequestException as e:
             raise requests.RequestException(f"Request failed: {str(e)}")
-    
-    def normalize_kline_data(self, raw_data: List[List]) -> List[KlineData]:
+
+    def fetch_klines_paginated(
+        self,
+        symbol: str,
+        interval: str,
+        start_time: int,
+        end_time: int,
+        limit: int = 1000,
+        validate: bool = True,
+        verbose: bool = False,
+    ) -> Tuple[List[List], Dict[str, Any]]:
+        """
+        Paginated kline fetcher for large date ranges / 大範圍分頁 K 線抓取器
+
+        Binance API limits each request to 1000 candles. This method
+        automatically paginates across multiple requests to fetch the
+        complete date range, ensuring backtest_days=90 (25,920 x 5m)
+        can be fully retrieved.
+
+        Binance API 每請求限制 1000 根 K 線。本方法自動分頁抓取，
+        確保 90 天 5m 回測（約 25,920 根）可完整取得。
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT") / 交易對
+            interval: Kline interval (e.g., "5m") / K 線時間框架
+            start_time: Start timestamp in ms / 開始時間戳 (毫秒)
+            end_time: End timestamp in ms / 結束時間戳 (毫秒)
+            limit: Candles per page (max 1000) / 每頁 K 線數量
+            validate: Whether to validate data / 是否驗證資料
+            verbose: Whether to print progress / 是否輸出進度
+
+        Returns:
+            Tuple of (klines, validation_result) / (K 線資料, 驗證結果)
+
+        Raises:
+            ValueError: If no data is returned / 若未返回任何資料
+        """
+        self._validate_symbol(symbol)
+        self._validate_interval(interval)
+
+        interval_ms = interval_to_ms(interval)
+        page_size = min(limit, 1000)
+        all_klines: List[List] = []
+        page_count = 0
+        max_pages = 50  # Safety cap / 安全上限
+
+        current_start = start_time
+
+        while page_count < max_pages:
+            page_count += 1
+
+            klines = self.fetch_klines(
+                symbol=symbol,
+                interval=interval,
+                limit=page_size,
+                start_time=current_start,
+                end_time=end_time,
+            )
+
+            if not klines:
+                break
+
+            all_klines.extend(klines)
+
+            # Determine next page start time
+            last_ts = int(klines[-1][0])
+            # If the last candle's open time equals our start, we got nothing new
+            # (shouldn't happen with proper API behavior, but guard anyway)
+            if last_ts <= current_start:
+                break
+
+            # Next start is the close time of the last candle + 1 ms
+            # Binance kline: [open_time, ..., close_time, ...]
+            # close_time = open_time + interval_ms - 1
+            next_start = last_ts + interval_ms
+
+            if next_start >= end_time:
+                break
+
+            if len(klines) < page_size:
+                # API returned fewer than requested — we've reached the end
+                break
+
+            current_start = next_start
+
+        if not all_klines:
+            raise ValueError(f"Empty response for {symbol} {interval} (paginated)")
+
+        if verbose:
+            print(
+                f"[fetch_paginated] {symbol} {interval}: "
+                f"{page_count} pages, {len(all_klines)} candles fetched "
+                f"({start_time} -> {end_time})"
+            )
+
+        # Validate
+        validation = {}
+        if validate:
+            expected_count = (end_time - start_time) // interval_ms
+            validation = validate_klines(
+                klines=all_klines,
+                expected_start_ms=start_time,
+                expected_end_ms=end_time,
+                expected_count=expected_count,
+                interval=interval,
+                symbol=symbol,
+            )
+
+        return all_klines, validation
         """
         Normalize raw kline data / 標準化原始 K 線資料
         

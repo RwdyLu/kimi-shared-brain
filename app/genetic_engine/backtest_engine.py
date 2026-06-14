@@ -100,16 +100,38 @@ class KlineCache:
                       symbol: str, interval: str,
                       start_ms: Optional[int] = None,
                       end_ms: Optional[int] = None,
-                      limit: int = 1000) -> Optional[pd.DataFrame]:
+                      limit: int = 1000,
+                      paginate: bool = True) -> Optional[pd.DataFrame]:
         """
         優先讀取本地快取，不存在則呼叫 API（並回傳 raw klines 格式）。
+        
+        Args:
+            paginate: 若 True 且時間範圍大，使用分頁抓取以取得完整資料
         """
         df = self.load(symbol, interval, start_ms, end_ms)
         if df is not None:
             return df
         
         # 回退到 API
-        klines = fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=limit)
+        if paginate and start_ms is not None and end_ms is not None:
+            klines, validation = fetcher.fetch_klines_paginated(
+                symbol=symbol,
+                interval=interval,
+                start_time=start_ms,
+                end_time=end_ms,
+                limit=limit,
+                validate=True,
+                verbose=False,
+            )
+            if not klines:
+                return None
+            # Log warnings if any
+            if validation.get("warnings"):
+                for w in validation["warnings"]:
+                    print(f"   ⚠️ {w}")
+        else:
+            klines = fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=limit)
+        
         if not klines:
             return None
         
@@ -391,12 +413,13 @@ class GeneBacktestEngine:
             (metrics, trades)
         """
         # 獲取數據 — 優先本地快取，不存在才走 API
+        # 使用分頁抓取確保 90 天 5m 資料完整（~25,920 根）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
         
         df = self.cache.load_or_fetch(
             self.fetcher, symbol, interval,
-            start_ms=start_ms, end_ms=end_ms, limit=1000
+            start_ms=start_ms, end_ms=end_ms, limit=1000, paginate=True
         )
         
         if df is None or len(df) < 100:
