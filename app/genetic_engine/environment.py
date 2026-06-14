@@ -55,6 +55,10 @@ class Environment:
     
     # 跨 Epoch 抽樣 sigma（區間寬度的 10%）
     resample_sigma_factor: float = 0.10
+
+    def __post_init__(self) -> None:
+        # GA research is spot-only. Config/archive input cannot raise leverage.
+        self.max_leverage = 1.0
     
     def clone(self) -> "Environment":
         return Environment(
@@ -207,7 +211,9 @@ class SeasonSampler:
         
         把全樣本回測區間切成 N 段，底層種群必須忍受 N 種不同季節摩擦
         """
-        return [cls.sample() for _ in range(n_segments)]
+        # Stage 5 requires every strategy to traverse all four seasons exactly
+        # once and in physical order. n_segments is retained for API compatibility.
+        return cls.get_all_season_configs()
     
     @classmethod
     def get_all_season_configs(cls) -> List[SeasonConfig]:
@@ -315,6 +321,21 @@ class SeasonApplier:
         adjusted = base_dca_amount * season.aggressiveness
         # 同樣受可用資金限制
         return adjusted
+
+    @staticmethod
+    def season_for_index(
+        index: int,
+        total_length: int,
+        seasons: Optional[List[SeasonConfig]],
+        fallback: Optional[SeasonConfig] = None,
+    ) -> Optional[SeasonConfig]:
+        """Map an ordered history index to sequential winter/spring/summer/autumn."""
+        if not seasons:
+            return fallback
+        if total_length <= 0:
+            return seasons[0]
+        segment = min(len(seasons) - 1, index * len(seasons) // total_length)
+        return seasons[segment]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -101,6 +101,7 @@ class GhostDCABaseline:
         season: Optional[SeasonConfig] = None,
         environment: Optional[Environment] = None,
         dca_interval_candles: Optional[int] = None,
+        season_schedule: Optional[List[SeasonConfig]] = None,
     ) -> Tuple[List[float], List[Dict[str, Any]]]:
         """
         執行 Ghost DCA 回測
@@ -135,6 +136,9 @@ class GhostDCABaseline:
             usable_cash_ratio = 1.0 - environment.dead_reserve_ratio
 
         for i in range(len(df)):
+            active_season = SeasonApplier.season_for_index(
+                i, len(df), season_schedule, season
+            )
             timestamp = int(df.index[i].timestamp() * 1000)
             price = df['close'].iloc[i]
 
@@ -150,7 +154,10 @@ class GhostDCABaseline:
 
             if should_dca:
                 # 計算本次投入金額
-                base_amount = self.initial_capital * self.dca_amount_pct * aggressiveness
+                active_aggressiveness = (
+                    active_season.aggressiveness if active_season else aggressiveness
+                )
+                base_amount = self.initial_capital * self.dca_amount_pct * active_aggressiveness
 
                 # 受可用資金限制
                 max_invest = cash * usable_cash_ratio
@@ -174,6 +181,7 @@ class GhostDCABaseline:
                         "fee": fee,
                         "qty": qty,
                         "type": "dca_buy",
+                        "season": active_season.season.value if active_season else None,
                     })
 
                     last_dca_time = timestamp
@@ -236,6 +244,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         season: Optional[SeasonConfig] = None,
         environment: Optional[Environment] = None,
         verbose: bool = False,
+        seasons: Optional[List[SeasonConfig]] = None,
     ) -> V2BacktestResult:
         """
         V2 評估：策略 + Ghost DCA 並行回測
@@ -295,14 +304,20 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         
         # 1. Ghost DCA — Stage 4: wire macro_genes.dca_interval
         dca_interval_candles = chrom.macro_genes.dca_interval
+        dca_kwargs = {"dca_interval_candles": dca_interval_candles}
+        if seasons is not None:
+            dca_kwargs["season_schedule"] = seasons
         dca_equity, dca_trades = self.dca_engine.run(
-            df, season, environment, dca_interval_candles=dca_interval_candles
+            df, season, environment, **dca_kwargs
         )
         dca_return = self.dca_engine.calculate_dca_return(dca_equity)
         
         # 2. 策略回測
+        strategy_kwargs = {}
+        if seasons is not None:
+            strategy_kwargs["season_schedule"] = seasons
         strategy_equity, strategy_trades, raw_metrics = self._run_strategy_v2(
-            df, chrom, symbol, season, environment, verbose
+            df, chrom, symbol, season, environment, verbose, **strategy_kwargs
         )
         
         # 計算策略收益
@@ -370,6 +385,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         season: Optional[SeasonConfig],
         environment: Optional[Environment],
         verbose: bool,
+        season_schedule: Optional[List[SeasonConfig]] = None,
     ) -> Tuple[List[float], List[SimulatedTrade], Dict[str, Any]]:
         """
         V2 策略模擬核心
@@ -424,6 +440,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         gamma: float = chrom.micro_genes.gamma
         beta: float = chrom.micro_genes.beta
         min_trade_threshold: float = chrom.micro_genes.min_trade_threshold
+        seasons_applied: List[str] = []
 
         # 計算可用資金比例（受 Environment 限制）
         usable_cash_ratio = 1.0
@@ -441,6 +458,13 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         warmup = 100
 
         for i in range(warmup, len(df)):
+            active_season = SeasonApplier.season_for_index(
+                i - warmup, len(df) - warmup, season_schedule, season
+            )
+            if active_season and (
+                not seasons_applied or seasons_applied[-1] != active_season.season.value
+            ):
+                seasons_applied.append(active_season.season.value)
             timestamp = int(df.index[i].timestamp() * 1000)
             current_price = df['close'].iloc[i]
 
@@ -547,7 +571,10 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                 scaled_signal = 1.0 / (1.0 + math.exp(-sigmoid_scale * raw_signal))
 
                 base_position_pct = chrom.risk_genes.position_pct * scaled_signal * 2.0
-                adjusted_pct = base_position_pct * season_mult
+                active_season_mult = (
+                    active_season.aggressiveness if active_season else season_mult
+                )
+                adjusted_pct = base_position_pct * active_season_mult
                 adjusted_pct = min(adjusted_pct, usable_cash_ratio)
 
                 # Stage 4: gamma — risk-aversion exponent reduces size when already heavy
@@ -631,6 +658,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             "realized_pnl": total_realized_pnl,
             "recycled_profit_deployed": recycled_profit_deployed,
             "recycle_pool_remaining": recycle_pool,
+            "seasons_applied": seasons_applied,
         }
         return equity, trades, raw_ledger
     
@@ -914,13 +942,9 @@ def evaluate_chromosome_multi_symbol_v2(
         print(f"\n🔬 V2 Evaluating {chrom.chromosome_id[:8]} on {len(symbols)} symbols...")
 
     for symbol in symbols:
-        season = None
-        if seasons:
-            season = random.choice(seasons)
-
         result = engine.evaluate_v2(
             chrom, symbol, interval, days,
-            season=season, environment=environment, verbose=verbose
+            seasons=seasons, environment=environment, verbose=verbose
         )
 
         per_symbol[symbol] = result

@@ -162,6 +162,8 @@ def run_window_backtest(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
+    seasons=None,
+    environment=None,
 ) -> WindowResult:
     """
     Execute a single-window backtest.
@@ -250,12 +252,15 @@ def run_window_backtest(
 
     # ── Ghost DCA baseline (independent per window) ───────────────────────────
     dca_engine = GhostDCABaseline(initial_capital=engine.initial_capital)
-    dca_equity, _ = dca_engine.run(df_slice)
+    dca_equity, _ = dca_engine.run(
+        df_slice, environment=environment, season_schedule=seasons
+    )
     ghost_dca_return = dca_engine.calculate_dca_return(dca_equity)
 
     # ── Strategy backtest ─────────────────────────────────────────────────────
     strategy_equity, strategy_trades, raw_ledger = engine._run_strategy_v2(
-        df_slice, chromosome, symbol="window", season=None, environment=None, verbose=False
+        df_slice, chromosome, symbol="window", season=None,
+        environment=environment, verbose=False, season_schedule=seasons
     )
 
     if strategy_equity and len(strategy_equity) >= 2:
@@ -302,6 +307,7 @@ def run_window_backtest(
             "total_fees_paid": metrics.total_fees_paid,
             "max_drawdown": metrics.max_drawdown,
             "win_rate": metrics.win_rate,
+            "seasons_applied": raw_ledger.get("seasons_applied", []),
         },
     )
 
@@ -316,6 +322,8 @@ def run_all_windows(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
+    seasons=None,
+    environment=None,
 ) -> List[WindowResult]:
     """
     Run all WINDOWS for one symbol.
@@ -345,6 +353,8 @@ def run_all_windows(
             end_ms=end_ms,
             engine=engine,
             seed=w_seed,
+            seasons=seasons,
+            environment=environment,
         )
         results.append(result)
     return results

@@ -68,6 +68,15 @@ class MacroGenes:
 
     # Stage 4: 目標持倉權重（用於 kp/kv/ka PDE 公式）
     target_weight: float = 0.50  # 目標倉位佔比
+
+    # Legacy fields remain serializable so archived chromosomes still load, but
+    # only behaviorally connected fields participate in GA exploration.
+    ACTIVE_EVOLUTION_FIELDS = (
+        "dca_interval",
+        "hold_period",
+        "recycle_ratio",
+        "target_weight",
+    )
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -108,18 +117,8 @@ class MacroGenes:
     
     @classmethod
     def random(cls) -> "MacroGenes":
-        """隨機生成宏觀基因（在合理範圍內）"""
+        """Randomize only macro genes that currently affect backtest behavior."""
         return cls(
-            max_dca_months=random.randint(3, 24),
-            beta_threshold=round(random.uniform(0.05, 0.25), 3),
-            moon_phase_pressure=round(random.uniform(0.5, 2.0), 2),
-            deadline_force_pct=round(random.uniform(0.10, 0.50), 2),
-            gc_threshold_months=random.randint(3, 12),
-            gc_max_ratio=round(random.uniform(0.20, 0.80), 2),
-            t_macro=random.randint(10, 50),
-            t_micro=random.randint(3, 15),
-            t_deadline=random.randint(1, 6),
-            ema_anchor=random.randint(20, 200),
             dca_interval=random.randint(1, 100),
             hold_period=random.randint(10, 200),
             recycle_ratio=round(random.uniform(0.0, 0.5), 3),
@@ -132,10 +131,6 @@ class MacroGenes:
         
         # 各參數獨立以一定概率擾動
         fields_float = [
-            ("beta_threshold", 0.01, 0.50),
-            ("moon_phase_pressure", 0.1, 3.0),
-            ("deadline_force_pct", 0.05, 0.80),
-            ("gc_max_ratio", 0.10, 0.90),
             ("recycle_ratio", 0.0, 0.80),
             ("target_weight", 0.10, 0.90),
         ]
@@ -148,12 +143,6 @@ class MacroGenes:
                 setattr(new, field_name, round(new_val, 3))
         
         fields_int = [
-            ("max_dca_months", 1, 36),
-            ("gc_threshold_months", 1, 24),
-            ("t_macro", 5, 100),
-            ("t_micro", 2, 30),
-            ("t_deadline", 1, 12),
-            ("ema_anchor", 10, 300),
             ("dca_interval", 1, 200),
             ("hold_period", 5, 500),
         ]
@@ -272,6 +261,24 @@ class MicroGenes:
         if random.random() < 0.3:
             new.micro_reserve_rate = max(0.02, min(0.50,
                 new.micro_reserve_rate + random.uniform(-0.05, 0.05)))
+
+        if random.random() < 0.3:
+            new.sigmoid_scale = round(max(0.1, min(
+                10.0,
+                new.sigmoid_scale * (1 + intensity * random.uniform(-1, 1)),
+            )), 3)
+
+        if random.random() < 0.3:
+            new.gamma = round(max(0.1, min(
+                5.0,
+                new.gamma * (1 + intensity * random.uniform(-1, 1)),
+            )), 3)
+
+        if random.random() < 0.3:
+            new.beta = round(max(0.0, min(
+                1.0,
+                new.beta + intensity * random.uniform(-0.25, 0.25),
+            )), 3)
         
         return new
 

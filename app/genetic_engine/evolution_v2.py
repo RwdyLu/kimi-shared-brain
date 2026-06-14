@@ -139,6 +139,23 @@ class EvolutionEngineV2:
         self.current_mutation_rate = self.config["mutation_rate"]
         self.current_mutation_intensity = self.config["mutation_intensity"]
         self.stagnation_count = 0
+
+    def start_new_epoch(self) -> None:
+        """Resample the shared environment once, then keep it fixed for the epoch."""
+        previous_environment = self.three_layer.environment
+        self.epoch_id = f"epoch_{random.randint(10000, 99999)}"
+        self.three_layer = ThreeLayerConfig.create_for_new_epoch(
+            prev_env=previous_environment,
+            n_season_segments=self.config["n_season_segments"],
+        )
+        self.three_layer.epoch_id = self.epoch_id
+        self.generation = 0
+        self.history = []
+        self.best_fitness_history = []
+        for chrom in self.population:
+            chrom.epoch_id = self.epoch_id
+            chrom.fitness_score = None
+            chrom.fitness_details = {}
     
     # ═══════════════════════════════════════════════════════
     # 1-4-5 黃金配比初始化
@@ -281,6 +298,8 @@ class EvolutionEngineV2:
                             end_ms=end_ms,
                             engine=self.backtest_engine,
                             seed=r_seed,
+                            seasons=self.three_layer.seasons,
+                            environment=self.three_layer.environment,
                         )
                         symbol_window_map[symbol] = win_results
                         all_window_results.extend(win_results)
@@ -701,6 +720,8 @@ class ContinuousEvolutionV2:
         cycle = 0
         while self.running:
             cycle += 1
+            if cycle > 1:
+                self.engine.start_new_epoch()
             print(f"\n{'='*60}")
             print(f"🔄 CYCLE {cycle} | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
             print(f"{'='*60}")
