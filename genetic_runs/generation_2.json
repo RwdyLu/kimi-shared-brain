@@ -1,0 +1,3065 @@
+{
+  "generation": 2,
+  "epoch_id": "epoch_11415",
+  "timestamp": "2026-06-14T10:51:11.259549",
+  "three_layer": {
+    "epoch_id": "epoch_11415",
+    "generation": 0,
+    "environment": {
+      "dead_reserve_ratio": 0.2,
+      "global_stop_loss": 0.3,
+      "max_leverage": 1.0
+    },
+    "seasons": [
+      {
+        "season": "winter",
+        "aggressiveness": 0.5,
+        "tick_offset_minutes": 0,
+        "base_tick_minutes": 5
+      },
+      {
+        "season": "autumn",
+        "aggressiveness": 4.0,
+        "tick_offset_minutes": 2,
+        "base_tick_minutes": 5
+      },
+      {
+        "season": "autumn",
+        "aggressiveness": 4.0,
+        "tick_offset_minutes": 0,
+        "base_tick_minutes": 5
+      },
+      {
+        "season": "spring",
+        "aggressiveness": 1.0,
+        "tick_offset_minutes": 0,
+        "base_tick_minutes": 5
+      }
+    ],
+    "gene_bounds": {}
+  },
+  "population": [
+    {
+      "chromosome_id": "X_F7EADF2440ED",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 17,
+            "d_period": 3,
+            "smooth": 3
+          },
+          "condition": "cross_down",
+          "threshold": 26.168,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.56,
+      "exit_genes": [
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 13
+          },
+          "condition": "above",
+          "threshold": 0.028,
+          "threshold2": null,
+          "weight": 1.33
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "volume_sma_ratio",
+        "indicator_type": "volume",
+        "timeframe": "5m",
+        "params": {
+          "period": 27
+        },
+        "condition": "above",
+        "threshold": 1.8,
+        "threshold2": null,
+        "weight": 0.77
+      },
+      "macro_genes": {
+        "max_dca_months": 15,
+        "beta_threshold": 0.175,
+        "moon_phase_pressure": 0.58,
+        "deadline_force_pct": 0.49,
+        "gc_threshold_months": 5,
+        "gc_max_ratio": 0.39,
+        "t_macro": 27,
+        "t_micro": 14,
+        "t_deadline": 6,
+        "ema_anchor": 55
+      },
+      "micro_genes": {
+        "kp": 0.606,
+        "kv": 0.144,
+        "ka": 0.25,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.1450876391111772,
+        "sigmoid_scale": 1.90375,
+        "gamma": 0.96075,
+        "beta": 0.49375
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.035,
+        "take_profit_pct": 0.101,
+        "position_pct": 0.098,
+        "max_hold_bars": 164,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_9A547431813C",
+        "X_ECE5A7D03060"
+      ],
+      "created_at": "2026-06-14T10:49:55.910913",
+      "fitness_score": 0.1500611261660137,
+      "fitness_details": {
+        "fitness": 0.1501,
+        "avg_alpha": -0.0491,
+        "total_trades": 2434,
+        "total_friction": 4.868,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_AF17C0D3435E",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 47.183,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 18
+          },
+          "condition": "below",
+          "threshold": 36.949,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "keltner",
+          "indicator_type": "volatility",
+          "timeframe": "15m",
+          "params": {
+            "ema_period": 22,
+            "atr_period": 12,
+            "multiplier": 1.99
+          },
+          "condition": "above",
+          "threshold": -1.426,
+          "threshold2": null,
+          "weight": 1.31
+        }
+      ],
+      "entry_logic": "AND",
+      "entry_min_weight": 0.59,
+      "exit_genes": [
+        {
+          "name": "rsi",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "period": 10
+          },
+          "condition": "outside",
+          "threshold": 48.155,
+          "threshold2": 32.544,
+          "weight": 1.08
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "15m",
+          "params": {
+            "period": 23,
+            "std_dev": 2.13
+          },
+          "condition": "below",
+          "threshold": 2.145,
+          "threshold2": null,
+          "weight": 1.01
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 28
+          },
+          "condition": "above",
+          "threshold": 17.885,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "volume_sma_ratio",
+        "indicator_type": "volume",
+        "timeframe": "5m",
+        "params": {
+          "period": 27
+        },
+        "condition": "above",
+        "threshold": 1.8,
+        "threshold2": null,
+        "weight": 0.77
+      },
+      "macro_genes": {
+        "max_dca_months": 14,
+        "beta_threshold": 0.242,
+        "moon_phase_pressure": 2.0,
+        "deadline_force_pct": 0.297,
+        "gc_threshold_months": 4,
+        "gc_max_ratio": 0.74,
+        "t_macro": 10,
+        "t_micro": 5,
+        "t_deadline": 1,
+        "ema_anchor": 130
+      },
+      "micro_genes": {
+        "kp": 0.603,
+        "kv": 0.217,
+        "ka": 0.18,
+        "min_trade_threshold": 0.0226,
+        "micro_reserve_rate": 0.13467527822235437,
+        "sigmoid_scale": 1.955,
+        "gamma": 0.94025,
+        "beta": 0.41000000000000003
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.041,
+        "take_profit_pct": 0.107,
+        "position_pct": 0.113,
+        "max_hold_bars": 182,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_3835E7A2C1C0",
+        "X_677E575F416E"
+      ],
+      "created_at": "2026-06-14T10:49:55.911256",
+      "fitness_score": 0.14554335353048165,
+      "fitness_details": {
+        "fitness": 0.1455,
+        "avg_alpha": -0.0488,
+        "total_trades": 1728,
+        "total_friction": 3.456,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_1D8E8A0B78BD",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 100,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 15,
+            "d_period": 6,
+            "smooth": 1
+          },
+          "condition": "below",
+          "threshold": 10.356,
+          "threshold2": null,
+          "weight": 1.46
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.685,
+        "kv": 0.174,
+        "ka": 0.141,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.046,
+        "take_profit_pct": 0.124,
+        "position_pct": 0.066,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_19E5B2449F53"
+      ],
+      "created_at": "2026-06-14T10:49:55.911182",
+      "fitness_score": 0.14549815972301688,
+      "fitness_details": {
+        "fitness": 0.1455,
+        "avg_alpha": -0.0523,
+        "total_trades": 2627,
+        "total_friction": 5.254,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_CD29E4BBA0E0",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 83.018,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.54,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.635,
+        "kv": 0.161,
+        "ka": 0.204,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.205375,
+        "sigmoid_scale": 1.87125,
+        "gamma": 0.937,
+        "beta": 0.49625
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.044,
+        "take_profit_pct": 0.121,
+        "position_pct": 0.069,
+        "max_hold_bars": 162,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_ECE5A7D03060",
+        "MUT_19E5B2449F53"
+      ],
+      "created_at": "2026-06-14T10:49:55.911325",
+      "fitness_score": 0.1444406666208128,
+      "fitness_details": {
+        "fitness": 0.1444,
+        "avg_alpha": -0.0525,
+        "total_trades": 3038,
+        "total_friction": 6.076,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_FE1FF7322D04",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 42,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 83.018,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 15,
+            "d_period": 6,
+            "smooth": 1
+          },
+          "condition": "below",
+          "threshold": 28.404,
+          "threshold2": null,
+          "weight": 1.46
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.15,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.685,
+        "kv": 0.174,
+        "ka": 0.141,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.046,
+        "take_profit_pct": 0.124,
+        "position_pct": 0.07,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_19E5B2449F53"
+      ],
+      "created_at": "2026-06-14T10:49:55.910777",
+      "fitness_score": 0.1439690317480451,
+      "fitness_details": {
+        "fitness": 0.144,
+        "avg_alpha": -0.0528,
+        "total_trades": 3515,
+        "total_friction": 7.03,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_3AAB02D41561",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 100,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "4h",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 15,
+            "d_period": 6,
+            "smooth": 1
+          },
+          "condition": "below",
+          "threshold": 10.356,
+          "threshold2": null,
+          "weight": 1.46
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.685,
+        "kv": 0.174,
+        "ka": 0.141,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.046,
+        "take_profit_pct": 0.136,
+        "position_pct": 0.084,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_19E5B2449F53"
+      ],
+      "created_at": "2026-06-14T10:49:55.911019",
+      "fitness_score": 0.1404906144689449,
+      "fitness_details": {
+        "fitness": 0.1405,
+        "avg_alpha": -0.0507,
+        "total_trades": 2354,
+        "total_friction": 4.708,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_ECE5A7D03060",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 17,
+            "d_period": 3,
+            "smooth": 3
+          },
+          "condition": "cross_down",
+          "threshold": 26.168,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.54,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.36,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.63,
+        "kv": 0.15,
+        "ka": 0.22,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.16725,
+        "sigmoid_scale": 1.7775,
+        "gamma": 0.9510000000000001,
+        "beta": 0.5075000000000001
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.033,
+        "take_profit_pct": 0.119,
+        "position_pct": 0.072,
+        "max_hold_bars": 184,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 1,
+      "parent_ids": [
+        "MUT_173456",
+        "GEN_65560A2C7936"
+      ],
+      "created_at": "2026-06-14T10:48:50.044759",
+      "fitness_score": 0.1402887185075981,
+      "fitness_details": {
+        "fitness": 0.1403,
+        "avg_alpha": -0.0528,
+        "total_trades": 1494,
+        "total_friction": 2.988,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_0B1876DB749F",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 17,
+            "d_period": 3,
+            "smooth": 3
+          },
+          "condition": "cross_down",
+          "threshold": 26.168,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.54,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.36,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.63,
+        "kv": 0.15,
+        "ka": 0.22,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.16725,
+        "sigmoid_scale": 1.7775,
+        "gamma": 0.9510000000000001,
+        "beta": 0.5075000000000001
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.033,
+        "take_profit_pct": 0.119,
+        "position_pct": 0.072,
+        "max_hold_bars": 184,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_ECE5A7D03060"
+      ],
+      "created_at": "2026-06-14T10:49:55.910959",
+      "fitness_score": 0.1402887185075981,
+      "fitness_details": {
+        "fitness": 0.1403,
+        "avg_alpha": -0.0529,
+        "total_trades": 1663,
+        "total_friction": 3.326,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_3835E7A2C1C0",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 47.183,
+          "threshold2": null,
+          "weight": 1.0
+        }
+      ],
+      "entry_logic": "AND",
+      "entry_min_weight": 0.55,
+      "exit_genes": [
+        {
+          "name": "rsi",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "period": 10
+          },
+          "condition": "outside",
+          "threshold": 48.155,
+          "threshold2": 32.544,
+          "weight": 1.08
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "15m",
+          "params": {
+            "period": 23,
+            "std_dev": 2.13
+          },
+          "condition": "below",
+          "threshold": 2.145,
+          "threshold2": null,
+          "weight": 1.01
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 28
+          },
+          "condition": "above",
+          "threshold": 17.885,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": null,
+      "macro_genes": {
+        "max_dca_months": 14,
+        "beta_threshold": 0.242,
+        "moon_phase_pressure": 2.0,
+        "deadline_force_pct": 0.297,
+        "gc_threshold_months": 4,
+        "gc_max_ratio": 0.74,
+        "t_macro": 10,
+        "t_micro": 5,
+        "t_deadline": 1,
+        "ema_anchor": 130
+      },
+      "micro_genes": {
+        "kp": 0.712,
+        "kv": 0.143,
+        "ka": 0.145,
+        "min_trade_threshold": 0.0226,
+        "micro_reserve_rate": 0.10985055644470876,
+        "sigmoid_scale": 1.59,
+        "gamma": 0.979,
+        "beta": 0.53
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.027,
+        "take_profit_pct": 0.121,
+        "position_pct": 0.054,
+        "max_hold_bars": 244,
+        "trailing_stop": false,
+        "trailing_stop_pct": 0.023,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 1,
+      "parent_ids": [
+        "MUT_731148"
+      ],
+      "created_at": "2026-06-14T10:48:50.044075",
+      "fitness_score": 0.13981632195032662,
+      "fitness_details": {
+        "fitness": 0.1398,
+        "avg_alpha": -0.0528,
+        "total_trades": 3663,
+        "total_friction": 7.326,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_B4D6294F047B",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 18
+          },
+          "condition": "below",
+          "threshold": 36.949,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.489,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 72.209,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 21,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.56,
+      "exit_genes": [
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 13
+          },
+          "condition": "above",
+          "threshold": 0.028,
+          "threshold2": null,
+          "weight": 1.33
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "volume_sma_ratio",
+        "indicator_type": "volume",
+        "timeframe": "5m",
+        "params": {
+          "period": 27
+        },
+        "condition": "above",
+        "threshold": 1.8,
+        "threshold2": null,
+        "weight": 0.77
+      },
+      "macro_genes": {
+        "max_dca_months": 15,
+        "beta_threshold": 0.175,
+        "moon_phase_pressure": 0.58,
+        "deadline_force_pct": 0.49,
+        "gc_threshold_months": 5,
+        "gc_max_ratio": 0.39,
+        "t_macro": 27,
+        "t_micro": 14,
+        "t_deadline": 6,
+        "ema_anchor": 55
+      },
+      "micro_genes": {
+        "kp": 0.592,
+        "kv": 0.141,
+        "ka": 0.267,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.1832126391111772,
+        "sigmoid_scale": 1.9975,
+        "gamma": 0.94675,
+        "beta": 0.4825
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.037,
+        "take_profit_pct": 0.1,
+        "position_pct": 0.107,
+        "max_hold_bars": 142,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_9A547431813C",
+        "MUT_970B75740383"
+      ],
+      "created_at": "2026-06-14T10:49:55.910685",
+      "fitness_score": 0.13257168405838865,
+      "fitness_details": {
+        "fitness": 0.1326,
+        "avg_alpha": -0.0537,
+        "total_trades": 1947,
+        "total_friction": 3.894,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_7D35CA3528AC",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 17,
+            "d_period": 3,
+            "smooth": 3
+          },
+          "condition": "cross_down",
+          "threshold": 26.168,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.55,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "rsi",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "period": 10
+          },
+          "condition": "outside",
+          "threshold": 48.155,
+          "threshold2": 32.544,
+          "weight": 1.08
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.36,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.681,
+        "kv": 0.162,
+        "ka": 0.157,
+        "min_trade_threshold": 0.0226,
+        "micro_reserve_rate": 0.13855027822235438,
+        "sigmoid_scale": 1.68375,
+        "gamma": 0.9650000000000001,
+        "beta": 0.51875
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.034,
+        "take_profit_pct": 0.12,
+        "position_pct": 0.063,
+        "max_hold_bars": 214,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_3835E7A2C1C0",
+        "X_ECE5A7D03060"
+      ],
+      "created_at": "2026-06-14T10:49:55.910851",
+      "fitness_score": 0.13187438828403714,
+      "fitness_details": {
+        "fitness": 0.1319,
+        "avg_alpha": -0.0496,
+        "total_trades": 2441,
+        "total_friction": 4.882,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_986A99A511C8",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 83.018,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 15,
+            "d_period": 6,
+            "smooth": 1
+          },
+          "condition": "below",
+          "threshold": 10.356,
+          "threshold2": null,
+          "weight": 1.46
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.48,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.541,
+        "kv": 0.137,
+        "ka": 0.322,
+        "min_trade_threshold": 0.0479,
+        "micro_reserve_rate": 0.2245295941013733,
+        "sigmoid_scale": 1.63625,
+        "gamma": 0.92925,
+        "beta": 0.43875
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.058,
+        "take_profit_pct": 0.109,
+        "position_pct": 0.107,
+        "max_hold_bars": 174,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_9E33C550A78B",
+        "MUT_19E5B2449F53"
+      ],
+      "created_at": "2026-06-14T10:49:55.911394",
+      "fitness_score": 0.12613526305235678,
+      "fitness_details": {
+        "fitness": 0.1261,
+        "avg_alpha": -0.0541,
+        "total_trades": 851,
+        "total_friction": 1.702,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_9A547431813C",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 18
+          },
+          "condition": "below",
+          "threshold": 36.949,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 47.183,
+          "threshold2": null,
+          "weight": 1.0
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.59,
+      "exit_genes": [
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 13
+          },
+          "condition": "above",
+          "threshold": 0.028,
+          "threshold2": null,
+          "weight": 1.33
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 14
+          },
+          "condition": "below",
+          "threshold": 0.047,
+          "threshold2": null,
+          "weight": 1.09
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "volume_sma_ratio",
+        "indicator_type": "volume",
+        "timeframe": "5m",
+        "params": {
+          "period": 27
+        },
+        "condition": "above",
+        "threshold": 1.8,
+        "threshold2": null,
+        "weight": 0.77
+      },
+      "macro_genes": {
+        "max_dca_months": 15,
+        "beta_threshold": 0.175,
+        "moon_phase_pressure": 0.58,
+        "deadline_force_pct": 0.49,
+        "gc_threshold_months": 5,
+        "gc_max_ratio": 0.39,
+        "t_macro": 27,
+        "t_micro": 14,
+        "t_deadline": 6,
+        "ema_anchor": 55
+      },
+      "micro_genes": {
+        "kp": 0.533,
+        "kv": 0.127,
+        "ka": 0.34,
+        "min_trade_threshold": 0.054,
+        "micro_reserve_rate": 0.12292527822235438,
+        "sigmoid_scale": 2.0300000000000002,
+        "gamma": 0.9704999999999999,
+        "beta": 0.48
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.037,
+        "take_profit_pct": 0.082,
+        "position_pct": 0.124,
+        "max_hold_bars": 144,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 1,
+      "parent_ids": [
+        "GEN_80721E5E07AB",
+        "MUT_731148"
+      ],
+      "created_at": "2026-06-14T10:48:50.044554",
+      "fitness_score": 0.12070593487376152,
+      "fitness_details": {
+        "fitness": 0.1207,
+        "avg_alpha": -0.0504,
+        "total_trades": 1094,
+        "total_friction": 2.188,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_19E5B2449F53",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 83.018,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 18,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 4,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 15,
+            "d_period": 6,
+            "smooth": 1
+          },
+          "condition": "below",
+          "threshold": 10.356,
+          "threshold2": null,
+          "weight": 1.46
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.685,
+        "kv": 0.174,
+        "ka": 0.141,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.046,
+        "take_profit_pct": 0.124,
+        "position_pct": 0.066,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 1,
+      "parent_ids": [
+        "MUT_108365"
+      ],
+      "created_at": "2026-06-14T10:48:50.044311",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0465,
+        "total_trades": 1125,
+        "total_friction": 2.25,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_9E33C550A78B",
+      "entry_genes": [
+        {
+          "name": "supertrend",
+          "indicator_type": "trend",
+          "timeframe": "4h",
+          "params": {
+            "period": 14,
+            "multiplier": 3.44
+          },
+          "condition": "cross_down",
+          "threshold": 30.456,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "period": 6
+          },
+          "condition": "above",
+          "threshold": 2.766,
+          "threshold2": null,
+          "weight": 0.99
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 22,
+            "std_dev": 2.86
+          },
+          "condition": "above",
+          "threshold": 1.1,
+          "threshold2": null,
+          "weight": 1.29
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.43,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 14
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.028,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": {
+        "name": "adx",
+        "indicator_type": "trend",
+        "timeframe": "15m",
+        "params": {
+          "period": 21
+        },
+        "condition": "above",
+        "threshold": 19,
+        "threshold2": null,
+        "weight": 1.3
+      },
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.365,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 5,
+        "ema_anchor": 97
+      },
+      "micro_genes": {
+        "kp": 0.468,
+        "kv": 0.125,
+        "ka": 0.408,
+        "min_trade_threshold": 0.0479,
+        "micro_reserve_rate": 0.2055591882027466,
+        "sigmoid_scale": 1.3075,
+        "gamma": 0.9355,
+        "beta": 0.39249999999999996
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.063,
+        "take_profit_pct": 0.094,
+        "position_pct": 0.149,
+        "max_hold_bars": 207,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 1,
+      "parent_ids": [
+        "MUT_553827",
+        "GEN_8A610E3EDD0B"
+      ],
+      "created_at": "2026-06-14T10:48:50.043999",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0543,
+        "total_trades": 428,
+        "total_friction": 0.856,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "MUT_301820ED60E9",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.489,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 72.209,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 21,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "4h",
+          "params": {
+            "k_period": 13,
+            "d_period": 3,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 50.74,
+          "threshold2": null,
+          "weight": 1.12
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.127,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.36,
+        "t_macro": 26,
+        "t_micro": 12,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.707,
+        "kv": 0.148,
+        "ka": 0.144,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.042,
+        "take_profit_pct": 0.118,
+        "position_pct": 0.091,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_970B75740383"
+      ],
+      "created_at": "2026-06-14T10:49:55.910383",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0442,
+        "total_trades": 1393,
+        "total_friction": 2.786,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_5F934C48678A",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 18
+          },
+          "condition": "below",
+          "threshold": 36.949,
+          "threshold2": null,
+          "weight": 1.12
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 47.183,
+          "threshold2": null,
+          "weight": 1.0
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.51,
+      "exit_genes": [
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 13
+          },
+          "condition": "above",
+          "threshold": 0.028,
+          "threshold2": null,
+          "weight": 1.33
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 14
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "volume_sma_ratio",
+        "indicator_type": "volume",
+        "timeframe": "5m",
+        "params": {
+          "period": 27
+        },
+        "condition": "above",
+        "threshold": 1.8,
+        "threshold2": null,
+        "weight": 0.77
+      },
+      "macro_genes": {
+        "max_dca_months": 15,
+        "beta_threshold": 0.175,
+        "moon_phase_pressure": 0.58,
+        "deadline_force_pct": 0.49,
+        "gc_threshold_months": 5,
+        "gc_max_ratio": 0.39,
+        "t_macro": 27,
+        "t_micro": 14,
+        "t_deadline": 6,
+        "ema_anchor": 55
+      },
+      "micro_genes": {
+        "kp": 0.499,
+        "kv": 0.119,
+        "ka": 0.382,
+        "min_trade_threshold": 0.0479,
+        "micro_reserve_rate": 0.1642422332125505,
+        "sigmoid_scale": 1.6687500000000002,
+        "gamma": 0.953,
+        "beta": 0.43624999999999997
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.054,
+        "take_profit_pct": 0.088,
+        "position_pct": 0.137,
+        "max_hold_bars": 175,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "X_9E33C550A78B",
+        "X_9A547431813C"
+      ],
+      "created_at": "2026-06-14T10:49:55.910509",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0506,
+        "total_trades": 804,
+        "total_friction": 1.608,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_A3AFF00CE559",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "k_period": 17,
+            "d_period": 3,
+            "smooth": 3
+          },
+          "condition": "cross_down",
+          "threshold": 26.168,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.54,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.684,
+        "kv": 0.163,
+        "ka": 0.153,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.205375,
+        "sigmoid_scale": 1.87125,
+        "gamma": 0.937,
+        "beta": 0.49625
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.045,
+        "take_profit_pct": 0.121,
+        "position_pct": 0.069,
+        "max_hold_bars": 162,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_19E5B2449F53",
+        "X_ECE5A7D03060"
+      ],
+      "created_at": "2026-06-14T10:49:55.910591",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0491,
+        "total_trades": 1691,
+        "total_friction": 3.382,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_56AD263144C1",
+      "entry_genes": [
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 47.183,
+          "threshold2": null,
+          "weight": 1.0
+        },
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.489,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 72.209,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "fast": 11,
+            "slow": 22,
+            "signal": 13
+          },
+          "condition": "cross_down",
+          "threshold": -0.321,
+          "threshold2": null,
+          "weight": 0.89
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.55,
+      "exit_genes": [
+        {
+          "name": "rsi",
+          "indicator_type": "momentum",
+          "timeframe": "5m",
+          "params": {
+            "period": 10
+          },
+          "condition": "outside",
+          "threshold": 48.155,
+          "threshold2": 32.544,
+          "weight": 1.08
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "15m",
+          "params": {
+            "period": 23,
+            "std_dev": 2.13
+          },
+          "condition": "below",
+          "threshold": 2.145,
+          "threshold2": null,
+          "weight": 1.01
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 14,
+        "beta_threshold": 0.242,
+        "moon_phase_pressure": 2.0,
+        "deadline_force_pct": 0.297,
+        "gc_threshold_months": 4,
+        "gc_max_ratio": 0.74,
+        "t_macro": 10,
+        "t_micro": 5,
+        "t_deadline": 1,
+        "ema_anchor": 130
+      },
+      "micro_genes": {
+        "kp": 0.64,
+        "kv": 0.128,
+        "ka": 0.232,
+        "min_trade_threshold": 0.0248,
+        "micro_reserve_rate": 0.1445502782223544,
+        "sigmoid_scale": 1.61125,
+        "gamma": 0.9512499999999999,
+        "beta": 0.50125
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.043,
+        "take_profit_pct": 0.114,
+        "position_pct": 0.088,
+        "max_hold_bars": 200,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_3835E7A2C1C0",
+        "X_1B007A09FE95"
+      ],
+      "created_at": "2026-06-14T10:49:55.911089",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.05,
+        "total_trades": 2624,
+        "total_friction": 5.248,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    },
+    {
+      "chromosome_id": "X_D5FB3CA46A0A",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.307,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "adx",
+          "indicator_type": "trend",
+          "timeframe": "15m",
+          "params": {
+            "period": 21
+          },
+          "condition": "below",
+          "threshold": 37.393,
+          "threshold2": null,
+          "weight": 1.0
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.54,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "4h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 2.521,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.291,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.684,
+        "kv": 0.163,
+        "ka": 0.153,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.205375,
+        "sigmoid_scale": 1.87125,
+        "gamma": 0.937,
+        "beta": 0.49625
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.038,
+        "take_profit_pct": 0.121,
+        "position_pct": 0.069,
+        "max_hold_bars": 162,
+        "trailing_stop": false,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 2,
+      "parent_ids": [
+        "MUT_19E5B2449F53",
+        "X_ECE5A7D03060"
+      ],
+      "created_at": "2026-06-14T10:49:55.911469",
+      "fitness_score": 0.01,
+      "fitness_details": {
+        "fitness": 0.01,
+        "avg_alpha": -0.0448,
+        "total_trades": 2000,
+        "total_friction": 4.0,
+        "symbols_tested": 10,
+        "seasons_applied": 4
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_0",
+      "symbol": "default"
+    }
+  ],
+  "history": [
+    {
+      "generation": 0,
+      "best_fitness": 0.15374757067055075,
+      "avg_fitness": 0.0289,
+      "population_size": 20,
+      "best_strategy_id": "MUT_173456",
+      "best_summary": "[MUT_1734] G0 | Entry(OR): macd + sma_cross + bbands + stochastic | Exit(OR): momentum + atr | Macro: DCA=8mo \u03b2=16.7% | Micro: kp=0.61 kv=0.15 ka=0.24 | Risk: SL=-4.6% TP=11.8% | fit=0.154",
+      "mutation_rate": 0.4,
+      "mutation_intensity": 0.3,
+      "epoch_id": "epoch_11415",
+      "three_layer": {
+        "epoch_id": "epoch_11415",
+        "generation": 0,
+        "environment": {
+          "dead_reserve_ratio": 0.2,
+          "global_stop_loss": 0.3,
+          "max_leverage": 1.0
+        },
+        "seasons": [
+          {
+            "season": "winter",
+            "aggressiveness": 0.5,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 2,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "spring",
+            "aggressiveness": 1.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          }
+        ],
+        "gene_bounds": {}
+      }
+    },
+    {
+      "generation": 1,
+      "best_fitness": 0.14562442240180618,
+      "avg_fitness": 0.0776,
+      "population_size": 20,
+      "best_strategy_id": "MUT_19E5B2449F53",
+      "best_summary": "[MUT_19E5] G1 | Entry(OR): macd + sma_cross + bbands + stochastic + stochastic | Exit(OR): momentum + atr | Macro: DCA=8mo \u03b2=16.7% | Micro: kp=0.69 kv=0.17 ka=0.14 | Risk: SL=-4.6% TP=12.4% | fit=0.146",
+      "mutation_rate": 0.4,
+      "mutation_intensity": 0.3,
+      "epoch_id": "epoch_11415",
+      "three_layer": {
+        "epoch_id": "epoch_11415",
+        "generation": 0,
+        "environment": {
+          "dead_reserve_ratio": 0.2,
+          "global_stop_loss": 0.3,
+          "max_leverage": 1.0
+        },
+        "seasons": [
+          {
+            "season": "winter",
+            "aggressiveness": 0.5,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 2,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "spring",
+            "aggressiveness": 1.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          }
+        ],
+        "gene_bounds": {}
+      }
+    },
+    {
+      "generation": 2,
+      "best_fitness": 0.1500611261660137,
+      "avg_fitness": 0.0936,
+      "population_size": 20,
+      "best_strategy_id": "X_F7EADF2440ED",
+      "best_summary": "[X_F7EADF] G2 | Entry(OR): adx + stochastic | Exit(OR): atr + momentum | Macro: DCA=15mo \u03b2=17.5% | Micro: kp=0.61 kv=0.14 ka=0.25 | Risk: SL=-3.5% TP=10.1% | fit=0.150",
+      "mutation_rate": 0.4,
+      "mutation_intensity": 0.3,
+      "epoch_id": "epoch_11415",
+      "three_layer": {
+        "epoch_id": "epoch_11415",
+        "generation": 0,
+        "environment": {
+          "dead_reserve_ratio": 0.2,
+          "global_stop_loss": 0.3,
+          "max_leverage": 1.0
+        },
+        "seasons": [
+          {
+            "season": "winter",
+            "aggressiveness": 0.5,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 2,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "autumn",
+            "aggressiveness": 4.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          },
+          {
+            "season": "spring",
+            "aggressiveness": 1.0,
+            "tick_offset_minutes": 0,
+            "base_tick_minutes": 5
+          }
+        ],
+        "gene_bounds": {}
+      }
+    }
+  ],
+  "mutation_rate": 0.4,
+  "mutation_intensity": 0.3
+}

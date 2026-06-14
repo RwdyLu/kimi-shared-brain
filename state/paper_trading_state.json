@@ -99312,7 +99312,7 @@
       ]
     },
     "ma_cross_trend_v2": {
-      "balance": 900.4135521838367,
+      "balance": 896.6721008188539,
       "initial": 1000.0,
       "positions": {},
       "trades": [
@@ -104787,25 +104787,157 @@
           "strategy_id": "ma_cross_trend_v2",
           "position_id": "POS_20260613231813_XRPUSDT_ma_cross_trend_v2_1",
           "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260613233358_BTCUSDT_ma_cross_trend_v2",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.0021009128057710848,
+          "entry_price": 64287.31,
+          "exit_price": 64335.01,
+          "entry_time": "2026-06-13T23:33:58.459017",
+          "exit_time": "2026-06-13T23:39:12.981766",
+          "slippage": 0.013506203282757551,
+          "commission": 0.1350620328275755,
+          "realized_pnl": -0.04846493016996196,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260613233358_BTCUSDT_ma_cross_trend_v2_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613233913_BTCUSDT_ma_cross_trend_v2",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.00209889573115219,
+          "entry_price": 64335.01,
+          "exit_price": 64253.87,
+          "entry_time": "2026-06-13T23:39:13.668764",
+          "exit_time": "2026-06-13T23:44:29.180767",
+          "slippage": 0.013503247785263347,
+          "commission": 0.13503247785263348,
+          "realized_pnl": -0.31865279042399597,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260613233913_BTCUSDT_ma_cross_trend_v2_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613233913_XRPUSDT_ma_cross_trend_v2",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 98.95259620237368,
+          "entry_price": 1.1597,
+          "exit_price": 1.1567,
+          "entry_time": "2026-06-13T23:39:13.799266",
+          "exit_time": "2026-06-13T23:44:29.299203",
+          "slippage": 0.011475532581589277,
+          "commission": 0.11475532581589276,
+          "realized_pnl": -0.42276210343712456,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260613233913_XRPUSDT_ma_cross_trend_v2_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613234945_DOGEUSDT_ma_cross_trend_v2",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1524.585177245948,
+          "entry_price": 0.08847,
+          "exit_price": 0.08836,
+          "entry_time": "2026-06-13T23:49:45.023643",
+          "exit_time": "2026-06-13T23:54:59.644290",
+          "slippage": 0.0134880050630949,
+          "commission": 0.13488005063094902,
+          "realized_pnl": -0.3158879503846499,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260613234945_DOGEUSDT_ma_cross_trend_v2_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613235500_DOTUSDT_ma_cross_trend_v2",
+          "symbol": "DOTUSDT",
+          "side": "buy",
+          "quantity": 136.17213356569414,
+          "entry_price": 0.99,
+          "exit_price": 0.98,
+          "entry_time": "2026-06-13T23:55:00.566435",
+          "exit_time": "2026-06-14T01:55:38.479905",
+          "slippage": 0.01348104122300372,
+          "commission": 0.1348104122300372,
+          "realized_pnl": -1.5085148956407608,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260613235500_DOTUSDT_ma_cross_trend_v2_0",
+          "exit_reason": "atr_stop_0.6pct"
+        },
+        {
+          "trade_id": "PT_20260614001604_AVAXUSDT_ma_cross_trend_v2",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 17.03846024353267,
+          "entry_price": 6.724,
+          "exit_price": 6.725,
+          "entry_time": "2026-06-14T00:16:04.371487",
+          "exit_time": "2026-06-14T01:34:39.070246",
+          "slippage": 0.011456660667751367,
+          "commission": 0.11456660667751366,
+          "realized_pnl": -0.10900354940800969,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260614001604_AVAXUSDT_ma_cross_trend_v2_0",
+          "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260614015538_AVAXUSDT_ma_cross_trend_v2",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 20.0965995302002,
+          "entry_price": 6.694,
+          "exit_price": 6.711,
+          "entry_time": "2026-06-14T01:55:38.935013",
+          "exit_time": "2026-06-14T02:37:34.103705",
+          "slippage": 0.013452663725516015,
+          "commission": 0.13452663725516015,
+          "realized_pnl": 0.19328708462151947,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260614015538_AVAXUSDT_ma_cross_trend_v2_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614022703_DOGEUSDT_ma_cross_trend_v2",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1303.299644000673,
+          "entry_price": 0.08772,
+          "exit_price": 0.08775,
+          "entry_time": "2026-06-14T02:27:03.974281",
+          "exit_time": "2026-06-14T02:37:34.237031",
+          "slippage": 0.011432544477173906,
+          "commission": 0.11432544477173905,
+          "realized_pnl": -0.08670200881715992,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260614022703_DOGEUSDT_ma_cross_trend_v2_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614023735_DOGEUSDT_ma_cross_trend_v2",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1532.7813609458278,
+          "entry_price": 0.08775,
+          "exit_price": 0.08794,
+          "entry_time": "2026-06-14T02:37:35.044250",
+          "exit_time": "2026-06-14T10:40:37.574623",
+          "slippage": 0.01345015644229964,
+          "commission": 0.13450156442299638,
+          "realized_pnl": 0.14295638640998828,
+          "strategy_id": "ma_cross_trend_v2",
+          "position_id": "POS_20260614023735_DOGEUSDT_ma_cross_trend_v2_0",
+          "exit_reason": "time_stop:8.1h"
         }
       ]
     },
     "volume_breakout_v2": {
-      "balance": 841.141406806074,
+      "balance": 987.1210646753339,
       "initial": 1000.0,
-      "positions": {
-        "DOTUSDT": [
-          {
-            "symbol": "DOTUSDT",
-            "side": "buy",
-            "quantity": 149.2115966122198,
-            "entry_price": 0.995,
-            "entry_time": "2026-06-13T23:23:29.595190",
-            "strategy_id": "volume_breakout_v2",
-            "position_id": "POS_20260613232329_DOTUSDT_volume_breakout_v2_0"
-          }
-        ]
-      },
+      "positions": {},
       "trades": [
         {
           "trade_id": "PT_20260522073401_ADAUSDT_volume_breakout_v2",
@@ -105325,15 +105457,47 @@
           "side": "buy",
           "quantity": 149.2115966122198,
           "entry_price": 0.995,
-          "exit_price": null,
+          "exit_price": 0.99,
           "entry_time": "2026-06-13T23:23:29.595190",
-          "exit_time": null,
+          "exit_time": "2026-06-13T23:33:58.155322",
           "slippage": 0.014846553862915873,
           "commission": 0.1484655386291587,
-          "realized_pnl": 0.0,
+          "realized_pnl": -0.9085494117718071,
           "strategy_id": "volume_breakout_v2",
           "position_id": "POS_20260613232329_DOTUSDT_volume_breakout_v2_0",
           "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613234429_XRPUSDT_volume_breakout_v2",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 128.2136763236095,
+          "entry_price": 1.1567,
+          "exit_price": 1.1572,
+          "entry_time": "2026-06-13T23:44:29.928744",
+          "exit_time": "2026-06-13T23:49:44.584877",
+          "slippage": 0.014830475940351912,
+          "commission": 0.14830475940351912,
+          "realized_pnl": -0.09909891470405131,
+          "strategy_id": "volume_breakout_v2",
+          "position_id": "POS_20260613234429_XRPUSDT_volume_breakout_v2_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613235500_DOGEUSDT_volume_breakout_v2",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1677.9699443301488,
+          "entry_price": 0.08836,
+          "exit_price": 0.08777,
+          "entry_time": "2026-06-13T23:55:00.323512",
+          "exit_time": "2026-06-14T01:34:39.206345",
+          "slippage": 0.014826542428101195,
+          "commission": 0.14826542428101194,
+          "realized_pnl": -1.1520052313700195,
+          "strategy_id": "volume_breakout_v2",
+          "position_id": "POS_20260613235500_DOGEUSDT_volume_breakout_v2_0",
+          "exit_reason": "atr_stop_0.5pct"
         }
       ]
     },
@@ -106141,9 +106305,21 @@
       "trades": []
     },
     "volume_breakout_g1_05251619_wyw": {
-      "balance": 985.6646157964975,
+      "balance": 836.3159305603114,
       "initial": 1000.0,
-      "positions": {},
+      "positions": {
+        "SOLUSDT": [
+          {
+            "symbol": "SOLUSDT",
+            "side": "buy",
+            "quantity": 2.1402612536418424,
+            "entry_price": 68.97,
+            "entry_time": "2026-06-14T06:44:07.501497",
+            "strategy_id": "volume_breakout_g1_05251619_wyw",
+            "position_id": "POS_20260614064407_SOLUSDT_volume_breakout_g1_05251619_wyw_0"
+          }
+        ]
+      },
       "trades": [
         {
           "trade_id": "PT_20260526230434_DOTUSDT_volume_breakout_g1_05251619_wyw",
@@ -107216,11 +107392,59 @@
           "strategy_id": "volume_breakout_g1_05251619_wyw",
           "position_id": "POS_20260613221004_ADAUSDT_volume_breakout_g1_05251619_wyw_0",
           "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260613234430_XRPUSDT_volume_breakout_g1_05251619_wyw",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 127.82025794888442,
+          "entry_price": 1.1567,
+          "exit_price": 1.1572,
+          "entry_time": "2026-06-13T23:44:30.051016",
+          "exit_time": "2026-06-13T23:49:44.724575",
+          "slippage": 0.014784969236947462,
+          "commission": 0.14784969236947462,
+          "realized_pnl": -0.09879483377385881,
+          "strategy_id": "volume_breakout_g1_05251619_wyw",
+          "position_id": "POS_20260613234430_XRPUSDT_volume_breakout_g1_05251619_wyw_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613235500_DOGEUSDT_volume_breakout_g1_05251619_wyw",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1672.8211628018057,
+          "entry_price": 0.08836,
+          "exit_price": 0.08777,
+          "entry_time": "2026-06-13T23:55:00.444079",
+          "exit_time": "2026-06-14T01:34:39.329544",
+          "slippage": 0.014781047794516755,
+          "commission": 0.14781047794516755,
+          "realized_pnl": -1.14847035085808,
+          "strategy_id": "volume_breakout_g1_05251619_wyw",
+          "position_id": "POS_20260613235500_DOGEUSDT_volume_breakout_g1_05251619_wyw_0",
+          "exit_reason": "atr_stop_0.5pct"
+        },
+        {
+          "trade_id": "PT_20260614064407_SOLUSDT_volume_breakout_g1_05251619_wyw",
+          "symbol": "SOLUSDT",
+          "side": "buy",
+          "quantity": 2.1402612536418424,
+          "entry_price": 68.97,
+          "exit_price": null,
+          "entry_time": "2026-06-14T06:44:07.501497",
+          "exit_time": null,
+          "slippage": 0.014761381866367789,
+          "commission": 0.14761381866367787,
+          "realized_pnl": 0.0,
+          "strategy_id": "volume_breakout_g1_05251619_wyw",
+          "position_id": "POS_20260614064407_SOLUSDT_volume_breakout_g1_05251619_wyw_0",
+          "exit_reason": ""
         }
       ]
     },
     "trend_follower_g1_05251619_iwy": {
-      "balance": 975.823597425893,
+      "balance": 973.1546202084036,
       "initial": 1000.0,
       "positions": {},
       "trades": [
@@ -108407,11 +108631,123 @@
           "strategy_id": "trend_follower_g1_05251619_iwy",
           "position_id": "POS_20260613231813_XRPUSDT_trend_follower_g1_05251619_iwy_1",
           "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260613233358_BTCUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.002276865210472859,
+          "entry_price": 64287.31,
+          "exit_price": 64335.01,
+          "entry_time": "2026-06-13T23:33:58.585019",
+          "exit_time": "2026-06-13T23:39:13.110920",
+          "slippage": 0.014637353961388395,
+          "commission": 0.14637353961388394,
+          "realized_pnl": -0.052523890153300536,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260613233358_BTCUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613233913_XRPUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 126.18910873184846,
+          "entry_price": 1.1597,
+          "exit_price": 1.1567,
+          "entry_time": "2026-06-13T23:39:13.926879",
+          "exit_time": "2026-06-13T23:44:29.417377",
+          "slippage": 0.014634150939632466,
+          "commission": 0.14634150939632465,
+          "realized_pnl": -0.5391265624726738,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260613233913_XRPUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613234945_DOGEUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1652.9500854855137,
+          "entry_price": 0.08847,
+          "exit_price": 0.08836,
+          "entry_time": "2026-06-13T23:49:45.158176",
+          "exit_time": "2026-06-13T23:54:59.777633",
+          "slippage": 0.014623649406290339,
+          "commission": 0.14623649406290337,
+          "realized_pnl": -0.3424846459122548,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260613234945_DOGEUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260614001604_AVAXUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.737208855516975,
+          "entry_price": 6.724,
+          "exit_price": 6.725,
+          "entry_time": "2026-06-14T00:16:04.504272",
+          "exit_time": "2026-06-14T01:34:39.454263",
+          "slippage": 0.014616099234449616,
+          "commission": 0.14616099234449614,
+          "realized_pnl": -0.1390637936531819,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260614001604_AVAXUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260614013439_SOLUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "SOLUSDT",
+          "side": "buy",
+          "quantity": 2.141835476571553,
+          "entry_price": 68.22,
+          "exit_price": 68.01,
+          "entry_time": "2026-06-14T01:34:39.958348",
+          "exit_time": "2026-06-14T01:55:38.645695",
+          "slippage": 0.014611601621171134,
+          "commission": 0.14611601621171133,
+          "realized_pnl": -0.6100183039178071,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260614013439_SOLUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614015539_AVAXUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.810637036666975,
+          "entry_price": 6.694,
+          "exit_price": 6.711,
+          "entry_time": "2026-06-14T01:55:39.061949",
+          "exit_time": "2026-06-14T02:37:34.368494",
+          "slippage": 0.014600040432344873,
+          "commission": 0.1460004043234487,
+          "realized_pnl": 0.2097725259549669,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260614015539_AVAXUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614022704_DOGEUSDT_trend_follower_g1_05251619_iwy",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1414.4579754698818,
+          "entry_price": 0.08772,
+          "exit_price": 0.08775,
+          "entry_time": "2026-06-14T02:27:04.106198",
+          "exit_time": "2026-06-14T02:37:34.505997",
+          "slippage": 0.012407625360821805,
+          "commission": 0.12407625360821804,
+          "realized_pnl": -0.09409681681815034,
+          "strategy_id": "trend_follower_g1_05251619_iwy",
+          "position_id": "POS_20260614022704_DOGEUSDT_trend_follower_g1_05251619_iwy_0",
+          "exit_reason": "hilbert_reverse"
         }
       ]
     },
     "trend_follower_g2_05251619_cpy": {
-      "balance": 948.8750750208621,
+      "balance": 947.0291259435588,
       "initial": 1000.0,
       "positions": {},
       "trades": [
@@ -111198,6 +111534,102 @@
           "strategy_id": "trend_follower_g2_05251619_cpy",
           "position_id": "POS_20260613231813_XRPUSDT_trend_follower_g2_05251619_cpy_1",
           "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260613233358_BTCUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.0022139868856408725,
+          "entry_price": 64287.31,
+          "exit_price": 64335.01,
+          "entry_time": "2026-06-13T23:33:58.707969",
+          "exit_time": "2026-06-13T23:39:13.241866",
+          "slippage": 0.014233126125312934,
+          "commission": 0.14233126125312934,
+          "realized_pnl": -0.051073380825252535,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260613233358_BTCUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613233914_XRPUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 122.7042472949028,
+          "entry_price": 1.1597,
+          "exit_price": 1.1567,
+          "entry_time": "2026-06-13T23:39:14.061885",
+          "exit_time": "2026-06-13T23:44:29.531900",
+          "slippage": 0.014230011558789878,
+          "commission": 0.14230011558789876,
+          "realized_pnl": -0.5242379450153106,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260613233914_XRPUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613234945_DOGEUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1607.3019145142362,
+          "entry_price": 0.08847,
+          "exit_price": 0.08836,
+          "entry_time": "2026-06-13T23:49:45.288682",
+          "exit_time": "2026-06-13T23:54:59.900801",
+          "slippage": 0.014219800037707448,
+          "commission": 0.14219800037707447,
+          "realized_pnl": -0.33302652747969,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260613234945_DOGEUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260614001604_AVAXUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.136910132047927,
+          "entry_price": 6.724,
+          "exit_price": 6.725,
+          "entry_time": "2026-06-14T00:16:04.635675",
+          "exit_time": "2026-06-14T01:34:39.578471",
+          "slippage": 0.014212458372789028,
+          "commission": 0.14212458372789027,
+          "realized_pnl": -0.13522338256978833,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260614001604_AVAXUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260614015539_AVAXUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.22510452109198,
+          "entry_price": 6.694,
+          "exit_price": 6.711,
+          "entry_time": "2026-06-14T01:55:39.202045",
+          "exit_time": "2026-06-14T02:37:34.638298",
+          "slippage": 0.014208084966418972,
+          "commission": 0.1420808496641897,
+          "realized_pnl": 0.20414093277341788,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260614015539_AVAXUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614022704_DOGEUSDT_trend_follower_g2_05251619_cpy",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1376.4851672864418,
+          "entry_price": 0.08772,
+          "exit_price": 0.08775,
+          "entry_time": "2026-06-14T02:27:04.234484",
+          "exit_time": "2026-06-14T02:37:34.770301",
+          "slippage": 0.012074527887436667,
+          "commission": 0.12074527887436667,
+          "realized_pnl": -0.09157067575374656,
+          "strategy_id": "trend_follower_g2_05251619_cpy",
+          "position_id": "POS_20260614022704_DOGEUSDT_trend_follower_g2_05251619_cpy_0",
+          "exit_reason": "hilbert_reverse"
         }
       ]
     },
@@ -111208,7 +111640,7 @@
       "trades": []
     },
     "trend_follower_g2_05251619_qhf": {
-      "balance": 983.7835879596469,
+      "balance": 981.0021904353287,
       "initial": 1000.0,
       "positions": {},
       "trades": [
@@ -111979,11 +112411,107 @@
           "strategy_id": "trend_follower_g2_05251619_qhf",
           "position_id": "POS_20260613231813_XRPUSDT_trend_follower_g2_05251619_qhf_1",
           "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260613233358_BTCUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "BTCUSDT",
+          "side": "buy",
+          "quantity": 0.0022954380606988694,
+          "entry_price": 64287.31,
+          "exit_price": 64335.01,
+          "entry_time": "2026-06-13T23:33:58.846105",
+          "exit_time": "2026-06-13T23:39:13.364538",
+          "slippage": 0.014756753819394704,
+          "commission": 0.14756753819394702,
+          "realized_pnl": -0.05295233815304052,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260613233358_BTCUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613233914_XRPUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "XRPUSDT",
+          "side": "buy",
+          "quantity": 127.21845882505998,
+          "entry_price": 1.1597,
+          "exit_price": 1.1567,
+          "entry_time": "2026-06-13T23:39:14.196623",
+          "exit_time": "2026-06-13T23:44:29.657035",
+          "slippage": 0.014753524669942206,
+          "commission": 0.14753524669942206,
+          "realized_pnl": -0.5435243269304078,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260613233914_XRPUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260613234945_DOGEUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1666.4335337931175,
+          "entry_price": 0.08847,
+          "exit_price": 0.08836,
+          "entry_time": "2026-06-13T23:49:45.425082",
+          "exit_time": "2026-06-13T23:55:00.029875",
+          "slippage": 0.014742937473467709,
+          "commission": 0.1474293747346771,
+          "realized_pnl": -0.3452783624677971,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260613234945_DOGEUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": ""
+        },
+        {
+          "trade_id": "PT_20260614001604_AVAXUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.914523666489544,
+          "entry_price": 6.724,
+          "exit_price": 6.725,
+          "entry_time": "2026-06-14T00:16:04.770796",
+          "exit_time": "2026-06-14T01:34:39.703268",
+          "slippage": 0.01473532571334757,
+          "commission": 0.1473532571334757,
+          "realized_pnl": -0.140198165156379,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260614001604_AVAXUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260614013440_SOLUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "SOLUSDT",
+          "side": "buy",
+          "quantity": 2.1593068619360185,
+          "entry_price": 68.22,
+          "exit_price": 68.01,
+          "entry_time": "2026-06-14T01:34:40.082885",
+          "exit_time": "2026-06-14T01:55:38.793139",
+          "slippage": 0.01473079141212752,
+          "commission": 0.1473079141212752,
+          "realized_pnl": -0.6149943466548459,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260614013440_SOLUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": "hilbert_reverse"
+        },
+        {
+          "trade_id": "PT_20260614022704_DOGEUSDT_trend_follower_g2_05251619_qhf",
+          "symbol": "DOGEUSDT",
+          "side": "buy",
+          "quantity": 1677.9680707187292,
+          "entry_price": 0.08772,
+          "exit_price": 0.08775,
+          "entry_time": "2026-06-14T02:27:04.360787",
+          "exit_time": "2026-06-14T02:37:34.903217",
+          "slippage": 0.014719135916344696,
+          "commission": 0.14719135916344694,
+          "realized_pnl": -0.11162682590458298,
+          "strategy_id": "trend_follower_g2_05251619_qhf",
+          "position_id": "POS_20260614022704_DOGEUSDT_trend_follower_g2_05251619_qhf_0",
+          "exit_reason": "hilbert_reverse"
         }
       ]
     },
     "trend_follower_g2_05251619_bhz": {
-      "balance": 984.2308716225248,
+      "balance": 983.9280076527135,
       "initial": 1000.0,
       "positions": {},
       "trades": [
@@ -112754,6 +113282,22 @@
           "strategy_id": "trend_follower_g2_05251619_bhz",
           "position_id": "POS_20260613225714_SOLUSDT_trend_follower_g2_05251619_bhz_0",
           "exit_reason": "stoch_overbought"
+        },
+        {
+          "trade_id": "PT_20260614001604_AVAXUSDT_trend_follower_g2_05251619_bhz",
+          "symbol": "AVAXUSDT",
+          "side": "buy",
+          "quantity": 21.956369830960547,
+          "entry_price": 6.724,
+          "exit_price": 6.725,
+          "entry_time": "2026-06-14T00:16:04.907604",
+          "exit_time": "2026-06-14T01:34:39.834162",
+          "slippage": 0.014763463074337874,
+          "commission": 0.14763463074337874,
+          "realized_pnl": -0.14046587599358226,
+          "strategy_id": "trend_follower_g2_05251619_bhz",
+          "position_id": "POS_20260614001604_AVAXUSDT_trend_follower_g2_05251619_bhz_0",
+          "exit_reason": "stoch_overbought"
         }
       ]
     },
@@ -112777,7 +113321,7 @@
     }
   },
   "total_initial": 28000.0,
-  "last_updated": "2026-06-13T23:23:29.595231",
+  "last_updated": "2026-06-14T10:40:37.574635",
   "daily_settlements": {
     "2026-06-11": {
       "ma_cross_trend_v2": {
@@ -112816,6 +113360,38 @@
         "realized_pnl": -1.3823449609666736,
         "trades": 1,
         "balance_after": 987.1079362442529
+      }
+    },
+    "2026-06-13": {
+      "volume_breakout_v2": {
+        "realized_pnl": -0.09909891470405131,
+        "trades": 1,
+        "balance_after": 988.436161873413
+      },
+      "ma_cross_trend_v2": {
+        "realized_pnl": -0.3158879503846499,
+        "trades": 1,
+        "balance_after": 898.7360815335813
+      },
+      "trend_follower_g1_05251619_iwy": {
+        "realized_pnl": -0.3424846459122548,
+        "trades": 1,
+        "balance_after": 974.4066156299743
+      },
+      "trend_follower_g2_05251619_cpy": {
+        "realized_pnl": -0.33302652747969,
+        "trades": 1,
+        "balance_after": 947.4972248526019
+      },
+      "trend_follower_g2_05251619_qhf": {
+        "realized_pnl": -0.3452783624677971,
+        "trades": 1,
+        "balance_after": 982.3550475565046
+      },
+      "volume_breakout_g1_05251619_wyw": {
+        "realized_pnl": -0.09879483377385881,
+        "trades": 1,
+        "balance_after": 985.4031863011171
       }
     }
   }

@@ -16,6 +16,7 @@ Date: 2026-05-28
 """
 
 import random
+import math
 import copy
 import json
 import time
@@ -47,7 +48,8 @@ from .archive import StrategyArchive, ArchiveRecord
 
 DEFAULT_CONFIG_V2 = {
     "population_size": 50,
-    "elite_count": 5,
+    "elite_count": 5,  # backup cap (actual elite size computed via elite_ratio)
+    "elite_ratio": 0.05,  # 5.2 EliteRatio: max(1, ceil(PopSize * ratio))
     "max_generations": 100,
     "mutation_rate": 0.4,
     "mutation_rate_max": 0.55,
@@ -77,6 +79,7 @@ DEFAULT_CONFIG_V2 = {
     "use_multi_window": True,
     "windows": ["all", "5y", "2y", "6m"],  # 坩堝多窗
     "n_season_segments": 4,
+    "ruin_probability_warn_threshold": 0.05,  # 3rd-chapter: Monte Carlo final-review warn level
 }
 
 
@@ -352,7 +355,9 @@ class EvolutionEngineV2:
             raise ValueError("Population empty. Call genesis_v2() first.")
         
         # 標記精英
-        elite_count = min(self.config["elite_count"], len(self.population))
+        elite_ratio = self.config.get("elite_ratio", 0.05)
+        elite_count = max(1, math.ceil(len(self.population) * elite_ratio))
+        elite_count = min(elite_count, self.config["elite_count"], len(self.population))
         elites = self.population[:elite_count]
         
         # 淘汰
@@ -377,7 +382,6 @@ class EvolutionEngineV2:
         # 繁殖填補
         offspring = []
         target_size = self.config["population_size"]
-        use_orthogonal = self.config["use_orthogonal_crossover"]
         
         while len(survivors) + len(offspring) < target_size:
             roll = random.random()
@@ -386,10 +390,8 @@ class EvolutionEngineV2:
                 p1 = self.select_parent()
                 p2 = self.select_parent()
                 if p1.chromosome_id != p2.chromosome_id:
-                    if use_orthogonal:
-                        child = crossover_chromosomes_v2(p1, p2, self.generation + 1)
-                    else:
-                        child = crossover_chromosomes_v2(p1, p2, self.generation + 1)
+                    # crossover_chromosomes_v2 is itself the orthogonal-crossover implementation (5.3)
+                    child = crossover_chromosomes_v2(p1, p2, self.generation + 1)
                     if validate_chromosome_v2(child):
                         offspring.append(child)
                         continue
@@ -476,6 +478,29 @@ class EvolutionEngineV2:
         
         # Epoch 結束：最佳個體作為挑戰者寫入檔案館
         if best_ever:
+            # 3rd-chapter: Monte Carlo final review (Epoch-end only, does not affect fitness)
+            try:
+                _, _, mc_trades = evaluate_chromosome_multi_symbol_v2(
+                    best_ever,
+                    symbols=self.config["symbols"],
+                    engine=self.backtest_engine,
+                    interval=self.config["backtest_interval"],
+                    days=self.config["backtest_days"],
+                    seasons=self.three_layer.seasons,
+                    environment=self.three_layer.environment,
+                    verbose=False,
+                )
+                ruin_prob = calculate_ruin_probability(
+                    [{"pnl_pct": t.pnl_pct} for t in mc_trades]
+                )
+                best_ever.fitness_details["ruin_probability"] = round(ruin_prob, 4)
+                warn_threshold = self.config.get("ruin_probability_warn_threshold", 0.05)
+                if ruin_prob > warn_threshold:
+                    print(f"  \u26a0\ufe0f Warn: Ruin probability {ruin_prob:.4f} exceeds threshold {warn_threshold:.4f} (fitness unchanged)")
+                else:
+                    print(f"  Monte Carlo final review: ruin probability = {ruin_prob:.4f}")
+            except Exception as e:
+                print(f"  Monte Carlo final review failed: {e}")
             self._archive_challenger(best_ever)
         
         print(f"\n{'='*70}")

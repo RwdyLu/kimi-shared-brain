@@ -1,0 +1,177 @@
+{
+  "default": {
+    "chromosome_id": "MUT_173456",
+    "status": "challenger",
+    "epoch_id": "epoch_11415",
+    "generation": 4,
+    "fitness_score": 0.15374757067055075,
+    "fitness_details": {
+      "fitness": 0.1537,
+      "avg_alpha": -0.0496,
+      "total_trades": 2669,
+      "total_friction": 5.338,
+      "symbols_tested": 10,
+      "seasons_applied": 4,
+      "ruin_probability": 1.0
+    },
+    "chromosome_data": {
+      "chromosome_id": "MUT_173456",
+      "entry_genes": [
+        {
+          "name": "macd",
+          "indicator_type": "trend",
+          "timeframe": "1h",
+          "params": {
+            "fast": 20,
+            "slow": 31,
+            "signal": 13
+          },
+          "condition": "cross_up",
+          "threshold": -0.489,
+          "threshold2": null,
+          "weight": 0.69
+        },
+        {
+          "name": "sma_cross",
+          "indicator_type": "trend",
+          "timeframe": "5m",
+          "params": {
+            "short_period": 41,
+            "long_period": 49
+          },
+          "condition": "cross_up",
+          "threshold": 72.209,
+          "threshold2": null,
+          "weight": 0.75
+        },
+        {
+          "name": "bbands",
+          "indicator_type": "volatility",
+          "timeframe": "5m",
+          "params": {
+            "period": 21,
+            "std_dev": 1.53
+          },
+          "condition": "below",
+          "threshold": -0.083,
+          "threshold2": null,
+          "weight": 1.49
+        },
+        {
+          "name": "stochastic",
+          "indicator_type": "momentum",
+          "timeframe": "15m",
+          "params": {
+            "k_period": 13,
+            "d_period": 3,
+            "smooth": 1
+          },
+          "condition": "cross_down",
+          "threshold": 53.984,
+          "threshold2": null,
+          "weight": 1.12
+        }
+      ],
+      "entry_logic": "OR",
+      "entry_min_weight": 0.53,
+      "exit_genes": [
+        {
+          "name": "momentum",
+          "indicator_type": "momentum",
+          "timeframe": "1h",
+          "params": {
+            "period": 11
+          },
+          "condition": "above",
+          "threshold": -1.557,
+          "threshold2": null,
+          "weight": 1.25
+        },
+        {
+          "name": "atr",
+          "indicator_type": "volatility",
+          "timeframe": "1h",
+          "params": {
+            "period": 17
+          },
+          "condition": "above",
+          "threshold": 0.017,
+          "threshold2": null,
+          "weight": 0.56
+        }
+      ],
+      "exit_logic": "OR",
+      "exit_min_weight": 0.3,
+      "trend_filter": null,
+      "volume_filter": {
+        "name": "obv",
+        "indicator_type": "volume",
+        "timeframe": "1h",
+        "params": {
+          "smooth_period": 10
+        },
+        "condition": "above",
+        "threshold": 1.46,
+        "threshold2": null,
+        "weight": 1.04
+      },
+      "macro_genes": {
+        "max_dca_months": 8,
+        "beta_threshold": 0.167,
+        "moon_phase_pressure": 1.78,
+        "deadline_force_pct": 0.47,
+        "gc_threshold_months": 3,
+        "gc_max_ratio": 0.36,
+        "t_macro": 26,
+        "t_micro": 15,
+        "t_deadline": 4,
+        "ema_anchor": 163
+      },
+      "micro_genes": {
+        "kp": 0.612,
+        "kv": 0.146,
+        "ka": 0.241,
+        "min_trade_threshold": 0.0252,
+        "micro_reserve_rate": 0.2435,
+        "sigmoid_scale": 1.965,
+        "gamma": 0.923,
+        "beta": 0.485
+      },
+      "risk_genes": {
+        "stop_loss_pct": -0.046,
+        "take_profit_pct": 0.118,
+        "position_pct": 0.091,
+        "max_hold_bars": 141,
+        "trailing_stop": true,
+        "trailing_stop_pct": null,
+        "dead_hold_ratio": 0.3,
+        "float_hold_ratio": 0.7,
+        "unlock_ka_threshold": 0.6
+      },
+      "generation": 0,
+      "parent_ids": [
+        "MUT_E910E44CBB82"
+      ],
+      "created_at": "2026-06-14T10:47:49.493662",
+      "fitness_score": 0.15374757067055075,
+      "fitness_details": {
+        "fitness": 0.1537,
+        "avg_alpha": -0.0496,
+        "total_trades": 2669,
+        "total_friction": 5.338,
+        "symbols_tested": 10,
+        "seasons_applied": 4,
+        "ruin_probability": 1.0
+      },
+      "paper_trades": 0,
+      "paper_pnl": 0.0,
+      "epoch_id": "epoch_11415",
+      "symbol": "default"
+    },
+    "created_at": "2026-06-14T10:53:45.588321",
+    "promoted_at": null,
+    "retired_at": null,
+    "paper_trades": 0,
+    "paper_pnl": 0.0
+  }
+}
