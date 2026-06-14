@@ -38,6 +38,9 @@ class BacktestMetrics:
     best_trade: float = 0.0
     worst_trade: float = 0.0
 
+    # 資料無效標記（資料驗證失敗時設為 True，無法計算正常 fitness）
+    data_invalid: bool = False
+
 
 def sigmoid(x: float, scale: float = 1.0) -> float:
     """Sigmoid 轉換，將任意值映射到 0~1"""

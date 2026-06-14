@@ -96,23 +96,42 @@ class KlineCache:
         
         return df.copy()  # 避免修改記憶體快取
     
+    def save(self, df: pd.DataFrame, symbol: str, interval: str) -> None:
+        """
+        將 DataFrame 寫入 Parquet 快取。df 必須以 timestamp 為索引。
+        """
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        path = self._parquet_path(symbol, interval)
+        # 寫入時重置索引以保留 timestamp 欄位
+        df_to_write = df.reset_index()
+        df_to_write.to_parquet(path, index=False)
+        # 清除記憶體快取，確保下次重新讀取
+        key = self._cache_key(symbol, interval)
+        self._memory_cache.pop(key, None)
+
     def load_or_fetch(self, fetcher: BinanceFetcher,
                       symbol: str, interval: str,
                       start_ms: Optional[int] = None,
                       end_ms: Optional[int] = None,
                       limit: int = 1000,
-                      paginate: bool = True) -> Optional[pd.DataFrame]:
+                      paginate: bool = True) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
-        優先讀取本地快取，不存在則呼叫 API（並回傳 raw klines 格式）。
-        
+        優先讀取本地快取，不存在則呼叫 API（分頁抓取），成功後寫入快取。
+
+        Returns:
+            (df, validation) where validation is None when served from cache,
+            or the validation dict from fetch_klines_paginated when fetched from API.
+            If validation["data_invalid"] is True the caller must abort.
+
         Args:
             paginate: 若 True 且時間範圍大，使用分頁抓取以取得完整資料
         """
         df = self.load(symbol, interval, start_ms, end_ms)
         if df is not None:
-            return df
-        
+            return df, None
+
         # 回退到 API
+        validation: Optional[Dict] = None
         if paginate and start_ms is not None and end_ms is not None:
             klines, validation = fetcher.fetch_klines_paginated(
                 symbol=symbol,
@@ -124,27 +143,34 @@ class KlineCache:
                 verbose=False,
             )
             if not klines:
-                return None
+                return None, validation
             # Log warnings if any
             if validation.get("warnings"):
                 for w in validation["warnings"]:
                     print(f"   ⚠️ {w}")
+            # If data is invalid, return immediately — do NOT cache bad data
+            if validation.get("data_invalid"):
+                return None, validation
         else:
             klines = fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=limit)
-        
+
         if not klines:
-            return None
-        
+            return None, validation
+
         df = pd.DataFrame(klines, columns=[
             'timestamp', 'open', 'high', 'low', 'close', 'volume',
             'close_time', 'quote_volume', 'trades', 'taker_buy_base',
             'taker_buy_quote', 'ignore'
         ])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
+        df['timestamp'] = pd.to_datetime(df['timestamp'].astype('int64'), unit='ms', utc=True)
         df.set_index('timestamp', inplace=True)
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = df[col].astype(float)
-        return df
+
+        # Write to cache after successful fetch
+        self.save(df, symbol, interval)
+
+        return df, validation
 
 
 
@@ -416,12 +442,23 @@ class GeneBacktestEngine:
         # 使用分頁抓取確保 90 天 5m 資料完整（~25,920 根）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
-        
-        df = self.cache.load_or_fetch(
+
+        df, validation = self.cache.load_or_fetch(
             self.fetcher, symbol, interval,
             start_ms=start_ms, end_ms=end_ms, limit=1000, paginate=True
         )
-        
+
+        # Fail-closed: abort immediately on invalid data
+        if validation is not None and (
+            not validation.get("valid", True) or validation.get("data_invalid", False)
+        ):
+            if verbose:
+                for e in validation.get("errors", []):
+                    print(f"   ❌ {e}")
+            metrics = BacktestMetrics()
+            metrics.data_invalid = True
+            return metrics, []
+
         if df is None or len(df) < 100:
             if verbose:
                 print(f"   ⚠️ {symbol}: insufficient data ({len(df) if df is not None else 0} bars)")

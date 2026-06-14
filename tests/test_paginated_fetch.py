@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch, call, MagicMock
 import json
 import time
+import tempfile
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -529,53 +530,284 @@ class TestRetryBackoff(unittest.TestCase):
             mock_sleep.assert_not_called()
 
 
-# ─── Cache write verification ─────────────────────────────────────────────────
+# ─── KlineCache integration tests ────────────────────────────────────────────
 
-class TestCacheWriteVerification(unittest.TestCase):
-    """Test that after fetching from API, data is accessible via KlineCache."""
+class TestKlineCacheIntegration(unittest.TestCase):
+    """Integration tests for KlineCache.load_or_fetch() cache write/read behaviour."""
 
-    def test_cache_write_then_read_skips_api(self):
-        """
-        Simulate KlineCache.load_or_fetch: after writing to cache,
-        subsequent loads must NOT call the API again.
+    def _make_fetcher_mock(self, klines):
+        """Return a Mock BinanceFetcher whose fetch_klines_paginated returns klines."""
+        fetcher = Mock()
+        validation_ok = {
+            "valid": True,
+            "data_invalid": False,
+            "actual_count": len(klines),
+            "actual_start_ms": int(klines[0][0]) if klines else None,
+            "actual_end_ms": int(klines[-1][0]) if klines else None,
+            "duration_ms": None,
+            "gaps": [],
+            "warnings": [],
+            "errors": [],
+        }
+        fetcher.fetch_klines_paginated.return_value = (klines, validation_ok)
+        return fetcher
 
-        We replicate the pattern from backtest_engine.KlineCache inline
-        to keep the test self-contained.
-        """
+    def test_load_or_fetch_calls_api_on_cache_miss(self):
+        """First call with no cache → API is called exactly once."""
         import tempfile
         import pandas as pd
         from pathlib import Path
+        # Import KlineCache from backtest_engine
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from app.genetic_engine.backtest_engine import KlineCache
+
+        raw = make_klines(1700000000000, 300000, 100)
+        fetcher = self._make_fetcher_mock(raw)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            cache_dir = Path(tmpdir)
-            symbol, interval = "BTCUSDT", "5m"
-            parquet_path = cache_dir / f"{symbol}_{interval}.parquet"
+            cache = KlineCache(cache_dir=Path(tmpdir))
 
-            # Simulate fetching and writing to cache
-            raw = make_klines(1700000000000, 300000, 100)
-            df = pd.DataFrame(raw, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_volume', 'trades', 'taker_buy_base',
-                'taker_buy_quote', 'ignore'
-            ])
-            df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms', utc=True)
-            df.set_index('timestamp', inplace=True)
-            for col in ['open', 'high', 'low', 'close', 'volume']:
-                df[col] = df[col].astype(float)
+            start_ms = 1700000000000
+            end_ms = start_ms + 100 * 300000
 
-            # Write to cache
-            df.to_parquet(parquet_path)
+            df, validation = cache.load_or_fetch(
+                fetcher, "BTCUSDT", "5m",
+                start_ms=start_ms, end_ms=end_ms,
+                limit=1000, paginate=True,
+            )
 
-            # Verify file was written
-            self.assertTrue(parquet_path.exists())
+            # API called exactly once
+            fetcher.fetch_klines_paginated.assert_called_once()
+            self.assertIsNotNone(df)
+            self.assertEqual(len(df), 100)
+            self.assertFalse(validation["data_invalid"])
 
-            # Re-read from cache (no API call)
-            fetcher_mock = Mock()  # API must NOT be called
-            df_cached = pd.read_parquet(parquet_path)
+    def test_load_or_fetch_writes_to_cache_after_api_fetch(self):
+        """After first API fetch, parquet file must exist on disk."""
+        import tempfile
+        import pandas as pd
+        from pathlib import Path
+        from app.genetic_engine.backtest_engine import KlineCache
 
-            self.assertEqual(len(df_cached), 100)
-            fetcher_mock.fetch_klines.assert_not_called()
-            fetcher_mock.fetch_klines_paginated.assert_not_called()
+        raw = make_klines(1700000000000, 300000, 100)
+        fetcher = self._make_fetcher_mock(raw)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = KlineCache(cache_dir=Path(tmpdir))
+            start_ms = 1700000000000
+            end_ms = start_ms + 100 * 300000
+
+            cache.load_or_fetch(
+                fetcher, "BTCUSDT", "5m",
+                start_ms=start_ms, end_ms=end_ms,
+                limit=1000, paginate=True,
+            )
+
+            parquet_path = Path(tmpdir) / "BTCUSDT_5m.parquet"
+            self.assertTrue(parquet_path.exists(), "Cache file must be written after API fetch")
+
+    def test_load_or_fetch_second_call_skips_api(self):
+        """Second call with cache present → API is NOT called again."""
+        import tempfile
+        import pandas as pd
+        from pathlib import Path
+        from app.genetic_engine.backtest_engine import KlineCache
+
+        raw = make_klines(1700000000000, 300000, 100)
+        fetcher = self._make_fetcher_mock(raw)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = KlineCache(cache_dir=Path(tmpdir))
+            start_ms = 1700000000000
+            end_ms = start_ms + 100 * 300000
+
+            # First call — fetches from API and writes cache
+            df1, _ = cache.load_or_fetch(
+                fetcher, "BTCUSDT", "5m",
+                start_ms=start_ms, end_ms=end_ms,
+                limit=1000, paginate=True,
+            )
+
+            # Second call — must serve from cache
+            # Create a fresh KlineCache (clears memory cache too)
+            cache2 = KlineCache(cache_dir=Path(tmpdir))
+            df2, validation2 = cache2.load_or_fetch(
+                fetcher, "BTCUSDT", "5m",
+                start_ms=start_ms, end_ms=end_ms,
+                limit=1000, paginate=True,
+            )
+
+            # API should only have been called once total
+            fetcher.fetch_klines_paginated.assert_called_once()
+            self.assertIsNotNone(df2)
+            # validation is None when served from cache
+            self.assertIsNone(validation2)
+
+    def test_load_or_fetch_does_not_cache_invalid_data(self):
+        """When API returns data_invalid=True, no cache file must be written."""
+        import tempfile
+        import pandas as pd
+        from pathlib import Path
+        from app.genetic_engine.backtest_engine import KlineCache
+
+        raw = make_klines(1700000000000, 300000, 50)
+        fetcher = Mock()
+        bad_validation = {
+            "valid": False,
+            "data_invalid": True,
+            "actual_count": 50,
+            "actual_start_ms": 1700000000000,
+            "actual_end_ms": None,
+            "duration_ms": None,
+            "gaps": [],
+            "warnings": [],
+            "errors": ["[BTCUSDT] max_pages=1 reached before end_time"],
+        }
+        fetcher.fetch_klines_paginated.return_value = (raw, bad_validation)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = KlineCache(cache_dir=Path(tmpdir))
+            start_ms = 1700000000000
+            end_ms = start_ms + 100 * 300000
+
+            df, validation = cache.load_or_fetch(
+                fetcher, "BTCUSDT", "5m",
+                start_ms=start_ms, end_ms=end_ms,
+                limit=1000, paginate=True,
+            )
+
+            parquet_path = Path(tmpdir) / "BTCUSDT_5m.parquet"
+            self.assertFalse(parquet_path.exists(), "Invalid data must NOT be cached")
+            self.assertIsNone(df)
+            self.assertTrue(validation["data_invalid"])
+
+
+# ─── Fail-closed regression tests (V1 and V2 engines) ────────────────────────
+
+class TestBacktestEngineFailClosed(unittest.TestCase):
+    """Regression tests: invalid validation → data_invalid result, no normal fitness."""
+
+    def _make_invalid_validation(self):
+        return {
+            "valid": False,
+            "data_invalid": True,
+            "actual_count": 50,
+            "actual_start_ms": 1700000000000,
+            "actual_end_ms": None,
+            "duration_ms": None,
+            "gaps": [],
+            "warnings": [],
+            "errors": ["[BTCUSDT] Gap detected: 1700000000000 -> 1700001800000 (6 candles missing)"],
+        }
+
+    def _make_mock_cache_returning_invalid(self):
+        """Return a mock KlineCache.load_or_fetch that returns (None, invalid_validation)."""
+        mock_cache = Mock()
+        mock_cache.load_or_fetch.return_value = (None, self._make_invalid_validation())
+        return mock_cache
+
+    def test_v1_engine_aborts_on_invalid_data(self):
+        """V1 GeneBacktestEngine.evaluate() must return data_invalid=True and no trades."""
+        import tempfile
+        from pathlib import Path
+        from app.genetic_engine.backtest_engine import GeneBacktestEngine, KlineCache
+        from app.genetic_engine.fitness import BacktestMetrics
+
+        engine = GeneBacktestEngine()
+        engine.cache = self._make_mock_cache_returning_invalid()
+
+        # Build a minimal chromosome mock
+        chrom = Mock()
+        chrom.entry_genes = []
+        chrom.exit_genes = []
+        chrom.trend_filter = None
+        chrom.volume_filter = None
+
+        metrics, trades = engine.evaluate(chrom, "BTCUSDT", interval="5m", days=90, verbose=False)
+
+        self.assertTrue(metrics.data_invalid,
+                        "metrics.data_invalid must be True when validation fails")
+        self.assertEqual(trades, [], "No trades must be produced when data is invalid")
+        self.assertEqual(metrics.total_trades, 0,
+                         "total_trades must be 0 when data is invalid")
+
+    def test_v2_engine_aborts_on_invalid_data(self):
+        """V2 GeneBacktestEngineV2.evaluate_v2() must return data_invalid=True and no trades."""
+        from app.genetic_engine.backtest_engine_v2 import GeneBacktestEngineV2, V2BacktestResult
+
+        engine = GeneBacktestEngineV2()
+
+        # Patch fetcher to return invalid validation
+        engine.fetcher = Mock()
+        engine.fetcher.fetch_klines_paginated.return_value = (
+            make_klines(1700000000000, 300000, 50),
+            self._make_invalid_validation(),
+        )
+
+        chrom = Mock()
+        chrom.entry_genes = []
+        chrom.exit_genes = []
+        chrom.trend_filter = None
+        chrom.volume_filter = None
+
+        result = engine.evaluate_v2(chrom, "BTCUSDT", interval="5m", days=90, verbose=False)
+
+        self.assertIsInstance(result, V2BacktestResult)
+        self.assertTrue(result.data_invalid,
+                        "V2BacktestResult.data_invalid must be True when validation fails")
+        self.assertEqual(result.strategy_trades, [],
+                         "No strategy trades must be produced when data is invalid")
+        self.assertTrue(result.strategy_metrics.data_invalid,
+                        "strategy_metrics.data_invalid must also be True")
+
+    def test_v1_normal_data_produces_fitness(self):
+        """Sanity: with valid data, V1 must NOT set data_invalid."""
+        from app.genetic_engine.backtest_engine import GeneBacktestEngine, KlineCache
+        import pandas as pd
+
+        engine = GeneBacktestEngine()
+
+        # Build a small valid DataFrame (200 rows)
+        n = 200
+        start_ms = 1700000000000
+        interval_ms = 300000
+        idx = pd.date_range(
+            pd.Timestamp(start_ms, unit='ms', tz='UTC'),
+            periods=n, freq='5min'
+        )
+        df = pd.DataFrame({
+            'open': [100.0] * n,
+            'high': [101.0] * n,
+            'low': [99.0] * n,
+            'close': [100.5] * n,
+            'volume': [1000.0] * n,
+        }, index=idx)
+
+        valid_validation = {
+            "valid": True,
+            "data_invalid": False,
+            "actual_count": n,
+            "actual_start_ms": start_ms,
+            "actual_end_ms": start_ms + (n - 1) * interval_ms,
+            "duration_ms": (n - 1) * interval_ms,
+            "gaps": [],
+            "warnings": [],
+            "errors": [],
+        }
+
+        engine.cache = Mock()
+        engine.cache.load_or_fetch.return_value = (df, valid_validation)
+
+        chrom = Mock()
+        chrom.entry_genes = []
+        chrom.exit_genes = []
+        chrom.trend_filter = None
+        chrom.volume_filter = None
+
+        metrics, trades = engine.evaluate(chrom, "BTCUSDT", interval="5m", days=90, verbose=False)
+
+        self.assertFalse(metrics.data_invalid,
+                         "data_invalid must be False when data is valid")
 
 
 # ─── Signature / Compatibility ────────────────────────────────────────────────

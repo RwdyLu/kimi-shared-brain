@@ -109,6 +109,7 @@ def validate_klines(
     expected_count: Optional[int] = None,
     interval: Optional[str] = None,
     symbol: Optional[str] = None,
+    strict: bool = False,
 ) -> Dict[str, Any]:
     """
     Validate kline data integrity / 驗證 K 線資料完整性
@@ -123,6 +124,8 @@ def validate_klines(
         expected_count: Expected number of candles / 預期 K 線數量
         interval: Kline interval for continuity check / 時間框架（用於連續性檢查）
         symbol: Symbol for error messages / 標的（用於錯誤訊息）
+        strict: When True (backtest mode), count/start/end mismatches set
+                valid=False and data_invalid=True instead of just warnings.
 
     Returns:
         Validation result dict / 驗證結果字典
@@ -146,6 +149,7 @@ def validate_klines(
         "gaps": [],
         "warnings": [],
         "errors": [],
+        "data_invalid": False,
     }
 
     prefix = f"[{symbol}] " if symbol else ""
@@ -166,28 +170,43 @@ def validate_klines(
 
     # Check expected count
     if expected_count is not None and len(klines) < expected_count:
-        result["warnings"].append(
+        msg = (
             f"{prefix}Expected {expected_count} candles, got {len(klines)} "
             f"(short by {expected_count - len(klines)})"
         )
+        if strict:
+            result["errors"].append(msg)
+            result["data_invalid"] = True
+        else:
+            result["warnings"].append(msg)
 
     # Check expected start time
     if expected_start_ms is not None:
         margin_ms = interval_to_ms(interval) * 2 if interval else 60000
         if abs(result["actual_start_ms"] - expected_start_ms) > margin_ms:
-            result["warnings"].append(
+            msg = (
                 f"{prefix}Start time mismatch: expected {expected_start_ms}, "
                 f"got {result['actual_start_ms']}"
             )
+            if strict:
+                result["errors"].append(msg)
+                result["data_invalid"] = True
+            else:
+                result["warnings"].append(msg)
 
     # Check expected end time
     if expected_end_ms is not None:
         margin_ms = interval_to_ms(interval) * 2 if interval else 60000
         if abs(result["actual_end_ms"] - expected_end_ms) > margin_ms:
-            result["warnings"].append(
+            msg = (
                 f"{prefix}End time mismatch: expected {expected_end_ms}, "
                 f"got {result['actual_end_ms']}"
             )
+            if strict:
+                result["errors"].append(msg)
+                result["data_invalid"] = True
+            else:
+                result["warnings"].append(msg)
 
     # Check for gaps and duplicates — both are now ERRORS (fail-closed)
     if interval and len(timestamps) > 1:
@@ -226,6 +245,10 @@ def validate_klines(
         )
 
     result["valid"] = len(result["errors"]) == 0 and invalid_candles == 0
+    if not result["valid"] and result.get("data_invalid") is False:
+        # Errors from gaps/duplicates/candle structure also mark data_invalid
+        if result["errors"]:
+            result["data_invalid"] = True
     return result
 
 

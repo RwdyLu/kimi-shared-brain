@@ -70,7 +70,10 @@ class BacktestMetricsV2:
     dead_hold_value: float = 0.0     # 底倉價值
     float_hold_value: float = 0.0    # 浮動倉價值
     total_portfolio_value: float = 0.0  # 總組合價值
-    
+
+    # 資料無效標記（資料驗證失敗時設為 True，無法計算正常 fitness）
+    data_invalid: bool = False
+
     def is_valid(self) -> bool:
         """檢查 metrics 是否有效（有交易數據）"""
         return self.total_trades > 0

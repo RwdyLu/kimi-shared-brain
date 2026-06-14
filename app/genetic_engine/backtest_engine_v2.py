@@ -62,6 +62,9 @@ class V2BacktestResult:
     price_series: List[float] = field(default_factory=list)
     timestamp_series: List[int] = field(default_factory=list)
 
+    # 資料無效標記
+    data_invalid: bool = False
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Ghost DCA 基準引擎
@@ -232,12 +235,29 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             validate=True,
             verbose=False,
         )
-        
+
+        # Fail-closed: abort immediately on invalid data — do NOT proceed to backtest
+        if not validation.get("valid", True) or validation.get("data_invalid", False):
+            if verbose:
+                for e in validation.get("errors", []):
+                    print(f"   ❌ {e}")
+            empty_metrics = BacktestMetricsV2()
+            empty_metrics.data_invalid = True
+            return V2BacktestResult(
+                strategy_metrics=empty_metrics,
+                strategy_trades=[],
+                dca_metrics=BacktestMetricsV2(),
+                dca_trades=[],
+                alpha_vs_dca=0.0,
+                friction_penalty=0.0,
+                data_invalid=True,
+            )
+
         if validation.get("warnings"):
             for w in validation["warnings"]:
                 if verbose:
                     print(f"   ⚠️ {w}")
-        
+
         if not klines or len(klines) < 100:
             if verbose:
                 print(f"   ⚠️ {symbol}: insufficient data")
