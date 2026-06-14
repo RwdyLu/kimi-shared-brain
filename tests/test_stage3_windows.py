@@ -35,7 +35,7 @@ from app.genetic_engine.windows import (
     WINDOWS, WINDOW_WEIGHTS, MIN_DATA_COVERAGE,
     WindowResult, _random_is_slice, _slice_df, _RANDOM_IS_MIN_MS, _RANDOM_IS_MAX_MS,
     run_window_backtest, run_all_windows, aggregate_window_fitness,
-    _days_ms,
+    aggregate_multi_symbol_windows, stable_window_seed, _days_ms,
 )
 
 
@@ -208,7 +208,13 @@ def test_ghost_dca_computed_per_window():
     chrom = _make_chromosome()
     engine = _make_engine()
 
-    results = run_all_windows(chrom, df, end_ms=now_ms, engine=engine, seed=42)
+    trades = [MagicMock(pnl_pct=0.01) for _ in range(5)]
+    with patch.object(
+        engine,
+        "_run_strategy_v2",
+        return_value=([1000.0, 1010.0], trades, {"total_fees": 1.0, "realized_pnl": 10.0}),
+    ):
+        results = run_all_windows(chrom, df, end_ms=now_ms, engine=engine, seed=42)
 
     valid = [r for r in results if not r.insufficient_data]
     assert len(valid) > 0, "Expected at least one valid window"
@@ -235,7 +241,13 @@ def test_alpha_per_window():
     chrom = _make_chromosome()
     engine = _make_engine()
 
-    results = run_all_windows(chrom, df, end_ms=now_ms, engine=engine, seed=42)
+    trades = [MagicMock(pnl_pct=0.01) for _ in range(5)]
+    with patch.object(
+        engine,
+        "_run_strategy_v2",
+        return_value=([1000.0, 1010.0], trades, {"total_fees": 1.0, "realized_pnl": 10.0}),
+    ):
+        results = run_all_windows(chrom, df, end_ms=now_ms, engine=engine, seed=42)
     valid = [r for r in results if not r.insufficient_data]
 
     for r in valid:
@@ -317,6 +329,66 @@ def test_all_windows_insufficient_returns_zero():
         for w in WINDOWS
     ]
     assert aggregate_window_fitness(results) == 0.0
+
+
+def test_strict_aggregate_fails_when_any_window_is_missing():
+    results = [
+        WindowResult(w, fitness=0.5, weight=WINDOW_WEIGHTS[w])
+        for w in WINDOWS
+        if w != "5y"
+    ]
+    assert aggregate_window_fitness(results, require_all=True) == 0.0
+
+
+def test_multi_symbol_aggregate_fails_when_required_symbol_is_incomplete():
+    complete = [
+        WindowResult(w, fitness=0.5, weight=WINDOW_WEIGHTS[w])
+        for w in WINDOWS
+    ]
+    incomplete = [
+        WindowResult(w, fitness=0.5, weight=WINDOW_WEIGHTS[w])
+        for w in WINDOWS
+        if w != "2y"
+    ]
+    score, per_symbol, failed = aggregate_multi_symbol_windows(
+        {"BTCUSDT": complete, "ETHUSDT": incomplete},
+        ["BTCUSDT", "ETHUSDT"],
+    )
+    assert score == 0.0
+    assert failed == ["ETHUSDT"]
+    assert "BTCUSDT" in per_symbol
+
+
+def test_stable_window_seed_is_reproducible_and_epoch_sensitive():
+    seed = stable_window_seed("CHROM-A", epoch_id=12, generation=3)
+    assert seed == stable_window_seed("CHROM-A", epoch_id=12, generation=3)
+    assert seed != stable_window_seed("CHROM-A", epoch_id=13, generation=3)
+    assert seed != stable_window_seed("CHROM-A", epoch_id=12, generation=4)
+
+
+def test_window_fitness_uses_v2_metrics():
+    now_ms = int(time.time() * 1000)
+    df = _make_df(n_candles=500, start_ts_ms=now_ms - 500 * 5 * 60 * 1000)
+    chrom = _make_chromosome()
+    engine = _make_engine()
+
+    trades = [
+        MagicMock(pnl_pct=value)
+        for value in (0.02, 0.01, -0.01, 0.03, 0.01)
+    ]
+    raw_ledger = {"total_fees": 2.5, "realized_pnl": 60.0}
+    with patch.object(
+        engine,
+        "_run_strategy_v2",
+        return_value=([1000.0, 1060.0], trades, raw_ledger),
+    ):
+        result = run_window_backtest(
+            chrom, df, "all", now_ms, engine=engine, seed=1
+        )
+
+    assert result.insufficient_data is False
+    assert result.details["total_fees_paid"] == 2.5
+    assert "metrics" in result.details
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -433,5 +433,43 @@ class TestLoadOrFetchReturnsTupleAlways(unittest.TestCase):
             self.assertTrue(validation.get("data_invalid"))
 
 
+class TestV2NormalizedCacheContract(unittest.TestCase):
+    def test_v2_uses_cached_dataframe_without_raw_kline_reconversion(self):
+        from app.genetic_engine.backtest_engine_v2 import GeneBacktestEngineV2
+
+        index = pd.date_range("2025-01-01", periods=200, freq="5min")
+        df = pd.DataFrame(
+            {
+                "open": np.full(200, 100.0),
+                "high": np.full(200, 101.0),
+                "low": np.full(200, 99.0),
+                "close": np.full(200, 100.0),
+                "volume": np.full(200, 10.0),
+            },
+            index=index,
+        )
+        engine = GeneBacktestEngineV2()
+        engine.cache = Mock()
+        engine.cache.load_or_fetch.return_value = (
+            df,
+            {"valid": True, "data_invalid": False, "warnings": [], "errors": []},
+        )
+        engine.dca_engine = Mock()
+        engine.dca_engine.run.return_value = ([1000.0, 1000.0], [])
+        engine.dca_engine.calculate_dca_return.return_value = 0.0
+        engine._run_strategy_v2 = Mock(
+            return_value=([1000.0, 1000.0], [], {"total_fees": 0.0, "realized_pnl": 0.0})
+        )
+        engine._klines_to_df = Mock(side_effect=AssertionError("must not reconvert cached DataFrame"))
+
+        chrom = Mock()
+        result = engine.evaluate_v2(chrom, "BTCUSDT", interval="5m", days=1)
+
+        self.assertFalse(result.data_invalid)
+        engine._klines_to_df.assert_not_called()
+        passed_df = engine._run_strategy_v2.call_args.args[0]
+        pd.testing.assert_frame_equal(passed_df, df)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

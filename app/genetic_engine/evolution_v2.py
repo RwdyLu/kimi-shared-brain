@@ -32,7 +32,7 @@ from .chromosome_v2 import (
 from .backtest_engine_v2 import GeneBacktestEngineV2, evaluate_chromosome_multi_symbol_v2, GhostDCABaseline
 from .windows import (
     WINDOWS, WINDOW_WEIGHTS, WindowResult,
-    run_all_windows, aggregate_window_fitness,
+    run_all_windows, aggregate_multi_symbol_windows, stable_window_seed,
 )
 from .fitness_v2 import (
     BacktestMetricsV2, compute_fitness_v2,
@@ -82,6 +82,9 @@ DEFAULT_CONFIG_V2 = {
     "use_orthogonal_crossover": True,
     "use_multi_window": True,
     "windows": ["all", "5y", "2y", "6m"],  # 坩堝多窗
+    # Maximum lookback for the "all" window. Non-strict boundary validation is
+    # intentional because symbols listed less than ten years ago start later.
+    "multi_window_history_days": 10 * 365,
     "n_season_segments": 4,
     "ruin_probability_warn_threshold": 0.05,  # 3rd-chapter: Monte Carlo final-review warn level
 }
@@ -236,6 +239,8 @@ class EvolutionEngineV2:
                     import time as _time
                     symbols = self.config["symbols"]
                     end_ms = int(_time.time() * 1000)
+                    history_days = int(self.config["multi_window_history_days"])
+                    start_ms = end_ms - history_days * 24 * 60 * 60 * 1000
 
                     all_window_results: List[WindowResult] = []
                     symbol_window_map: Dict[str, List[WindowResult]] = {}
@@ -246,22 +251,30 @@ class EvolutionEngineV2:
                             self.backtest_engine.fetcher,
                             symbol=symbol,
                             interval=self.config["backtest_interval"],
-                            start_ms=None,
+                            start_ms=start_ms,
                             end_ms=end_ms,
                             limit=1000,
                             paginate=True,
                             strict_validation=False,
                         )
-                        if df_full is None or len(df_full) < 100:
+                        if (
+                            df_full is None
+                            or validation is None
+                            or not validation.get("valid", False)
+                            or validation.get("data_invalid", False)
+                        ):
                             # Mark all windows as insufficient for this symbol
-                            symbol_window_map[symbol] = [
+                            failed_results = [
                                 WindowResult(w, insufficient_data=True, weight=WINDOW_WEIGHTS[w])
                                 for w in WINDOWS
                             ]
+                            symbol_window_map[symbol] = failed_results
+                            all_window_results.extend(failed_results)
                             continue
 
-                        # random_is seed: XOR chromosome hash with generation to vary across epochs
-                        r_seed = (hash(chrom.chromosome_id) ^ self.generation) & 0xFFFF
+                        r_seed = stable_window_seed(
+                            chrom.chromosome_id, self.epoch_id, self.generation
+                        )
                         win_results = run_all_windows(
                             chromosome=chrom,
                             symbol_df=df_full,
@@ -272,7 +285,9 @@ class EvolutionEngineV2:
                         symbol_window_map[symbol] = win_results
                         all_window_results.extend(win_results)
 
-                    fitness_score = aggregate_window_fitness(all_window_results)
+                    fitness_score, per_symbol_fitness, failed_symbols = (
+                        aggregate_multi_symbol_windows(symbol_window_map, symbols)
+                    )
 
                     total_trades = 0
                     total_alpha = 0.0
@@ -303,6 +318,9 @@ class EvolutionEngineV2:
                         "symbols_tested": len(symbols),
                         "windows_valid": n_valid,
                         "windows_total": len(all_window_results),
+                        "per_symbol_fitness": per_symbol_fitness,
+                        "failed_symbols": failed_symbols,
+                        "insufficient_data": bool(failed_symbols),
                         "per_window": per_window_summary,
                         "stage": "stage3_multi_window",
                     }

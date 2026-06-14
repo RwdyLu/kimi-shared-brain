@@ -248,9 +248,8 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             limit=1000, paginate=True,
             strict_validation=True,
         )
-        klines = [] if df_cached is None or df_cached.empty else list(df_cached.itertuples())
-
         # Fail-closed: abort immediately on invalid data — do NOT proceed to backtest
+        validation = validation or {"valid": False, "data_invalid": True, "errors": ["missing validation"]}
         if not validation.get("valid", True) or validation.get("data_invalid", False):
             if verbose:
                 for e in validation.get("errors", []):
@@ -272,7 +271,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                 if verbose:
                     print(f"   ⚠️ {w}")
 
-        if not klines or len(klines) < 100:
+        if df_cached is None or len(df_cached) < 100:
             if verbose:
                 print(f"   ⚠️ {symbol}: insufficient data")
             # 返回空結果
@@ -286,8 +285,9 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                 friction_penalty=0.0,
             )
         
-        # 轉換為 DataFrame
-        df = self._klines_to_df(klines)
+        # KlineCache already returns a normalized OHLCV DataFrame. Converting its
+        # rows again as raw Binance klines corrupts timestamps and column layout.
+        df = df_cached.copy()
         
         # === 並行回測：策略 + Ghost DCA ===
         
@@ -614,6 +614,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                     pnl_pct=pnl_pct,
                 ))
 
+        # Include the final marked-to-market portfolio value after forced exits.
+        if not df.empty:
+            final_price = float(df["close"].iloc[-1])
+            equity.append(cash + position_qty * final_price)
+
         raw_ledger = {
             "total_fees": total_fees_ledger,
             "realized_pnl": total_realized_pnl,
@@ -781,6 +786,8 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         pnl_values = [t.pnl_pct for t in trades]
 
         total_pnl = sum(pnl_values)
+        if raw_metrics and self.initial_capital > 0:
+            total_pnl = raw_metrics.get("realized_pnl", 0.0) / self.initial_capital
 
         # consecutive_losses
         max_consec = 0
