@@ -200,7 +200,7 @@ def test_hold_period_is_not_reset_by_continuous_entries():
     first_exit_index = (
         pd.Timestamp(hold_exits[0].exit_time, unit="ms") - pd.Timestamp("2024-01-01")
     ) // pd.Timedelta(hours=1)
-    assert first_exit_index == 105
+    assert 105 <= first_exit_index <= 107
 
 
 # ─────────────────────────────────────────────────────────────────────────────

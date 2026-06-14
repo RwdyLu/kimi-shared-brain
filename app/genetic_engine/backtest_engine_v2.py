@@ -411,7 +411,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
         # Stage 2 Fix: track actual total fees from ledger
         total_fees_ledger = 0.0
+        total_buy_fees = 0.0
+        total_sell_fees = 0.0
         total_realized_pnl = 0.0
+        total_buy_notional = 0.0
+        total_sell_notional = 0.0
 
         # 庫存橋
         dead_hold_qty = 0.0   # 底倉（只進不出）
@@ -441,6 +445,13 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         beta: float = chrom.micro_genes.beta
         min_trade_threshold: float = chrom.micro_genes.min_trade_threshold
         seasons_applied: List[str] = []
+        macro_interval = max(1, int(chrom.macro_genes.t_macro))
+        micro_interval = max(1, int(chrom.macro_genes.t_micro))
+        deadline_interval = max(1, int(chrom.macro_genes.t_deadline))
+        macro_ticks = 0
+        micro_ticks = 0
+        deadline_ticks = 0
+        unlock_events: List[Dict[str, Any]] = []
 
         # 計算可用資金比例（受 Environment 限制）
         usable_cash_ratio = 1.0
@@ -476,12 +487,14 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             # === Stage 4: compute actual weight and PDE velocity ===
             actual_weight = position_value / total_value if total_value > 0 else 0.0
             velocity = actual_weight - prev_actual_weight
+            acceleration = velocity - prev_velocity
+            acceleration_signal = abs(ka * acceleration)
 
             # kp/kv/ka desired position weight
             raw_desired = (
                 kp * (target_weight - actual_weight)
                 + kv * (actual_weight - prev_actual_weight)
-                + ka * (velocity - prev_velocity)
+                + ka * acceleration
             )
             # clamp to [0, 1]
             desired_position_weight = max(0.0, min(1.0, raw_desired))
@@ -489,6 +502,33 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             # update PDE state
             prev_velocity = velocity
             prev_actual_weight = actual_weight
+
+            elapsed = i - warmup
+            macro_tick = elapsed % macro_interval == 0
+            micro_tick = elapsed % micro_interval == 0
+            deadline_tick = elapsed % deadline_interval == 0
+            macro_ticks += int(macro_tick)
+            micro_ticks += int(micro_tick)
+            deadline_ticks += int(deadline_tick)
+
+            # DeadHold can only cross the inventory bridge when the measured
+            # acceleration contribution of ka exceeds the configured threshold.
+            unlock_threshold = chrom.risk_genes.unlock_ka_threshold
+            if (
+                micro_tick
+                and dead_hold_qty > 0
+                and acceleration_signal > unlock_threshold
+            ):
+                unlocked_qty = dead_hold_qty
+                dead_hold_qty = 0.0
+                float_hold_qty += unlocked_qty
+                if position_open_candle is None:
+                    position_open_candle = i
+                unlock_events.append({
+                    "timestamp": timestamp,
+                    "qty": unlocked_qty,
+                    "acceleration_signal": acceleration_signal,
+                })
 
             # === Stage 4: MinTradeThreshold — skip if deviation too small ===
             deviation_from_target = abs(target_weight - actual_weight)
@@ -498,6 +538,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             hold_period_exit = (
                 position_open_candle is not None
                 and (i - position_open_candle) >= hold_period
+                and deadline_tick
             )
 
             # === 檢查出場 ===
@@ -519,7 +560,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         # Stage 4: force exit after hold_period candles
                         exit_qty = max_sellable
                         exit_reason = "hold_period_expired"
-                    elif not skip_trade and self._check_exit_conditions(i, df, chrom, indicator_values):
+                    elif (
+                        micro_tick
+                        and not skip_trade
+                        and self._check_exit_conditions(i, df, chrom, indicator_values)
+                    ):
                         deviation = abs(unrealized)
                         if deviation >= min_trade_threshold:
                             # Stage 4: beta blends between exit fraction and full exit
@@ -534,10 +579,13 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                     if exit_qty >= self.lot_min and exit_qty <= max_sellable:
                         sell_value = exit_qty * current_price
                         sell_fee = sell_value * self.fee_rate
-                        realized = exit_qty * (current_price - position_avg_cost) - sell_fee
+                        exit_avg_cost = position_avg_cost
+                        realized = exit_qty * (current_price - exit_avg_cost) - sell_fee
                         cash += (sell_value - sell_fee)
+                        total_sell_notional += sell_value
                         total_realized_pnl += realized
                         total_fees_ledger += sell_fee
+                        total_sell_fees += sell_fee
 
                         # Stage 4: recycle — accumulate a fraction of realized PnL
                         if realized > 0:
@@ -545,16 +593,19 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
                         float_hold_qty -= exit_qty
                         position_qty -= exit_qty
+                        if position_qty <= self.lot_step / 2:
+                            position_qty = 0.0
+                            position_avg_cost = 0.0
                         if float_hold_qty <= self.lot_step / 2:
                             float_hold_qty = 0.0
                             position_open_candle = None
 
-                        pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
+                        pnl_pct = realized / (exit_qty * exit_avg_cost) if exit_avg_cost > 0 else 0.0
                         trades.append(SimulatedTrade(
                             symbol=symbol,
                             direction="long",
                             entry_time=timestamp,
-                            entry_price=position_avg_cost,
+                            entry_price=exit_avg_cost,
                             exit_time=timestamp,
                             exit_price=current_price,
                             exit_reason=exit_reason or "sell",
@@ -562,7 +613,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         ))
 
             # === 檢查進場 ===
-            if not skip_trade and self._check_entry_conditions(i, df, chrom, indicator_values):
+            if (
+                micro_tick
+                and not skip_trade
+                and self._check_entry_conditions(i, df, chrom, indicator_values)
+            ):
                 # Stage 4: sigmoid_scale applied to raw signal weight
                 # We model raw_signal as the weighted entry score in [0,1].
                 # Apply sigmoid(sigmoid_scale * (score - 0.5)) to shift aggressiveness.
@@ -605,12 +660,25 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         position_avg_cost = new_total_cost / new_qty if new_qty > 0 else 0.0
 
                         cash -= total_cost
+                        total_buy_notional += buy_value
                         position_qty = new_qty
                         total_fees_ledger += buy_fee
+                        total_buy_fees += buy_fee
 
                         # 庫存橋分配
-                        dead_alloc = qty * chrom.risk_genes.dead_hold_ratio
-                        float_alloc = qty * chrom.risk_genes.float_hold_ratio
+                        allocation_total = (
+                            chrom.risk_genes.dead_hold_ratio
+                            + chrom.risk_genes.float_hold_ratio
+                        )
+                        if allocation_total > 0:
+                            dead_fraction = (
+                                chrom.risk_genes.dead_hold_ratio / allocation_total
+                                if macro_tick else 0.0
+                            )
+                        else:
+                            dead_fraction = 0.0
+                        dead_alloc = qty * dead_fraction
+                        float_alloc = qty - dead_alloc
                         dead_hold_qty += dead_alloc
                         if float_alloc > 0 and position_open_candle is None:
                             position_open_candle = i
@@ -628,20 +696,26 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             if exit_qty >= self.lot_min:
                 sell_value = exit_qty * last_price
                 sell_fee = sell_value * self.fee_rate
-                realized = exit_qty * (last_price - position_avg_cost) - sell_fee
+                exit_avg_cost = position_avg_cost
+                realized = exit_qty * (last_price - exit_avg_cost) - sell_fee
                 cash += (sell_value - sell_fee)
+                total_sell_notional += sell_value
                 total_realized_pnl += realized
                 total_fees_ledger += sell_fee
+                total_sell_fees += sell_fee
 
                 float_hold_qty -= exit_qty
                 position_qty -= exit_qty
+                if position_qty <= self.lot_step / 2:
+                    position_qty = 0.0
+                    position_avg_cost = 0.0
 
-                pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
+                pnl_pct = realized / (exit_qty * exit_avg_cost) if exit_avg_cost > 0 else 0.0
                 trades.append(SimulatedTrade(
                     symbol=symbol,
                     direction="long",
                     entry_time=timestamp,
-                    entry_price=position_avg_cost,
+                    entry_price=exit_avg_cost,
                     exit_time=int(df.index[-1].timestamp() * 1000),
                     exit_price=last_price,
                     exit_reason="end_of_test",
@@ -651,14 +725,33 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         # Include the final marked-to-market portfolio value after forced exits.
         if not df.empty:
             final_price = float(df["close"].iloc[-1])
-            equity.append(cash + position_qty * final_price)
+            final_equity = cash + position_qty * final_price
+            equity.append(final_equity)
+        else:
+            final_price = 0.0
+            final_equity = cash
 
         raw_ledger = {
             "total_fees": total_fees_ledger,
+            "total_buy_fees": total_buy_fees,
+            "total_sell_fees": total_sell_fees,
             "realized_pnl": total_realized_pnl,
             "recycled_profit_deployed": recycled_profit_deployed,
             "recycle_pool_remaining": recycle_pool,
             "seasons_applied": seasons_applied,
+            "cash": cash,
+            "position_qty": position_qty,
+            "position_avg_cost": position_avg_cost,
+            "dead_hold_qty": dead_hold_qty,
+            "float_hold_qty": float_hold_qty,
+            "final_price": final_price,
+            "final_equity": final_equity,
+            "total_buy_notional": total_buy_notional,
+            "total_sell_notional": total_sell_notional,
+            "macro_ticks": macro_ticks,
+            "micro_ticks": micro_ticks,
+            "deadline_ticks": deadline_ticks,
+            "unlock_events": unlock_events,
         }
         return equity, trades, raw_ledger
     
