@@ -321,7 +321,7 @@ layout = dbc.Container(
                                 "overflowY": "auto",
                                 "fontFamily": "monospace",
                                 "fontSize": "0.85rem",
-                                "backgroundColor": "#f8f9fa",
+                                "backgroundColor": "#1e1e1e", "color": "#d4d4d4",
                                 "padding": "1rem",
                                 "borderRadius": "0.25rem"
                             }
@@ -544,7 +544,7 @@ def update_system_info(n_intervals, n_clicks):
         next_run_text = next_run if next_run else "--"
         
         logs = get_logs_preview(30)
-        logs_display = html.Pre(logs, style={"margin": 0, "whiteSpace": "pre-wrap"})
+        logs_display = html.Pre(logs, style={"margin": 0, "whiteSpace": "pre-wrap", "color": "#d4d4d4"})
         
         return (
             indicators,
