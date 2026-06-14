@@ -60,6 +60,14 @@ class MacroGenes:
     t_micro: int = 5        # 微觀統計窗口
     t_deadline: int = 3     # 耐心耗盡期限
     ema_anchor: int = 50    # EMA 錨定期
+
+    # Stage 4: DCA 行為基因
+    dca_interval: int = 24       # 定投間隔（K 線根數）
+    hold_period: int = 48        # 最大持倉 K 線數，超過強制出場
+    recycle_ratio: float = 0.20  # 實現盈利再投入比例 [0, 1]
+
+    # Stage 4: 目標持倉權重（用於 kp/kv/ka PDE 公式）
+    target_weight: float = 0.50  # 目標倉位佔比
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -73,8 +81,12 @@ class MacroGenes:
             "t_micro": self.t_micro,
             "t_deadline": self.t_deadline,
             "ema_anchor": self.ema_anchor,
+            "dca_interval": self.dca_interval,
+            "hold_period": self.hold_period,
+            "recycle_ratio": self.recycle_ratio,
+            "target_weight": self.target_weight,
         }
-    
+
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "MacroGenes":
         return cls(
@@ -88,6 +100,10 @@ class MacroGenes:
             t_micro=d.get("t_micro", 5),
             t_deadline=d.get("t_deadline", 3),
             ema_anchor=d.get("ema_anchor", 50),
+            dca_interval=d.get("dca_interval", 24),
+            hold_period=d.get("hold_period", 48),
+            recycle_ratio=d.get("recycle_ratio", 0.20),
+            target_weight=d.get("target_weight", 0.50),
         )
     
     @classmethod
@@ -104,6 +120,10 @@ class MacroGenes:
             t_micro=random.randint(3, 15),
             t_deadline=random.randint(1, 6),
             ema_anchor=random.randint(20, 200),
+            dca_interval=random.randint(1, 100),
+            hold_period=random.randint(10, 200),
+            recycle_ratio=round(random.uniform(0.0, 0.5), 3),
+            target_weight=round(random.uniform(0.2, 0.8), 3),
         )
     
     def mutate(self, intensity: float = 0.3) -> "MacroGenes":
@@ -116,6 +136,8 @@ class MacroGenes:
             ("moon_phase_pressure", 0.1, 3.0),
             ("deadline_force_pct", 0.05, 0.80),
             ("gc_max_ratio", 0.10, 0.90),
+            ("recycle_ratio", 0.0, 0.80),
+            ("target_weight", 0.10, 0.90),
         ]
         
         for field_name, min_v, max_v in fields_float:
@@ -132,6 +154,8 @@ class MacroGenes:
             ("t_micro", 2, 30),
             ("t_deadline", 1, 12),
             ("ema_anchor", 10, 300),
+            ("dca_interval", 1, 200),
+            ("hold_period", 5, 500),
         ]
         
         for field_name, min_v, max_v in fields_int:

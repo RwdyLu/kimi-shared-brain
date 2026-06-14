@@ -90,7 +90,22 @@ def _make_chromosome():
     micro = MagicMock()
     micro.min_trade_threshold = 0.01
     micro.micro_reserve_rate = 1.0
+    # Stage 4: kp/kv/ka and sigmoid/gamma/beta must be real floats
+    micro.kp = 1.0
+    micro.kv = 0.0
+    micro.ka = 0.0
+    micro.sigmoid_scale = 1.0
+    micro.gamma = 1.0
+    micro.beta = 0.5
     chrom.micro_genes = micro
+
+    # Stage 4: macro_genes fields needed by _run_strategy_v2
+    macro = MagicMock()
+    macro.hold_period = 9999
+    macro.recycle_ratio = 0.0
+    macro.target_weight = 0.5
+    macro.dca_interval = 24
+    chrom.macro_genes = macro
 
     return chrom
 

@@ -16,6 +16,7 @@ Date: 2026-05-28
 """
 
 import sys
+import math
 import random
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -99,10 +100,15 @@ class GhostDCABaseline:
         df: pd.DataFrame,
         season: Optional[SeasonConfig] = None,
         environment: Optional[Environment] = None,
+        dca_interval_candles: Optional[int] = None,
     ) -> Tuple[List[float], List[Dict[str, Any]]]:
         """
         執行 Ghost DCA 回測
-        
+
+        Stage 4: dca_interval_candles — if provided, fires every N candles instead of
+        using the time-based dca_interval_hours.  This wires macro_genes.dca_interval
+        into GhostDCA behavior.
+
         Returns:
             (equity_curve, trades)
         """
@@ -111,45 +117,52 @@ class GhostDCABaseline:
         position_value = 0.0
         position_qty = 0.0
         trades = []
-        
-        # DCA 計時器（毫秒）
+
+        # DCA 計時器 — candle-based (Stage 4) takes priority over time-based
+        use_candle_interval = dca_interval_candles is not None
         interval_ms = self.dca_interval_hours * 60 * 60 * 1000
         last_dca_time = None
-        
+        candles_since_dca = 0
+
         # 應用季節乘數
         aggressiveness = 1.0
         if season:
             aggressiveness = season.aggressiveness
-        
+
         # 應用環境限制
         usable_cash_ratio = 1.0
         if environment:
             usable_cash_ratio = 1.0 - environment.dead_reserve_ratio
-        
+
         for i in range(len(df)):
             timestamp = int(df.index[i].timestamp() * 1000)
             price = df['close'].iloc[i]
-            
+
             # 檢查是否需要 DCA
-            if last_dca_time is None or (timestamp - last_dca_time) >= interval_ms:
+            if use_candle_interval:
+                should_dca = (candles_since_dca >= dca_interval_candles)
+            else:
+                should_dca = (last_dca_time is None or (timestamp - last_dca_time) >= interval_ms)
+
+            if should_dca:
                 # 計算本次投入金額
                 base_amount = self.initial_capital * self.dca_amount_pct * aggressiveness
-                
+
                 # 受可用資金限制
                 max_invest = cash * usable_cash_ratio
                 invest_amount = min(base_amount, max_invest)
-                
+
                 if invest_amount > 0 and cash >= invest_amount:
                     # 扣除手續費
                     fee = invest_amount * self.fee_rate
                     net_invest = invest_amount - fee
-                    
+
                     # 買入
                     qty = net_invest / price
                     position_qty += qty
                     position_value = position_qty * price
                     cash -= invest_amount
-                    
+
                     trades.append({
                         "timestamp": timestamp,
                         "price": price,
@@ -158,14 +171,17 @@ class GhostDCABaseline:
                         "qty": qty,
                         "type": "dca_buy",
                     })
-                    
+
                     last_dca_time = timestamp
-            
+                    candles_since_dca = 0
+            else:
+                candles_since_dca += 1
+
             # 更新持倉價值
             position_value = position_qty * price
             total_value = cash + position_value
             equity.append(total_value)
-        
+
         return equity, trades
     
     def calculate_dca_return(self, equity: List[float]) -> float:
@@ -275,8 +291,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         
         # === 並行回測：策略 + Ghost DCA ===
         
-        # 1. Ghost DCA
-        dca_equity, dca_trades = self.dca_engine.run(df, season, environment)
+        # 1. Ghost DCA — Stage 4: wire macro_genes.dca_interval
+        dca_interval_candles = chrom.macro_genes.dca_interval
+        dca_equity, dca_trades = self.dca_engine.run(
+            df, season, environment, dca_interval_candles=dca_interval_candles
+        )
         dca_return = self.dca_engine.calculate_dca_return(dca_equity)
         
         # 2. 策略回測
@@ -352,11 +371,17 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
     ) -> Tuple[List[float], List[SimulatedTrade], Dict[str, Any]]:
         """
         V2 策略模擬核心
-        
-        新增：
-        - 季節摩擦（position size 調整）
-        - 最小交易單位截斷
-        - 庫存橋（DeadHold / FloatHold）
+
+        Stage 4 wiring:
+        - macro_genes.hold_period    → forced exit after N candles
+        - macro_genes.recycle_ratio  → fraction of realized PnL reinvested into next buy
+        - macro_genes.target_weight  → target position weight for kp/kv/ka PDE
+        - micro_genes.kp/kv/ka       → PDE position-sizing formula
+        - micro_genes.sigmoid_scale  → scale raw entry signal before thresholding
+        - micro_genes.gamma          → risk-aversion exponent on position sizing
+        - micro_genes.beta           → blend between entry/exit signal source
+        - micro_genes.min_trade_threshold → skip trade if deviation < threshold
+        - micro_genes.micro_reserve_rate  → fraction of float to sell on signal exit
         """
         trades = []
 
@@ -373,34 +398,82 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         # 庫存橋
         dead_hold_qty = 0.0   # 底倉（只進不出）
         float_hold_qty = 0.0  # 浮動倉（可賣出）
-        
+
+        # Stage 4: hold_period tracking (candle index of last buy)
+        last_buy_candle: Optional[int] = None
+        hold_period = chrom.macro_genes.hold_period  # max candles before forced exit
+
+        # Stage 4: recycle pool — accumulated realized PnL to reinvest
+        recycle_pool: float = 0.0
+        recycle_ratio: float = chrom.macro_genes.recycle_ratio
+
+        # Stage 4: kp/kv/ka PDE state
+        target_weight: float = chrom.macro_genes.target_weight
+        prev_actual_weight: float = 0.0
+        prev_velocity: float = 0.0
+
+        # Stage 4: gene scalars
+        kp: float = chrom.micro_genes.kp
+        kv: float = chrom.micro_genes.kv
+        ka: float = chrom.micro_genes.ka
+        sigmoid_scale: float = chrom.micro_genes.sigmoid_scale
+        gamma: float = chrom.micro_genes.gamma
+        beta: float = chrom.micro_genes.beta
+        min_trade_threshold: float = chrom.micro_genes.min_trade_threshold
+
         # 計算可用資金比例（受 Environment 限制）
         usable_cash_ratio = 1.0
         if environment:
             usable_cash_ratio = 1.0 - environment.dead_reserve_ratio
-        
+
         # 應用季節乘數
         season_mult = 1.0
         if season:
             season_mult = season.aggressiveness
-        
+
         # 預計算指標
         indicator_values = self._precalculate_indicators(df, chrom)
-        
+
         warmup = 100
-        
+
         for i in range(warmup, len(df)):
             timestamp = int(df.index[i].timestamp() * 1000)
             current_price = df['close'].iloc[i]
-            
+
             # 更新權益
             position_value = position_qty * current_price
             total_value = cash + position_value
             equity.append(total_value)
-            
+
+            # === Stage 4: compute actual weight and PDE velocity ===
+            actual_weight = position_value / total_value if total_value > 0 else 0.0
+            velocity = actual_weight - prev_actual_weight
+
+            # kp/kv/ka desired position weight
+            raw_desired = (
+                kp * (target_weight - actual_weight)
+                + kv * (actual_weight - prev_actual_weight)
+                + ka * (velocity - prev_velocity)
+            )
+            # clamp to [0, 1]
+            desired_position_weight = max(0.0, min(1.0, raw_desired))
+
+            # update PDE state
+            prev_velocity = velocity
+            prev_actual_weight = actual_weight
+
+            # === Stage 4: MinTradeThreshold — skip if deviation too small ===
+            deviation_from_target = abs(target_weight - actual_weight)
+            skip_trade = deviation_from_target < min_trade_threshold
+
+            # === Stage 4: hold_period — forced exit if too long ===
+            hold_period_exit = (
+                last_buy_candle is not None
+                and (i - last_buy_candle) >= hold_period
+            )
+
             # === 檢查出場 ===
             if position_qty > 0 and position_avg_cost > 0:
-                # 只能賣出 float_hold 部分（position_avg_cost > 0 防止賣出前無買入的邊緣情況）
                 max_sellable = float_hold_qty
                 exit_qty = 0.0
                 exit_reason = None
@@ -414,30 +487,37 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                     elif unrealized >= chrom.risk_genes.take_profit_pct:
                         exit_qty = max_sellable
                         exit_reason = "take_profit"
-                    elif self._check_exit_conditions(i, df, chrom, indicator_values):
+                    elif hold_period_exit:
+                        # Stage 4: force exit after hold_period candles
+                        exit_qty = max_sellable
+                        exit_reason = "hold_period_expired"
+                        last_buy_candle = None
+                    elif not skip_trade and self._check_exit_conditions(i, df, chrom, indicator_values):
                         deviation = abs(unrealized)
-                        if deviation >= chrom.micro_genes.min_trade_threshold:
-                            exit_qty = max_sellable * chrom.micro_genes.micro_reserve_rate
+                        if deviation >= min_trade_threshold:
+                            # Stage 4: beta blends between exit fraction and full exit
+                            # beta=0 → conservative (micro_reserve_rate fraction)
+                            # beta=1 → aggressive (sell all float)
+                            sell_frac = (1.0 - beta) * chrom.micro_genes.micro_reserve_rate + beta * 1.0
+                            exit_qty = max_sellable * sell_frac
                             exit_reason = "signal_exit"
 
                     exit_qty = self._truncate_lot(exit_qty)
 
                     if exit_qty >= self.lot_min and exit_qty <= max_sellable:
-                        # Stage 2 Fix: correct partial-sell ledger
-                        # sell_fee = sell_value * fee_rate (sell-side fee only)
                         sell_value = exit_qty * current_price
                         sell_fee = sell_value * self.fee_rate
-                        # realized_pnl = qty * (price - avg_cost) - sell_fee
-                        # avg_cost already includes buy-side fee, so avg_cost > raw_buy_price
                         realized = exit_qty * (current_price - position_avg_cost) - sell_fee
                         cash += (sell_value - sell_fee)
                         total_realized_pnl += realized
                         total_fees_ledger += sell_fee
 
-                        # Update position: qty decreases, avg_cost UNCHANGED
+                        # Stage 4: recycle — accumulate a fraction of realized PnL
+                        if realized > 0:
+                            recycle_pool += realized * recycle_ratio
+
                         float_hold_qty -= exit_qty
                         position_qty -= exit_qty
-                        # position_avg_cost remains unchanged
 
                         pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
                         trades.append(SimulatedTrade(
@@ -452,28 +532,41 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         ))
 
             # === 檢查進場 ===
-            if self._check_entry_conditions(i, df, chrom, indicator_values):
-                base_position_pct = chrom.risk_genes.position_pct
+            if not skip_trade and self._check_entry_conditions(i, df, chrom, indicator_values):
+                # Stage 4: sigmoid_scale applied to raw signal weight
+                # We model raw_signal as the weighted entry score in [0,1].
+                # Apply sigmoid(sigmoid_scale * (score - 0.5)) to shift aggressiveness.
+                # For simplicity we use desired_position_weight as the "signal strength".
+                raw_signal = desired_position_weight - 0.5  # center around 0
+                scaled_signal = 1.0 / (1.0 + math.exp(-sigmoid_scale * raw_signal))
+
+                base_position_pct = chrom.risk_genes.position_pct * scaled_signal * 2.0
                 adjusted_pct = base_position_pct * season_mult
                 adjusted_pct = min(adjusted_pct, usable_cash_ratio)
-                invest_amount = cash * adjusted_pct
-                qty = invest_amount / current_price
+
+                # Stage 4: gamma — risk-aversion exponent reduces size when already heavy
+                if actual_weight > 0:
+                    gamma_factor = (1.0 - actual_weight) ** gamma
+                else:
+                    gamma_factor = 1.0
+                adjusted_pct *= gamma_factor
+
+                # Stage 4: add recycled PnL to invest budget
+                recycle_bonus = recycle_pool
+                recycle_pool = 0.0  # spent
+
+                invest_amount = cash * adjusted_pct + recycle_bonus
+                invest_amount = min(invest_amount, cash * usable_cash_ratio)
+
+                qty = invest_amount / current_price if current_price > 0 else 0.0
                 qty = self._truncate_lot(qty)
 
                 if qty >= self.lot_min and invest_amount <= cash * usable_cash_ratio:
-                    # Stage 2 Fix: correct buy ledger
-                    # buy_value = qty * price
-                    # buy_fee = buy_value * fee_rate
-                    # cash -= (buy_value + buy_fee)
-                    # avg_cost = (prev_qty * prev_avg_cost + qty * price) / (prev_qty + qty)
-                    # Note: avg_cost uses raw price (not price+fee) as the fee is a separate cost center
-                    # but for PnL purposes, we embed it: avg_cost_with_fee = (prev_cost + buy_value + buy_fee) / new_qty
                     buy_value = qty * current_price
                     buy_fee = buy_value * self.fee_rate
                     total_cost = buy_value + buy_fee
 
                     if total_cost <= cash:
-                        # Update avg_cost to include buy-side fee (embeds fee into cost basis)
                         prev_total_cost = position_avg_cost * position_qty
                         new_total_cost = prev_total_cost + total_cost
                         new_qty = position_qty + qty
@@ -482,6 +575,9 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         cash -= total_cost
                         position_qty = new_qty
                         total_fees_ledger += buy_fee
+
+                        # Stage 4: record when we last bought (for hold_period)
+                        last_buy_candle = i
 
                         # 庫存橋分配
                         dead_alloc = qty * chrom.risk_genes.dead_hold_ratio
