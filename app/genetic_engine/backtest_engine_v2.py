@@ -122,7 +122,7 @@ class GhostDCABaseline:
         use_candle_interval = dca_interval_candles is not None
         interval_ms = self.dca_interval_hours * 60 * 60 * 1000
         last_dca_time = None
-        candles_since_dca = 0
+        last_dca_candle: Optional[int] = None
 
         # 應用季節乘數
         aggressiveness = 1.0
@@ -140,7 +140,11 @@ class GhostDCABaseline:
 
             # 檢查是否需要 DCA
             if use_candle_interval:
-                should_dca = (candles_since_dca >= dca_interval_candles)
+                interval = max(1, int(dca_interval_candles))
+                should_dca = (
+                    last_dca_candle is None
+                    or (i - last_dca_candle) >= interval
+                )
             else:
                 should_dca = (last_dca_time is None or (timestamp - last_dca_time) >= interval_ms)
 
@@ -173,9 +177,7 @@ class GhostDCABaseline:
                     })
 
                     last_dca_time = timestamp
-                    candles_since_dca = 0
-            else:
-                candles_since_dca += 1
+                    last_dca_candle = i
 
             # 更新持倉價值
             position_value = position_qty * price
@@ -399,13 +401,15 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         dead_hold_qty = 0.0   # 底倉（只進不出）
         float_hold_qty = 0.0  # 浮動倉（可賣出）
 
-        # Stage 4: hold_period tracking (candle index of last buy)
-        last_buy_candle: Optional[int] = None
+        # Track the oldest open float tranche. Additional buys must not reset the
+        # holding deadline, otherwise continuous entry signals can bypass it.
+        position_open_candle: Optional[int] = None
         hold_period = chrom.macro_genes.hold_period  # max candles before forced exit
 
         # Stage 4: recycle pool — accumulated realized PnL to reinvest
         recycle_pool: float = 0.0
         recycle_ratio: float = chrom.macro_genes.recycle_ratio
+        recycled_profit_deployed: float = 0.0
 
         # Stage 4: kp/kv/ka PDE state
         target_weight: float = chrom.macro_genes.target_weight
@@ -468,8 +472,8 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
             # === Stage 4: hold_period — forced exit if too long ===
             hold_period_exit = (
-                last_buy_candle is not None
-                and (i - last_buy_candle) >= hold_period
+                position_open_candle is not None
+                and (i - position_open_candle) >= hold_period
             )
 
             # === 檢查出場 ===
@@ -491,7 +495,6 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         # Stage 4: force exit after hold_period candles
                         exit_qty = max_sellable
                         exit_reason = "hold_period_expired"
-                        last_buy_candle = None
                     elif not skip_trade and self._check_exit_conditions(i, df, chrom, indicator_values):
                         deviation = abs(unrealized)
                         if deviation >= min_trade_threshold:
@@ -518,6 +521,9 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
                         float_hold_qty -= exit_qty
                         position_qty -= exit_qty
+                        if float_hold_qty <= self.lot_step / 2:
+                            float_hold_qty = 0.0
+                            position_open_candle = None
 
                         pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
                         trades.append(SimulatedTrade(
@@ -553,7 +559,6 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
 
                 # Stage 4: add recycled PnL to invest budget
                 recycle_bonus = recycle_pool
-                recycle_pool = 0.0  # spent
 
                 invest_amount = cash * adjusted_pct + recycle_bonus
                 invest_amount = min(invest_amount, cash * usable_cash_ratio)
@@ -576,14 +581,16 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                         position_qty = new_qty
                         total_fees_ledger += buy_fee
 
-                        # Stage 4: record when we last bought (for hold_period)
-                        last_buy_candle = i
-
                         # 庫存橋分配
                         dead_alloc = qty * chrom.risk_genes.dead_hold_ratio
                         float_alloc = qty * chrom.risk_genes.float_hold_ratio
                         dead_hold_qty += dead_alloc
+                        if float_alloc > 0 and position_open_candle is None:
+                            position_open_candle = i
                         float_hold_qty += float_alloc
+
+                        recycled_profit_deployed += recycle_bonus
+                        recycle_pool = 0.0
 
         # 結束時強制平倉（只平 FloatHold）
         if position_qty > 0 and float_hold_qty > 0:
@@ -622,6 +629,8 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         raw_ledger = {
             "total_fees": total_fees_ledger,
             "realized_pnl": total_realized_pnl,
+            "recycled_profit_deployed": recycled_profit_deployed,
+            "recycle_pool_remaining": recycle_pool,
         }
         return equity, trades, raw_ledger
     

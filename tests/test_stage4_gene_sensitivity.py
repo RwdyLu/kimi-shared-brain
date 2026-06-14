@@ -137,6 +137,12 @@ def test_dca_interval_affects_ghost_dca_trade_count():
         f"dca_interval=1 should produce more buys ({len(trades_freq)}) "
         f"than dca_interval=50 ({len(trades_slow)})"
     )
+    assert [t["timestamp"] for t in trades_freq[:3]] == [
+        int(df.index[i].timestamp() * 1000) for i in (0, 1, 2)
+    ]
+    assert [t["timestamp"] for t in trades_slow[:3]] == [
+        int(df.index[i].timestamp() * 1000) for i in (0, 50, 100)
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +181,26 @@ def test_hold_period_forces_exit():
         f"Expected at least one hold_period_expired exit with hold_period=5, "
         f"got exit reasons: {[t.exit_reason for t in trades]}"
     )
+
+
+def test_hold_period_is_not_reset_by_continuous_entries():
+    macro = MacroGenes(
+        hold_period=5,
+        dca_interval=24,
+        recycle_ratio=0.0,
+        target_weight=0.8,
+    )
+    micro = MicroGenes(kp=1.0, kv=0.0, ka=0.0, min_trade_threshold=0.0)
+    chrom = _make_chrom(macro=macro, micro=micro, entry_always=True, exit_never=True)
+
+    _, trades, _ = _run(chrom, _make_df(130))
+
+    hold_exits = [t for t in trades if t.exit_reason == "hold_period_expired"]
+    assert hold_exits, "Continuous entry signals must not postpone hold_period forever"
+    first_exit_index = (
+        pd.Timestamp(hold_exits[0].exit_time, unit="ms") - pd.Timestamp("2024-01-01")
+    ) // pd.Timedelta(hours=1)
+    assert first_exit_index == 105
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -231,32 +257,17 @@ def test_recycle_ratio_increases_next_buy():
 
     engine = GeneBacktestEngineV2(initial_capital=1000.0, lot_step=0.0001, lot_min=0.0001)
 
-    _, trades_no_recycle, _ = engine._run_strategy_v2(
+    _, trades_no_recycle, raw_no = engine._run_strategy_v2(
         df, make_recycle_chrom(0.0), "TEST", None, None, False
     )
-    _, trades_recycle, _ = engine._run_strategy_v2(
+    _, trades_recycle, raw_rec = engine._run_strategy_v2(
         df, make_recycle_chrom(0.5), "TEST", None, None, False
     )
 
-    # Both should have trades; with recycle_ratio=0.5 the pool adds to buy budgets
-    # The equity curves may differ, or at minimum recycle ratio should affect the engine path
-    # We check that the code runs without error and produces trades
-    assert len(trades_no_recycle) >= 0
-    assert len(trades_recycle) >= 0
-
-    # More precise check: the recycle pool mechanism runs — verify via raw_metrics
-    # that both strategies ran their full loops with no crash
-    # (functional correctness: code reached the recycle_pool branch)
-    equity_no, _, raw_no = engine._run_strategy_v2(
-        df, make_recycle_chrom(0.0), "TEST", None, None, False
-    )
-    equity_rec, _, raw_rec = engine._run_strategy_v2(
-        df, make_recycle_chrom(0.5), "TEST", None, None, False
-    )
-    # Final equities may differ due to recycle bonus being spent on subsequent buys
-    # Accept if they are not identical (or both are valid floats)
-    assert all(math.isfinite(v) for v in equity_no), "equity_no has non-finite values"
-    assert all(math.isfinite(v) for v in equity_rec), "equity_rec has non-finite values"
+    assert trades_no_recycle
+    assert trades_recycle
+    assert raw_no["recycled_profit_deployed"] == 0.0
+    assert raw_rec["recycled_profit_deployed"] > 0.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
