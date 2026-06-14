@@ -30,6 +30,10 @@ from .chromosome_v2 import (
     validate_chromosome_v2, MacroGenes, MicroGenes
 )
 from .backtest_engine_v2 import GeneBacktestEngineV2, evaluate_chromosome_multi_symbol_v2, GhostDCABaseline
+from .windows import (
+    WINDOWS, WINDOW_WEIGHTS, WindowResult,
+    run_all_windows, aggregate_window_fitness,
+)
 from .fitness_v2 import (
     BacktestMetricsV2, compute_fitness_v2,
     compute_fitness_details_v2, aggregate_fitness_v2,
@@ -224,48 +228,128 @@ class EvolutionEngineV2:
                 print(f"   [{i+1}/{len(self.population)}] {chrom.chromosome_id[:8]}...", end=" ")
             
             try:
-                # 使用 V2 多幣種評估
-                fitness, per_symbol, all_trades = evaluate_chromosome_multi_symbol_v2(
-                    chrom,
-                    symbols=self.config["symbols"],
-                    engine=self.backtest_engine,
-                    interval=self.config["backtest_interval"],
-                    days=self.config["backtest_days"],
-                    seasons=self.three_layer.seasons,
-                    environment=self.three_layer.environment,
-                    verbose=False,
-                )
-                
-                # Stage 2: fitness is already computed by evaluate_chromosome_multi_symbol_v2
-                # using the full multi-symbol aggregation (all symbols, not just first).
-                # fitness_score IS the correctly aggregated fitness returned above.
-                fitness_score = fitness
+                use_multi_window = self.config.get("use_multi_window", False)
 
-                # Collect summary stats for logging only (not re-scoring)
-                total_trades = 0
-                total_alpha = 0.0
-                total_friction = 0.0
+                if use_multi_window:
+                    # ── Stage 3: multi-window cross-validation ────────────────
+                    # Fetch data ONCE per symbol; slice in-memory per window.
+                    import time as _time
+                    symbols = self.config["symbols"]
+                    end_ms = int(_time.time() * 1000)
 
-                for symbol, result in per_symbol.items():
-                    total_trades += result.strategy_metrics.total_trades
-                    total_alpha += result.alpha_vs_dca
-                    total_friction += result.friction_penalty
+                    all_window_results: List[WindowResult] = []
+                    symbol_window_map: Dict[str, List[WindowResult]] = {}
 
-                avg_alpha = total_alpha / len(per_symbol) if per_symbol else 0.0
-                fitness_details = {}
-                
-                chrom.fitness_score = fitness_score
-                chrom.fitness_details = {
-                    "fitness": round(fitness_score, 4),
-                    "avg_alpha": round(avg_alpha, 4),
-                    "total_trades": total_trades,
-                    "total_friction": round(total_friction, 4),
-                    "symbols_tested": len(per_symbol),
-                    "seasons_applied": len(self.three_layer.seasons),
-                }
-                
-                if verbose:
-                    print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} Trades={total_trades}")
+                    for symbol in symbols:
+                        # Fetch full history once (longest window = "all")
+                        from data.fetcher import BinanceFetcher
+                        fetcher = BinanceFetcher()
+                        klines, validation = fetcher.fetch_klines_paginated(
+                            symbol=symbol,
+                            interval=self.config["backtest_interval"],
+                            start_time=None,
+                            end_time=end_ms,
+                            limit=1000,
+                            validate=True,
+                            verbose=False,
+                            strict_validation=False,
+                        )
+                        if not klines or len(klines) < 100:
+                            # Mark all windows as insufficient for this symbol
+                            symbol_window_map[symbol] = [
+                                WindowResult(w, insufficient_data=True, weight=WINDOW_WEIGHTS[w])
+                                for w in WINDOWS
+                            ]
+                            continue
+
+                        df_full = self.backtest_engine._klines_to_df(klines)
+                        win_results = run_all_windows(
+                            chromosome=chrom,
+                            symbol_df=df_full,
+                            end_ms=end_ms,
+                            engine=self.backtest_engine,
+                            seed=hash(chrom.chromosome_id) & 0xFFFF,
+                        )
+                        symbol_window_map[symbol] = win_results
+                        all_window_results.extend(win_results)
+
+                    fitness_score = aggregate_window_fitness(all_window_results)
+
+                    total_trades = 0
+                    total_alpha = 0.0
+                    per_window_summary: Dict[str, Any] = {}
+                    for sym, wrs in symbol_window_map.items():
+                        for wr in wrs:
+                            if not wr.insufficient_data:
+                                total_alpha += wr.alpha
+                                total_trades += wr.details.get("n_trades", 0)
+                            key = f"{sym}:{wr.window_name}"
+                            per_window_summary[key] = {
+                                "fitness": round(wr.fitness, 4),
+                                "alpha": round(wr.alpha, 4),
+                                "ghost_dca_return": round(wr.ghost_dca_return, 4),
+                                "strategy_return": round(wr.strategy_return, 4),
+                                "insufficient_data": wr.insufficient_data,
+                                "n_candles": wr.n_candles,
+                            }
+
+                    n_valid = len([r for r in all_window_results if not r.insufficient_data])
+                    avg_alpha = total_alpha / n_valid if n_valid > 0 else 0.0
+
+                    chrom.fitness_score = fitness_score
+                    chrom.fitness_details = {
+                        "fitness": round(fitness_score, 4),
+                        "avg_alpha": round(avg_alpha, 4),
+                        "total_trades": total_trades,
+                        "symbols_tested": len(symbols),
+                        "windows_valid": n_valid,
+                        "windows_total": len(all_window_results),
+                        "per_window": per_window_summary,
+                        "stage": "stage3_multi_window",
+                    }
+
+                    if verbose:
+                        print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} "
+                              f"Trades={total_trades} Windows={n_valid}/{len(all_window_results)}")
+
+                else:
+                    # ── Stage 2: single-window multi-symbol (original) ────────
+                    fitness, per_symbol, all_trades = evaluate_chromosome_multi_symbol_v2(
+                        chrom,
+                        symbols=self.config["symbols"],
+                        engine=self.backtest_engine,
+                        interval=self.config["backtest_interval"],
+                        days=self.config["backtest_days"],
+                        seasons=self.three_layer.seasons,
+                        environment=self.three_layer.environment,
+                        verbose=False,
+                    )
+
+                    fitness_score = fitness
+
+                    total_trades = 0
+                    total_alpha = 0.0
+                    total_friction = 0.0
+
+                    for symbol, result in per_symbol.items():
+                        total_trades += result.strategy_metrics.total_trades
+                        total_alpha += result.alpha_vs_dca
+                        total_friction += result.friction_penalty
+
+                    avg_alpha = total_alpha / len(per_symbol) if per_symbol else 0.0
+
+                    chrom.fitness_score = fitness_score
+                    chrom.fitness_details = {
+                        "fitness": round(fitness_score, 4),
+                        "avg_alpha": round(avg_alpha, 4),
+                        "total_trades": total_trades,
+                        "total_friction": round(total_friction, 4),
+                        "symbols_tested": len(per_symbol),
+                        "seasons_applied": len(self.three_layer.seasons),
+                    }
+
+                    if verbose:
+                        print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} Trades={total_trades}")
                 
             except Exception as e:
                 if verbose:
