@@ -281,6 +281,13 @@ layout = dbc.Container(
 )
 def update_beginner_grid(n):
     """Update beginner-friendly coin grid / 更新新手幣種網格"""
+    try:
+        return _build_beginner_grid()
+    except Exception as e:
+        return [dbc.Col(dbc.Alert(f"載入失敗：{e}", color="warning"), width=12)]
+
+
+def _build_beginner_grid():
     ranking_data = load_live_ranking()
     prices_data = load_prices()
     symbol_scores = ranking_data.get("symbols", {})
@@ -425,6 +432,9 @@ def update_beginner_grid(n):
         cards.append(card)
 
     return cards
+
+
+# end of _build_beginner_grid
 
 
 @callback(

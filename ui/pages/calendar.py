@@ -233,13 +233,13 @@ layout = dbc.Container(
             dbc.CardBody([
                 dbc.Table([
                     html.Thead(html.Tr([
-                        html.Th("Sun", className="text-center"),
-                        html.Th("Mon", className="text-center"),
-                        html.Th("Tue", className="text-center"),
-                        html.Th("Wed", className="text-center"),
-                        html.Th("Thu", className="text-center"),
-                        html.Th("Fri", className="text-center"),
-                        html.Th("Sat", className="text-center"),
+                        html.Th("日", className="text-center"),
+                        html.Th("一", className="text-center"),
+                        html.Th("二", className="text-center"),
+                        html.Th("三", className="text-center"),
+                        html.Th("四", className="text-center"),
+                        html.Th("五", className="text-center"),
+                        html.Th("六", className="text-center"),
                     ])),
                     html.Tbody(id="cal-grid-body", children=[])
                 ], bordered=True, hover=True, className="text-center")

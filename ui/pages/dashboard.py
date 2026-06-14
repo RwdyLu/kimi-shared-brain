@@ -420,9 +420,7 @@ layout = dbc.Container(
                             dbc.CardHeader("🔔 Signals & History / 訊號與歷史", className="fw-bold"),
                             dbc.CardBody(
                                 id="right-panel-signals-history",
-                                children=[
-                                    html.P("Loading signals...", className="text-muted")
-                                ]
+                                children=[]
                             )
                         ],
                         color="dark",
@@ -1678,16 +1676,19 @@ def update_strategy_ranking(n, selected_symbol):
 def update_signals_history(n):
     """Update right panel signals and history / 更新右欄訊號與歷史 (T-077)"""
     try:
-        from backtest import BacktestStorage
         from ui.services.monitor_service import get_today_signals
-        
+
         # Get watch signals
         signals = get_today_signals()
-        watch_signals = []  # Placeholder - would filter for watch-only
-        
-        # Get backtest history
-        storage = BacktestStorage()
-        backtests = storage.get_latest_backtests(limit=7)
+
+        # Get backtest history (optional — skip if module unavailable)
+        backtests = []
+        try:
+            from backtest import BacktestStorage
+            storage = BacktestStorage()
+            backtests = storage.get_latest_backtests(limit=7)
+        except Exception:
+            pass
         
         return html.Div([
             # Watch Signals Section
