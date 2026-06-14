@@ -320,79 +320,14 @@ class GeneticIntegration:
         backtest_days: int = 90,
     ) -> threading.Thread:
         """
-        在背景執行緒啟動持續演化
-        
-        每 interval_hours 小時跑一次演化，產出新的策略並自動部署
+        Disabled legacy V1 background evolution.
         """
-        if self._evolution_running:
-            logger.warning("Evolution already running")
-            return self._evolution_thread
-        
-        def evolution_loop():
-            logger.info(f"🧬 Continuous evolution started (interval={interval_hours}h)")
-            self._evolution_running = True
-            
-            while self._evolution_running:
-                try:
-                    logger.info("🧬 Starting evolution cycle...")
-                    
-                    # Import here to avoid circular imports at module level
-                    from app.genetic_engine.evolution import EvolutionEngine, DEFAULT_CONFIG
-                    from app.genetic_engine.cli import save_best_strategies
-                    
-                    config = {
-                        **DEFAULT_CONFIG,
-                        "population_size": population_size,
-                        "max_generations": generations_per_run,
-                        "backtest_days": backtest_days,
-                    }
-                    
-                    engine = EvolutionEngine(config=config)
-                    
-                    # 嘗試載入之前保存的狀態
-                    genesis_dir = GENETIC_EVOLUTION_DIR
-                    genesis_files = sorted(genesis_dir.glob("gen_*_best_*.json"), 
-                                          key=lambda p: p.stat().st_mtime, reverse=True)
-                    
-                    if genesis_files:
-                        # 用最近的結果作為初始種群的一部分
-                        logger.info(f"Loading {min(5, len(genesis_files))} previous best as genesis seeds")
-                        # 讓引擎從隨機開始，但給它一些好基因
-                        # 實際上 EvolutionEngine 的 genesis 是隨機的，這裡我們跑完後用結果
-                        pass
-                    
-                    engine.genesis()
-                    best = engine.run(max_generations=generations_per_run, verbose=True)
-                    
-                    if best:
-                        # 保存並部署
-                        save_best_strategies(engine, str(GENETIC_EVOLUTION_DIR / "deploy_strategies.json"))
-                        
-                        # 重新合併到主配置
-                        self.write_merged_config()
-                        logger.info("🧬 Evolution cycle complete. New strategies deployed.")
-                    else:
-                        logger.warning("🧬 Evolution produced no viable strategies")
-                    
-                except Exception as e:
-                    logger.error(f"🧬 Evolution cycle error: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-                
-                # 等待下一次演化
-                logger.info(f"🧬 Next evolution in {interval_hours} hours")
-                for _ in range(interval_hours * 3600):
-                    if not self._evolution_running:
-                        break
-                    time.sleep(1)
-            
-            logger.info("🧬 Continuous evolution stopped")
-        
-        thread = threading.Thread(target=evolution_loop, daemon=True, name="genetic-evolution")
-        thread.start()
-        self._evolution_thread = thread
-        
-        return thread
+        raise RuntimeError(
+            "Legacy continuous evolution is disabled because it bypasses "
+            "Challenger/Champion isolation. Use ContinuousEvolutionV2 and "
+            "manually Promote the resulting Challenger."
+        )
+
     
     def stop_continuous_evolution(self) -> None:
         """停止持續演化執行緒"""
@@ -454,26 +389,12 @@ def deploy_genetic_strategies(
     strategies_config_path: str = None,
 ) -> str:
     """
-    一鍵部署基因策略
-    
-    Args:
-        top_n: 載入前 N 個基因策略
-        inject: True=直接注入 strategies.json, False=寫到獨立檔案
-        strategies_config_path: 策略配置路徑
-        
-    Returns:
-        寫入的檔案路徑
+    Disabled direct genetic deployment.
     """
-    integration = GeneticIntegration(
-        strategies_config_path=strategies_config_path,
-        live_pool_size=top_n,
+    raise RuntimeError(
+        "Direct genetic deployment is disabled; manually Promote a V2 Challenger."
     )
-    
-    if inject:
-        integration.inject_into_strategies_json(backup=True)
-        return str(integration.config_path)
-    else:
-        return integration.write_merged_config()
+
 
 
 def start_evolution(

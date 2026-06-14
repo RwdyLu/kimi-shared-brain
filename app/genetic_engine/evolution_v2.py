@@ -93,6 +93,21 @@ DEFAULT_CONFIG_V2 = {
     "monte_carlo_seed": 42,
 }
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EVOLUTION_CONFIG_FILE = PROJECT_ROOT / "config" / "evolution_v2.json"
+
+
+def load_saved_evolution_config() -> Dict[str, Any]:
+    """Load UI-edited next-run settings without depending on the UI package."""
+    if not EVOLUTION_CONFIG_FILE.exists():
+        return {}
+    try:
+        with EVOLUTION_CONFIG_FILE.open(encoding="utf-8") as handle:
+            saved = json.load(handle)
+        return saved if isinstance(saved, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # V2 演化引擎
@@ -118,7 +133,11 @@ class EvolutionEngineV2:
         save_dir: Optional[str] = None,
         archive: Optional[StrategyArchive] = None,
     ):
-        self.config = {**DEFAULT_CONFIG_V2, **(config or {})}
+        self.config = {
+            **DEFAULT_CONFIG_V2,
+            **load_saved_evolution_config(),
+            **(config or {}),
+        }
         self.backtest_engine = engine or GeneBacktestEngineV2()
         self.population: List[StrategyChromosomeV2] = []
         self.generation = 0
@@ -138,6 +157,10 @@ class EvolutionEngineV2:
         # 保存路徑
         self.save_dir = Path(save_dir) if save_dir else Path("data/genetic_evolution_v2")
         self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.runtime_state_file = (
+            self.save_dir / "evolution_v2_running.json"
+            if save_dir else PROJECT_ROOT / "state" / "evolution_v2_running.json"
+        )
         
         # 突變斜坡狀態
         self.current_mutation_rate = self.config["mutation_rate"]
@@ -551,6 +574,19 @@ class EvolutionEngineV2:
         max_generations: Optional[int] = None,
         verbose: bool = True,
     ) -> StrategyChromosomeV2:
+        """Run one Epoch and publish UI-readable progress state."""
+        max_gen = max_generations or self.config["max_generations"]
+        self._write_runtime_state(True, max_gen)
+        try:
+            return self._run_impl(max_generations=max_generations, verbose=verbose)
+        finally:
+            self._write_runtime_state(False, max_gen)
+
+    def _run_impl(
+        self,
+        max_generations: Optional[int] = None,
+        verbose: bool = True,
+    ) -> StrategyChromosomeV2:
         """運行完整 V2 演化循環"""
         max_gen = max_generations or self.config["max_generations"]
         
@@ -573,6 +609,7 @@ class EvolutionEngineV2:
         
         for gen in range(max_gen):
             self.evaluate_generation(verbose=verbose)
+            self._write_runtime_state(True, max_gen)
             
             current_best = self.population[0]
             current_best_fit = current_best.fitness_score or 0.0
@@ -628,6 +665,17 @@ class EvolutionEngineV2:
             print(f"Summary: {best_ever.summary()}")
         
         return best_ever or (self.population[0] if self.population else None)
+
+    def _write_runtime_state(self, running: bool, max_generations: int) -> None:
+        self.runtime_state_file.parent.mkdir(parents=True, exist_ok=True)
+        with self.runtime_state_file.open("w", encoding="utf-8") as handle:
+            json.dump({
+                "running": running,
+                "epoch_id": self.epoch_id,
+                "generation": self.generation,
+                "max_generations": max_generations,
+                "updated_at": datetime.now().isoformat(),
+            }, handle, indent=2)
 
     def _run_monte_carlo_final_review(
         self,

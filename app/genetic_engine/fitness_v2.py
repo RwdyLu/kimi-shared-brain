@@ -649,6 +649,74 @@ def compute_fitness_v2_from_v1(
     return compute_fitness_v2(metrics)
 
 
+def calculate_monte_carlo_report(
+    trades: List[Dict[str, Any]],
+    initial_capital: float = 1000.0,
+    n_simulations: int = 1000,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """
+    Run Monte Carlo simulation over trade sequence to estimate ruin probability
+    and return quantiles.
+
+    Parameters
+    ----------
+    trades        : list of {"pnl_pct": float} dicts
+    initial_capital : starting capital
+    n_simulations : number of bootstrap runs
+    seed          : RNG seed for reproducibility
+
+    Returns
+    -------
+    dict with keys: ruin_probability, p5_return, p50_return, p95_return,
+                    n_trades, n_simulations, seed
+    """
+    import random as _rng
+    _rng.seed(seed)
+
+    pnl_pcts = [t.get("pnl_pct", 0.0) for t in trades if isinstance(t, dict)]
+    if not pnl_pcts:
+        return {
+            "ruin_probability": 0.0,
+            "p5_return": 0.0,
+            "p50_return": 0.0,
+            "p95_return": 0.0,
+            "n_trades": 0,
+            "n_simulations": n_simulations,
+            "seed": seed,
+        }
+
+    ruin_count = 0
+    final_returns: List[float] = []
+    ruin_threshold = -0.95  # capital drops below 5% of initial → ruin
+
+    for _ in range(n_simulations):
+        sample = _rng.choices(pnl_pcts, k=len(pnl_pcts))
+        capital = initial_capital
+        for pct in sample:
+            capital *= (1.0 + pct)
+        total_return = (capital - initial_capital) / initial_capital
+        final_returns.append(total_return)
+        if total_return <= ruin_threshold:
+            ruin_count += 1
+
+    final_returns.sort()
+    n = len(final_returns)
+    p5  = final_returns[max(0, int(n * 0.05))]
+    p50 = final_returns[max(0, int(n * 0.50))]
+    p95 = final_returns[min(n - 1, int(n * 0.95))]
+
+    return {
+        "ruin_probability": ruin_count / n_simulations,
+        "p5_return": round(p5, 6),
+        "p50_return": round(p50, 6),
+        "p95_return": round(p95, 6),
+        "n_trades": len(pnl_pcts),
+        "n_simulations": n_simulations,
+        "seed": seed,
+    }
+
+
 if __name__ == "__main__":
     # 簡單測試
     print("=== Fitness V2 Test ===")

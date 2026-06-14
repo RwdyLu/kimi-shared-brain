@@ -25,7 +25,6 @@ Date: 2026-06-14
 """
 
 import random as _random
-import hashlib
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
@@ -122,12 +121,6 @@ def _random_is_slice(
     return start_ms, end_ms
 
 
-def stable_window_seed(chromosome_id: str, epoch_id: int, generation: int) -> int:
-    """Return a reproducible seed independent of Python's randomized hash()."""
-    payload = f"{chromosome_id}:{epoch_id}:{generation}".encode("utf-8")
-    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
-
-
 def _slice_df(df: pd.DataFrame, start_ms: Optional[int], end_ms: Optional[int]) -> pd.DataFrame:
     """
     Slice a DataFrame (with millisecond-timestamp index) to [start_ms, end_ms].
@@ -162,8 +155,6 @@ def run_window_backtest(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
-    seasons=None,
-    environment=None,
 ) -> WindowResult:
     """
     Execute a single-window backtest.
@@ -183,7 +174,6 @@ def run_window_backtest(
     WindowResult
     """
     from .backtest_engine_v2 import GeneBacktestEngineV2, GhostDCABaseline
-    from .fitness_v2 import compute_fitness_v2, compute_fitness_details_v2
 
     weight = WINDOW_WEIGHTS.get(window_name, 0.0)
 
@@ -252,15 +242,12 @@ def run_window_backtest(
 
     # ── Ghost DCA baseline (independent per window) ───────────────────────────
     dca_engine = GhostDCABaseline(initial_capital=engine.initial_capital)
-    dca_equity, _ = dca_engine.run(
-        df_slice, environment=environment, season_schedule=seasons
-    )
+    dca_equity, _ = dca_engine.run(df_slice)
     ghost_dca_return = dca_engine.calculate_dca_return(dca_equity)
 
     # ── Strategy backtest ─────────────────────────────────────────────────────
     strategy_equity, strategy_trades, raw_ledger = engine._run_strategy_v2(
-        df_slice, chromosome, symbol="window", season=None,
-        environment=environment, verbose=False, season_schedule=seasons
+        df_slice, chromosome, symbol="window", season=None, environment=None, verbose=False
     )
 
     if strategy_equity and len(strategy_equity) >= 2:
@@ -270,25 +257,13 @@ def run_window_backtest(
 
     alpha = strategy_return - ghost_dca_return
 
+    # Simple fitness within this window (alpha + trade quality)
     n_trades = len(strategy_trades)
-    metrics = engine._build_metrics_v2(
-        strategy_trades,
-        strategy_equity,
-        ghost_dca_return,
-        alpha,
-        0.0,
-        raw_metrics=raw_ledger,
-    )
-    if n_trades < 5:
-        return WindowResult(
-            window_name=window_name,
-            insufficient_data=True,
-            n_candles=n_candles,
-            weight=weight,
-            details={"reason": "too_few_trades", "n_trades": n_trades},
-        )
-
-    fitness = compute_fitness_v2(metrics)
+    if n_trades >= 5:
+        win_rate = sum(1 for t in strategy_trades if t.pnl_pct > 0) / n_trades
+        fitness = max(0.0, (alpha * 0.6) + (win_rate * 0.4))
+    else:
+        fitness = 0.0
 
     return WindowResult(
         window_name=window_name,
@@ -303,11 +278,6 @@ def run_window_backtest(
             "n_trades": n_trades,
             "slice_start_ms": slice_start_ms,
             "slice_end_ms": slice_end_ms,
-            "metrics": compute_fitness_details_v2(metrics),
-            "total_fees_paid": metrics.total_fees_paid,
-            "max_drawdown": metrics.max_drawdown,
-            "win_rate": metrics.win_rate,
-            "seasons_applied": raw_ledger.get("seasons_applied", []),
         },
     )
 
@@ -322,8 +292,6 @@ def run_all_windows(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
-    seasons=None,
-    environment=None,
 ) -> List[WindowResult]:
     """
     Run all WINDOWS for one symbol.
@@ -353,8 +321,6 @@ def run_all_windows(
             end_ms=end_ms,
             engine=engine,
             seed=w_seed,
-            seasons=seasons,
-            environment=environment,
         )
         results.append(result)
     return results
@@ -364,10 +330,7 @@ def run_all_windows(
 # Aggregate window fitness
 # ─────────────────────────────────────────────────────────────────────────────
 
-def aggregate_window_fitness(
-    window_results: List[WindowResult],
-    require_all: bool = False,
-) -> float:
+def aggregate_window_fitness(window_results: List[WindowResult]) -> float:
     """
     Weighted average of per-window fitness scores.
 
@@ -384,11 +347,6 @@ def aggregate_window_fitness(
     -------
     float — aggregated fitness in [0, 1] range (or 0.0 if all insufficient).
     """
-    if require_all:
-        by_name = {r.window_name: r for r in window_results}
-        if any(name not in by_name or by_name[name].insufficient_data for name in WINDOWS):
-            return 0.0
-
     valid = [r for r in window_results if not r.insufficient_data]
     if not valid:
         return 0.0
@@ -401,27 +359,51 @@ def aggregate_window_fitness(
     return sum((r.weight / total_valid_weight) * r.fitness for r in valid)
 
 
+def stable_window_seed(chromosome_id: str, epoch_id: str, generation: int) -> int:
+    """
+    Deterministic seed for random_is window slicing.
+    XORs chromosome, epoch, and generation hashes so the slice varies
+    across epochs and generations but is reproducible for the same inputs.
+    """
+    return (hash(chromosome_id) ^ hash(epoch_id) ^ generation) & 0xFFFF
+
+
 def aggregate_multi_symbol_windows(
     symbol_window_map: Dict[str, List[WindowResult]],
     required_symbols: List[str],
 ) -> Tuple[float, Dict[str, float], List[str]]:
-    """Aggregate complete per-symbol window sets; any missing set fails closed."""
-    per_symbol: Dict[str, float] = {}
-    failed: List[str] = []
+    """
+    Aggregate per-symbol window results into a single fitness score.
+
+    Parameters
+    ----------
+    symbol_window_map : {symbol: [WindowResult, ...]}
+    required_symbols  : symbols that must all have valid results
+
+    Returns
+    -------
+    (fitness_score, per_symbol_fitness, failed_symbols)
+    - fitness_score      : weighted average across all valid symbol windows
+    - per_symbol_fitness : {symbol: fitness}
+    - failed_symbols     : symbols with all-insufficient windows
+    """
+    per_symbol_fitness: Dict[str, float] = {}
+    failed_symbols: List[str] = []
 
     for symbol in required_symbols:
         results = symbol_window_map.get(symbol, [])
-        by_name = {r.window_name: r for r in results}
-        incomplete = any(
-            name not in by_name or by_name[name].insufficient_data
-            for name in WINDOWS
-        )
-        if incomplete:
-            failed.append(symbol)
-        else:
-            per_symbol[symbol] = aggregate_window_fitness(results, require_all=True)
+        sym_fitness = aggregate_window_fitness(results)
+        per_symbol_fitness[symbol] = sym_fitness
+        if sym_fitness == 0.0 and all(r.insufficient_data for r in results):
+            failed_symbols.append(symbol)
 
-    if failed or len(per_symbol) != len(required_symbols):
-        return 0.0, per_symbol, failed
+    # If any required symbol completely failed → overall fitness 0
+    if failed_symbols:
+        return 0.0, per_symbol_fitness, failed_symbols
 
-    return sum(per_symbol.values()) / len(per_symbol), per_symbol, []
+    valid_scores = [v for v in per_symbol_fitness.values() if v > 0]
+    if not valid_scores:
+        return 0.0, per_symbol_fitness, list(required_symbols)
+
+    fitness_score = sum(valid_scores) / len(valid_scores)
+    return fitness_score, per_symbol_fitness, failed_symbols

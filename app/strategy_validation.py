@@ -279,12 +279,22 @@ class StrategyValidationManager:
                 if trial.extend_trial():
                     self.logger.info(f"Strategy {strategy_id}: Extended trial")
 
-            # Auto-promote validated strategies
+            # Validation is evidence, not deployment authorization.
             if trial.status == StrategyStatus.VALIDATED:
-                trial.status = StrategyStatus.PROMOTED
-                self.logger.info(f"Strategy {strategy_id}: 🚀 PROMOTED to production")
+                self.logger.info(
+                    f"Strategy {strategy_id}: validated; awaiting manual Promote"
+                )
 
         return results
+
+    def promote_validated(self, strategy_id: str) -> bool:
+        """Manually promote a validated non-GA strategy."""
+        trial = self.strategies.get(strategy_id)
+        if trial is None or trial.status != StrategyStatus.VALIDATED:
+            return False
+        trial.status = StrategyStatus.PROMOTED
+        self.logger.info(f"Strategy {strategy_id}: manually promoted")
+        return True
 
     def get_strategy_status(self, strategy_id: str) -> Optional[Dict]:
         """Get detailed status for a strategy."""

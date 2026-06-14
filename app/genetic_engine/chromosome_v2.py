@@ -525,6 +525,26 @@ def built_in_default_chromosome(symbol: str = "default") -> StrategyChromosomeV2
 # V2 染色體生成器
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def built_in_default_chromosome(symbol: str = "BTCUSDT") -> "StrategyChromosomeV2":
+    """
+    Return a deterministic built-in default chromosome used when no Champion exists.
+    Seeds random with a fixed value so output is always identical.
+    """
+    import random as _r
+    state = _r.getstate()
+    _r.seed(42)
+    chrom = random_chromosome_v2(generation=0)
+    _r.setstate(state)
+    chrom.chromosome_id = "BUILTIN_DEFAULT_default"
+    chrom.epoch_id = "builtin"
+    chrom.macro_genes.dca_interval = 24
+    chrom.macro_genes.target_weight = 0.3
+    chrom.micro_genes.min_trade_threshold = 0.05
+    chrom.fitness_score = 0.0
+    chrom.fitness_details = {"builtin": True, "symbol": symbol}
+    return chrom
+
+
 def random_chromosome_v2(
     generation: int = 0,
     min_entry_genes: int = 1,

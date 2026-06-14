@@ -48,22 +48,45 @@ def load_strategies(config_path: str = "config/strategies.json") -> List[Dict[st
 
 def load_merged_genetic_strategies() -> List[Dict[str, Any]]:
     """
-    Load merged genetic strategies if available / 載入合併的基因策略
-    
-    Checks for strategies_genetic.json first, falls back to strategies.json
+    Load manual strategies plus promoted V2 Champions only.
+
+    Legacy ``strategies_genetic.json`` files are deliberately ignored because
+    they may contain research winners that were never manually promoted.
     """
-    genetic_path = Path("config/strategies_genetic.json")
-    if genetic_path.exists():
-        try:
-            with open(genetic_path) as f:
-                data = json.load(f)
-            genetic_strategies = data.get("strategies", [])
-            genetic_count = len([s for s in genetic_strategies if s.get("source") == "genetic"])
-            logger.info(f"Loaded merged genetic config: {genetic_count} genetic + {len(genetic_strategies) - genetic_count} manual strategies")
-            return genetic_strategies
-        except Exception as e:
-            logger.warning(f"Failed to load genetic strategies: {e}, falling back to standard config")
-    return load_strategies("config/strategies.json")
+    manual = [
+        strategy
+        for strategy in load_strategies("config/strategies.json")
+        if strategy.get("source") != "genetic"
+    ]
+    try:
+        from app.genetic_engine.archive import StrategyArchive
+        from app.genetic_engine.chromosome_v2 import StrategyChromosomeV2
+        from app.genetic_engine.converter import convert_to_strategy_json
+
+        from app.genetic_engine.chromosome_v2 import built_in_default_chromosome
+        archive = StrategyArchive()
+        champions = archive.get_all_champions()
+        if champions:
+            runtime_genetic = [
+                convert_to_strategy_json(
+                    StrategyChromosomeV2.from_dict(record.chromosome_data)
+                )
+                for record in champions.values()
+            ]
+        else:
+            # No Champion yet — use deterministic built-in default
+            runtime_genetic = [
+                convert_to_strategy_json(built_in_default_chromosome())
+            ]
+        logger.info(
+            "Loaded runtime strategies: %d manual + %d Champion/default genetic",
+            len(manual),
+            len(runtime_genetic),
+        )
+        return manual + runtime_genetic
+    except Exception as exc:
+        logger.error(f"Failed to resolve Champion runtime strategy: {exc}")
+        return manual
 
 
 def get_enabled_strategies(strategies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

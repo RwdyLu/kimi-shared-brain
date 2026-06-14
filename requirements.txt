@@ -10,6 +10,7 @@ requests>=2.31.0
 # Web Framework
 Flask>=2.3.0
 dash>=2.14.0
+dash-bootstrap-components>=1.4.0
 plotly>=5.18.0
 
 # Database
