@@ -16,19 +16,20 @@ Date: 2026-05-28
 """
 
 import random
+import copy
 import json
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 
-from chromosome_v2 import (
+from .chromosome_v2 import (
     StrategyChromosomeV2, random_chromosome_v2,
     mutate_chromosome_v2, crossover_chromosomes_v2,
     validate_chromosome_v2, MacroGenes, MicroGenes
 )
-from backtest_engine_v2 import GeneBacktestEngineV2, evaluate_chromosome_multi_symbol_v2, GhostDCABaseline
-from fitness_v2 import (
+from .backtest_engine_v2 import GeneBacktestEngineV2, evaluate_chromosome_multi_symbol_v2, GhostDCABaseline
+from .fitness_v2 import (
     BacktestMetricsV2, compute_fitness_v2,
     compute_fitness_details_v2, aggregate_fitness_v2,
     calculate_ruin_probability, compute_fitness_v2_from_v1
@@ -251,7 +252,6 @@ class EvolutionEngineV2:
                 if all_metrics:
                     fitness_details = compute_fitness_details_v2(all_metrics[0])
                     # 簡化：直接用 fitness_v2 計算
-                    from fitness_v2 import compute_fitness_v2
                     fitness_score = compute_fitness_v2(all_metrics[0])
                 else:
                     fitness_score = fitness
@@ -389,7 +389,6 @@ class EvolutionEngineV2:
                     if use_orthogonal:
                         child = crossover_chromosomes_v2(p1, p2, self.generation + 1)
                     else:
-                        from chromosome_v2 import crossover_chromosomes_v2
                         child = crossover_chromosomes_v2(p1, p2, self.generation + 1)
                     if validate_chromosome_v2(child):
                         offspring.append(child)
@@ -458,7 +457,7 @@ class EvolutionEngineV2:
             
             if current_best_fit > best_fitness_ever + self.config["early_stop_threshold"]:
                 best_fitness_ever = current_best_fit
-                best_ever = current_best
+                best_ever = copy.deepcopy(current_best)
                 self.stagnation_count = 0
                 self.reset_mutation_ramp()
                 self._save_chromosome(current_best, f"gen_{gen}_best")
@@ -483,7 +482,7 @@ class EvolutionEngineV2:
         print(f"🏆 EVOLUTION V2 COMPLETE")
         print(f"{'='*70}")
         if best_ever:
-            print(f"Best: {best_ever.chromosome_id[:8]} | Fitness: {best_ever.fitness_score:.4f}")
+            print(f"Best: {best_ever.chromosome_id[:8]} | Fitness: {best_fitness_ever:.4f}")
             print(f"Summary: {best_ever.summary()}")
         
         return best_ever or (self.population[0] if self.population else None)

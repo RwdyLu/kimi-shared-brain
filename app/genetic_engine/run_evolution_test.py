@@ -14,8 +14,8 @@ sys.path.insert(0, parent_dir)
 
 # Now run the cli_v2 evolution command
 import argparse
-from evolution_v2 import EvolutionEngineV2, DEFAULT_CONFIG_V2
-from chromosome_v2 import StrategyChromosomeV2
+from .evolution_v2 import EvolutionEngineV2, DEFAULT_CONFIG_V2
+from .chromosome_v2 import StrategyChromosomeV2
 from pathlib import Path
 import json
 

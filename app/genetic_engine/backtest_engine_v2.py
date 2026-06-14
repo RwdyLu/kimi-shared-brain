@@ -16,6 +16,7 @@ Date: 2026-05-28
 """
 
 import sys
+import random
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
@@ -31,9 +32,9 @@ from .backtest_engine import (
     IndicatorCalculator, SimulatedTrade, GeneBacktestEngine,
     BacktestMetrics
 )
-from chromosome_v2 import StrategyChromosomeV2, MacroGenes, MicroGenes, RiskGenesV2
+from .chromosome_v2 import StrategyChromosomeV2, MacroGenes, MicroGenes, RiskGenesV2
 from .environment import SeasonConfig, SeasonApplier, Environment
-from fitness_v2 import BacktestMetricsV2, calculate_metrics_v2
+from .fitness_v2 import BacktestMetricsV2, calculate_metrics_v2
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

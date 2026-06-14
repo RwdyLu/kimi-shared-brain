@@ -8,7 +8,7 @@ print('=== End-to-End V2 Test ===')
 
 # Step 1
 print('\nStep 1: Create 3 random V2 chromosomes')
-from chromosome_v2 import random_chromosome_v2
+from .chromosome_v2 import random_chromosome_v2
 c1 = random_chromosome_v2()
 c2 = random_chromosome_v2()
 c3 = random_chromosome_v2()
@@ -36,13 +36,13 @@ for i, c in enumerate([c1, c2, c3]):
 
 # Step 3
 print('\nStep 3: Mutate one chromosome')
-from chromosome_v2 import mutate_chromosome_v2
+from .chromosome_v2 import mutate_chromosome_v2
 c1_mutated = mutate_chromosome_v2(c1, generation=1, mutation_rate=0.5, intensity=0.3)
 print(f'   Original kp={c1.micro_genes.kp:.2f}, mutated kp={c1_mutated.micro_genes.kp:.2f}')
 
 # Step 4
 print('\nStep 4: Crossover two chromosomes')
-from chromosome_v2 import crossover_chromosomes_v2
+from .chromosome_v2 import crossover_chromosomes_v2
 child = crossover_chromosomes_v2(c1, c2, generation=1)
 print(f'   Parent 1 entry_logic={c1.entry_logic}, Parent 2={c2.entry_logic}')
 print(f'   Child entry_logic={child.entry_logic}')
@@ -65,7 +65,7 @@ print(f'   Archive initialized: Champions={archive.get_stats()["champions"]}')
 
 # Step 7
 print('\nStep 7: Create EvolutionEngineV2 (mini config)')
-from evolution_v2 import EvolutionEngineV2
+from .evolution_v2 import EvolutionEngineV2
 config = {
     'population_size': 3,
     'symbols': ['BTCUSDT'],
@@ -82,7 +82,7 @@ print(f'   Engine created with {len(engine.population)} strategies')
 
 # Step 8
 print('\nStep 8: Test BacktestEngineV2 components')
-from backtest_engine_v2 import GhostDCABaseline, GeneBacktestEngineV2
+from .backtest_engine_v2 import GhostDCABaseline, GeneBacktestEngineV2
 import pandas as pd
 
 print('   Testing Ghost DCA...')
@@ -111,7 +111,7 @@ print(f'   Base={base_pos:.0%} | Season=Summer(x2) | Env Reserve=20% | Result={a
 
 # Step 10 - Fitness scoring
 print('\nStep 10: Fitness V2 scoring')
-from fitness_v2 import BacktestMetricsV2, compute_fitness_v2
+from .fitness_v2 import BacktestMetricsV2, compute_fitness_v2
 m = BacktestMetricsV2(
     total_trades=50,
     total_pnl=0.15,

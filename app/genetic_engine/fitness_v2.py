@@ -17,6 +17,7 @@ Date: 2026-05-28
 """
 
 import math
+import random
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass, field
 import numpy as np
@@ -55,6 +56,7 @@ class BacktestMetricsV2:
     total_fees_paid: float = 0.0     # 總手續費
     fee_drag_pct: float = 0.0        # 手續費拖累比例（相對本金）
     friction_penalty_score: float = 0.0  # 摩擦懲罰分數（越低越好）
+    friction_penalty: float = 0.0  # friction penalty amount (n_trades * fee_rate * 2)
     
     # ═══════════════════════════════════════════
     # V2 新增：風險指標
