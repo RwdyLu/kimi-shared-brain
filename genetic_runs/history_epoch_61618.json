@@ -1,0 +1,237 @@
+[
+  {
+    "generation": 0,
+    "best_fitness": 0.14560813841844716,
+    "avg_fitness": 0.0229,
+    "population_size": 20,
+    "best_strategy_id": "GEN_F352D6758448",
+    "best_summary": "[GEN_F352] G0 | Entry(WEIGHTED): adx + atr | Exit(OR): cci + supertrend | Macro: DCA=16mo \u03b2=20.0% | Micro: kp=0.27 kv=0.27 ka=0.46 | Risk: SL=-9.5% TP=9.0% | fit=0.146",
+    "mutation_rate": 0.4,
+    "mutation_intensity": 0.3,
+    "epoch_id": "epoch_61618",
+    "three_layer": {
+      "epoch_id": "epoch_61618",
+      "generation": 0,
+      "environment": {
+        "dead_reserve_ratio": 0.2,
+        "global_stop_loss": 0.3,
+        "max_leverage": 1.0
+      },
+      "seasons": [
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 0,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 1,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        }
+      ],
+      "gene_bounds": {}
+    }
+  },
+  {
+    "generation": 1,
+    "best_fitness": 0.14974399904164598,
+    "avg_fitness": 0.0504,
+    "population_size": 20,
+    "best_strategy_id": "X_D7DE98E03B15",
+    "best_summary": "[X_D7DE98] G1 | Entry(OR): macd + sma_cross + bbands | Exit(OR): momentum + atr | Macro: DCA=8mo \u03b2=16.7% | Micro: kp=0.61 kv=0.15 ka=0.24 | Risk: SL=-4.6% TP=11.8% | fit=0.150",
+    "mutation_rate": 0.4,
+    "mutation_intensity": 0.3,
+    "epoch_id": "epoch_61618",
+    "three_layer": {
+      "epoch_id": "epoch_61618",
+      "generation": 0,
+      "environment": {
+        "dead_reserve_ratio": 0.2,
+        "global_stop_loss": 0.3,
+        "max_leverage": 1.0
+      },
+      "seasons": [
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 0,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 1,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        }
+      ],
+      "gene_bounds": {}
+    }
+  },
+  {
+    "generation": 2,
+    "best_fitness": 0.14977547485231904,
+    "avg_fitness": 0.0581,
+    "population_size": 20,
+    "best_strategy_id": "X_D7DE98E03B15",
+    "best_summary": "[X_D7DE98] G1 | Entry(OR): macd + sma_cross + bbands | Exit(OR): momentum + atr | Macro: DCA=8mo \u03b2=16.7% | Micro: kp=0.61 kv=0.15 ka=0.24 | Risk: SL=-4.6% TP=11.8% | fit=0.150",
+    "mutation_rate": 0.4,
+    "mutation_intensity": 0.3,
+    "epoch_id": "epoch_61618",
+    "three_layer": {
+      "epoch_id": "epoch_61618",
+      "generation": 0,
+      "environment": {
+        "dead_reserve_ratio": 0.2,
+        "global_stop_loss": 0.3,
+        "max_leverage": 1.0
+      },
+      "seasons": [
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 0,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 1,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        }
+      ],
+      "gene_bounds": {}
+    }
+  },
+  {
+    "generation": 3,
+    "best_fitness": 0.15669628713622685,
+    "avg_fitness": 0.052,
+    "population_size": 20,
+    "best_strategy_id": "MUT_E910E44CBB82",
+    "best_summary": "[MUT_E910] G3 | Entry(OR): macd + sma_cross + bbands + stochastic | Exit(OR): momentum + atr | Macro: DCA=8mo \u03b2=16.7% | Micro: kp=0.61 kv=0.15 ka=0.24 | Risk: SL=-4.6% TP=11.8% | fit=0.157",
+    "mutation_rate": 0.4,
+    "mutation_intensity": 0.3,
+    "epoch_id": "epoch_61618",
+    "three_layer": {
+      "epoch_id": "epoch_61618",
+      "generation": 0,
+      "environment": {
+        "dead_reserve_ratio": 0.2,
+        "global_stop_loss": 0.3,
+        "max_leverage": 1.0
+      },
+      "seasons": [
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 0,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 1,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        }
+      ],
+      "gene_bounds": {}
+    }
+  },
+  {
+    "generation": 4,
+    "best_fitness": 0.15331484150818178,
+    "avg_fitness": 0.0518,
+    "population_size": 20,
+    "best_strategy_id": "X_A8D5E546BAA8",
+    "best_summary": "[X_A8D5E5] G4 | Entry(OR): macd + sma_cross + bbands | Exit(OR): cci + momentum | Macro: DCA=16mo \u03b2=20.0% | Micro: kp=0.54 kv=0.13 ka=0.33 | Risk: SL=-5.4% TP=10.8% | fit=0.153",
+    "mutation_rate": 0.4,
+    "mutation_intensity": 0.3,
+    "epoch_id": "epoch_61618",
+    "three_layer": {
+      "epoch_id": "epoch_61618",
+      "generation": 0,
+      "environment": {
+        "dead_reserve_ratio": 0.2,
+        "global_stop_loss": 0.3,
+        "max_leverage": 1.0
+      },
+      "seasons": [
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 0,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "winter",
+          "aggressiveness": 0.5,
+          "tick_offset_minutes": 1,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        },
+        {
+          "season": "spring",
+          "aggressiveness": 1.0,
+          "tick_offset_minutes": 4,
+          "base_tick_minutes": 5
+        }
+      ],
+      "gene_bounds": {}
+    }
+  }
+]
