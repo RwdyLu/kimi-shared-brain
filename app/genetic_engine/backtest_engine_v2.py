@@ -222,20 +222,17 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         """
         V2 評估：策略 + Ghost DCA 並行回測
         """
-        # 獲取數據 — 使用分頁抓取確保 90 天 5m 資料完整（~25,920 根）
+        # 獲取數據 — 優先讀快取，快取不足才呼叫 API（避免重複打 Binance）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
-        
-        klines, validation = self.fetcher.fetch_klines_paginated(
-            symbol=symbol,
-            interval=interval,
-            start_time=start_ms,
-            end_time=end_ms,
-            limit=1000,
-            validate=True,
-            verbose=False,
+
+        df_cached, validation = self.cache.load_or_fetch(
+            self.fetcher, symbol, interval,
+            start_ms=start_ms, end_ms=end_ms,
+            limit=1000, paginate=True,
             strict_validation=True,
         )
+        klines = [] if df_cached is None or df_cached.empty else list(df_cached.itertuples())
 
         # Fail-closed: abort immediately on invalid data — do NOT proceed to backtest
         if not validation.get("valid", True) or validation.get("data_invalid", False):
@@ -402,8 +399,8 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             equity.append(total_value)
             
             # === 檢查出場 ===
-            if position_qty > 0:
-                # 只能賣出 float_hold 部分
+            if position_qty > 0 and position_avg_cost > 0:
+                # 只能賣出 float_hold 部分（position_avg_cost > 0 防止賣出前無買入的邊緣情況）
                 max_sellable = float_hold_qty
                 exit_qty = 0.0
                 exit_reason = None

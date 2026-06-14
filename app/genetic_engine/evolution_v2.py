@@ -241,20 +241,18 @@ class EvolutionEngineV2:
                     symbol_window_map: Dict[str, List[WindowResult]] = {}
 
                     for symbol in symbols:
-                        # Fetch full history once (longest window = "all")
-                        from data.fetcher import BinanceFetcher
-                        fetcher = BinanceFetcher()
-                        klines, validation = fetcher.fetch_klines_paginated(
+                        # Fetch full history ONCE via cache — avoids re-hitting Binance per window
+                        df_full, validation = self.backtest_engine.cache.load_or_fetch(
+                            self.backtest_engine.fetcher,
                             symbol=symbol,
                             interval=self.config["backtest_interval"],
-                            start_time=None,
-                            end_time=end_ms,
+                            start_ms=None,
+                            end_ms=end_ms,
                             limit=1000,
-                            validate=True,
-                            verbose=False,
+                            paginate=True,
                             strict_validation=False,
                         )
-                        if not klines or len(klines) < 100:
+                        if df_full is None or len(df_full) < 100:
                             # Mark all windows as insufficient for this symbol
                             symbol_window_map[symbol] = [
                                 WindowResult(w, insufficient_data=True, weight=WINDOW_WEIGHTS[w])
@@ -262,13 +260,14 @@ class EvolutionEngineV2:
                             ]
                             continue
 
-                        df_full = self.backtest_engine._klines_to_df(klines)
+                        # random_is seed: XOR chromosome hash with generation to vary across epochs
+                        r_seed = (hash(chrom.chromosome_id) ^ self.generation) & 0xFFFF
                         win_results = run_all_windows(
                             chromosome=chrom,
                             symbol_df=df_full,
                             end_ms=end_ms,
                             engine=self.backtest_engine,
-                            seed=hash(chrom.chromosome_id) & 0xFFFF,
+                            seed=r_seed,
                         )
                         symbol_window_map[symbol] = win_results
                         all_window_results.extend(win_results)

@@ -227,7 +227,8 @@ def run_window_backtest(
                 },
             )
 
-    if n_candles < 100:
+    if n_candles < 200:
+        # warmup=100 + meaningful strategy signal needs ≥200 candles
         return WindowResult(
             window_name=window_name,
             insufficient_data=True,
