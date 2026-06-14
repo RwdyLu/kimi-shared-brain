@@ -293,19 +293,23 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         # Alpha = 策略收益 - DCA 收益
         alpha = strategy_return - dca_return
         
-        # 摩擦成本懲罰
+        # Stage 2 Fix: friction_penalty = n_trades * fee_rate * 2 was REMOVED.
+        # Fees are already deducted in the actual buy/sell ledger inside _run_strategy_v2.
+        # The result carries actual total_fees from the ledger (via raw_metrics).
         n_trades = len(strategy_trades)
-        friction_penalty = n_trades * self.fee_rate * 2  # 每筆來回手續費
-        
+        # No synthetic friction_penalty — actual fees are tracked in the ledger
+        friction_penalty = 0.0
+
         # 構建 V2 指標
         strategy_metrics = self._build_metrics_v2(
-            strategy_trades, strategy_equity, dca_return, alpha, friction_penalty
+            strategy_trades, strategy_equity, dca_return, alpha, friction_penalty,
+            raw_metrics=raw_metrics,
         )
-        
+
         dca_metrics = self._build_metrics_v2(
             [], dca_equity, dca_return, 0.0, 0.0
         )
-        
+
         result = V2BacktestResult(
             strategy_metrics=strategy_metrics,
             strategy_trades=strategy_trades,
@@ -318,11 +322,12 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             price_series=df['close'].tolist(),
             timestamp_series=[int(t.timestamp() * 1000) for t in df.index],
         )
-        
+
         if verbose:
+            actual_fees = raw_metrics.get("total_fees", 0.0)
             print(f"   {symbol}: Alpha={alpha:+.2%} | "
                   f"Str={strategy_return:+.2%} | DCA={dca_return:+.2%} | "
-                  f"Trades={n_trades} | Friction={friction_penalty:.2%}")
+                  f"Trades={n_trades} | Fees={actual_fees:.4f}")
         
         return result
     
@@ -357,13 +362,17 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         - 庫存橋（DeadHold / FloatHold）
         """
         trades = []
-        
+
         # 資金模擬
         cash = self.initial_capital
         position_qty = 0.0
-        position_cost = 0.0
+        position_avg_cost = 0.0  # per-unit avg cost (including buy-side fee)
         equity = [self.initial_capital]
-        
+
+        # Stage 2 Fix: track actual total fees from ledger
+        total_fees_ledger = 0.0
+        total_realized_pnl = 0.0
+
         # 庫存橋
         dead_hold_qty = 0.0   # 底倉（只進不出）
         float_hold_qty = 0.0  # 浮動倉（可賣出）
@@ -394,129 +403,129 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             
             # === 檢查出場 ===
             if position_qty > 0:
-                # 檢查出場條件（只檢查浮動倉）
-                exit_qty = 0.0
-                exit_reason = None
-                
                 # 只能賣出 float_hold 部分
                 max_sellable = float_hold_qty
-                
+                exit_qty = 0.0
+                exit_reason = None
+
                 if max_sellable > 0:
-                    unrealized = (current_price - position_cost / position_qty) / (position_cost / position_qty) if position_cost > 0 else 0
-                    
-                    # 硬止損
+                    unrealized = (current_price - position_avg_cost) / position_avg_cost if position_avg_cost > 0 else 0
+
                     if unrealized <= chrom.risk_genes.stop_loss_pct:
                         exit_qty = max_sellable
                         exit_reason = "hard_stop"
-                    
-                    # 硬止盈
                     elif unrealized >= chrom.risk_genes.take_profit_pct:
                         exit_qty = max_sellable
                         exit_reason = "take_profit"
-                    
-                    # 出場信號
                     elif self._check_exit_conditions(i, df, chrom, indicator_values):
-                        # 應用 Micro 基因的最小交易閾值
                         deviation = abs(unrealized)
                         if deviation >= chrom.micro_genes.min_trade_threshold:
                             exit_qty = max_sellable * chrom.micro_genes.micro_reserve_rate
                             exit_reason = "signal_exit"
-                    
-                    # 截斷到最小交易單位
+
                     exit_qty = self._truncate_lot(exit_qty)
-                    
+
                     if exit_qty >= self.lot_min and exit_qty <= max_sellable:
-                        # 執行賣出
+                        # Stage 2 Fix: correct partial-sell ledger
+                        # sell_fee = sell_value * fee_rate (sell-side fee only)
                         sell_value = exit_qty * current_price
-                        fee = sell_value * self.fee_rate
-                        cash += (sell_value - fee)
-                        
-                        # 更新庫存橋
+                        sell_fee = sell_value * self.fee_rate
+                        # realized_pnl = qty * (price - avg_cost) - sell_fee
+                        # avg_cost already includes buy-side fee, so avg_cost > raw_buy_price
+                        realized = exit_qty * (current_price - position_avg_cost) - sell_fee
+                        cash += (sell_value - sell_fee)
+                        total_realized_pnl += realized
+                        total_fees_ledger += sell_fee
+
+                        # Update position: qty decreases, avg_cost UNCHANGED
                         float_hold_qty -= exit_qty
                         position_qty -= exit_qty
-                        
-                        # 記錄交易
-                        pnl = (current_price - position_cost / (position_qty + exit_qty)) / (position_cost / (position_qty + exit_qty)) if position_cost > 0 else 0
+                        # position_avg_cost remains unchanged
+
+                        pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
                         trades.append(SimulatedTrade(
                             symbol=symbol,
                             direction="long",
                             entry_time=timestamp,
-                            entry_price=position_cost / (position_qty + exit_qty) if position_cost > 0 else current_price,
+                            entry_price=position_avg_cost,
                             exit_time=timestamp,
                             exit_price=current_price,
                             exit_reason=exit_reason or "sell",
-                            pnl_pct=pnl - (self.fee_rate * 2),
+                            pnl_pct=pnl_pct,
                         ))
-            
+
             # === 檢查進場 ===
             if self._check_entry_conditions(i, df, chrom, indicator_values):
-                # 計算進場倉位（受季節和環境限制）
                 base_position_pct = chrom.risk_genes.position_pct
-                
-                # 應用季節摩擦
                 adjusted_pct = base_position_pct * season_mult
-                
-                # 應用環境限制
                 adjusted_pct = min(adjusted_pct, usable_cash_ratio)
-                
-                # 計算投入金額
                 invest_amount = cash * adjusted_pct
-                
-                # 計算可買數量
                 qty = invest_amount / current_price
-                
-                # 截斷到最小交易單位
                 qty = self._truncate_lot(qty)
-                
+
                 if qty >= self.lot_min and invest_amount <= cash * usable_cash_ratio:
-                    # 扣除手續費
+                    # Stage 2 Fix: correct buy ledger
+                    # buy_value = qty * price
+                    # buy_fee = buy_value * fee_rate
+                    # cash -= (buy_value + buy_fee)
+                    # avg_cost = (prev_qty * prev_avg_cost + qty * price) / (prev_qty + qty)
+                    # Note: avg_cost uses raw price (not price+fee) as the fee is a separate cost center
+                    # but for PnL purposes, we embed it: avg_cost_with_fee = (prev_cost + buy_value + buy_fee) / new_qty
                     buy_value = qty * current_price
-                    fee = buy_value * self.fee_rate
-                    total_cost = buy_value + fee
-                    
+                    buy_fee = buy_value * self.fee_rate
+                    total_cost = buy_value + buy_fee
+
                     if total_cost <= cash:
+                        # Update avg_cost to include buy-side fee (embeds fee into cost basis)
+                        prev_total_cost = position_avg_cost * position_qty
+                        new_total_cost = prev_total_cost + total_cost
+                        new_qty = position_qty + qty
+                        position_avg_cost = new_total_cost / new_qty if new_qty > 0 else 0.0
+
                         cash -= total_cost
-                        position_qty += qty
-                        position_cost += total_cost
-                        
+                        position_qty = new_qty
+                        total_fees_ledger += buy_fee
+
                         # 庫存橋分配
-                        # DeadHold 比例由風控基因決定
                         dead_alloc = qty * chrom.risk_genes.dead_hold_ratio
                         float_alloc = qty * chrom.risk_genes.float_hold_ratio
-                        
                         dead_hold_qty += dead_alloc
                         float_hold_qty += float_alloc
-                        
-                        # 如果有加速度解封條件，檢查是否轉移
-                        # 簡化：不實時檢查，只在出場時區分
-        
+
         # 結束時強制平倉（只平 FloatHold）
         if position_qty > 0 and float_hold_qty > 0:
             last_price = df['close'].iloc[-1]
             exit_qty = min(float_hold_qty, position_qty)
             exit_qty = self._truncate_lot(exit_qty)
-            
+
             if exit_qty >= self.lot_min:
                 sell_value = exit_qty * last_price
-                fee = sell_value * self.fee_rate
-                cash += (sell_value - fee)
-                
+                sell_fee = sell_value * self.fee_rate
+                realized = exit_qty * (last_price - position_avg_cost) - sell_fee
+                cash += (sell_value - sell_fee)
+                total_realized_pnl += realized
+                total_fees_ledger += sell_fee
+
                 float_hold_qty -= exit_qty
                 position_qty -= exit_qty
-                
-                unrealized = (last_price - position_cost / (position_qty + exit_qty)) / (position_cost / (position_qty + exit_qty)) if position_cost > 0 else 0
+
+                pnl_pct = realized / (exit_qty * position_avg_cost) if position_avg_cost > 0 else 0.0
                 trades.append(SimulatedTrade(
                     symbol=symbol,
                     direction="long",
                     entry_time=timestamp,
-                    entry_price=position_cost / (position_qty + exit_qty) if position_cost > 0 else last_price,
+                    entry_price=position_avg_cost,
                     exit_time=int(df.index[-1].timestamp() * 1000),
                     exit_price=last_price,
                     exit_reason="end_of_test",
-                    pnl_pct=unrealized - (self.fee_rate * 2),
+                    pnl_pct=pnl_pct,
                 ))
-        
-        return equity, trades, {}
+
+        raw_ledger = {
+            "total_fees": total_fees_ledger,
+            "realized_pnl": total_realized_pnl,
+        }
+        return equity, trades, raw_ledger
     
     def _truncate_lot(self, qty: float) -> float:
         """截斷到最小交易單位的整數倍"""
@@ -654,33 +663,68 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         dca_return: float,
         alpha: float,
         friction_penalty: float,
+        raw_metrics: Optional[Dict] = None,
     ) -> BacktestMetricsV2:
         """構建 V2 回測指標"""
+        # Stage 2: use actual fees from ledger (raw_metrics) if available
+        actual_fees = 0.0
+        if raw_metrics:
+            actual_fees = raw_metrics.get("total_fees", 0.0)
+        fee_drag = actual_fees / self.initial_capital if self.initial_capital > 0 else 0.0
+
         if not trades:
             return BacktestMetricsV2(
                 total_trades=0,
                 total_pnl=0.0,
                 ghost_dca_pnl=dca_return,
                 alpha_vs_dca=alpha,
+                total_fees_paid=actual_fees,
+                fee_drag_pct=fee_drag,
             )
         
         winning_trades = sum(1 for t in trades if t.pnl_pct > 0)
         losing_trades = len(trades) - winning_trades
-        
+
         pnl_values = [t.pnl_pct for t in trades]
-        
+
+        total_pnl = sum(pnl_values)
+
+        # consecutive_losses
+        max_consec = 0
+        cur_consec = 0
+        for p in pnl_values:
+            if p <= 0:
+                cur_consec += 1
+                max_consec = max(max_consec, cur_consec)
+            else:
+                cur_consec = 0
+
+        wins = [p for p in pnl_values if p > 0]
+        losses = [p for p in pnl_values if p <= 0]
+        profit_factor = sum(wins) / abs(sum(losses)) if losses else 999.0
+        expectancy = ((winning_trades / len(trades)) * (np.mean(wins) if wins else 0.0)
+                      + ((losing_trades / len(trades)) * (np.mean(losses) if losses else 0.0)))
+
         return BacktestMetricsV2(
             total_trades=len(trades),
             winning_trades=winning_trades,
             losing_trades=losing_trades,
             win_rate=winning_trades / len(trades) if trades else 0.0,
-            avg_profit=np.mean([t.pnl_pct for t in trades if t.pnl_pct > 0]) if winning_trades > 0 else 0.0,
-            avg_loss=np.mean([t.pnl_pct for t in trades if t.pnl_pct <= 0]) if losing_trades > 0 else 0.0,
-            total_pnl=sum(pnl_values),
+            avg_profit=float(np.mean(wins)) if wins else 0.0,
+            avg_loss=float(np.mean(losses)) if losses else 0.0,
+            total_pnl=total_pnl,
+            total_pnl_after_fees=total_pnl,  # pnl_pct already net of fees
             max_drawdown=self._calculate_max_drawdown(equity),
             sharpe_ratio=self._calculate_sharpe(equity),
+            profit_factor=profit_factor,
+            expectancy=expectancy,
+            consecutive_losses=max_consec,
+            best_trade=max(pnl_values) if pnl_values else 0.0,
+            worst_trade=min(pnl_values) if pnl_values else 0.0,
             ghost_dca_pnl=dca_return,
             alpha_vs_dca=alpha,
+            total_fees_paid=actual_fees,
+            fee_drag_pct=fee_drag,
             friction_penalty=friction_penalty,
         )
     
@@ -727,46 +771,159 @@ def evaluate_chromosome_multi_symbol_v2(
     verbose: bool = False,
 ) -> Tuple[float, Dict[str, V2BacktestResult], List[SimulatedTrade]]:
     """
-    V2 多幣種評估
-    
-    在多個幣種上執行 V2 回測，可選多季節摩擦測試。
+    V2 多幣種評估 — Stage 2 aggregation wired in.
+
+    Multi-symbol aggregation (Stage 2):
+    - Collects BacktestMetricsV2 from ALL symbols (required = all configured symbols)
+    - If ANY required symbol has data_invalid=True, empty trades, or < 5 trades →
+      return fitness=0, insufficient_data=True logged
+    - Aggregates required metrics across ALL successful symbols, then passes the
+      combined BacktestMetricsV2 to compute_fitness_v2 (approach a: aggregate raw
+      metrics into one object so the existing scoring formula is used unchanged).
+
+    Aggregated fields per Fix 3:
+      - alpha_vs_dca       : weighted average (by trade count)
+      - total_pnl_after_fees: sum across symbols
+      - max_drawdown       : worst across symbols
+      - win_rate           : weighted by trade count
+      - profit_factor      : total_gross_profit / total_gross_loss
+      - consecutive_losses : max across symbols
+      - total_fees_paid    : sum across symbols
+      - total_trades       : sum across symbols
     """
+    from .fitness_v2 import BacktestMetricsV2, compute_fitness_v2, compute_fitness_details_v2
+
+    MIN_TRADES_PER_SYMBOL = 5
+
     if engine is None:
         engine = GeneBacktestEngineV2()
-    
+
     per_symbol: Dict[str, V2BacktestResult] = {}
-    all_trades = []
-    
+    all_trades: List[SimulatedTrade] = []
+
     if verbose:
         print(f"\n🔬 V2 Evaluating {chrom.chromosome_id[:8]} on {len(symbols)} symbols...")
-    
+
     for symbol in symbols:
-        # 如果有季節配置，輪流應用
         season = None
         if seasons:
             season = random.choice(seasons)
-        
+
         result = engine.evaluate_v2(
             chrom, symbol, interval, days,
             season=season, environment=environment, verbose=verbose
         )
-        
+
         per_symbol[symbol] = result
         all_trades.extend(result.strategy_trades)
-    
-    # 計算平均 Alpha
-    alphas = [r.alpha_vs_dca for r in per_symbol.values()]
-    avg_alpha = np.mean(alphas) if alphas else 0.0
-    
-    # 總摩擦成本
-    total_friction = sum(r.friction_penalty for r in per_symbol.values())
-    
-    # 綜合 fitness（簡化版，完整版在 fitness_v2.py）
-    fitness = max(0.0, avg_alpha - total_friction * 0.1)
-    
+
+    # ── Validate ALL required symbols ─────────────────────────────────────────
+    insufficient_data = False
+    for symbol in symbols:
+        r = per_symbol.get(symbol)
+        if r is None:
+            if verbose:
+                print(f"   ❌ {symbol}: missing result")
+            insufficient_data = True
+        elif r.data_invalid or r.strategy_metrics.data_invalid:
+            if verbose:
+                print(f"   ❌ {symbol}: data_invalid=True")
+            insufficient_data = True
+        elif r.strategy_metrics.total_trades == 0:
+            if verbose:
+                print(f"   ❌ {symbol}: empty trades")
+            insufficient_data = True
+        elif r.strategy_metrics.total_trades < MIN_TRADES_PER_SYMBOL:
+            if verbose:
+                print(f"   ❌ {symbol}: insufficient samples ({r.strategy_metrics.total_trades} trades)")
+            insufficient_data = True
+
+    if insufficient_data:
+        if verbose:
+            print(f"   ⚠️ Required symbol failed — fitness=0")
+        return 0.0, per_symbol, all_trades
+
+    # ── Aggregate metrics across ALL symbols ──────────────────────────────────
+    # Approach (a): aggregate raw metrics into one BacktestMetricsV2 object,
+    # then pass to compute_fitness_v2.  This keeps the existing scoring formula
+    # intact and avoids creating a parallel ranking formula.
+
+    valid_results = [per_symbol[s] for s in symbols]
+    valid_metrics = [r.strategy_metrics for r in valid_results]
+
+    trade_counts = [m.total_trades for m in valid_metrics]
+    total_trades_all = sum(trade_counts)
+
+    def _weighted(vals: List[float], weights: List[int]) -> float:
+        total_w = sum(weights)
+        if total_w == 0:
+            return float(np.mean(vals)) if vals else 0.0
+        return float(sum(v * w for v, w in zip(vals, weights)) / total_w)
+
+    # alpha_vs_dca: weighted average
+    alpha_vs_dca_agg = _weighted([r.alpha_vs_dca for r in valid_results], trade_counts)
+
+    # realized PnL after fees: sum
+    total_pnl_after_fees = sum(m.total_pnl_after_fees for m in valid_metrics)
+
+    # total_pnl: sum
+    total_pnl = sum(m.total_pnl for m in valid_metrics)
+
+    # max_drawdown: worst
+    max_drawdown_agg = max(m.max_drawdown for m in valid_metrics)
+
+    # win_rate: weighted
+    win_rate_agg = _weighted([m.win_rate for m in valid_metrics], trade_counts)
+
+    # profit_factor: aggregate (total gross profit / total gross loss)
+    total_gross_profit = sum(m.avg_profit * m.winning_trades for m in valid_metrics)
+    total_gross_loss = sum(abs(m.avg_loss) * m.losing_trades for m in valid_metrics)
+    profit_factor_agg = total_gross_profit / total_gross_loss if total_gross_loss > 0 else 999.0
+
+    # consecutive_losses: max
+    consec_losses_agg = max(m.consecutive_losses for m in valid_metrics)
+
+    # total_fees: sum
+    total_fees_agg = sum(m.total_fees_paid for m in valid_metrics)
+
+    # ghost_dca_pnl: mean (for alpha baseline)
+    ghost_dca_pnl_agg = float(np.mean([m.ghost_dca_pnl for m in valid_metrics]))
+
+    # sharpe: mean
+    sharpe_agg = float(np.mean([m.sharpe_ratio for m in valid_metrics]))
+
+    # fee_drag_pct: based on total fees / initial capital
+    fee_drag_agg = total_fees_agg / engine.initial_capital if engine.initial_capital > 0 else 0.0
+
+    agg_m = BacktestMetricsV2(
+        total_trades=total_trades_all,
+        winning_trades=sum(m.winning_trades for m in valid_metrics),
+        losing_trades=sum(m.losing_trades for m in valid_metrics),
+        win_rate=win_rate_agg,
+        avg_profit=_weighted([m.avg_profit for m in valid_metrics], [m.winning_trades for m in valid_metrics]),
+        avg_loss=_weighted([m.avg_loss for m in valid_metrics], [m.losing_trades for m in valid_metrics]),
+        total_pnl=total_pnl,
+        total_pnl_after_fees=total_pnl_after_fees,
+        max_drawdown=max_drawdown_agg,
+        sharpe_ratio=sharpe_agg,
+        profit_factor=profit_factor_agg,
+        expectancy=_weighted([m.expectancy for m in valid_metrics], trade_counts),
+        consecutive_losses=consec_losses_agg,
+        best_trade=max(m.best_trade for m in valid_metrics),
+        worst_trade=min(m.worst_trade for m in valid_metrics),
+        ghost_dca_pnl=ghost_dca_pnl_agg,
+        alpha_vs_dca=alpha_vs_dca_agg,
+        alpha_per_trade=alpha_vs_dca_agg / total_trades_all if total_trades_all > 0 else 0.0,
+        total_fees_paid=total_fees_agg,
+        fee_drag_pct=fee_drag_agg,
+    )
+
+    fitness = compute_fitness_v2(agg_m)
+
     if verbose:
-        print(f"   V2 Aggregate: Alpha={avg_alpha:+.2%} | Friction={total_friction:.2%} | Fit={fitness:.4f}")
-    
+        print(f"   V2 Aggregate: Alpha={alpha_vs_dca_agg:+.4f} | DD={max_drawdown_agg:.4f} | "
+              f"Trades={total_trades_all} | Fit={fitness:.4f}")
+
     return fitness, per_symbol, all_trades
 
 

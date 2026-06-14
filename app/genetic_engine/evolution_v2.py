@@ -236,29 +236,23 @@ class EvolutionEngineV2:
                     verbose=False,
                 )
                 
-                # 收集各幣種的 V2 metrics
-                all_metrics = []
+                # Stage 2: fitness is already computed by evaluate_chromosome_multi_symbol_v2
+                # using the full multi-symbol aggregation (all symbols, not just first).
+                # fitness_score IS the correctly aggregated fitness returned above.
+                fitness_score = fitness
+
+                # Collect summary stats for logging only (not re-scoring)
                 total_trades = 0
                 total_alpha = 0.0
                 total_friction = 0.0
-                
+
                 for symbol, result in per_symbol.items():
-                    all_metrics.append(result.strategy_metrics)
                     total_trades += result.strategy_metrics.total_trades
                     total_alpha += result.alpha_vs_dca
                     total_friction += result.friction_penalty
-                
-                # 計算 V2 fitness
+
                 avg_alpha = total_alpha / len(per_symbol) if per_symbol else 0.0
-                
-                # 使用 fitness_v2 的完整評分
-                if all_metrics:
-                    fitness_details = compute_fitness_details_v2(all_metrics[0])
-                    # 簡化：直接用 fitness_v2 計算
-                    fitness_score = compute_fitness_v2(all_metrics[0])
-                else:
-                    fitness_score = fitness
-                    fitness_details = {}
+                fitness_details = {}
                 
                 chrom.fitness_score = fitness_score
                 chrom.fitness_details = {

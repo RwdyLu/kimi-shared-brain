@@ -897,38 +897,119 @@ def evaluate_chromosome_multi_symbol(
 ) -> Tuple[float, Dict[str, BacktestMetrics], List[SimulatedTrade]]:
     """
     在多個幣種上評估策略，返回聚合 fitness
-    
+
+    Multi-symbol aggregation (Stage 2):
+    - Collects BacktestMetrics from ALL symbols (required_symbols = all configured symbols)
+    - If ANY symbol has data_invalid=True, empty trades, or < MIN_TRADES samples → fitness=0,
+      insufficient_data=True is logged
+    - Aggregates metrics across ALL successful symbols (approach: build a combined
+      BacktestMetrics object and pass to compute_fitness, consistent with existing scoring)
+
+    Aggregated fields:
+      - total_pnl         : weighted average (by trade count) across symbols
+      - max_drawdown      : worst (max) across symbols
+      - win_rate          : weighted by trade count
+      - profit_factor     : aggregate (total_gross_profit / total_gross_loss)
+      - consecutive_losses: max across symbols
+      - total_trades      : sum across symbols
+      - sharpe_ratio      : mean across symbols
+
     Returns:
         (aggregated_fitness, per_symbol_metrics, all_trades)
     """
+    from .fitness import compute_fitness
+
+    MIN_TRADES_PER_SYMBOL = 5  # must match fitness.py threshold
+
     if engine is None:
         engine = GeneBacktestEngine()
-    
-    per_symbol = {}
-    all_trades = []
-    
+
+    per_symbol: Dict[str, BacktestMetrics] = {}
+    all_trades: List[SimulatedTrade] = []
+
     if verbose:
         print(f"\n🔬 Evaluating {chrom.chromosome_id[:8]} on {len(symbols)} symbols...")
-    
+
     for symbol in symbols:
         metrics, trades = engine.evaluate(chrom, symbol, interval, days, verbose)
         per_symbol[symbol] = metrics
         all_trades.extend(trades)
-    
-    # 聚合 fitness — 用最差表現作為保守估計
-    from .fitness import aggregate_fitness
-    agg_fitness = aggregate_fitness(per_symbol, aggregation="worst")
-    
+
+    # ── Validate ALL required symbols (required = all configured symbols) ──────
+    insufficient_data = False
+    for symbol in symbols:
+        m = per_symbol.get(symbol)
+        if m is None:
+            if verbose:
+                print(f"   ❌ {symbol}: missing result")
+            insufficient_data = True
+        elif m.data_invalid:
+            if verbose:
+                print(f"   ❌ {symbol}: data_invalid=True")
+            insufficient_data = True
+        elif m.total_trades == 0:
+            if verbose:
+                print(f"   ❌ {symbol}: empty trades")
+            insufficient_data = True
+        elif m.total_trades < MIN_TRADES_PER_SYMBOL:
+            if verbose:
+                print(f"   ❌ {symbol}: insufficient samples ({m.total_trades} trades)")
+            insufficient_data = True
+
+    if insufficient_data:
+        chrom.fitness_score = 0.0
+        chrom.fitness_details = {"insufficient_data": True, "symbols_tested": len(symbols)}
+        if verbose:
+            print(f"   ⚠️ Required symbol failed — fitness=0")
+        return 0.0, per_symbol, all_trades
+
+    # ── Aggregate metrics across ALL successful symbols ────────────────────────
+    # Approach (b): compute per-symbol fitness with compute_fitness, then weighted average
+    # by trade count.  This is consistent with existing compute_fitness logic and avoids
+    # inventing a new formula.
+
+    valid_metrics = [per_symbol[s] for s in symbols]
+
+    total_trades_all = sum(m.total_trades for m in valid_metrics)
+
+    def _weighted(vals: List[float], weights: List[int]) -> float:
+        total_w = sum(weights)
+        if total_w == 0:
+            return 0.0
+        return sum(v * w for v, w in zip(vals, weights)) / total_w
+
+    trade_counts = [m.total_trades for m in valid_metrics]
+
+    # Build aggregated BacktestMetrics
+    agg = BacktestMetrics(
+        total_trades=total_trades_all,
+        winning_trades=sum(m.winning_trades for m in valid_metrics),
+        losing_trades=sum(m.losing_trades for m in valid_metrics),
+        win_rate=_weighted([m.win_rate for m in valid_metrics], trade_counts),
+        avg_profit=_weighted([m.avg_profit for m in valid_metrics], trade_counts),
+        avg_loss=_weighted([m.avg_loss for m in valid_metrics], trade_counts),
+        total_pnl=_weighted([m.total_pnl for m in valid_metrics], trade_counts),
+        max_drawdown=max(m.max_drawdown for m in valid_metrics),
+        sharpe_ratio=float(np.mean([m.sharpe_ratio for m in valid_metrics])),
+        profit_factor=(
+            sum(m.avg_profit * m.winning_trades for m in valid_metrics)
+            / max(1e-9, sum(abs(m.avg_loss) * m.losing_trades for m in valid_metrics))
+        ),
+        expectancy=_weighted([m.expectancy for m in valid_metrics], trade_counts),
+        avg_trade_duration=_weighted([m.avg_trade_duration for m in valid_metrics], trade_counts),
+        consecutive_losses=max(m.consecutive_losses for m in valid_metrics),
+        best_trade=max(m.best_trade for m in valid_metrics),
+        worst_trade=min(m.worst_trade for m in valid_metrics),
+    )
+
+    agg_fitness = compute_fitness(agg)
+
     # 存入染色體
     chrom.fitness_score = agg_fitness
-    chrom.fitness_details = compute_fitness_details(
-        BacktestMetrics(
-            total_trades=sum(m.total_trades for m in per_symbol.values()),
-            total_pnl=np.mean([m.total_pnl for m in per_symbol.values()]),
-        )
-    )
-    
+    chrom.fitness_details = compute_fitness_details(agg)
+    chrom.fitness_details["symbols_tested"] = len(symbols)
+
     if verbose:
-        print(f"   Aggregate Fitness: {agg_fitness:.4f}")
-    
+        print(f"   Aggregate Fitness: {agg_fitness:.4f} | Trades={total_trades_all}")
+
     return agg_fitness, per_symbol, all_trades
