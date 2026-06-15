@@ -1624,7 +1624,7 @@ def update_strategy_ranking(n, selected_symbol):
                 html.H6("🎯 Best Opportunities / 最佳機會", className="fw-bold mb-2"),
                 dbc.Table(
                     [html.Thead(html.Tr([
-                        html.Th("Strategy"), html.Th("Score"), html.Th("Price")
+                        html.Th("Strategy"), html.Th("Readiness"), html.Th("Price")
                     ]))] + [html.Tbody(opp_rows)],
                     bordered=False,
                     hover=True,
@@ -1642,7 +1642,7 @@ def update_strategy_ranking(n, selected_symbol):
             dbc.Table(
                 [
                     html.Thead(html.Tr([
-                        html.Th("#"), html.Th("Strategy"), html.Th("Score"),
+                        html.Th("#"), html.Th("Strategy"), html.Th("Signal Readiness / 訊號準備度"),
                         html.Th("Today Trigs / 今日觸發", className="text-center"),
                         html.Th("Win Rate / 歷史勝率", className="text-center"),
                         html.Th("Today PnL / 今日損益", className="text-center"),
