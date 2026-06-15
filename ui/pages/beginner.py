@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 from pathlib import Path
 import json
+from ui.services.monitor_service import read_recent_jsonl
 
 # Register page with Dash Pages
 # 使用 Dash Pages 註冊頁面
@@ -198,6 +199,23 @@ def get_strategy_explanation(strategy_id: str) -> str:
     return STRATEGY_EXPLANATIONS.get(strategy_id, "策略訊號觸發")
 
 
+def load_all_latest_snapshots() -> dict:
+    """Load latest indicator snapshot for ALL symbols in one tail read."""
+    snapshots_file = Path(__file__).parents[2] / "logs" / "indicator_snapshots.jsonl"
+    if not snapshots_file.exists():
+        return {}
+    records = read_recent_jsonl(snapshots_file, max_bytes=8 * 1024 * 1024)
+    latest_by_symbol = {}
+    for snap in records:
+        symbol = snap.get("symbol")
+        if not symbol:
+            continue
+        ts = snap.get("timestamp", "")
+        if symbol not in latest_by_symbol or ts > latest_by_symbol[symbol].get("timestamp", ""):
+            latest_by_symbol[symbol] = snap
+    return latest_by_symbol
+
+
 def load_latest_snapshot(symbol: str) -> dict:
     """Load latest indicator snapshot for symbol / 載入該幣種最新指標快照"""
     try:
@@ -294,6 +312,7 @@ def _build_beginner_grid():
 
     coins = get_coin_config()
     cards = []
+    all_snapshots = load_all_latest_snapshots()  # single tail read, replaces 10x full scans
 
     for coin in coins:
         symbol = coin["symbol"]
@@ -305,7 +324,7 @@ def _build_beginner_grid():
 
         # ─── New Feature F: Why explanation / 為什麼說明 ───
         # Load latest snapshot for this symbol / 載入該幣種最新快照
-        snapshot = load_latest_snapshot(symbol)
+        snapshot = all_snapshots.get(symbol, {})
         signal_types = snapshot.get("signal_types", []) if snapshot else []
         snapshot_price = snapshot.get("price", 0) if snapshot else 0
 
