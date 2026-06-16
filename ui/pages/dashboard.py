@@ -21,6 +21,7 @@ from ui.services.monitor_service import (
     read_recent_jsonl,
 )
 from config.loader import get_enabled_symbols
+from app.strategy_identity import build_strategy_alias_map, resolve_strategy_id
 
 # Fix H: Strategy display names / 策略顯示名稱
 _DISPLAY_NAMES = None
@@ -1514,6 +1515,25 @@ def update_strategy_ranking(n, selected_symbol):
         symbol_scores = ranking_data.get("symbols", {})
         symbol_entry = symbol_scores.get(selected_symbol, {})
         symbol_data = symbol_entry.get("strategies", [])
+        # 將 gen_x alias 合併为 canonical ID
+        try:
+            import json as _json
+            _strats_cfg = _json.loads(open(project_root / "config" / "strategies.json").read()).get("strategies", [])
+            _aliases = build_strategy_alias_map(_strats_cfg)
+            _merged = {}
+            for _entry in symbol_data:
+                _canon = resolve_strategy_id(_entry.get("name", ""), _entry.get("name", ""), _aliases)
+                if _canon not in _merged:
+                    _merged[_canon] = dict(_entry)
+                    _merged[_canon]["name"] = _canon
+                else:
+                    # 取較高的 rolling_avg
+                    if _entry.get("rolling_avg", 0) > _merged[_canon].get("rolling_avg", 0):
+                        _merged[_canon] = dict(_entry)
+                        _merged[_canon]["name"] = _canon
+            symbol_data = list(_merged.values())
+        except Exception:
+            pass  # 如果 identity 模組失敗，保留原始資料
         if not symbol_data:
             script_file = project_root / "state" / "live_strategy_ranking_script.json"
             if script_file.exists():
