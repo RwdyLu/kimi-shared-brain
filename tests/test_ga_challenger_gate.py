@@ -62,6 +62,7 @@ def test_bad_challenger_like_current_archive_is_rejected(tmp_path):
 
     assert engine._archive_challenger(chrom) is False
     assert archive.get_challenger("BTCUSDT") is None
+    assert len(archive.raw_candidates) == 1
     assert len(archive.rejected) == 1
     assert "ruin_probability" in archive.rejected[0].fitness_details["eligibility"]["rejected_reason"]
 
@@ -75,6 +76,8 @@ def test_stage1_passing_candidate_does_not_enter_challenger(tmp_path):
 
     assert engine._archive_challenger(chrom) is False
     assert archive.get_challenger("BTCUSDT") is None
+    assert len(archive.raw_candidates) == 1
+    assert archive.seed_candidates[0].chromosome_id == "SEED_STAGE1"
     assert archive.rejected == []
     assert chrom.fitness_details["eligibility"]["candidate_status"] == "seed_candidate"
 
@@ -88,6 +91,8 @@ def test_stage2_passing_candidate_does_not_enter_challenger(tmp_path):
 
     assert engine._archive_challenger(chrom) is False
     assert archive.get_challenger("BTCUSDT") is None
+    assert len(archive.raw_candidates) == 1
+    assert archive.seed_candidates[0].chromosome_id == "SEED_STAGE2"
     assert archive.rejected == []
     assert chrom.fitness_details["eligibility"]["candidate_status"] == "seed_candidate"
 
@@ -98,6 +103,8 @@ def test_stage3_passing_candidate_enters_challenger(tmp_path):
 
     assert engine._archive_challenger(chrom) is True
     assert archive.get_challenger("BTCUSDT").chromosome_id == "GOOD_STAGE3"
+    assert archive.get_challenger("BTCUSDT").status == "qualified_challenger"
+    assert len(archive.raw_candidates) == 1
     assert archive.rejected == []
     assert chrom.fitness_details["eligibility"]["challenger_eligible"] is True
 
@@ -110,5 +117,6 @@ def test_stage3_missing_metric_is_rejected_not_archived(tmp_path):
 
     assert engine._archive_challenger(chrom) is False
     assert archive.get_challenger("BTCUSDT") is None
+    assert len(archive.raw_candidates) == 1
     assert len(archive.rejected) == 1
     assert "profit_factor" in archive.rejected[0].fitness_details["eligibility"]["rejected_reason"]

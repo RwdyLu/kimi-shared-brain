@@ -755,28 +755,35 @@ class EvolutionEngineV2:
 
         record = ArchiveRecord(
             chromosome_id=chrom.chromosome_id,
-            status="challenger",
+            status="raw_candidate",
             epoch_id=self.epoch_id,
             generation=self.generation,
             fitness_score=chrom.fitness_score or 0.0,
             fitness_details=chrom.fitness_details,
             chromosome_data=chrom.to_dict(),
         )
+        self.archive.add_raw_candidate(ArchiveRecord.from_dict(record.to_dict()), chrom.symbol)
 
         if eligibility["eligible"] and not eligibility["challenger_eligible"]:
+            self.archive.add_seed_candidate(ArchiveRecord.from_dict(record.to_dict()), chrom.symbol)
             print(f"\n🌱 Seed candidate retained: {chrom.chromosome_id[:8]} | stage={stage_name}")
             print("   Stage 1/2 candidates are not archived as Challenger.")
             return False
 
         if not eligibility["eligible"]:
-            self.archive.add_rejected(record, chrom.symbol)
             reason = eligibility.get("rejected_reason") or "stage eligibility failed"
+            self.archive.add_rejected(
+                ArchiveRecord.from_dict(record.to_dict()),
+                chrom.symbol,
+                failed_rules=eligibility.get("failed_rules", []),
+                rejected_reason=reason,
+            )
             print(f"\n🚫 Challenger rejected: {chrom.chromosome_id[:8]} | stage={stage_name}")
             print(f"   Reason: {reason}")
             return False
 
-        self.archive.add_challenger(record, chrom.symbol)
-        print(f"\n📋 Challenger archived: {chrom.chromosome_id[:8]} (fit={chrom.fitness_score:.4f})")
+        self.archive.add_qualified_challenger(ArchiveRecord.from_dict(record.to_dict()), chrom.symbol)
+        print(f"\n📋 Qualified Challenger archived: {chrom.chromosome_id[:8]} (fit={chrom.fitness_score:.4f})")
         return True
     
     def get_top_strategies(self, n: int = 5) -> List[StrategyChromosomeV2]:

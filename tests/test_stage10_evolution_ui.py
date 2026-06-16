@@ -53,19 +53,33 @@ def _generation_file(run_dir: Path) -> None:
     }), encoding="utf-8")
 
 
-def _add_challenger(archive_dir: Path, chromosome_id: str = "CHALLENGER_1"):
+def _record(chromosome_id: str, status: str = "qualified_challenger") -> ArchiveRecord:
     chromosome = built_in_default_chromosome("BTCUSDT")
     chromosome.chromosome_id = chromosome_id
-    archive = StrategyArchive(str(archive_dir))
-    archive.add_challenger(ArchiveRecord(
+    return ArchiveRecord(
         chromosome_id=chromosome_id,
-        status="challenger",
+        status=status,
         epoch_id="epoch_test",
         generation=3,
         fitness_score=0.42,
-        fitness_details=chromosome.fitness_details,
+        fitness_details={"eligibility": {"challenger_eligible": True}},
         chromosome_data=chromosome.to_dict(),
-    ), "BTCUSDT")
+    )
+
+
+def _add_challenger(archive_dir: Path, chromosome_id: str = "CHALLENGER_1"):
+    archive = StrategyArchive(str(archive_dir))
+    archive.add_qualified_challenger(_record(chromosome_id), "BTCUSDT")
+
+
+def _add_pending_acceptance(archive_dir: Path, chromosome_id: str = "CHALLENGER_1"):
+    archive = StrategyArchive(str(archive_dir))
+    archive.add_qualified_challenger(_record(chromosome_id), "BTCUSDT")
+    archive.start_validation(chromosome_id)
+    archive.mark_pending_acceptance(
+        chromosome_id,
+        {"paper_closed_trades": 20, "paper_pnl": 1.0},
+    )
 
 
 def test_snapshot_uses_real_generation_and_archive_data(tmp_path):
@@ -149,7 +163,7 @@ def test_engine_loads_ui_saved_next_run_settings(tmp_path, monkeypatch):
 
 def test_promote_requires_exact_confirmation_and_current_challenger(tmp_path):
     archive_dir = tmp_path / "archive"
-    _add_challenger(archive_dir)
+    _add_pending_acceptance(archive_dir)
 
     with pytest.raises(ValueError, match="exactly match"):
         promote_challenger("BTCUSDT", "CHALLENGER_1", "wrong", archive_dir)
@@ -166,9 +180,9 @@ def test_promote_requires_exact_confirmation_and_current_challenger(tmp_path):
 
 def test_promote_retires_previous_champion(tmp_path):
     archive_dir = tmp_path / "archive"
-    _add_challenger(archive_dir, "FIRST")
+    _add_pending_acceptance(archive_dir, "FIRST")
     promote_challenger("BTCUSDT", "FIRST", "FIRST", archive_dir)
-    _add_challenger(archive_dir, "SECOND")
+    _add_pending_acceptance(archive_dir, "SECOND")
     promote_challenger("BTCUSDT", "SECOND", "SECOND", archive_dir)
 
     archive = StrategyArchive(str(archive_dir))

@@ -156,8 +156,47 @@ def load_archive_snapshot(
 ) -> Dict[str, List[Dict[str, Any]]]:
     archive = StrategyArchive(str(archive_dir))
     return {
+        "raw_candidates": [
+            {
+                "symbol": record.chromosome_data.get("symbol", "default"),
+                "chromosome_id": record.chromosome_id,
+                "fitness": record.fitness_score,
+                "generation": record.generation,
+                "created_at": record.created_at,
+                "chromosome": record.chromosome_data,
+                "fitness_details": record.fitness_details,
+            }
+            for record in archive.raw_candidates
+        ],
+        "seed_candidates": [
+            {
+                "symbol": record.chromosome_data.get("symbol", "default"),
+                "chromosome_id": record.chromosome_id,
+                "fitness": record.fitness_score,
+                "generation": record.generation,
+                "created_at": record.created_at,
+                "chromosome": record.chromosome_data,
+                "fitness_details": record.fitness_details,
+            }
+            for record in archive.seed_candidates
+        ],
+        "rejected": [
+            {
+                "symbol": record.chromosome_data.get("symbol", "default"),
+                "chromosome_id": record.chromosome_id,
+                "fitness": record.fitness_score,
+                "generation": record.generation,
+                "created_at": record.created_at,
+                "chromosome": record.chromosome_data,
+                "fitness_details": record.fitness_details,
+            }
+            for record in archive.rejected
+        ],
+        "qualified_challengers": _record_rows(archive.qualified_challengers),
         "champions": _record_rows(archive.champions),
         "challengers": _record_rows(archive.challengers),
+        "validating": _record_rows(archive.validating),
+        "pending_acceptance": _record_rows(archive.pending_acceptance),
         "retired": [
             {
                 "symbol": record.chromosome_data.get("symbol", "default"),
@@ -226,10 +265,10 @@ def promote_challenger(
         raise ValueError("Confirmation must exactly match the Challenger chromosome ID")
 
     archive = StrategyArchive(str(archive_dir))
-    challenger = archive.get_challenger(symbol)
-    if challenger is None or challenger.chromosome_id != chromosome_id:
-        raise ValueError("Selected Challenger is no longer current; refresh and try again")
-    if not archive.promote_challenger(chromosome_id, symbol):
+    pending = archive.pending_acceptance.get(symbol)
+    if pending is None or pending.chromosome_id != chromosome_id:
+        raise ValueError("Selected strategy is not pending acceptance; refresh and try again")
+    if not archive.promote_to_champion(chromosome_id, symbol):
         raise ValueError("Promote failed")
     return {
         "ok": True,

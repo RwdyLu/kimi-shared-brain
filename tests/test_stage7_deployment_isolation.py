@@ -3,6 +3,8 @@
 import json
 from argparse import Namespace
 
+import pytest
+
 from app.genetic_engine.archive import ArchiveRecord, StrategyArchive
 from app.genetic_engine.chromosome_v2 import (
     StrategyChromosomeV2,
@@ -25,24 +27,36 @@ def _record(chromosome_id: str, status: str = "challenger") -> ArchiveRecord:
     )
 
 
-def test_add_challenger_never_replaces_champion(tmp_path):
+def _qualified_record(chromosome_id: str) -> ArchiveRecord:
+    record = _record(chromosome_id, "qualified_challenger")
+    record.fitness_details = {"eligibility": {"challenger_eligible": True}}
+    return record
+
+
+def test_add_challenger_requires_eligibility_and_never_replaces_champion(tmp_path):
     archive = StrategyArchive(str(tmp_path))
     champion = _record("champion-old", "champion")
     archive.champions["default"] = champion
     archive._save_all()
 
-    archive.add_challenger(_record("challenger-new"), "default")
+    with pytest.raises(ValueError, match="challenger_eligible"):
+        archive.add_challenger(_record("challenger-new"), "default")
+
+    archive.add_qualified_challenger(_qualified_record("challenger-new"), "default")
 
     assert archive.get_champion("default").chromosome_id == "champion-old"
     assert archive.get_challenger("default").chromosome_id == "challenger-new"
 
 
-def test_manual_promote_retires_old_champion(tmp_path):
+def test_manual_promote_requires_pending_acceptance_and_retires_old_champion(tmp_path):
     archive = StrategyArchive(str(tmp_path))
     archive.champions["default"] = _record("champion-old", "champion")
-    archive.challengers["default"] = _record("challenger-new")
+    archive.add_qualified_challenger(_qualified_record("challenger-new"), "default")
     archive._save_all()
 
+    assert archive.promote_challenger("challenger-new", "default") is False
+    assert archive.start_validation("challenger-new")
+    assert archive.mark_pending_acceptance("challenger-new", {"paper_closed_trades": 20, "paper_pnl": 1.2})
     assert archive.promote_challenger("challenger-new", "default")
     assert archive.get_champion("default").chromosome_id == "challenger-new"
     assert archive.get_challenger("default") is None
@@ -52,7 +66,7 @@ def test_manual_promote_retires_old_champion(tmp_path):
 
 def test_runtime_uses_default_without_champion_and_ignores_challenger(tmp_path):
     archive = StrategyArchive(str(tmp_path))
-    archive.add_challenger(_record("high-fitness-candidate"), "default")
+    archive.add_qualified_challenger(_qualified_record("high-fitness-candidate"), "default")
 
     runtime = archive.get_runtime_chromosome_data("default")
     assert runtime["chromosome_id"] == "builtin_default_default"
