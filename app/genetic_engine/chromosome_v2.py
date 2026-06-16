@@ -317,12 +317,16 @@ class RiskGenesV2:
     # 加速度解封閾值：當 ka 超過此值時，DeadHold 可轉為 FloatHold
     unlock_ka_threshold: float = 0.60
 
+    # G2: 出場後冷卻期（bars 數），防止高頻反復開倉
+    cooldown_bars: int = 0
+
     @classmethod
     def random_bridge(cls, base: "RiskGenesV2") -> "RiskGenesV2":
         dead_ratio = round(random.uniform(0.10, 0.60), 3)
         base.dead_hold_ratio = dead_ratio
         base.float_hold_ratio = round(1.0 - dead_ratio, 3)
         base.unlock_ka_threshold = round(random.uniform(0.01, 0.30), 4)
+        base.cooldown_bars = random.randint(0, 20)
         return base
 
     def mutate_bridge(self, intensity: float = 0.3) -> "RiskGenesV2":
@@ -340,8 +344,11 @@ class RiskGenesV2:
                 new.unlock_ka_threshold
                 + intensity * random.uniform(-0.20, 0.20),
             )), 4)
+        if random.random() < 0.4:
+            delta = int(round(intensity * random.uniform(-5, 5)))
+            new.cooldown_bars = max(0, min(50, new.cooldown_bars + delta))
         return new
-    
+
     def to_dict(self) -> Dict[str, Any]:
         d = {
             "stop_loss_pct": self.stop_loss_pct,
@@ -353,11 +360,12 @@ class RiskGenesV2:
             "dead_hold_ratio": self.dead_hold_ratio,
             "float_hold_ratio": self.float_hold_ratio,
             "unlock_ka_threshold": self.unlock_ka_threshold,
+            "cooldown_bars": self.cooldown_bars,
         }
         if self.profit_targets:
             d["profit_targets"] = self.profit_targets
         return d
-    
+
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "RiskGenesV2":
         return cls(
@@ -371,6 +379,7 @@ class RiskGenesV2:
             dead_hold_ratio=d.get("dead_hold_ratio", 0.30),
             float_hold_ratio=d.get("float_hold_ratio", 0.70),
             unlock_ka_threshold=d.get("unlock_ka_threshold", 0.60),
+            cooldown_bars=d.get("cooldown_bars", 0),
         )
 
 
@@ -711,7 +720,12 @@ def crossover_chromosomes_v2(
         ) / 2,
         4,
     )
-    
+    # G2: cooldown_bars — average of both parents, rounded to int
+    base_risk.cooldown_bars = max(
+        0,
+        round((parent1.risk_genes.cooldown_bars + parent2.risk_genes.cooldown_bars) / 2),
+    )
+
     return StrategyChromosomeV2(
         chromosome_id=old_child.chromosome_id,
         entry_genes=old_child.entry_genes,

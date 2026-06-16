@@ -468,6 +468,22 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         position_open_candle: Optional[int] = None
         hold_period = chrom.macro_genes.hold_period  # max candles before forced exit
 
+        # G1: global_stop_loss — track peak equity and trigger state
+        peak_equity: float = self.initial_capital
+        global_stop_loss_triggered: bool = False
+        gsl_trigger_bar: Optional[int] = None
+        gsl_drawdown_at_trigger: float = 0.0
+        gsl_threshold: float = (
+            environment.global_stop_loss
+            if environment and environment.global_stop_loss > 0
+            else 0.0
+        )
+
+        # G2: cooldown_bars — bar index below which new entries are blocked
+        cooldown_bars: int = max(0, chrom.risk_genes.cooldown_bars)
+        cooldown_until_bar: int = 0  # entries blocked while i < cooldown_until_bar
+        blocked_by_cooldown: int = 0
+
         # Stage 4: recycle pool — accumulated realized PnL to reinvest
         recycle_pool: float = 0.0
         recycle_ratio: float = chrom.macro_genes.recycle_ratio
@@ -525,6 +541,19 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             position_value = position_qty * current_price
             total_value = cash + position_value
             equity.append(total_value)
+
+            # G1: global_stop_loss — update peak and check drawdown circuit-breaker
+            if total_value > peak_equity:
+                peak_equity = total_value
+            if (
+                not global_stop_loss_triggered
+                and gsl_threshold > 0
+                and peak_equity > 0
+                and total_value < peak_equity * (1.0 - gsl_threshold)
+            ):
+                global_stop_loss_triggered = True
+                gsl_trigger_bar = i
+                gsl_drawdown_at_trigger = (peak_equity - total_value) / peak_equity
 
             # === Stage 4: compute actual weight and PDE velocity ===
             actual_weight = position_value / total_value if total_value > 0 else 0.0
@@ -653,11 +682,19 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                             exit_reason=exit_reason or "sell",
                             pnl_pct=pnl_pct,
                         ))
+                        # G2: set cooldown window — no new entries for cooldown_bars bars after exit
+                        if cooldown_bars > 0:
+                            cooldown_until_bar = i + cooldown_bars
 
             # === 檢查進場 ===
+            # G2: cooldown block — count bars where cooldown prevents entry
+            if i < cooldown_until_bar:
+                blocked_by_cooldown += 1
             if (
                 micro_tick
                 and not skip_trade
+                and not global_stop_loss_triggered   # G1: no new entries after GSL
+                and i >= cooldown_until_bar           # G2: respect post-exit cooldown
                 and self._check_entry_conditions(i, df, chrom, indicator_values)
             ):
                 # Stage 4: sigmoid_scale applied to raw signal weight
@@ -794,6 +831,10 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             "micro_ticks": micro_ticks,
             "deadline_ticks": deadline_ticks,
             "unlock_events": unlock_events,
+            "global_stop_loss_triggered": global_stop_loss_triggered,
+            "gsl_trigger_bar": gsl_trigger_bar,
+            "gsl_drawdown_at_trigger": gsl_drawdown_at_trigger,
+            "blocked_by_cooldown": blocked_by_cooldown,
         }
         return equity, trades, raw_ledger
     
