@@ -44,6 +44,7 @@ from .environment import (
     ThreeLayerConfig, SeasonApplier
 )
 from .archive import StrategyArchive, ArchiveRecord
+from .eligibility import check_stage_eligibility, get_stage_for_epoch, load_ga_stages_config
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -736,8 +737,22 @@ class EvolutionEngineV2:
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
     
-    def _archive_challenger(self, chrom: StrategyChromosomeV2) -> None:
-        """將最佳個體存為挑戰者"""
+    def _current_eligibility_stage(self) -> str:
+        """Resolve the GA eligibility stage for this Epoch."""
+        explicit_stage = self.config.get("ga_stage") or self.config.get("eligibility_stage")
+        if explicit_stage:
+            return str(explicit_stage)
+
+        epoch_number = int(self.config.get("epoch_number", 1))
+        return get_stage_for_epoch(epoch_number, load_ga_stages_config())
+
+    def _archive_challenger(self, chrom: StrategyChromosomeV2) -> bool:
+        """Gate the best-of-epoch chromosome before writing it as Challenger."""
+        stage_name = self._current_eligibility_stage()
+        eligibility = check_stage_eligibility(chrom, stage_name)
+        chrom.fitness_details = dict(chrom.fitness_details or {})
+        chrom.fitness_details["eligibility"] = eligibility
+
         record = ArchiveRecord(
             chromosome_id=chrom.chromosome_id,
             status="challenger",
@@ -747,8 +762,22 @@ class EvolutionEngineV2:
             fitness_details=chrom.fitness_details,
             chromosome_data=chrom.to_dict(),
         )
+
+        if eligibility["eligible"] and not eligibility["challenger_eligible"]:
+            print(f"\n🌱 Seed candidate retained: {chrom.chromosome_id[:8]} | stage={stage_name}")
+            print("   Stage 1/2 candidates are not archived as Challenger.")
+            return False
+
+        if not eligibility["eligible"]:
+            self.archive.add_rejected(record, chrom.symbol)
+            reason = eligibility.get("rejected_reason") or "stage eligibility failed"
+            print(f"\n🚫 Challenger rejected: {chrom.chromosome_id[:8]} | stage={stage_name}")
+            print(f"   Reason: {reason}")
+            return False
+
         self.archive.add_challenger(record, chrom.symbol)
         print(f"\n📋 Challenger archived: {chrom.chromosome_id[:8]} (fit={chrom.fitness_score:.4f})")
+        return True
     
     def get_top_strategies(self, n: int = 5) -> List[StrategyChromosomeV2]:
         self.population.sort(key=lambda c: c.fitness_score or 0.0, reverse=True)

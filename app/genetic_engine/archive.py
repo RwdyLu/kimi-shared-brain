@@ -25,7 +25,7 @@ from datetime import datetime
 class ArchiveRecord:
     """檔案記錄"""
     chromosome_id: str
-    status: str  # "champion" | "challenger" | "retired"
+    status: str  # "champion" | "challenger" | "retired" | "rejected"
     epoch_id: str
     generation: int
     fitness_score: float
@@ -86,6 +86,7 @@ class StrategyArchive:
         self.champions: Dict[str, ArchiveRecord] = {}  # symbol -> champion
         self.challengers: Dict[str, ArchiveRecord] = {}  # symbol -> challenger
         self.retired: List[ArchiveRecord] = []
+        self.rejected: List[ArchiveRecord] = []
         
         self._load_all()
     
@@ -113,6 +114,13 @@ class StrategyArchive:
             with open(retired_file) as f:
                 data = json.load(f)
                 self.retired = [ArchiveRecord.from_dict(r) for r in data]
+
+        # 載入 Rejected
+        rejected_file = self.archive_dir / "rejected.json"
+        if rejected_file.exists():
+            with open(rejected_file) as f:
+                data = json.load(f)
+                self.rejected = [ArchiveRecord.from_dict(r) for r in data]
     
     def _save_all(self):
         """保存所有檔案"""
@@ -124,6 +132,9 @@ class StrategyArchive:
         
         with open(self.archive_dir / "retired.json", "w") as f:
             json.dump([r.to_dict() for r in self.retired], f, indent=2)
+
+        with open(self.archive_dir / "rejected.json", "w") as f:
+            json.dump([r.to_dict() for r in self.rejected], f, indent=2)
     
     def add_challenger(self, record: ArchiveRecord, symbol: str = "default"):
         """
@@ -139,6 +150,20 @@ class StrategyArchive:
         with open(file_path, "w") as f:
             json.dump(record.to_dict(), f, indent=2)
         
+        self._save_all()
+
+    def add_rejected(self, record: ArchiveRecord, symbol: str = "default"):
+        """Record a best-of-epoch chromosome that failed staged eligibility."""
+        record.status = "rejected"
+        details = dict(record.fitness_details or {})
+        details.setdefault("rejected_symbol", symbol)
+        record.fitness_details = details
+        self.rejected.append(record)
+
+        file_path = self.archive_dir / f"rejected_{record.epoch_id}_{record.chromosome_id[:8]}.json"
+        with open(file_path, "w") as f:
+            json.dump(record.to_dict(), f, indent=2)
+
         self._save_all()
     
     def promote_challenger(self, chromosome_id: str, symbol: str = "default") -> bool:
@@ -262,12 +287,14 @@ class StrategyArchive:
     def get_runtime_chromosome_data(self, symbol: str = "default") -> Optional[Dict[str, Any]]:
         """
         Return the Champion's chromosome data for live/paper trading.
-        Returns None when no Champion exists (caller should use built-in default).
+        Falls back to the deterministic built-in default when no Champion exists.
         """
         champ = self.get_champion(symbol)
-        if champ is None:
-            return None
-        return champ.chromosome_data
+        if champ:
+            return champ.chromosome_data
+
+        from .chromosome_v2 import built_in_default_chromosome
+        return built_in_default_chromosome(symbol).to_dict()
 
     def get_stats(self) -> Dict[str, Any]:
         """獲取檔案館統計"""
@@ -275,11 +302,13 @@ class StrategyArchive:
             "champions": len(self.champions),
             "challengers": len(self.challengers),
             "retired": len(self.retired),
+            "rejected": len(self.rejected),
             "champion_list": [
                 {"symbol": s, "id": r.chromosome_id[:8], "fitness": r.fitness_score}
                 for s, r in self.champions.items()
             ],
             "retired_count": len(self.retired),
+            "rejected_count": len(self.rejected),
         }
 
 

@@ -1,0 +1,120 @@
+{
+  "version": "ga_stages_v1",
+  "description": "Staged GA eligibility gates. Stage 1/2 can be seed candidates only; Stage 3 can become Challenger after passing all rules.",
+  "description_zh": "GA 分階段准入門檻。Stage 1/2 只能作為種子候選，不得進 Challenger；Stage 3 全部通過後才可進 Challenger。",
+  "epoch_stage_ranges": [
+    {
+      "stage": "stage1_explore",
+      "start_epoch": 1,
+      "end_epoch": 10,
+      "description_zh": "探索期：條件較寬鬆，用來保留有潛力但尚未穩定的小虧或微利策略。"
+    },
+    {
+      "stage": "stage2_converge",
+      "start_epoch": 11,
+      "end_epoch": 30,
+      "description_zh": "收斂期：要求扣成本後不虧，並逐步降低破產風險與回撤。"
+    },
+    {
+      "stage": "stage3_validate",
+      "start_epoch": 31,
+      "end_epoch": null,
+      "description_zh": "驗證期：只有通過小賺、低回撤、低破產、多標的穩定的策略才可進 Challenger。"
+    }
+  ],
+  "direct_rejects": {
+    "avg_alpha_min": {
+      "value": -0.10,
+      "description_zh": "嚴重負 Alpha 直接淘汰，不再保留為候選。"
+    },
+    "ruin_probability_max": {
+      "value": 0.50,
+      "description_zh": "破產機率超過 50% 直接淘汰。"
+    },
+    "symbols_tested_min": {
+      "value": 10,
+      "description_zh": "10 個標的未完整測試直接淘汰。"
+    },
+    "data_invalid": {
+      "value": false,
+      "description_zh": "資料失效直接淘汰。"
+    }
+  },
+  "stages": {
+    "stage1_explore": {
+      "stage": "stage1_explore",
+      "candidate_status": "seed_candidate",
+      "challenger_allowed": false,
+      "avg_alpha_min": -0.01,
+      "avg_alpha_min_zh": "允許輕微虧損，保留可能有潛力的策略。",
+      "ruin_probability_max": 0.20,
+      "ruin_probability_max_zh": "探索期允許較高風險。",
+      "max_drawdown_max": 0.25,
+      "max_drawdown_max_zh": "最大回撤先放寬到 25%。",
+      "profit_factor_min": 1.00,
+      "profit_factor_min_zh": "至少不明顯低於盈虧平衡。",
+      "sharpe_ratio_min": 0.0,
+      "sharpe_ratio_min_zh": "夏普不為負即可。",
+      "win_rate_min": 0.40,
+      "win_rate_min_zh": "勝率至少 40%。",
+      "total_trades_min": 100,
+      "total_trades_min_zh": "樣本至少 100 筆。",
+      "profitable_symbols_min": 3,
+      "profitable_symbols_min_zh": "至少 3 個標的獲利。",
+      "worst_symbol_alpha_min": -0.10,
+      "worst_symbol_alpha_min_zh": "最差標的虧損不超過 10%。",
+      "single_symbol_profit_contribution_max": 0.70,
+      "single_symbol_profit_contribution_max_zh": "避免完全靠單一標的。"
+    },
+    "stage2_converge": {
+      "stage": "stage2_converge",
+      "candidate_status": "seed_candidate",
+      "challenger_allowed": false,
+      "avg_alpha_min": 0.00,
+      "avg_alpha_min_zh": "扣成本後平均不虧。",
+      "ruin_probability_max": 0.10,
+      "ruin_probability_max_zh": "破產風險降到 10%。",
+      "max_drawdown_max": 0.18,
+      "max_drawdown_max_zh": "回撤收斂到 18%。",
+      "profit_factor_min": 1.08,
+      "profit_factor_min_zh": "獲利因子至少 1.08。",
+      "sharpe_ratio_min": 0.4,
+      "sharpe_ratio_min_zh": "夏普至少 0.4。",
+      "win_rate_min": 0.43,
+      "win_rate_min_zh": "勝率至少 43%。",
+      "total_trades_min": 180,
+      "total_trades_min_zh": "樣本至少 180 筆。",
+      "profitable_symbols_min": 4,
+      "profitable_symbols_min_zh": "至少 4 個標的獲利。",
+      "worst_symbol_alpha_min": -0.07,
+      "worst_symbol_alpha_min_zh": "最差標的虧損不超過 7%。",
+      "single_symbol_profit_contribution_max": 0.60,
+      "single_symbol_profit_contribution_max_zh": "單一標的貢獻不超過 60%。"
+    },
+    "stage3_validate": {
+      "stage": "stage3_validate",
+      "candidate_status": "qualified_challenger",
+      "challenger_allowed": true,
+      "avg_alpha_min": 0.01,
+      "avg_alpha_min_zh": "平均 Alpha 至少 1%，扣成本後小賺。",
+      "ruin_probability_max": 0.05,
+      "ruin_probability_max_zh": "破產機率低於 5%。",
+      "max_drawdown_max": 0.15,
+      "max_drawdown_max_zh": "最大回撤低於 15%。",
+      "profit_factor_min": 1.15,
+      "profit_factor_min_zh": "獲利因子至少 1.15。",
+      "sharpe_ratio_min": 0.6,
+      "sharpe_ratio_min_zh": "夏普至少 0.6。",
+      "win_rate_min": 0.45,
+      "win_rate_min_zh": "勝率至少 45%。",
+      "total_trades_min": 250,
+      "total_trades_min_zh": "樣本至少 250 筆。",
+      "profitable_symbols_min": 5,
+      "profitable_symbols_min_zh": "至少 5 個標的獲利。",
+      "worst_symbol_alpha_min": -0.05,
+      "worst_symbol_alpha_min_zh": "最差標的虧損不超過 5%。",
+      "single_symbol_profit_contribution_max": 0.50,
+      "single_symbol_profit_contribution_max_zh": "單一標的貢獻不超過 50%。"
+    }
+  }
+}
