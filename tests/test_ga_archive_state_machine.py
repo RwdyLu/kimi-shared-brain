@@ -161,7 +161,7 @@ def test_validating_can_mark_pending_acceptance_with_paper_metrics(tmp_path):
     archive.add_qualified_challenger(_record("PAPER_1", QUALIFIED_CHALLENGER), "BTCUSDT")
     archive.start_validation("PAPER_1")
 
-    metrics = {"paper_closed_trades": 22, "paper_pnl": 3.4, "paper_max_drawdown": 0.05}
+    metrics = {"paper_closed_trades": 22, "paper_pnl": 3.4, "paper_max_drawdown": 0.05, "paper_validation_passed": True}
     assert archive.mark_pending_acceptance("PAPER_1", metrics)
     pending = archive.pending_acceptance["BTCUSDT"]
     assert pending.status == PENDING_ACCEPTANCE
@@ -178,7 +178,7 @@ def test_only_pending_acceptance_can_promote_to_champion(tmp_path):
     assert archive.get_champion("BTCUSDT") is None
 
     archive.start_validation("NOT_PENDING")
-    archive.mark_pending_acceptance("NOT_PENDING", {"paper_closed_trades": 20, "paper_pnl": 1.0})
+    archive.mark_pending_acceptance("NOT_PENDING", {"paper_closed_trades": 20, "paper_pnl": 1.0, "paper_validation_passed": True})
     assert archive.promote_to_champion("NOT_PENDING", "BTCUSDT")
     assert archive.get_champion("BTCUSDT").status == CHAMPION
 
@@ -190,7 +190,7 @@ def test_promote_retires_existing_champion(tmp_path):
 
     archive.add_qualified_challenger(_record("NEW_CHAMP", QUALIFIED_CHALLENGER), "BTCUSDT")
     archive.start_validation("NEW_CHAMP")
-    archive.mark_pending_acceptance("NEW_CHAMP", {"paper_closed_trades": 20, "paper_pnl": 1.0})
+    archive.mark_pending_acceptance("NEW_CHAMP", {"paper_closed_trades": 20, "paper_pnl": 1.0, "paper_validation_passed": True})
 
     assert archive.promote_to_champion("NEW_CHAMP", "BTCUSDT")
     assert archive.get_champion("BTCUSDT").chromosome_id == "NEW_CHAMP"

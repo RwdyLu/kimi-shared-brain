@@ -56,7 +56,7 @@ def test_manual_promote_requires_pending_acceptance_and_retires_old_champion(tmp
 
     assert archive.promote_challenger("challenger-new", "default") is False
     assert archive.start_validation("challenger-new")
-    assert archive.mark_pending_acceptance("challenger-new", {"paper_closed_trades": 20, "paper_pnl": 1.2})
+    assert archive.mark_pending_acceptance("challenger-new", {"paper_closed_trades": 20, "paper_pnl": 1.2, "paper_validation_passed": True})
     assert archive.promote_challenger("challenger-new", "default")
     assert archive.get_champion("default").chromosome_id == "challenger-new"
     assert archive.get_challenger("default") is None

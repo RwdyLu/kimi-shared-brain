@@ -78,7 +78,7 @@ def _add_pending_acceptance(archive_dir: Path, chromosome_id: str = "CHALLENGER_
     archive.start_validation(chromosome_id)
     archive.mark_pending_acceptance(
         chromosome_id,
-        {"paper_closed_trades": 20, "paper_pnl": 1.0},
+        {"paper_closed_trades": 20, "paper_pnl": 1.0, "paper_validation_passed": True},
     )
 
 

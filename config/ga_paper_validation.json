@@ -1,0 +1,19 @@
+{
+  "version": "ga_paper_validation_v1",
+  "description": "GA Shadow/Paper validation thresholds. Validation is simulated and must not place real orders.",
+  "description_zh": "GA Shadow/Paper 驗證門檻。此流程只記錄模擬結果，不得送出真實訂單。",
+  "paper_days_min": 14,
+  "paper_days_min_zh": "紙上觀察至少 14 天。",
+  "paper_closed_trades_min": 20,
+  "paper_closed_trades_min_zh": "至少 20 筆已平倉交易。",
+  "paper_pnl_min": 0.0,
+  "paper_pnl_min_zh": "扣成本後 PnL 必須為正。",
+  "paper_max_drawdown_max": 0.1,
+  "paper_max_drawdown_max_zh": "紙上最大回撤不得超過 10%。",
+  "ruin_probability_max": 0.02,
+  "ruin_probability_max_zh": "最終破產機率不得超過 2%。",
+  "paper_profit_factor_min": 1.05,
+  "paper_profit_factor_min_zh": "紙上 profit factor 至少 1.05。",
+  "paper_win_rate_min": 0.4,
+  "paper_win_rate_min_zh": "紙上勝率至少 40%。"
+}

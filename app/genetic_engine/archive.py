@@ -329,6 +329,21 @@ class StrategyArchive:
             return False
         record.status = VALIDATING
         record.validation_started_at = datetime.now().isoformat()
+        record.paper_metrics = dict(record.paper_metrics or {})
+        record.paper_metrics.setdefault("paper_started_at", record.validation_started_at)
+        record.paper_metrics.setdefault("paper_days", 0)
+        record.paper_metrics.setdefault("paper_trades", 0)
+        record.paper_metrics.setdefault("paper_closed_trades", 0)
+        record.paper_metrics.setdefault("paper_open_trades", 0)
+        record.paper_metrics.setdefault("paper_pnl", 0.0)
+        record.paper_metrics.setdefault("paper_gross_pnl", 0.0)
+        record.paper_metrics.setdefault("paper_fees", 0.0)
+        record.paper_metrics.setdefault("paper_slippage", 0.0)
+        record.paper_metrics.setdefault("paper_max_drawdown", 0.0)
+        record.paper_metrics.setdefault("paper_win_rate", 0.0)
+        record.paper_metrics.setdefault("paper_profit_factor", 0.0)
+        record.paper_metrics.setdefault("paper_symbols_traded", [])
+        record.paper_metrics.setdefault("paper_last_updated", record.validation_started_at)
         symbol = self._record_symbol(record)
         self.validating[symbol] = record
         self._save_all()
@@ -337,6 +352,10 @@ class StrategyArchive:
     def mark_pending_acceptance(self, record_id: str, paper_metrics: Dict[str, Any]) -> bool:
         record = self._pop_record(record_id, VALIDATING)
         if not record:
+            return False
+        if not paper_metrics or not paper_metrics.get("paper_validation_passed"):
+            self.validating[self._record_symbol(record)] = record
+            self._save_all()
             return False
         record.status = PENDING_ACCEPTANCE
         record.pending_at = datetime.now().isoformat()
