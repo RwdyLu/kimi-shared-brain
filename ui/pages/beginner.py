@@ -164,8 +164,8 @@ STRATEGY_DISPLAY_NAMES = {
     "williams_r": "Williams %R 反轉",
     "keltner_breakout": "Keltner 通道突破",
     "atr_breakout": "ATR 波動突破",
-    "parabolic_sar": "招物線轉向指標",
-    "parabolic_sar_v2": "招物線轉向 V2",
+    "parabolic_sar": "拋物線轉向指標",
+    "parabolic_sar_v2": "拋物線轉向 V2",
 }
 
 
@@ -188,8 +188,8 @@ STRATEGY_EXPLANATIONS = {
     "williams_r": "Williams %R 從超賣區反彈，短線買點出現",
     "keltner_breakout": "價格突破 Keltner 上軌，波動率突破訊號",
     "atr_breakout": "價格突破 ATR 波動範圍，動能加速",
-    "parabolic_sar": "招物線轉向指標，適用於識別趨勢轉折點，適合趨勢市場。",
-    "parabolic_sar_v2": "招物線轉向 V2，加入訂正後的入出場設計，減少振荡訊號。",
+    "parabolic_sar": "拋物線轉向指標，適用於識別趨勢轉折點，適合趨勢市場。",
+    "parabolic_sar_v2": "拋物線轉向 V2，加入訂正後的入出場設計，減少震盪訊號。",
 }
 
 
