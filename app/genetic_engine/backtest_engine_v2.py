@@ -682,9 +682,12 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                             exit_reason=exit_reason or "sell",
                             pnl_pct=pnl_pct,
                         ))
-                        # G2: set cooldown window — no new entries for cooldown_bars bars after exit
+                        # G2: set cooldown window — block next cooldown_bars bars after exit
+                        # cooldown_until_bar is the FIRST bar entry is allowed again.
+                        # e.g. exit at i=100, cooldown_bars=3 → cooldown_until_bar=104
+                        #      bars 101,102,103 are blocked; bar 104 is first allowed.
                         if cooldown_bars > 0:
-                            cooldown_until_bar = i + cooldown_bars
+                            cooldown_until_bar = i + cooldown_bars + 1
 
             # === 檢查進場 ===
             # G2: cooldown block — count bars where cooldown prevents entry

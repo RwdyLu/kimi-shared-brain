@@ -166,3 +166,41 @@ def test_no_cooldown_means_zero_blocked():
     _, _, ledger = engine._run_strategy_v2(df, chrom, "TEST", season=None, environment=None, verbose=False)
 
     assert ledger["blocked_by_cooldown"] == 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 8. Off-by-one: cooldown_bars=N blocks exactly N bars after exit
+#
+# Definition:
+#   exit at bar i=EXIT_BAR, cooldown_bars=N
+#   → bars EXIT_BAR+1 … EXIT_BAR+N are blocked
+#   → bar EXIT_BAR+N+1 is the first bar entry is allowed
+#   → cooldown_until_bar = EXIT_BAR + N + 1
+#   → entry gate: current_bar >= cooldown_until_bar
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_cooldown_off_by_one_definition():
+    """Verify cooldown_until_bar arithmetic matches the documented definition."""
+    # Simulate the formula directly — no full backtest needed
+    cooldown_bars = 3
+    exit_bar = 100
+
+    # Formula in backtest_engine_v2.py: cooldown_until_bar = i + cooldown_bars + 1
+    cooldown_until_bar = exit_bar + cooldown_bars + 1  # = 104
+
+    # Bars blocked (entry gate: i >= cooldown_until_bar → False means blocked)
+    blocked = [i for i in range(exit_bar, exit_bar + cooldown_bars + 5)
+               if i < cooldown_until_bar]
+
+    # Should block exit_bar itself AND the N bars after it
+    # exit_bar=100 is blocked on same-bar re-entry; 101,102,103 are post-exit blocked
+    assert 101 in blocked, "bar 101 should be blocked"
+    assert 102 in blocked, "bar 102 should be blocked"
+    assert 103 in blocked, "bar 103 should be blocked"
+    assert 104 not in blocked, "bar 104 should be the first allowed bar"
+
+    # Exactly N bars after exit are blocked (101,102,103)
+    post_exit_blocked = [b for b in blocked if b > exit_bar]
+    assert len(post_exit_blocked) == cooldown_bars, (
+        f"Expected {cooldown_bars} bars blocked after exit, got {len(post_exit_blocked)}: {post_exit_blocked}"
+    )

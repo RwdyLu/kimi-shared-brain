@@ -1,8 +1,9 @@
 # GA Gene Schema Audit & DNA Expansion Plan
 
 **Phase F — Gene Schema Audit / DNA Expansion Plan**
+**Phase G1/G2 — Dead Gene Activation (updated)**
 **Branch:** `fix/ga-evolution-automation`
-**Audited commit:** `93e3bcd`
+**Audited commit:** `93e3bcd` | **G1/G2 commit:** `be13225` (off-by-one fixed in verification)
 **Date:** 2026-06-16
 
 ---
@@ -109,7 +110,7 @@
 | gene | type | range/default | mutates（跨Epoch） | used_in_backtest | notes |
 |------|------|---------------|--------------------|-----------------|-------|
 | dead_reserve_ratio | float | [0.05,0.50] / 0.20 | ✅（截斷正態） | ✅（usable_cash_ratio） | 不參與每代GA，跨Epoch抽樣 |
-| global_stop_loss | float | [0.10,0.50] / 0.30 | ✅（截斷正態） | ❌（設計意圖存在，但backtest_engine_v2未實作觸發） | **configured_but_unused（觸發邏輯）** |
+| global_stop_loss | float | [0.10,0.50] / 0.30 | ✅（截斷正態） | ✅（G1 已實作：peak_equity追蹤、drawdown觸發、block新entry） | **active（G1啟用）** |
 | max_leverage | float | 固定1.0 | ❌（__post_init__強制1.0） | ❌（現貨GA固定） | **FIXED — 意圖鎖定為現貨** |
 
 ### 2.7 season_genes（SeasonConfig）
@@ -185,7 +186,7 @@ mutation_ramp 已實作：
 | gc_threshold_months | 同上 | chromosome_v2.py:53 | 同上 | low |
 | gc_max_ratio | 同上 | chromosome_v2.py:56 | 同上 | low |
 | ema_anchor | 同上 | chromosome_v2.py:62 | 未使用於任何backtest計算 | medium |
-| global_stop_loss | Environment設計意圖存在，但backtest_engine_v2未實作觸發邏輯 | environment.py:49 / backtest_engine_v2.py | 若觸發可防大回撤，但目前configured_but_unused | high |
+| global_stop_loss | ~~configured_but_unused~~ **→ G1 已修復**：peak_equity追蹤 + drawdown觸發 + block新entry + raw_ledger記錄 | environment.py:49 / backtest_engine_v2.py | **active** | resolved |
 | IndicatorGene.weight | to_dict/from_dict有保存，crossover有平均，但weighted entry logic使用entry_min_weight不是per-gene weight乘積 | gene_library.py | 序列化存在，但影響路徑不確定 | medium |
 | IndicatorGene condition（突變缺口） | mutate_gene未對condition獨立突變（只有整體roll替換gene） | gene_library.py | condition空間未完整探索 | low |
 
@@ -197,7 +198,7 @@ mutation_ramp 已實作：
 |----------------|---------------|-------------|------------|---------------|---------|--------|----------------------|
 | fee_rate | 0.001（0.1%） | backtest_engine_v2.py:93 | DCA/Strategy回測成本 | ✅ | high | 不同交易所/VIP tier手續費不同，影響策略alpha | friction |
 | lot_step | 0.001 | backtest_engine_v2.py:229 | 最小交易單位計算 | 部分 | low | 由market_rules決定，但預設值固定 | friction |
-| cooldown_bars | ❌（未存在） | backtest_engine_v2.py | 進場後冷卻 | ✅ | high | 防止頻繁進出，但目前無冷卻基因 | frequency |
+| cooldown_bars | ✅（G2 已新增至RiskGenesV2，int，default=0，range 0–50） | chromosome_v2.py / backtest_engine_v2.py | 出場後N根bar不能進場 | ✅ | resolved | G2已實作：random_bridge/mutate_bridge/crossover/to_dict/from_dict/entry gate | frequency |
 | max_trades_per_day | ❌（未存在） | backtest_engine_v2.py | 每日最大交易次數限制 | ✅ | medium | 防止過度交易 | frequency |
 | min_trade_value | ❌（未存在） | backtest_engine_v2.py | 最低名義交易額 | ✅ | medium | 避免手續費佔比過高 | friction |
 | slippage_rate | ❌（未建模） | backtest_engine_v2.py | 回測滑點 | ✅ | high | 高頻策略對滑點敏感 | friction |
@@ -206,7 +207,7 @@ mutation_ramp 已實作：
 | trend_strength_threshold | ❌（未存在） | backtest_engine_v2.py | 趨勢強度過濾 | ✅ | medium | ADX類過濾器硬編碼或未存在 | regime |
 | aggressiveness（Season） | 1.0（Season外部設定） | environment.py:141 | DCA金額縮放、倉位縮放 | 部分 | later | Season已是Epoch層概念，不在per-chromosome基因 | season |
 | dead_reserve_ratio（Environment） | 0.20（跨Epoch抽樣） | environment.py:44 | usable_cash限制 | ✅（已有sampling） | later | 已有截斷正態跨Epoch抽樣，可考慮gene化 | environment |
-| global_stop_loss | 0.30（配置但未觸發） | environment.py:49 | 設計但未實作觸發 | ✅（先實作觸發） | high | 先修dead gene，再gene化 | environment |
+| global_stop_loss | 0.30（**G1已啟用**：peak_equity追蹤 + drawdown觸發） | environment.py:49 | **active** | resolved | G1已完成 | environment |
 | init_min_trades（fitness） | 20 | fitness_v2.py:304 | fitness懲罰門檻 | ✅ | medium | 不同市場環境下合理樣本數不同 | regime |
 | dca_amount_pct | 0.05（固定在DCA引擎） | backtest_engine_v2.py:92 | DCA每次投入比例 | ✅ | medium | 現在由外部固定，應由macro_genes控制 | macro |
 
@@ -431,8 +432,8 @@ proposed → tested → approved → active → deprecated
 | 類別 | 數量 |
 |------|------|
 | 已確認 Active Gene（參與mutation+crossover+backtest） | 約 35個 |
-| Dead Gene（存在但無作用） | 8個（7個MacroGenes legacy + global_stop_loss觸發） |
-| configured_but_unused | 1個（global_stop_loss觸發邏輯） |
+| Dead Gene（存在但無作用） | 7個（MacroGenes 7個legacy fields）|
+| G1/G2 已修復 | 2個（global_stop_loss觸發 G1✅ / cooldown_bars G2✅）|
 | Fixed Parameter（應gene化） | 9個 |
 | 建議第一批gene化（High Priority） | 4個 |
 | 建議第二批gene化（Medium Priority） | 4個 |

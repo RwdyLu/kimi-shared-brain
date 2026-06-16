@@ -253,16 +253,17 @@ def audit_fixed_parameters() -> list[dict]:
         "recommended_block": "friction",
     })
 
-    # cooldown_bars
-    cooldown_lines = grep_file(BACKTEST_V2, "cooldown")
+    # cooldown_bars — G2: RESOLVED (added to RiskGenesV2, wired into backtest entry gate)
+    # Kept as audit history; current_value reflects G2 state.
+    cooldown_lines = grep_file(BACKTEST_V2, "cooldown_until_bar")
     fixed.append({
         "parameter": "cooldown_bars",
-        "current_value": "NOT IMPLEMENTED",
+        "current_value": "RESOLVED in G2 — RiskGenesV2.cooldown_bars (int, default=0, range 0-50)",
         "source_file": str(BACKTEST_V2.relative_to(PROJECT_ROOT)),
         "source_lines": cooldown_lines[:3],
         "should_be_gene": True,
-        "priority": "high",
-        "reason": "No re-entry cooldown exists; strategies can re-enter repeatedly causing fee drag",
+        "priority": "resolved",
+        "reason": "G2: cooldown_bars added to RiskGenesV2; exit gate sets cooldown_until_bar=i+N+1; next N bars block new entries",
         "recommended_block": "frequency",
     })
 
@@ -279,18 +280,14 @@ def audit_fixed_parameters() -> list[dict]:
         "recommended_block": "friction",
     })
 
-    # global_stop_loss trigger
-    gsl_backtest = grep_file(BACKTEST_V2, "global_stop_loss")
-    fixed.append({
-        "parameter": "global_stop_loss (trigger logic)",
-        "current_value": "0.30 (configured in Environment but trigger not implemented in backtest)",
-        "source_file": str(BACKTEST_V2.relative_to(PROJECT_ROOT)),
-        "source_lines": gsl_backtest[:3],
-        "should_be_gene": True,
-        "priority": "high",
-        "reason": "global_stop_loss value exists in Environment and is passed to backtest, but equity drawdown trigger loop not implemented",
-        "recommended_block": "environment",
-    })
+    # global_stop_loss trigger — G1: RESOLVED (peak_equity tracking + drawdown trigger implemented)
+    # No longer a fixed/dead parameter; kept here as audit history only.
+    # gsl_backtest = grep_file(BACKTEST_V2, "global_stop_loss")
+    # fixed.append({
+    #     "parameter": "global_stop_loss (trigger logic)",
+    #     "current_value": "RESOLVED in G1 — peak_equity tracking + drawdown trigger active",
+    #     ...
+    # })
 
     # min_trade_value / min_notional
     min_notional_lines = grep_file(BACKTEST_V2, "min_notional")
@@ -351,15 +348,12 @@ def audit_dead_genes() -> list[dict]:
             "priority_to_fix": "medium" if field in ("max_dca_months", "ema_anchor", "beta_threshold") else "low",
         })
 
-    dead.append({
-        "gene_name": "global_stop_loss (trigger)",
-        "location": "Environment (environment.py) / backtest_engine_v2.py",
-        "reason": "Value is configured and passed to backtest, but equity drawdown circuit-breaker logic is not implemented in the bar loop",
-        "mutates": True,
-        "used_in_backtest": False,
-        "impact": "Strategies that would be stopped in reality continue running in backtest; optimistic bias",
-        "priority_to_fix": "high",
-    })
+    # global_stop_loss trigger — G1 RESOLVED: no longer a dead gene
+    # dead.append({
+    #     "gene_name": "global_stop_loss (trigger)",
+    #     "reason": "RESOLVED in G1: peak_equity tracking + drawdown circuit-breaker active in bar loop",
+    #     "used_in_backtest": True,  # active
+    # })
 
     dead.append({
         "gene_name": "IndicatorGene.weight",

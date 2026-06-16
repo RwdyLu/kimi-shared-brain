@@ -358,7 +358,8 @@ def test_dead_genes_detected():
     # These known dead genes must be detected
     assert "max_dca_months" in dead_names, "max_dca_months should be a dead gene"
     assert "moon_phase_pressure" in dead_names, "moon_phase_pressure should be a dead gene"
-    assert "global_stop_loss (trigger)" in dead_names, "global_stop_loss trigger should be flagged"
+    # global_stop_loss trigger resolved in G1 — no longer a dead gene
+    assert "global_stop_loss (trigger)" not in dead_names, "global_stop_loss trigger was fixed in G1 and should not be dead"
 
 
 def test_macro_active_fields_not_in_dead():
