@@ -267,38 +267,45 @@ def audit_fixed_parameters() -> list[dict]:
         "recommended_block": "frequency",
     })
 
-    # slippage_rate
-    slippage_lines = grep_file(BACKTEST_V2, "slippage")
+    # slippage_sensitivity — G3: RESOLVED
+    slippage_lines = grep_file(BACKTEST_V2, "effective_slippage_rate")
     fixed.append({
-        "parameter": "slippage_rate",
-        "current_value": "NOT MODELLED (0%)",
+        "parameter": "slippage_sensitivity (formerly slippage_rate)",
+        "current_value": "RESOLVED in G3 — RiskGenesV2.slippage_sensitivity (float, default=1.0, range 0-3); base_slippage=0.05%",
         "source_file": str(BACKTEST_V2.relative_to(PROJECT_ROOT)),
         "source_lines": slippage_lines[:3],
         "should_be_gene": True,
-        "priority": "high",
-        "reason": "Backtest uses zero slippage; high-frequency strategies appear more profitable than reality",
+        "priority": "resolved",
+        "reason": "G3: slippage_sensitivity gene added; buy fills at price*(1+rate), sell at price*(1-rate); total_slippage tracked",
         "recommended_block": "friction",
     })
 
-    # global_stop_loss trigger — G1: RESOLVED (peak_equity tracking + drawdown trigger implemented)
-    # No longer a fixed/dead parameter; kept here as audit history only.
-    # gsl_backtest = grep_file(BACKTEST_V2, "global_stop_loss")
-    # fixed.append({
-    #     "parameter": "global_stop_loss (trigger logic)",
-    #     "current_value": "RESOLVED in G1 — peak_equity tracking + drawdown trigger active",
-    #     ...
-    # })
-
-    # min_trade_value / min_notional
-    min_notional_lines = grep_file(BACKTEST_V2, "min_notional")
+    # fee_sensitivity — G3: RESOLVED
+    fee_sens_lines = grep_file(BACKTEST_V2, "effective_fee_rate")
     fixed.append({
-        "parameter": "min_trade_value / min_notional",
-        "current_value": "NOT IMPLEMENTED",
+        "parameter": "fee_sensitivity",
+        "current_value": "RESOLVED in G3 — RiskGenesV2.fee_sensitivity (float, default=1.0, range 0.5-3); effective_fee=base*sensitivity",
         "source_file": str(BACKTEST_V2.relative_to(PROJECT_ROOT)),
-        "source_lines": min_notional_lines[:3],
+        "source_lines": fee_sens_lines[:3],
         "should_be_gene": True,
-        "priority": "medium",
-        "reason": "Trades below exchange minimum notional value create unrealistic backtest results",
+        "priority": "resolved",
+        "reason": "G3: fee_sensitivity gene added; effective_fee_rate/total_fees/total_friction tracked in raw_ledger",
+        "recommended_block": "friction",
+    })
+
+    # global_stop_loss trigger — G1: RESOLVED
+    # No longer a fixed/dead parameter; kept as audit history only.
+
+    # min_trade_value — G3: RESOLVED
+    mtv_lines = grep_file(BACKTEST_V2, "blocked_by_min_trade")
+    fixed.append({
+        "parameter": "min_trade_value",
+        "current_value": "RESOLVED in G3 — RiskGenesV2.min_trade_value (float, default=10.0, range 5-100)",
+        "source_file": str(BACKTEST_V2.relative_to(PROJECT_ROOT)),
+        "source_lines": mtv_lines[:3],
+        "should_be_gene": True,
+        "priority": "resolved",
+        "reason": "G3: min_trade_value gene added; entries with notional < threshold are blocked; blocked_by_min_trade in raw_ledger",
         "recommended_block": "friction",
     })
 

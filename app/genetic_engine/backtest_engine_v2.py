@@ -484,6 +484,15 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
         cooldown_until_bar: int = 0  # entries blocked while i < cooldown_until_bar
         blocked_by_cooldown: int = 0
 
+        # G3: friction genes — effective rates and statistics
+        _BASE_SLIPPAGE_RATE: float = 0.0005
+        effective_fee_rate_buy: float = self.buy_fee_rate * chrom.risk_genes.fee_sensitivity
+        effective_fee_rate_sell: float = self.sell_fee_rate * chrom.risk_genes.fee_sensitivity
+        effective_slippage_rate: float = _BASE_SLIPPAGE_RATE * chrom.risk_genes.slippage_sensitivity
+        min_trade_value: float = max(0.0, chrom.risk_genes.min_trade_value)
+        total_slippage: float = 0.0
+        blocked_by_min_trade: int = 0
+
         # Stage 4: recycle pool — accumulated realized PnL to reinvest
         recycle_pool: float = 0.0
         recycle_ratio: float = chrom.macro_genes.recycle_ratio
@@ -648,10 +657,14 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                     exit_qty = self._truncate_lot(exit_qty)
 
                     if exit_qty >= self.lot_min and exit_qty <= max_sellable:
-                        sell_value = exit_qty * current_price
-                        sell_fee = sell_value * self.sell_fee_rate
+                        # G3: slippage — long sell fills at slightly lower price
+                        exit_price = current_price * (1.0 - effective_slippage_rate)
+                        sell_value = exit_qty * exit_price
+                        sell_fee = sell_value * effective_fee_rate_sell
+                        slip_cost = exit_qty * (current_price - exit_price)
+                        total_slippage += slip_cost
                         exit_avg_cost = position_avg_cost
-                        realized = exit_qty * (current_price - exit_avg_cost) - sell_fee
+                        realized = exit_qty * (exit_price - exit_avg_cost) - sell_fee
                         cash += (sell_value - sell_fee)
                         total_sell_notional += sell_value
                         total_realized_pnl += realized
@@ -678,7 +691,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                             entry_time=timestamp,
                             entry_price=exit_avg_cost,
                             exit_time=timestamp,
-                            exit_price=current_price,
+                            exit_price=exit_price,
                             exit_reason=exit_reason or "sell",
                             pnl_pct=pnl_pct,
                         ))
@@ -731,11 +744,20 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                 qty = self._truncate_lot(qty)
 
                 if qty >= self.lot_min and invest_amount <= cash * usable_cash_ratio:
-                    buy_value = qty * current_price
-                    buy_fee = buy_value * self.buy_fee_rate
+                    # G3: slippage — long buy fills at slightly higher price
+                    entry_price = current_price * (1.0 + effective_slippage_rate)
+                    buy_value = qty * entry_price
+                    buy_fee = buy_value * effective_fee_rate_buy
                     total_cost = buy_value + buy_fee
 
-                    if total_cost <= cash:
+                    # G3: min_trade_value — block entry if notional too small
+                    if buy_value < min_trade_value:
+                        blocked_by_min_trade += 1
+                    elif total_cost <= cash:
+                        slip_cost_buy = qty * (entry_price - current_price)
+                        total_slippage += slip_cost_buy
+
+                    if buy_value >= min_trade_value and total_cost <= cash:
                         prev_total_cost = position_avg_cost * position_qty
                         new_total_cost = prev_total_cost + total_cost
                         new_qty = position_qty + qty
@@ -776,10 +798,14 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             exit_qty = self._truncate_lot(exit_qty)
 
             if exit_qty >= self.lot_min:
-                sell_value = exit_qty * last_price
-                sell_fee = sell_value * self.sell_fee_rate
+                # G3: slippage on end-of-test forced liquidation
+                last_exit_price = last_price * (1.0 - effective_slippage_rate)
+                sell_value = exit_qty * last_exit_price
+                sell_fee = sell_value * effective_fee_rate_sell
+                slip_cost_eot = exit_qty * (last_price - last_exit_price)
+                total_slippage += slip_cost_eot
                 exit_avg_cost = position_avg_cost
-                realized = exit_qty * (last_price - exit_avg_cost) - sell_fee
+                realized = exit_qty * (last_exit_price - exit_avg_cost) - sell_fee
                 cash += (sell_value - sell_fee)
                 total_sell_notional += sell_value
                 total_realized_pnl += realized
@@ -799,7 +825,7 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
                     entry_time=timestamp,
                     entry_price=exit_avg_cost,
                     exit_time=int(df.index[-1].timestamp() * 1000),
-                    exit_price=last_price,
+                    exit_price=last_exit_price,
                     exit_reason="end_of_test",
                     pnl_pct=pnl_pct,
                 ))
@@ -838,6 +864,11 @@ class GeneBacktestEngineV2(GeneBacktestEngine):
             "gsl_trigger_bar": gsl_trigger_bar,
             "gsl_drawdown_at_trigger": gsl_drawdown_at_trigger,
             "blocked_by_cooldown": blocked_by_cooldown,
+            "total_slippage": total_slippage,
+            "total_friction": total_fees_ledger + total_slippage,
+            "blocked_by_min_trade": blocked_by_min_trade,
+            "effective_fee_rate": (effective_fee_rate_buy + effective_fee_rate_sell) / 2,
+            "effective_slippage_rate": effective_slippage_rate,
         }
         return equity, trades, raw_ledger
     

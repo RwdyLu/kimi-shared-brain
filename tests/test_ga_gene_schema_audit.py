@@ -382,7 +382,8 @@ def test_fixed_parameters_detected():
     param_names = {fp["parameter"] for fp in fixed}
     assert "fee_rate" in param_names, "fee_rate should be in fixed parameters"
     assert "cooldown_bars" in param_names, "cooldown_bars should be in fixed parameters"
-    assert "slippage_rate" in param_names, "slippage_rate should be in fixed parameters"
+    # slippage_rate was resolved in G3 as slippage_sensitivity gene; recorded with updated name
+    assert any("slippage" in p for p in param_names), "slippage parameter should be in fixed parameters (resolved in G3)"
 
 
 def test_fixed_parameters_have_required_keys():

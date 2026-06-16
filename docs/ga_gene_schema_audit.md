@@ -200,8 +200,9 @@ mutation_ramp 已實作：
 | lot_step | 0.001 | backtest_engine_v2.py:229 | 最小交易單位計算 | 部分 | low | 由market_rules決定，但預設值固定 | friction |
 | cooldown_bars | ✅（G2 已新增至RiskGenesV2，int，default=0，range 0–50） | chromosome_v2.py / backtest_engine_v2.py | 出場後N根bar不能進場 | ✅ | resolved | G2已實作：random_bridge/mutate_bridge/crossover/to_dict/from_dict/entry gate | frequency |
 | max_trades_per_day | ❌（未存在） | backtest_engine_v2.py | 每日最大交易次數限制 | ✅ | medium | 防止過度交易 | frequency |
-| min_trade_value | ❌（未存在） | backtest_engine_v2.py | 最低名義交易額 | ✅ | medium | 避免手續費佔比過高 | friction |
-| slippage_rate | ❌（未建模） | backtest_engine_v2.py | 回測滑點 | ✅ | high | 高頻策略對滑點敏感 | friction |
+| min_trade_value | ✅（G3 已新增至RiskGenesV2，float，default=10.0，range 5-100） | chromosome_v2.py / backtest_engine_v2.py | entry gate：名義額低於此值的買單被 block | ✅ | resolved | G3已實作：random_bridge/mutate_bridge/crossover/to_dict/from_dict + blocked_by_min_trade計數 | friction |
+| slippage_rate | ✅（G3 以 slippage_sensitivity 基因接入，base=0.05%，range 0–3x） | chromosome_v2.py / backtest_engine_v2.py | 買入+1x、賣出-1x基準滑價 | ✅ | resolved | G3已實作：total_slippage / effective_slippage_rate 進 raw_ledger | friction |
+| fee_sensitivity | ✅（G3 已新增至RiskGenesV2，float，default=1.0，range 0.5–3.0） | chromosome_v2.py / backtest_engine_v2.py | 有效手續費=base_fee×fee_sensitivity | ✅ | resolved | G3已實作：effective_fee_rate / total_fees / total_friction 進 raw_ledger | friction |
 | min_expected_alpha | 0（隱含） | fitness_v2.py | fitness計算門檻 | ✅ | medium | per-strategy的alpha要求是固定的 | regime |
 | volatility_filter_threshold | ❌（未存在） | backtest_engine_v2.py | 高波動期過濾 | ✅ | medium | 防止異常波動期爆倉 | regime |
 | trend_strength_threshold | ❌（未存在） | backtest_engine_v2.py | 趨勢強度過濾 | ✅ | medium | ADX類過濾器硬編碼或未存在 | regime |

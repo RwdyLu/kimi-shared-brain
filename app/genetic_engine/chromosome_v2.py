@@ -320,6 +320,15 @@ class RiskGenesV2:
     # G2: 出場後冷卻期（bars 數），防止高頻反復開倉
     cooldown_bars: int = 0
 
+    # G3 Friction Genes
+    # fee_sensitivity: 手續費敏感度倍數，1.0=基準，>1悲觀，<1樂觀
+    fee_sensitivity: float = 1.0
+    # slippage_sensitivity: 滑價敏感度倍數，0=無滑價，1=基準，>1悲觀
+    slippage_sensitivity: float = 1.0
+    # min_trade_value: 最小成交金額門檻（USD），低於此值的 entry 被阻止
+    min_trade_value: float = 10.0
+
+
     @classmethod
     def random_bridge(cls, base: "RiskGenesV2") -> "RiskGenesV2":
         dead_ratio = round(random.uniform(0.10, 0.60), 3)
@@ -327,6 +336,9 @@ class RiskGenesV2:
         base.float_hold_ratio = round(1.0 - dead_ratio, 3)
         base.unlock_ka_threshold = round(random.uniform(0.01, 0.30), 4)
         base.cooldown_bars = random.randint(0, 20)
+        base.fee_sensitivity = round(random.uniform(0.5, 3.0), 3)
+        base.slippage_sensitivity = round(random.uniform(0.0, 3.0), 3)
+        base.min_trade_value = round(random.uniform(5.0, 100.0), 1)
         return base
 
     def mutate_bridge(self, intensity: float = 0.3) -> "RiskGenesV2":
@@ -347,6 +359,21 @@ class RiskGenesV2:
         if random.random() < 0.4:
             delta = int(round(intensity * random.uniform(-5, 5)))
             new.cooldown_bars = max(0, min(50, new.cooldown_bars + delta))
+        if random.random() < 0.4:
+            new.fee_sensitivity = round(max(0.5, min(
+                3.0,
+                new.fee_sensitivity + intensity * random.uniform(-0.5, 0.5),
+            )), 3)
+        if random.random() < 0.4:
+            new.slippage_sensitivity = round(max(0.0, min(
+                3.0,
+                new.slippage_sensitivity + intensity * random.uniform(-0.5, 0.5),
+            )), 3)
+        if random.random() < 0.4:
+            new.min_trade_value = round(max(5.0, min(
+                100.0,
+                new.min_trade_value + intensity * random.uniform(-20.0, 20.0),
+            )), 1)
         return new
 
     def to_dict(self) -> Dict[str, Any]:
@@ -361,6 +388,9 @@ class RiskGenesV2:
             "float_hold_ratio": self.float_hold_ratio,
             "unlock_ka_threshold": self.unlock_ka_threshold,
             "cooldown_bars": self.cooldown_bars,
+            "fee_sensitivity": self.fee_sensitivity,
+            "slippage_sensitivity": self.slippage_sensitivity,
+            "min_trade_value": self.min_trade_value,
         }
         if self.profit_targets:
             d["profit_targets"] = self.profit_targets
@@ -380,6 +410,9 @@ class RiskGenesV2:
             float_hold_ratio=d.get("float_hold_ratio", 0.70),
             unlock_ka_threshold=d.get("unlock_ka_threshold", 0.60),
             cooldown_bars=d.get("cooldown_bars", 0),
+            fee_sensitivity=d.get("fee_sensitivity", 1.0),
+            slippage_sensitivity=d.get("slippage_sensitivity", 1.0),
+            min_trade_value=d.get("min_trade_value", 10.0),
         )
 
 
@@ -725,6 +758,19 @@ def crossover_chromosomes_v2(
         0,
         round((parent1.risk_genes.cooldown_bars + parent2.risk_genes.cooldown_bars) / 2),
     )
+    # G3: friction genes — parent average, clamped to valid ranges
+    base_risk.fee_sensitivity = round(max(0.5, min(
+        3.0,
+        (parent1.risk_genes.fee_sensitivity + parent2.risk_genes.fee_sensitivity) / 2,
+    )), 3)
+    base_risk.slippage_sensitivity = round(max(0.0, min(
+        3.0,
+        (parent1.risk_genes.slippage_sensitivity + parent2.risk_genes.slippage_sensitivity) / 2,
+    )), 3)
+    base_risk.min_trade_value = round(max(5.0, min(
+        100.0,
+        (parent1.risk_genes.min_trade_value + parent2.risk_genes.min_trade_value) / 2,
+    )), 1)
 
     return StrategyChromosomeV2(
         chromosome_id=old_child.chromosome_id,
