@@ -1,7 +1,0 @@
-{
-  "channel_type": "discord_webhook",
-  "webhook_url": "",
-  "fallback_to_console": true,
-  "timeout_seconds": 10,
-  "retry_count": 1
-}

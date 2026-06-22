@@ -36,6 +36,7 @@ class ArchiveRecord:
     retired_at: Optional[str] = None
     paper_trades: int = 0
     paper_pnl: float = 0.0
+    retire_reason: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -250,6 +251,41 @@ class StrategyArchive:
                 self._save_all()
                 return
     
+    def retire_challenger(self, chromosome_id: str, reason: str = "manual") -> bool:
+        """將挑戰者直接淘汰（paper trade 不過關）"""
+        # 先找到這個 challenger
+        target = None
+        target_symbol = None
+        for symbol, record in list(self.challengers.items()):
+            if record.chromosome_id == chromosome_id:
+                target = record
+                target_symbol = symbol
+                break
+
+        if target is None:
+            # 嘗試從檔案中查找
+            for f in self.archive_dir.glob("challenger_*.json"):
+                with open(f) as fh:
+                    data = json.load(fh)
+                    if data["chromosome_id"] == chromosome_id:
+                        target = ArchiveRecord.from_dict(data)
+                        break
+
+        if target is None:
+            return False
+
+        target.status = "retired"
+        target.retired_at = datetime.now().isoformat()
+        target.retire_reason = reason
+        self.retired.append(target)
+
+        if target_symbol and target_symbol in self.challengers:
+            del self.challengers[target_symbol]
+
+        self._save_all()
+        print(f"🗑️  Retired challenger: {chromosome_id[:8]} (reason: {reason})")
+        return True
+
     def get_stats(self) -> Dict[str, Any]:
         """獲取檔案館統計"""
         return {

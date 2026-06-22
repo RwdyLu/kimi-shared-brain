@@ -36,15 +36,16 @@ from .fitness import compute_fitness, compute_fitness_details, BacktestMetrics
 def passes_raw_filter(metrics: BacktestMetrics, config: Dict[str, Any]) -> bool:
     """
     基於原始回測指標的篩選（而非 fitness score）。
-    
-    用戶指定標準：
-    - PnL > 0
+
+    標準：
+    - 淨 PnL（已扣手續費）> 手續費緩衝門檻（預設 0.5%，確保真正超越手續費成本）
     - 回撤 < 20%
     - 交易次數 > 20
     - 勝率 > 40%
     """
+    fee_buffer = config.get("filter_min_pnl_after_fees", 0.005)  # 至少比手續費多賺 0.5%
     return (
-        metrics.total_pnl > config.get("filter_min_pnl", 0.0)
+        metrics.total_pnl > fee_buffer
         and metrics.max_drawdown < config.get("filter_max_drawdown", 0.20)
         and metrics.total_trades > config.get("filter_min_trades", 20)
         and metrics.win_rate > config.get("filter_min_win_rate", 0.40)
@@ -105,7 +106,7 @@ DEFAULT_CONFIG = {
     "early_stop_threshold": 0.001,   # 改善門檻
     
     # ── 篩選標準（基於原始回測指標） ──
-    "filter_min_pnl": 0.0,           # PnL > 0
+    "filter_min_pnl_after_fees": 0.005,  # 淨 PnL 必須超過手續費 0.5% 緩衝
     "filter_max_drawdown": 0.20,     # 回撤 < 20%
     "filter_min_trades": 20,         # 交易次數 > 20
     "filter_min_win_rate": 0.40,     # 勝率 > 40%
