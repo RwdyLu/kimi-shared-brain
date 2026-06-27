@@ -85,6 +85,7 @@ app/genetic_engine/data/genetic_evolution/generation_*.json
 data/genetic_evolution/gen_*_best_*.json
 app/genetic_engine/data/genetic_evolution/gen_*_best_*.json
 backup/
+backups/
 config/*.bak*
 state/tuning_history/
 backtest_results/
@@ -102,6 +103,15 @@ logs/indicator_snapshots.jsonl
 logs/crypto_monitor.log
 logs/scheduler.log
 logs/scheduler_nohup.out
+
+# Kimi GA strategy search runtime artifacts
+data/binance_public_cache/
+state/*
+!state/actions/
+!state/actions/.gitkeep
+*.pid
+*.progress
+scripts/*.bak*
 
 # Local notification secrets
 config/channel_config.json
