@@ -25,7 +25,7 @@ Date: 2026-06-14
 """
 
 import random as _random
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
 
@@ -155,6 +155,8 @@ def run_window_backtest(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
+    seasons=None,
+    environment=None,
 ) -> WindowResult:
     """
     Execute a single-window backtest.
@@ -174,6 +176,7 @@ def run_window_backtest(
     WindowResult
     """
     from .backtest_engine_v2 import GeneBacktestEngineV2, GhostDCABaseline
+    from .fitness_v2 import compute_fitness_v2
 
     weight = WINDOW_WEIGHTS.get(window_name, 0.0)
 
@@ -247,7 +250,7 @@ def run_window_backtest(
 
     # ── Strategy backtest ─────────────────────────────────────────────────────
     strategy_equity, strategy_trades, raw_ledger = engine._run_strategy_v2(
-        df_slice, chromosome, symbol="window", season=None, environment=None, verbose=False
+        df_slice, chromosome, symbol="window", season=seasons, environment=environment, verbose=False
     )
 
     if strategy_equity and len(strategy_equity) >= 2:
@@ -257,13 +260,16 @@ def run_window_backtest(
 
     alpha = strategy_return - ghost_dca_return
 
-    # Simple fitness within this window (alpha + trade quality)
     n_trades = len(strategy_trades)
-    if n_trades >= 5:
-        win_rate = sum(1 for t in strategy_trades if t.pnl_pct > 0) / n_trades
-        fitness = max(0.0, (alpha * 0.6) + (win_rate * 0.4))
-    else:
-        fitness = 0.0
+    metrics = engine._build_metrics_v2(
+        trades=strategy_trades,
+        equity=strategy_equity,
+        dca_return=ghost_dca_return,
+        alpha=alpha,
+        friction_penalty=0.0,
+        raw_metrics=raw_ledger,
+    )
+    fitness = compute_fitness_v2(metrics) if n_trades >= 5 else 0.0
 
     return WindowResult(
         window_name=window_name,
@@ -278,6 +284,9 @@ def run_window_backtest(
             "n_trades": n_trades,
             "slice_start_ms": slice_start_ms,
             "slice_end_ms": slice_end_ms,
+            "total_fees_paid": metrics.total_fees_paid,
+            "realized_pnl": raw_ledger.get("realized_pnl", 0.0) if raw_ledger else 0.0,
+            "metrics": asdict(metrics),
         },
     )
 
@@ -292,6 +301,8 @@ def run_all_windows(
     end_ms: int,
     engine=None,
     seed: Optional[int] = None,
+    seasons=None,
+    environment=None,
 ) -> List[WindowResult]:
     """
     Run all WINDOWS for one symbol.
@@ -321,6 +332,8 @@ def run_all_windows(
             end_ms=end_ms,
             engine=engine,
             seed=w_seed,
+            seasons=seasons,
+            environment=environment,
         )
         results.append(result)
     return results
@@ -330,7 +343,7 @@ def run_all_windows(
 # Aggregate window fitness
 # ─────────────────────────────────────────────────────────────────────────────
 
-def aggregate_window_fitness(window_results: List[WindowResult]) -> float:
+def aggregate_window_fitness(window_results: List[WindowResult], require_all: bool = False) -> float:
     """
     Weighted average of per-window fitness scores.
 
@@ -347,6 +360,13 @@ def aggregate_window_fitness(window_results: List[WindowResult]) -> float:
     -------
     float — aggregated fitness in [0, 1] range (or 0.0 if all insufficient).
     """
+    if require_all:
+        by_name = {r.window_name: r for r in window_results}
+        for window_name in WINDOWS:
+            result = by_name.get(window_name)
+            if result is None or result.insufficient_data:
+                return 0.0
+
     valid = [r for r in window_results if not r.insufficient_data]
     if not valid:
         return 0.0
@@ -392,9 +412,14 @@ def aggregate_multi_symbol_windows(
 
     for symbol in required_symbols:
         results = symbol_window_map.get(symbol, [])
-        sym_fitness = aggregate_window_fitness(results)
+        by_name = {r.window_name: r for r in results}
+        incomplete = any(
+            by_name.get(window_name) is None or by_name[window_name].insufficient_data
+            for window_name in WINDOWS
+        )
+        sym_fitness = aggregate_window_fitness(results, require_all=True)
         per_symbol_fitness[symbol] = sym_fitness
-        if sym_fitness == 0.0 and all(r.insufficient_data for r in results):
+        if incomplete or sym_fitness == 0.0:
             failed_symbols.append(symbol)
 
     # If any required symbol completely failed → overall fitness 0

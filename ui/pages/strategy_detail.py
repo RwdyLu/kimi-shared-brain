@@ -78,7 +78,7 @@ def get_latest_snapshot(symbol: str, records=None) -> dict:
     """Get latest indicator snapshot for a symbol"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return {}
         
         latest = {}
@@ -95,7 +95,7 @@ def get_signal_history(strategy_id: str, strategy_signal_type: str, symbol: str,
     """Get recent signal history for a strategy and symbol from snapshots"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         # Expected signal type in snapshots (uppercase)
@@ -144,7 +144,7 @@ def get_recent_runs_for_strategy(strategy_signal_type: str, symbol: str, limit: 
     """Get recent runs with signal info for this strategy, even if no signal was generated"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         runs = {}
@@ -855,7 +855,7 @@ def get_today_signals_for_strategy(strategy_id: str, signal_type: str, symbol: s
     """Get today's confirmed signals for a strategy and symbol from snapshots"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         expected = signal_type.upper().replace(" ", "_")
@@ -1136,7 +1136,7 @@ def get_symbol_snapshots_today(symbol: str, records=None) -> list:
     """Get all snapshots for a symbol today, sorted by time ascending"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         today = datetime.now().strftime("%Y-%m-%d")

@@ -259,15 +259,17 @@ class StrategyArchive:
                 self._save_all()
                 return
     
-    def get_runtime_chromosome_data(self, symbol: str = "default") -> Optional[Dict[str, Any]]:
+    def get_runtime_chromosome_data(self, symbol: str = "default") -> Dict[str, Any]:
         """
         Return the Champion's chromosome data for live/paper trading.
-        Returns None when no Champion exists (caller should use built-in default).
+        Falls back to a deterministic built-in default when no Champion exists.
         """
         champ = self.get_champion(symbol)
-        if champ is None:
-            return None
-        return champ.chromosome_data
+        if champ:
+            return champ.chromosome_data
+
+        from .chromosome_v2 import built_in_default_chromosome
+        return built_in_default_chromosome(symbol).to_dict()
 
     def get_stats(self) -> Dict[str, Any]:
         """獲取檔案館統計"""

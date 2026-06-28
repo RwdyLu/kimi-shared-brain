@@ -118,9 +118,11 @@ class KlineCache:
             cache_start_ms = int(df_full.index[0].timestamp() * 1000)
             cache_end_ms = int(df_full.index[-1].timestamp() * 1000)
 
-            # Stale: cache ends more than 1 interval before requested end
+            # Kline requests are half-open by open time: [start_ms, end_ms).
+            # The final expected candle opens at end_ms - interval.
             margin = iv_ms if iv_ms else 60_000
-            if cache_end_ms < end_ms - margin:
+            requested_last_open_ms = end_ms - margin
+            if cache_end_ms < requested_last_open_ms:
                 return _miss(
                     f"cache end {cache_end_ms} is before requested end {end_ms} "
                     f"(stale by {(end_ms - cache_end_ms) // 1000}s)"
@@ -135,11 +137,11 @@ class KlineCache:
             # Continuous markets require every interval. Exchange-session data
             # legitimately contains overnight, weekend and holiday gaps.
             if iv_ms is not None and not session_based:
-                expected_count = (end_ms - start_ms) // iv_ms
+                expected_count = max(0, (end_ms - start_ms + iv_ms - 1) // iv_ms)
                 # Filter to requested window first
                 start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
                 end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
-                df_window = df_full[(df_full.index >= start_dt) & (df_full.index <= end_dt)]
+                df_window = df_full[(df_full.index >= start_dt) & (df_full.index < end_dt)]
                 actual_count = len(df_window)
 
                 if actual_count < expected_count:

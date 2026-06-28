@@ -668,21 +668,26 @@ def calculate_monte_carlo_report(
 
     Returns
     -------
-    dict with keys: ruin_probability, p5_return, p50_return, p95_return,
-                    n_trades, n_simulations, seed
+    dict with keys: insufficient_data, sample_trades, ruin_probability,
+                    return_quantiles, simulations, seed
     """
     import random as _rng
     _rng.seed(seed)
 
-    pnl_pcts = [t.get("pnl_pct", 0.0) for t in trades if isinstance(t, dict)]
-    if not pnl_pcts:
+    pnl_pcts = []
+    for trade in trades:
+        if isinstance(trade, dict):
+            pnl_pcts.append(float(trade.get("pnl_pct", 0.0)))
+        elif hasattr(trade, "pnl_pct"):
+            pnl_pcts.append(float(trade.pnl_pct))
+
+    if len(pnl_pcts) < 10:
         return {
-            "ruin_probability": 0.0,
-            "p5_return": 0.0,
-            "p50_return": 0.0,
-            "p95_return": 0.0,
-            "n_trades": 0,
-            "n_simulations": n_simulations,
+            "insufficient_data": True,
+            "sample_trades": len(pnl_pcts),
+            "ruin_probability": None,
+            "return_quantiles": {},
+            "simulations": n_simulations,
             "seed": seed,
         }
 
@@ -707,12 +712,20 @@ def calculate_monte_carlo_report(
     p95 = final_returns[min(n - 1, int(n * 0.95))]
 
     return {
+        "insufficient_data": False,
+        "sample_trades": len(pnl_pcts),
         "ruin_probability": ruin_count / n_simulations,
+        "return_quantiles": {
+            "p05": round(p5, 6),
+            "p50": round(p50, 6),
+            "p95": round(p95, 6),
+        },
         "p5_return": round(p5, 6),
         "p50_return": round(p50, 6),
         "p95_return": round(p95, 6),
         "n_trades": len(pnl_pcts),
         "n_simulations": n_simulations,
+        "simulations": n_simulations,
         "seed": seed,
     }
 

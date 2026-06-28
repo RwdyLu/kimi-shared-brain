@@ -535,7 +535,7 @@ def built_in_default_chromosome(symbol: str = "BTCUSDT") -> "StrategyChromosomeV
     _r.seed(42)
     chrom = random_chromosome_v2(generation=0)
     _r.setstate(state)
-    chrom.chromosome_id = "BUILTIN_DEFAULT_default"
+    chrom.chromosome_id = f"builtin_default_{symbol.lower()}"
     chrom.epoch_id = "builtin"
     chrom.macro_genes.dca_interval = 24
     chrom.macro_genes.target_weight = 0.3
