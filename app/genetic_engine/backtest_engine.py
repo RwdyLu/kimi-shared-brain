@@ -63,6 +63,14 @@ class KlineCache:
         else:
             df.index = df.index.tz_convert("UTC")
         return df.sort_index()
+
+    def _index_open_time_ms(self, df: pd.DataFrame) -> pd.Series:
+        """Return candle open times as integer milliseconds."""
+        if "_open_time_ms" in df.columns:
+            values = df["_open_time_ms"].astype("int64")
+            return pd.Series(values.to_numpy(), index=df.index)
+        values = (df.index.astype("int64") // 10**6).astype("int64")
+        return pd.Series(values, index=df.index)
     
     def has_cache(self, symbol: str, interval: str) -> bool:
         return self._parquet_path(symbol, interval).exists()
@@ -102,7 +110,10 @@ class KlineCache:
 
             df_full = pd.read_parquet(path)
             # 確保 timestamp 是 datetime
-            if 'timestamp' in df_full.columns:
+            if '_open_time_ms' in df_full.columns:
+                df_full['_open_time_ms'] = df_full['_open_time_ms'].astype('int64')
+                df_full['timestamp'] = pd.to_datetime(df_full['_open_time_ms'], unit='ms', utc=True)
+            elif 'timestamp' in df_full.columns:
                 if pd.api.types.is_numeric_dtype(df_full['timestamp']):
                     df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], unit='ms', utc=True)
                 else:
@@ -112,6 +123,8 @@ class KlineCache:
             if 'timestamp' in df_full.columns:
                 df_full = df_full.set_index('timestamp')
             df_full = self._normalize_datetime_index(df_full)
+            if '_open_time_ms' not in df_full.columns:
+                df_full['_open_time_ms'] = self._index_open_time_ms(df_full).to_numpy()
 
             self._memory_cache[key] = df_full
 
@@ -126,8 +139,9 @@ class KlineCache:
             if len(df_full) == 0:
                 return _miss("empty cache")
 
-            cache_start_ms = int(df_full.index[0].timestamp() * 1000)
-            cache_end_ms = int(df_full.index[-1].timestamp() * 1000)
+            open_time_ms = self._index_open_time_ms(df_full)
+            cache_start_ms = int(open_time_ms.iloc[0])
+            cache_end_ms = int(open_time_ms.iloc[-1])
 
             # Kline requests are half-open by open time: [start_ms, end_ms).
             # The final expected candle opens at end_ms - interval.
@@ -150,9 +164,8 @@ class KlineCache:
             if iv_ms is not None and not session_based:
                 expected_count = max(0, (end_ms - start_ms + iv_ms - 1) // iv_ms)
                 # Filter to requested window first
-                start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
-                end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
-                df_window = df_full[(df_full.index >= start_dt) & (df_full.index < end_dt)]
+                window_mask = (open_time_ms >= start_ms) & (open_time_ms < end_ms)
+                df_window = df_full.loc[window_mask.to_numpy()]
                 actual_count = len(df_window)
 
                 if actual_count < expected_count:
@@ -163,7 +176,7 @@ class KlineCache:
 
                 # Check sorted and continuous (no gaps)
                 if actual_count > 1:
-                    ts_ms = (df_window.index.astype('int64') // 10**6).values
+                    ts_ms = self._index_open_time_ms(df_window).to_numpy()
                     diffs = ts_ms[1:] - ts_ms[:-1]
                     if not (diffs == iv_ms).all():
                         return _miss("gap or duplicate detected in cached data")
@@ -198,6 +211,9 @@ class KlineCache:
         df_to_write.index.name = "timestamp"
         df_to_write = df_to_write.reset_index()
         df_to_write["timestamp"] = pd.to_datetime(df_to_write["timestamp"], utc=True)
+        df_to_write["_open_time_ms"] = (
+            df_to_write["timestamp"].astype("int64") // 10**6
+        ).astype("int64")
         df_to_write.to_parquet(path, index=False)
         # 清除記憶體快取，確保下次重新讀取
         key = self._cache_key(symbol, interval)
