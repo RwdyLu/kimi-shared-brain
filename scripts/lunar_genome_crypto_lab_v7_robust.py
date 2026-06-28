@@ -50,7 +50,8 @@ def genome_to_dict(genome: lab.LunarGenome) -> dict[str, Any]:
 def dict_to_genome(obj: dict[str, Any]) -> lab.LunarGenome | None:
     if not isinstance(obj, dict):
         return None
-    data = {k: obj[k] for k in GENOME_FIELDS if k in obj}
+    data = lab.with_gene_defaults(obj) if hasattr(lab, 'with_gene_defaults') else dict(obj)
+    data = {k: data[k] for k in GENOME_FIELDS if k in data}
     if len(data) != len(GENOME_FIELDS):
         return None
     return lab.LunarGenome(**data)

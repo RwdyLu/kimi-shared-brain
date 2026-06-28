@@ -40,6 +40,9 @@ def symbol_metrics_from_rows(rows):
     max_dd = 0.0
     trade_values = []
     details = []
+    regime_counts = {}
+    regime_trades = {}
+    router_active_fracs = []
     for r in rows:
         per = r.get('per_symbol') or {}
         # Single-symbol scenarios should have exactly one entry.
@@ -54,6 +57,11 @@ def symbol_metrics_from_rows(rows):
         min_return = min(min_return, net_return)
         max_dd = max(max_dd, dd)
         trade_values.append(tr)
+        for key, value in (sm.get('regime_counts') or {}).items():
+            regime_counts[key] = regime_counts.get(key, 0) + int(value)
+        for key, value in (sm.get('regime_trades') or {}).items():
+            regime_trades[key] = regime_trades.get(key, 0) + int(value)
+        router_active_fracs.append(float(sm.get('router_active_frac', 1.0)))
         row_ok = bool(alpha >= 0.0 and net_return >= 0.0 and dd <= 0.35 and tr >= 1)
         qualified_rows += 1 if row_ok else 0
         details.append({
@@ -73,6 +81,8 @@ def symbol_metrics_from_rows(rows):
     min_trades_per_scenario = min(trade_values) if trade_values else 0
     max_trades_per_scenario = max(trade_values) if trade_values else 0
     avg_trades_per_scenario = trade_total / n
+    router_active_frac = sum(router_active_fracs) / max(1, len(router_active_fracs))
+    dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
     return {
         'qualified_rows': qualified_rows,
         'scenario_count': n,
@@ -89,6 +99,10 @@ def symbol_metrics_from_rows(rows):
         'min_trades_per_scenario': min_trades_per_scenario,
         'max_trades_per_scenario': max_trades_per_scenario,
         'avg_trades_per_scenario': avg_trades_per_scenario,
+        'regime_counts': regime_counts,
+        'regime_trades': regime_trades,
+        'router_active_frac': router_active_frac,
+        'dominant_regime': dominant_regime,
         'details': details,
     }
 

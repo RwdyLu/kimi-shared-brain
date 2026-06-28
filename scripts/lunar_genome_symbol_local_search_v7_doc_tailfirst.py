@@ -75,6 +75,13 @@ REGIME_DEFAULTS = {
     'RegimeFireScale': 1.0,
     'MinTradeThreshold': 0.003,
     'MicroReserveRate': 0.02,
+    'RegimeRouterBlend': 0.0,
+    'UpTrendFireScale': 1.0,
+    'DownTrendFireScale': 1.0,
+    'ChopFireScale': 1.0,
+    'HighVolFireScale': 1.0,
+    'LowVolFireScale': 1.0,
+    'RegimeMinCoverage': 0.02,
 }
 
 REGIME_BOUNDS = {
@@ -85,6 +92,13 @@ REGIME_BOUNDS = {
     'RegimeFireScale': (0.0, 1.0, 0.1800),
     'MinTradeThreshold': (0.002, 0.12, 0.0100),
     'MicroReserveRate': (0.005, 0.35, 0.0200),
+    'RegimeRouterBlend': (0.0, 1.0, 0.1800),
+    'UpTrendFireScale': (0.0, 1.5, 0.1800),
+    'DownTrendFireScale': (0.0, 1.2, 0.1800),
+    'ChopFireScale': (0.0, 1.0, 0.1600),
+    'HighVolFireScale': (0.0, 1.0, 0.1600),
+    'LowVolFireScale': (0.0, 1.2, 0.1600),
+    'RegimeMinCoverage': (0.02, 0.35, 0.0500),
 }
 
 
@@ -304,6 +318,7 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
     trade_under = max(0.0, args.min_trades - avg_trades)
     return_gap = max(0.0, args.min_return - float(sm.get('min_return', -9.0)))
     dd_excess = max(0.0, sm['max_drawdown'] - args.max_drawdown)
+    coverage_shortfall = max(0.0, float(sm.get('regime_min_coverage', 0.02)) - float(sm.get('router_active_frac', 1.0)))
     # Tail-first anti-overfit score: reject low-trade fake stability and prioritize worst-case alpha.
     score = (
         qualified_row_count * 5000.0
@@ -321,6 +336,7 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
         - trade_over * 1800.0
         - (trade_over ** 2) * 0.15
         - trade_under * 500.0
+        - coverage_shortfall * 80000.0
     )
     if avg_trades < args.min_trades:
         score -= 60000.0 + trade_under * 500.0

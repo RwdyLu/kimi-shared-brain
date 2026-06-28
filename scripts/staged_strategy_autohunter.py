@@ -156,11 +156,14 @@ def row_summary(row: dict) -> str:
     trade_text = f"trades={trades}"
     if max_trades is not None:
         trade_text = f"avg_trades={float(trades or 0):.2f} max_trades={float(max_trades):.0f}"
+    regime_text = ""
+    if m.get("dominant_regime") is not None:
+        regime_text = f" regime={m.get('dominant_regime')} active={float(m.get('router_active_frac', 0.0)):.2f}"
     return (
         f"{row.get('symbol')} {m.get('qualified_rows')}/{m.get('scenario_count')} "
         f"min={float(m.get('min_alpha', 0)):.6f} avg={float(m.get('avg_alpha', 0)):.6f} "
         f"ret={float(m.get('min_return', 0)):.6f} mdd={float(m.get('max_drawdown', 0)):.4f} "
-        f"{trade_text} q={row.get('qualified')}"
+        f"{trade_text}{regime_text} q={row.get('qualified')}"
     )
 
 

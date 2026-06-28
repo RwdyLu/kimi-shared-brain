@@ -53,6 +53,13 @@ class LunarGenome:
     VolGateHigh: float = 0.08
     ChopGate: float = 30.0
     RegimeFireScale: float = 1.0
+    RegimeRouterBlend: float = 0.0
+    UpTrendFireScale: float = 1.0
+    DownTrendFireScale: float = 1.0
+    ChopFireScale: float = 1.0
+    HighVolFireScale: float = 1.0
+    LowVolFireScale: float = 1.0
+    RegimeMinCoverage: float = 0.02
 
 
 @dataclass
@@ -86,7 +93,37 @@ BOUNDS = {
     'VolGateHigh': (0.002, 0.08, float),
     'ChopGate': (0.5, 30.0, float),
     'RegimeFireScale': (0.0, 1.0, float),
+    'RegimeRouterBlend': (0.0, 1.0, float),
+    'UpTrendFireScale': (0.0, 1.5, float),
+    'DownTrendFireScale': (0.0, 1.2, float),
+    'ChopFireScale': (0.0, 1.0, float),
+    'HighVolFireScale': (0.0, 1.0, float),
+    'LowVolFireScale': (0.0, 1.2, float),
+    'RegimeMinCoverage': (0.02, 0.35, float),
 }
+
+
+OPTIONAL_GENE_DEFAULTS = {
+    'TrendGate': 0.0,
+    'VolGateLow': 0.0,
+    'VolGateHigh': 0.08,
+    'ChopGate': 30.0,
+    'RegimeFireScale': 1.0,
+    'RegimeRouterBlend': 0.0,
+    'UpTrendFireScale': 1.0,
+    'DownTrendFireScale': 1.0,
+    'ChopFireScale': 1.0,
+    'HighVolFireScale': 1.0,
+    'LowVolFireScale': 1.0,
+    'RegimeMinCoverage': 0.02,
+}
+
+
+def with_gene_defaults(genome_or_dict):
+    d = asdict(genome_or_dict) if hasattr(genome_or_dict, '__dataclass_fields__') else dict(genome_or_dict)
+    for k, v in OPTIONAL_GENE_DEFAULTS.items():
+        d.setdefault(k, v)
+    return d
 
 
 def clip_gene(name, value):
@@ -108,10 +145,7 @@ def random_genome(rng):
 
 
 def mutate_genome(g, rng, prob=0.15, scale=1.0):
-    d = asdict(g) if hasattr(g, '__dataclass_fields__') else dict(g)
-    defaults = {'TrendGate': 0.0, 'VolGateLow': 0.0, 'VolGateHigh': 0.08, 'ChopGate': 30.0, 'RegimeFireScale': 1.0}
-    for k, v in defaults.items():
-        d.setdefault(k, v)
+    d = with_gene_defaults(g)
     for k, (lo, hi, typ) in BOUNDS.items():
         if rng.random() < prob:
             sigma = (hi - lo) * 0.08 * scale
@@ -120,12 +154,8 @@ def mutate_genome(g, rng, prob=0.15, scale=1.0):
 
 
 def crossover(a, b, rng):
-    da = asdict(a) if hasattr(a, '__dataclass_fields__') else dict(a)
-    db = asdict(b) if hasattr(b, '__dataclass_fields__') else dict(b)
-    defaults = {'TrendGate': 0.0, 'VolGateLow': 0.0, 'VolGateHigh': 0.08, 'ChopGate': 30.0, 'RegimeFireScale': 1.0}
-    for k, v in defaults.items():
-        da.setdefault(k, v)
-        db.setdefault(k, v)
+    da = with_gene_defaults(a)
+    db = with_gene_defaults(b)
     # Orthogonal block crossover: macro timing / macro risk / PDE sensing / fire control.
     blocks = [
         ['MaxDCAMonths','BetaThreshold','MoonPhasePressure','DeadlineForcePct','GCThresholdMonths','GCMaxRatio'],
@@ -133,6 +163,7 @@ def crossover(a, b, rng):
         ['kp','kv','ka'],
         ['MinTradeThreshold','MicroReserveRate','SigmoidScale','Gamma','Beta'],
         ['TrendGate','VolGateLow','VolGateHigh','ChopGate','RegimeFireScale'],
+        ['RegimeRouterBlend','UpTrendFireScale','DownTrendFireScale','ChopFireScale','HighVolFireScale','LowVolFireScale','RegimeMinCoverage'],
     ]
     child = {}
     for block in blocks:
@@ -216,7 +247,7 @@ def scale_genome_for_timeframe(genome, timeframe):
     minutes = timeframe_minutes(timeframe)
     if minutes <= 1:
         return genome
-    d = asdict(genome) if hasattr(genome, '__dataclass_fields__') else dict(genome)
+    d = with_gene_defaults(genome)
     for key in ['TMacro', 'TMicro', 'TDeadline', 'EMAAnchor']:
         d[key] = max(1, int(round(d[key] / minutes)))
     d['EMAAnchor'] = max(2, d['EMAAnchor'])
@@ -247,6 +278,66 @@ def scale_genome_for_timeframe(genome, timeframe):
     return LunarGenome(**d)
 
 
+def clamp01(value):
+    return max(0.0, min(1.0, float(value)))
+
+
+def clamp_route(value):
+    return max(0.0, min(1.5, float(value)))
+
+
+def regime_route(genome, pos_term, vel_value, acc_value):
+    """Return a causal market-regime label and strategy fire multiplier.
+
+    All inputs are derived from the previous completed bar. This keeps the
+    regime genome from seeing future price action while still allowing the
+    policy genome to specialize behavior by market state.
+    """
+    vol_proxy = abs(vel_value) + abs(acc_value)
+    trend_proxy = abs(pos_term) + abs(vel_value)
+    chop_proxy = abs(acc_value) / max(abs(vel_value), 1e-9)
+
+    legacy_multiplier = 1.0
+    if trend_proxy < genome.TrendGate:
+        legacy_multiplier *= genome.RegimeFireScale
+    if vol_proxy < genome.VolGateLow or vol_proxy > genome.VolGateHigh:
+        legacy_multiplier *= genome.RegimeFireScale
+    if chop_proxy > genome.ChopGate:
+        legacy_multiplier *= genome.RegimeFireScale
+
+    label = 'neutral'
+    route_multiplier = 1.0
+    if chop_proxy > genome.ChopGate:
+        label = 'chop'
+        route_multiplier = genome.ChopFireScale
+    elif vol_proxy > genome.VolGateHigh:
+        label = 'high_vol'
+        route_multiplier = genome.HighVolFireScale
+    elif vol_proxy < genome.VolGateLow:
+        label = 'low_vol'
+        route_multiplier = genome.LowVolFireScale
+    elif pos_term > genome.TrendGate and vel_value >= 0:
+        label = 'trend_up'
+        route_multiplier = genome.UpTrendFireScale
+    elif pos_term < -genome.TrendGate and vel_value <= 0:
+        label = 'trend_down'
+        route_multiplier = genome.DownTrendFireScale
+
+    blend = clamp01(genome.RegimeRouterBlend)
+    policy_multiplier = (1.0 - blend) + blend * clamp_route(route_multiplier)
+    combined_multiplier = clamp_route(legacy_multiplier * policy_multiplier)
+    return {
+        'label': label,
+        'vol_proxy': vol_proxy,
+        'trend_proxy': trend_proxy,
+        'chop_proxy': chop_proxy,
+        'legacy_multiplier': clamp01(legacy_multiplier),
+        'route_multiplier': clamp_route(route_multiplier),
+        'policy_multiplier': clamp_route(policy_multiplier),
+        'combined_multiplier': combined_multiplier,
+    }
+
+
 def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_step, lot_min, min_notional, bar_minutes=1):
     n = len(close)
     if n < max(1000, genome.EMAAnchor + 10):
@@ -267,6 +358,10 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
     dca_spent = 0.0
     lots = []
     equity_curve = []
+    regime_counts = {k: 0 for k in ['trend_up', 'trend_down', 'chop', 'high_vol', 'low_vol', 'neutral']}
+    regime_trades = {k: 0 for k in regime_counts}
+    router_checks = 0
+    router_active = 0
 
     ghost_cash = initial_cash
     ghost_qty = 0.0
@@ -296,8 +391,10 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
             beta_dev = max(0.0, (ema[sig_i] - signal_price) / max(ema[sig_i], 1e-12))
             trigger = beta_dev >= genome.BetaThreshold or (sig_i % max(1, genome.TDeadline) == season.tick_offset)
             if trigger:
+                macro_pos = (signal_price - ema[sig_i]) / max(ema[sig_i], 1e-12)
+                macro_route = regime_route(genome, macro_pos, vel[sig_i], acc[sig_i])
                 force = 1.0 + genome.DeadlineForcePct * (sig_i / max(1, n))
-                notional = min(cash, macro_budget * mult * moon * force)
+                notional = min(cash, macro_budget * mult * moon * force * macro_route['policy_multiplier'])
                 qty = normalize_order_qty(notional, price, lot_step, lot_min, min_notional)
                 if qty > 0:
                     gross = qty * price
@@ -307,6 +404,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                     dca_spent += gross
                     total_cost += fee
                     trade_count += 1
+                    regime_trades[macro_route['label']] += 1
                     lots.append({'qty': qty, 'price': price, 'dead': True})
                 elif notional > 0:
                     truncated_orders += 1
@@ -332,17 +430,11 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         if sig_i % max(1, genome.TMicro) == season.tick_offset:
             pos_term = (signal_price - ema[sig_i]) / max(ema[sig_i], 1e-12)
             raw = -genome.kp * pos_term + genome.kv * vel[sig_i] + genome.ka * acc[sig_i]
-            vol_proxy = abs(vel[sig_i]) + abs(acc[sig_i])
-            trend_proxy = abs(pos_term) + abs(vel[sig_i])
-            chop_proxy = abs(acc[sig_i]) / max(abs(vel[sig_i]), 1e-9)
-            regime_multiplier = 1.0
-            if trend_proxy < genome.TrendGate:
-                regime_multiplier *= genome.RegimeFireScale
-            if vol_proxy < genome.VolGateLow or vol_proxy > genome.VolGateHigh:
-                regime_multiplier *= genome.RegimeFireScale
-            if chop_proxy > genome.ChopGate:
-                regime_multiplier *= genome.RegimeFireScale
-            regime_multiplier = max(0.0, min(1.0, regime_multiplier))
+            route = regime_route(genome, pos_term, vel[sig_i], acc[sig_i])
+            regime_counts[route['label']] += 1
+            router_checks += 1
+            if route['combined_multiplier'] > 0.05:
+                router_active += 1
             target_float_weight = 1.0 / (1.0 + math.exp(-max(-50, min(50, raw * genome.SigmoidScale))))
             target_float_weight = target_float_weight ** genome.Gamma
             float_value = float_qty * price
@@ -351,7 +443,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
             diff = target_value - float_value
             if abs(diff) / equity >= genome.MinTradeThreshold:
                 if diff > 0:
-                    notional = min(cash, diff * genome.MicroReserveRate * mult * (regime_multiplier if 'regime_multiplier' in locals() else 1.0))
+                    notional = min(cash, diff * genome.MicroReserveRate * mult * route['combined_multiplier'])
                     qty = normalize_order_qty(notional, price, lot_step, lot_min, min_notional)
                     if qty > 0:
                         gross = qty * price; fee = gross * cost_rate
@@ -359,10 +451,11 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                         float_qty += qty
                         lots.append({'qty': qty, 'price': price, 'dead': False})
                         total_cost += fee; trade_count += 1
+                        regime_trades[route['label']] += 1
                     elif notional > 0:
                         truncated_orders += 1
                 else:
-                    sell_value = min(float_value, -diff * genome.MicroReserveRate * mult * (regime_multiplier if 'regime_multiplier' in locals() else 1.0))
+                    sell_value = min(float_value, -diff * genome.MicroReserveRate * mult * route['combined_multiplier'])
                     qty = normalize_order_qty(sell_value, price, lot_step, lot_min, min_notional)
                     qty = min(qty, float_qty)
                     if qty > 0:
@@ -370,6 +463,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                         cash += gross - fee
                         float_qty -= qty
                         total_cost += fee; trade_count += 1
+                        regime_trades[route['label']] += 1
                         # Approximate realized lot PnL FIFO over float/non-dead lots.
                         remain = qty
                         new_lots = []
@@ -394,6 +488,8 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
     ghost_return = (ghost_equity - initial_cash) / initial_cash
     strategy_return = (equity - initial_cash) / initial_cash
     alpha = strategy_return - ghost_return
+    router_active_frac = router_active / max(1, router_checks)
+    dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
     return {
         'equity': equity,
         'return': strategy_return,
@@ -407,6 +503,11 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         'max_drawdown': mdd,
         'dead_to_float': dead_to_float,
         'dca_spent': dca_spent,
+        'regime_counts': regime_counts,
+        'regime_trades': regime_trades,
+        'router_checks': router_checks,
+        'router_active_frac': router_active_frac,
+        'dominant_regime': dominant_regime,
     }
 
 
@@ -423,6 +524,9 @@ def evaluate_individual(genome, env, season, markets, rng, args):
     mdds = []
     positive_alpha = 0
     ruin = 0
+    regime_counts = {k: 0 for k in ['trend_up', 'trend_down', 'chop', 'high_vol', 'low_vol', 'neutral']}
+    regime_trades = {k: 0 for k in regime_counts}
+    router_active_fracs = []
     for symbol, m in markets.items():
         close = m['close']
         if len(close) > args.window_bars:
@@ -442,6 +546,11 @@ def evaluate_individual(genome, env, season, markets, rng, args):
         mdds.append(res['max_drawdown'])
         positive_alpha += 1 if res['alpha'] > 0 else 0
         ruin += 1 if res['equity'] <= args.initial_cash * (1.0 - env.GlobalStopLoss) else 0
+        for key, value in (res.get('regime_counts') or {}).items():
+            regime_counts[key] = regime_counts.get(key, 0) + int(value)
+        for key, value in (res.get('regime_trades') or {}).items():
+            regime_trades[key] = regime_trades.get(key, 0) + int(value)
+        router_active_fracs.append(float(res.get('router_active_frac', 1.0)))
     n = max(1, len(alphas))
     avg_alpha = float(np.mean(alphas)) if alphas else -999.0
     min_alpha = float(np.min(alphas)) if alphas else -999.0
@@ -457,6 +566,10 @@ def evaluate_individual(genome, env, season, markets, rng, args):
     return_shortfall = max(0.0, min_return_floor - min_return)
     positive_frac = positive_alpha / n
     min_shortfall = max(0.0, args.min_alpha - min_alpha)
+    router_active_frac = float(np.mean(router_active_fracs)) if router_active_fracs else 0.0
+    regime_min_coverage = float(getattr(eval_genome, 'RegimeMinCoverage', 0.02))
+    coverage_shortfall = max(0.0, regime_min_coverage - router_active_frac)
+    dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
     score = (
         min_alpha * 160.0
         + avg_alpha * 45.0
@@ -470,6 +583,7 @@ def evaluate_individual(genome, env, season, markets, rng, args):
         - trunc_penalty
         - mdd_penalty
         - overtrade_penalty
+        - coverage_shortfall * 120.0
     )
     qualified = bool(
         avg_alpha > 0
@@ -496,6 +610,12 @@ def evaluate_individual(genome, env, season, markets, rng, args):
         'avg_drawdown': avg_mdd,
         'max_drawdown': max_mdd,
         'ruin_symbols': ruin,
+        'regime_counts': regime_counts,
+        'regime_trades': regime_trades,
+        'router_active_frac': router_active_frac,
+        'dominant_regime': dominant_regime,
+        'regime_min_coverage': regime_min_coverage,
+        'regime_coverage_shortfall': coverage_shortfall,
         'per_symbol': per,
     }
 
@@ -540,9 +660,12 @@ def load_archive(path, limit):
         out = []
         for item in items[:limit]:
             g = item.get('genome') or item
-            keys = set(BOUNDS)
-            if keys.issubset(g.keys()):
-                out.append(LunarGenome(**{k: g[k] for k in BOUNDS}))
+            try:
+                d = with_gene_defaults(g)
+                if set(BOUNDS).issubset(d.keys()):
+                    out.append(LunarGenome(**{k: d[k] for k in BOUNDS}))
+            except Exception:
+                continue
         return out
     except Exception:
         return []
