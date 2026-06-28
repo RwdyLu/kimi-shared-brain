@@ -53,6 +53,16 @@ class KlineCache:
     
     def _parquet_path(self, symbol: str, interval: str) -> Path:
         return self.cache_dir / f"{self._cache_key(symbol, interval)}.parquet"
+
+    def _normalize_datetime_index(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalize cache data to a UTC DatetimeIndex across pandas/pyarrow versions."""
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index, utc=True)
+        elif df.index.tz is None:
+            df.index = df.index.tz_localize("UTC")
+        else:
+            df.index = df.index.tz_convert("UTC")
+        return df.sort_index()
     
     def has_cache(self, symbol: str, interval: str) -> bool:
         return self._parquet_path(symbol, interval).exists()
@@ -93,14 +103,15 @@ class KlineCache:
             df_full = pd.read_parquet(path)
             # 確保 timestamp 是 datetime
             if 'timestamp' in df_full.columns:
-                if df_full['timestamp'].dtype == 'int64':
+                if pd.api.types.is_numeric_dtype(df_full['timestamp']):
                     df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], unit='ms', utc=True)
-                elif not pd.api.types.is_datetime64_any_dtype(df_full['timestamp']):
+                else:
                     df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], utc=True)
 
             # 設為索引
             if 'timestamp' in df_full.columns:
-                df_full = df_full.set_index('timestamp').sort_index()
+                df_full = df_full.set_index('timestamp')
+            df_full = self._normalize_datetime_index(df_full)
 
             self._memory_cache[key] = df_full
 
@@ -166,7 +177,10 @@ class KlineCache:
             df = df[df.index >= start_dt]
         if end_ms is not None:
             end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
-            df = df[df.index <= end_dt]
+            if session_based:
+                df = df[df.index <= end_dt]
+            else:
+                df = df[df.index < end_dt]
 
         if len(df) == 0:
             return _miss("filtered range is empty")
@@ -180,7 +194,10 @@ class KlineCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         path = self._parquet_path(symbol, interval)
         # 寫入時重置索引以保留 timestamp 欄位
-        df_to_write = df.reset_index()
+        df_to_write = self._normalize_datetime_index(df.copy())
+        df_to_write.index.name = "timestamp"
+        df_to_write = df_to_write.reset_index()
+        df_to_write["timestamp"] = pd.to_datetime(df_to_write["timestamp"], utc=True)
         df_to_write.to_parquet(path, index=False)
         # 清除記憶體快取，確保下次重新讀取
         key = self._cache_key(symbol, interval)

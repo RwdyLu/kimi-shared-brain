@@ -525,7 +525,7 @@ def built_in_default_chromosome(symbol: str = "default") -> StrategyChromosomeV2
 # V2 染色體生成器
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def built_in_default_chromosome(symbol: str = "BTCUSDT") -> "StrategyChromosomeV2":
+def built_in_default_chromosome(symbol: str = "default") -> "StrategyChromosomeV2":
     """
     Return a deterministic built-in default chromosome used when no Champion exists.
     Seeds random with a fixed value so output is always identical.
