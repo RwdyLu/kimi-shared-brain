@@ -38,7 +38,7 @@ def symbol_metrics_from_rows(rows):
     min_return = 999.0
     avg_return = 0.0
     max_dd = 0.0
-    trades = 0
+    trade_values = []
     details = []
     for r in rows:
         per = r.get('per_symbol') or {}
@@ -53,7 +53,7 @@ def symbol_metrics_from_rows(rows):
         min_alpha = min(min_alpha, alpha)
         min_return = min(min_return, net_return)
         max_dd = max(max_dd, dd)
-        trades += tr
+        trade_values.append(tr)
         row_ok = bool(alpha >= 0.0 and net_return >= 0.0 and dd <= 0.35 and tr >= 1)
         qualified_rows += 1 if row_ok else 0
         details.append({
@@ -69,6 +69,10 @@ def symbol_metrics_from_rows(rows):
     avg_alpha /= n
     avg_return /= n
     survival_rate = qualified_rows / n
+    trade_total = sum(trade_values)
+    min_trades_per_scenario = min(trade_values) if trade_values else 0
+    max_trades_per_scenario = max(trade_values) if trade_values else 0
+    avg_trades_per_scenario = trade_total / n
     return {
         'qualified_rows': qualified_rows,
         'scenario_count': n,
@@ -78,7 +82,13 @@ def symbol_metrics_from_rows(rows):
         'min_return': min_return if min_return != 999.0 else 0.0,
         'avg_return': avg_return,
         'max_drawdown': max_dd,
-        'trades': trades,
+        # ``trades`` is intentionally a per-scenario average for gate checks.
+        # The old aggregate value is kept as ``trade_total`` for audit output.
+        'trades': avg_trades_per_scenario,
+        'trade_total': trade_total,
+        'min_trades_per_scenario': min_trades_per_scenario,
+        'max_trades_per_scenario': max_trades_per_scenario,
+        'avg_trades_per_scenario': avg_trades_per_scenario,
         'details': details,
     }
 
@@ -132,8 +142,8 @@ def main() -> None:
                 and sm['min_return'] >= args.min_return
                 and sm['avg_alpha'] > 0
                 and sm['max_drawdown'] <= args.max_drawdown
-                and sm['trades'] >= args.min_trades
-                and sm['trades'] <= args.max_trades
+                and sm['avg_trades_per_scenario'] >= args.min_trades
+                and sm['max_trades_per_scenario'] <= args.max_trades
             )
             # Favor stable positive alpha over sparse single-window spikes.
             symbol_score = (

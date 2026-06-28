@@ -68,9 +68,9 @@ STAGES = [
 ]
 
 PROFILES = [
-    Profile("balanced", 18, 6, 0.12, 0.006, 0.30, 0.18, 0.20, 0.82, 0.08),
-    Profile("lowtrade", 20, 6, 0.16, 0.008, 0.42, 0.22, 0.28, 0.76, 0.10, trade_min_mult=0.80, trade_max_mult=0.60),
-    Profile("explorer", 24, 8, 0.24, 0.012, 0.65, 0.30, 0.45, 0.62, 0.18, trade_min_mult=0.70, trade_max_mult=1.15, prune_min_alpha=-0.006, prune_max_failures=2),
+    Profile("balanced", 24, 8, 0.12, 0.006, 0.30, 0.18, 0.20, 0.82, 0.08),
+    Profile("lowtrade", 28, 8, 0.16, 0.008, 0.42, 0.22, 0.28, 0.76, 0.10, trade_min_mult=0.80, trade_max_mult=0.60),
+    Profile("explorer", 32, 10, 0.24, 0.012, 0.65, 0.30, 0.45, 0.62, 0.18, trade_min_mult=0.70, trade_max_mult=1.15, prune_min_alpha=-0.006, prune_max_failures=2),
 ]
 
 RESAMPLE_RULES = {
@@ -151,11 +151,16 @@ def strict_rows(rows: list[dict]) -> list[dict]:
 
 def row_summary(row: dict) -> str:
     m = row.get("metrics") or row
+    trades = m.get("trades")
+    max_trades = m.get("max_trades_per_scenario")
+    trade_text = f"trades={trades}"
+    if max_trades is not None:
+        trade_text = f"avg_trades={float(trades or 0):.2f} max_trades={float(max_trades):.0f}"
     return (
         f"{row.get('symbol')} {m.get('qualified_rows')}/{m.get('scenario_count')} "
         f"min={float(m.get('min_alpha', 0)):.6f} avg={float(m.get('avg_alpha', 0)):.6f} "
         f"ret={float(m.get('min_return', 0)):.6f} mdd={float(m.get('max_drawdown', 0)):.4f} "
-        f"trades={m.get('trades')} q={row.get('qualified')}"
+        f"{trade_text} q={row.get('qualified')}"
     )
 
 

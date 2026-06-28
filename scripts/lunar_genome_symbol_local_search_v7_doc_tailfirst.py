@@ -140,6 +140,92 @@ def make_population(seeds, elites, rng: random.Random, args):
     return pop
 
 
+def row_key(row: dict[str, Any]) -> str:
+    return json.dumps([row.get('symbol'), row.get('genome')], sort_keys=True, separators=(',', ':'))
+
+
+def unique_rows(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    out = []
+    seen = set()
+    for row in rows:
+        k = row_key(row)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def rank_key(row: dict[str, Any]) -> tuple[int, float]:
+    return (1 if row.get('qualified') else 0, float(row.get('score') or 0.0))
+
+
+def update_symbol_best(symbol_best_rows: dict[str, list[dict[str, Any]]], rows: list[dict[str, Any]], args) -> None:
+    for symbol in args.symbols:
+        merged = symbol_best_rows.get(symbol, []) + [row for row in rows if row.get('symbol') == symbol]
+        merged.sort(key=rank_key, reverse=True)
+        symbol_best_rows[symbol] = unique_rows(merged, args.symbol_archive_per_symbol)
+
+
+def choose_elites(best_rows: list[dict[str, Any]], symbol_best_rows: dict[str, list[dict[str, Any]]], seeds, args):
+    elite_sources = []
+    max_depth = max((len(symbol_best_rows.get(symbol, [])) for symbol in args.symbols), default=0)
+    for rank in range(max_depth):
+        for symbol in args.symbols:
+            rows = symbol_best_rows.get(symbol, [])
+            if rank < len(rows):
+                elite_sources.append(rows[rank])
+        if len(elite_sources) >= args.elites * 4:
+            break
+    elite_sources.extend(best_rows)
+    elite_sources.extend(sorted(best_rows, key=lambda r: int((r.get('metrics') or {}).get('qualified_rows', 0)), reverse=True))
+    elite_sources.extend(sorted(best_rows, key=lambda r: float((r.get('metrics') or {}).get('min_alpha', -9.0)), reverse=True))
+
+    elites = []
+    seen = set()
+    for row in elite_sources:
+        g = v7.dict_to_genome(row.get('genome') or {})
+        if not g:
+            continue
+        k = genome_key(g)
+        if k in seen:
+            continue
+        seen.add(k)
+        elites.append(g)
+        if len(elites) >= args.elites:
+            return elites
+    for g in seeds:
+        k = genome_key(g)
+        if k not in seen:
+            seen.add(k)
+            elites.append(clone_genome(g))
+        if len(elites) >= args.elites:
+            break
+    return elites
+
+
+def diverse_top_rows(best_rows: list[dict[str, Any]], symbol_best_rows: dict[str, list[dict[str, Any]]], args) -> list[dict[str, Any]]:
+    out = []
+    max_depth = max(args.export_per_symbol, max((len(symbol_best_rows.get(symbol, [])) for symbol in args.symbols), default=0))
+    for rank in range(max_depth):
+        for symbol in args.symbols:
+            rows = symbol_best_rows.get(symbol, [])
+            if rank < len(rows):
+                out.append(rows[rank])
+        if len(out) >= 50:
+            break
+    out.extend(best_rows)
+    return unique_rows(out, 50)
+
+
+def trade_gate_values(sm: dict[str, Any]) -> tuple[float, float]:
+    avg_trades = float(sm.get('avg_trades_per_scenario', sm.get('trades', 0.0)))
+    max_trades = float(sm.get('max_trades_per_scenario', sm.get('trades', 0.0)))
+    return avg_trades, max_trades
+
+
 def _evaluate_rows(genome, scenarios: list[dict[str, Any]], args):
     rows = []
     full_count = len(scenarios)
@@ -174,7 +260,11 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
         raw_avg_alpha = sum(float(r.get('avg_alpha', 0.0)) for r in raw_rows) / max(1, len(raw_rows))
         raw_avg_return = sum(float(r.get('avg_return', 0.0)) for r in raw_rows) / max(1, len(raw_rows))
         raw_max_dd = max(float(r.get('max_drawdown', 0.0)) for r in raw_rows) if raw_rows else 0.0
-        raw_trades = sum(int(r.get('trades', 0)) for r in raw_rows)
+        raw_trade_values = [int(r.get('trades', 0)) for r in raw_rows]
+        raw_trade_total = sum(raw_trade_values)
+        raw_avg_trades = raw_trade_total / max(1, len(raw_trade_values))
+        raw_max_trades = max(raw_trade_values) if raw_trade_values else 0
+        raw_min_trades = min(raw_trade_values) if raw_trade_values else 0
         sm['scenario_count'] = full_count
         sm['qualified_rows'] = min(int(sm.get('qualified_rows', 0)), len(rows))
         sm['survival_rate'] = sm['qualified_rows'] / full_count
@@ -183,9 +273,15 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
         sm['min_return'] = min(float(sm.get('min_return', 0.0)), raw_min_return)
         sm['avg_return'] = min(float(sm.get('avg_return', 0.0)), raw_avg_return)
         sm['max_drawdown'] = max(float(sm.get('max_drawdown', 0.0)), raw_max_dd)
-        sm['trades'] = max(int(sm.get('trades', 0)), raw_trades)
+        sm['trade_total'] = max(int(sm.get('trade_total', 0)), raw_trade_total)
+        sm['avg_trades_per_scenario'] = max(float(sm.get('avg_trades_per_scenario', 0.0)), raw_avg_trades)
+        sm['max_trades_per_scenario'] = max(float(sm.get('max_trades_per_scenario', 0.0)), raw_max_trades)
+        current_min_trades = float(sm.get('min_trades_per_scenario', raw_min_trades))
+        sm['min_trades_per_scenario'] = min(current_min_trades, raw_min_trades)
+        sm['trades'] = sm['avg_trades_per_scenario']
         sm['pruned'] = True
         sm['pruned_rows'] = len(raw_rows)
+    avg_trades, max_trades = trade_gate_values(sm)
     qualified = bool(
         not pruned
         and sm['survival_rate'] >= args.min_survival_rate
@@ -193,8 +289,8 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
         and sm['min_return'] >= args.min_return
         and sm['avg_alpha'] > 0
         and sm['max_drawdown'] <= args.max_drawdown
-        and sm['trades'] >= args.min_trades
-        and sm['trades'] <= args.max_trades
+        and avg_trades >= args.min_trades
+        and max_trades <= args.max_trades
     )
     # Balanced robustness scoring: first keep pressure toward more surviving rows,
     # but reject genomes that buy coverage with a deep left tail. This matches the
@@ -204,8 +300,8 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
     missing_rows = max(0, scenario_count - qualified_row_count)
     tail_gap = max(0.0, -float(sm['min_alpha']))
     severe_tail_gap = max(0.0, tail_gap - 0.0015)
-    trade_over = max(0, sm['trades'] - args.max_trades)
-    trade_under = max(0, args.min_trades - sm['trades'])
+    trade_over = max(0.0, max_trades - args.max_trades)
+    trade_under = max(0.0, args.min_trades - avg_trades)
     return_gap = max(0.0, args.min_return - float(sm.get('min_return', -9.0)))
     dd_excess = max(0.0, sm['max_drawdown'] - args.max_drawdown)
     # Tail-first anti-overfit score: reject low-trade fake stability and prioritize worst-case alpha.
@@ -226,12 +322,12 @@ def eval_symbol(genome, symbol: str, scenarios: list[dict[str, Any]], args):
         - (trade_over ** 2) * 0.15
         - trade_under * 500.0
     )
-    if sm['trades'] < args.min_trades:
+    if avg_trades < args.min_trades:
         score -= 60000.0 + trade_under * 500.0
     if pruned:
         score -= 5000.0 + (full_count - len(raw_rows)) * 10.0
     if qualified:
-        score += 10000.0
+        score += 250000.0
     return score, qualified, sm
 
 def save_json(path: str, payload: dict[str, Any]) -> None:
@@ -290,6 +386,8 @@ def main() -> None:
     parser.add_argument('--prune-max-failures', type=int, default=0)
     parser.add_argument('--audit-top', type=int, default=0)
     parser.add_argument('--checkpoint-every', type=int, default=1)
+    parser.add_argument('--symbol-archive-per-symbol', type=int, default=48)
+    parser.add_argument('--export-per-symbol', type=int, default=4)
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
@@ -299,6 +397,7 @@ def main() -> None:
         seeds = [v7.lab.random_genome(rng) for _ in range(max(4, args.elites))]
     elites = seeds[: args.elites]
     best_rows: list[dict[str, Any]] = []
+    symbol_best_rows: dict[str, list[dict[str, Any]]] = {symbol: [] for symbol in args.symbols}
     qualified_rows: list[dict[str, Any]] = []
 
     for epoch in range(1, args.epochs + 1):
@@ -320,7 +419,7 @@ def main() -> None:
                 epoch_rows.append(row)
                 if qualified:
                     qualified_rows.append(row)
-        epoch_rows.sort(key=lambda r: float(r['score']), reverse=True)
+        epoch_rows.sort(key=rank_key, reverse=True)
         if args.audit_top > 0:
             old_prune_after = args.prune_after
             args.prune_after = 0
@@ -341,40 +440,27 @@ def main() -> None:
                     qualified_rows.append(row)
             args.prune_after = old_prune_after
             epoch_rows = audited + epoch_rows[args.audit_top:]
-            epoch_rows.sort(key=lambda r: float(r['score']), reverse=True)
+            epoch_rows.sort(key=rank_key, reverse=True)
         selected_rows = []
         selected_rows.extend(epoch_rows[: args.elites * 2])
         selected_rows.extend(sorted(epoch_rows, key=lambda r: int((r.get('metrics') or {}).get('qualified_rows', 0)), reverse=True)[: args.elites])
         selected_rows.extend(sorted(epoch_rows, key=lambda r: float((r.get('metrics') or {}).get('min_alpha', -9.0)), reverse=True)[: args.elites])
         selected_rows.extend(sorted(epoch_rows, key=lambda r: float((r.get('metrics') or {}).get('avg_alpha', -9.0)), reverse=True)[: max(1, args.elites // 2)])
-        unique_selected = []
-        selected_seen = set()
-        for row in selected_rows:
-            g = v7.dict_to_genome(row['genome'])
-            if not g:
-                continue
-            k = genome_key(g)
-            if k in selected_seen:
-                continue
-            selected_seen.add(k)
-            unique_selected.append(row)
+        for symbol in args.symbols:
+            sym_rows = [row for row in epoch_rows if row.get('symbol') == symbol]
+            selected_rows.extend(sym_rows[: max(2, args.elites // 2)])
+            selected_rows.extend(sorted(sym_rows, key=lambda r: int((r.get('metrics') or {}).get('qualified_rows', 0)), reverse=True)[: max(1, args.elites // 3)])
+            selected_rows.extend(sorted(sym_rows, key=lambda r: float((r.get('metrics') or {}).get('min_alpha', -9.0)), reverse=True)[: max(1, args.elites // 3)])
+        unique_selected = [
+            row
+            for row in unique_rows(selected_rows, max(args.elites * len(args.symbols) * 3, args.population * len(args.symbols)))
+            if v7.dict_to_genome(row['genome'])
+        ]
         best_rows.extend(unique_selected)
-        best_rows.sort(key=lambda r: float(r['score']), reverse=True)
-        best_rows = best_rows[:160]
-        elites = []
-        seen = set()
-        elite_sources = []
-        elite_sources.extend(best_rows)
-        elite_sources.extend(sorted(best_rows, key=lambda r: int((r.get('metrics') or {}).get('qualified_rows', 0)), reverse=True))
-        elite_sources.extend(sorted(best_rows, key=lambda r: float((r.get('metrics') or {}).get('min_alpha', -9.0)), reverse=True))
-        for row in elite_sources:
-            g = v7.dict_to_genome(row['genome'])
-            k = genome_key(g)
-            if k not in seen:
-                seen.add(k)
-                elites.append(g)
-            if len(elites) >= args.elites:
-                break
+        best_rows.sort(key=rank_key, reverse=True)
+        best_rows = unique_rows(best_rows, 240)
+        update_symbol_best(symbol_best_rows, unique_selected, args)
+        elites = choose_elites(best_rows, symbol_best_rows, seeds, args)
         best = best_rows[0]
         m = best['metrics']
         print(
@@ -395,7 +481,7 @@ def main() -> None:
                 'symbols': args.symbols,
                 'qualified_count': len(qualified_rows),
                 'qualified': sorted(qualified_rows, key=lambda r: float(r['score']), reverse=True)[:50],
-                'top': best_rows[:50],
+                'top': diverse_top_rows(best_rows, symbol_best_rows, args),
             })
         if qualified_rows and args.min_survival_rate >= 1.0:
             # Keep running after a hit; later epochs may improve margin.
@@ -407,7 +493,7 @@ def main() -> None:
         'symbols': args.symbols,
         'qualified_count': len(qualified_rows),
         'qualified': sorted(qualified_rows, key=lambda r: float(r['score']), reverse=True)[:50],
-        'top': best_rows[:50],
+        'top': diverse_top_rows(best_rows, symbol_best_rows, args),
     })
 
 

@@ -69,8 +69,8 @@ def strict_ok(metrics: dict, args) -> bool:
         and metrics["min_return"] >= args.min_return
         and metrics["avg_alpha"] > 0
         and metrics["max_drawdown"] <= args.max_drawdown
-        and metrics["trades"] >= args.min_trades
-        and metrics["trades"] <= args.max_trades
+        and metrics.get("avg_trades_per_scenario", metrics.get("trades", 0)) >= args.min_trades
+        and metrics.get("max_trades_per_scenario", metrics.get("trades", 0)) <= args.max_trades
     )
 
 
@@ -87,6 +87,10 @@ def symbol_metrics(rows: list[dict]) -> dict:
             "avg_return": -999.0,
             "max_drawdown": 999.0,
             "trades": 0,
+            "trade_total": 0,
+            "min_trades_per_scenario": 0,
+            "max_trades_per_scenario": 0,
+            "avg_trades_per_scenario": 0.0,
             "details": [],
         }
     return sv.symbol_metrics_from_rows(usable)
@@ -176,14 +180,27 @@ def main() -> None:
         min_return = min((float(w["metrics"]["min_return"]) for w in window_rows), default=-999.0)
         avg_return = sum(float(w["metrics"]["avg_return"]) for w in window_rows) / max(1, len(window_rows))
         max_dd = max((float(w["metrics"]["max_drawdown"]) for w in window_rows), default=999.0)
-        trades = sum(int(w["metrics"]["trades"]) for w in window_rows)
+        trade_total = sum(int(w["metrics"].get("trade_total", w["metrics"]["trades"])) for w in window_rows)
+        avg_trades_per_scenario = (
+            sum(float(w["metrics"].get("avg_trades_per_scenario", w["metrics"]["trades"])) for w in window_rows)
+            / max(1, len(window_rows))
+        )
+        max_trades_per_scenario = max(
+            (float(w["metrics"].get("max_trades_per_scenario", w["metrics"]["trades"])) for w in window_rows),
+            default=0.0,
+        )
+        min_trades_per_scenario = min(
+            (float(w["metrics"].get("min_trades_per_scenario", w["metrics"]["trades"])) for w in window_rows),
+            default=0.0,
+        )
         qualified = bool(
             window_rows
             and passed == len(window_rows)
             and min_alpha >= args.min_alpha
             and min_return >= args.min_return
             and max_dd <= args.max_drawdown
-            and trades <= args.max_trades
+            and avg_trades_per_scenario >= args.min_trades
+            and max_trades_per_scenario <= args.max_trades
         )
         wf_score = (
             passed * 10000.0
@@ -205,7 +222,11 @@ def main() -> None:
             "min_return": min_return,
             "avg_return": avg_return,
             "max_drawdown": max_dd,
-            "trades": trades,
+            "trades": avg_trades_per_scenario,
+            "trade_total": trade_total,
+            "min_trades_per_scenario": min_trades_per_scenario,
+            "max_trades_per_scenario": max_trades_per_scenario,
+            "avg_trades_per_scenario": avg_trades_per_scenario,
             "windows": window_rows,
             "genome": row["genome"],
         })
