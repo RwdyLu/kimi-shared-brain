@@ -362,10 +362,15 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
     regime_trades = {k: 0 for k in regime_counts}
     router_checks = 0
     router_active = 0
+    route_multiplier_sum = 0.0
+    policy_multiplier_sum = 0.0
 
     ghost_cash = initial_cash
     ghost_qty = 0.0
     ghost_spent = 0.0
+    routed_ghost_cash = initial_cash
+    routed_ghost_qty = 0.0
+    routed_ghost_spent = 0.0
     macro_budget = initial_cash * (1.0 - env.DeadReserveRatio) / max(1, genome.MaxDCAMonths)
 
     moon_period_bars = max(1, int(round(1440 * 29 / max(1, bar_minutes))))
@@ -394,7 +399,8 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                 macro_pos = (signal_price - ema[sig_i]) / max(ema[sig_i], 1e-12)
                 macro_route = regime_route(genome, macro_pos, vel[sig_i], acc[sig_i])
                 force = 1.0 + genome.DeadlineForcePct * (sig_i / max(1, n))
-                notional = min(cash, macro_budget * mult * moon * force * macro_route['policy_multiplier'])
+                base_notional = macro_budget * mult * moon * force
+                notional = min(cash, base_notional * macro_route['policy_multiplier'])
                 qty = normalize_order_qty(notional, price, lot_step, lot_min, min_notional)
                 if qty > 0:
                     gross = qty * price
@@ -409,13 +415,22 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                 elif notional > 0:
                     truncated_orders += 1
 
-                # Ghost DCA uses same macro cash rhythm, no micro engine.
-                gqty = normalize_order_qty(min(ghost_cash, notional), price, lot_step, lot_min, min_notional)
+                # Full Ghost DCA is not routed. It remains the strict benchmark.
+                gqty = normalize_order_qty(min(ghost_cash, base_notional), price, lot_step, lot_min, min_notional)
                 if gqty > 0:
                     gg = gqty * price; gf = gg * cost_rate
                     ghost_cash -= gg + gf
                     ghost_qty += gqty
                     ghost_spent += gg
+
+                # Routed Ghost is kept only for audit, to show how much the
+                # router changed the old benchmark.
+                rgqty = normalize_order_qty(min(routed_ghost_cash, notional), price, lot_step, lot_min, min_notional)
+                if rgqty > 0:
+                    rgg = rgqty * price; rgf = rgg * cost_rate
+                    routed_ghost_cash -= rgg + rgf
+                    routed_ghost_qty += rgqty
+                    routed_ghost_spent += rgg
 
         # Inventory bridge: high positive acceleration unlocks DeadHold to FloatHold.
         unlock_pressure = genome.ka * acc[sig_i] + genome.kv * vel[sig_i]
@@ -435,6 +450,8 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
             router_checks += 1
             if route['combined_multiplier'] > 0.05:
                 router_active += 1
+            route_multiplier_sum += route['combined_multiplier']
+            policy_multiplier_sum += route['policy_multiplier']
             target_float_weight = 1.0 / (1.0 + math.exp(-max(-50, min(50, raw * genome.SigmoidScale))))
             target_float_weight = target_float_weight ** genome.Gamma
             float_value = float_qty * price
@@ -484,18 +501,38 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
     final_price = close[min(n - 1, len(close) - 1)]
     equity = cash + (dead_qty + float_qty) * final_price
     ghost_equity = ghost_cash + ghost_qty * final_price
+    routed_ghost_equity = routed_ghost_cash + routed_ghost_qty * final_price
     mdd = max_drawdown(equity_curve)
     ghost_return = (ghost_equity - initial_cash) / initial_cash
+    routed_ghost_return = (routed_ghost_equity - initial_cash) / initial_cash
     strategy_return = (equity - initial_cash) / initial_cash
     alpha = strategy_return - ghost_return
     router_active_frac = router_active / max(1, router_checks)
+    avg_route_multiplier = route_multiplier_sum / max(1, router_checks)
+    avg_policy_multiplier = policy_multiplier_sum / max(1, router_checks)
     dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
+    total_regime_checks = sum(regime_counts.values())
+    total_regime_trades = sum(regime_trades.values())
+    regime_check_distribution = {
+        k: v / max(1, total_regime_checks)
+        for k, v in regime_counts.items()
+    }
+    regime_trade_distribution = {
+        k: v / max(1, total_regime_trades)
+        for k, v in regime_trades.items()
+    }
     return {
         'equity': equity,
         'return': strategy_return,
+        'full_ghost_equity': ghost_equity,
+        'full_ghost_return': ghost_return,
         'ghost_equity': ghost_equity,
         'ghost_return': ghost_return,
+        'routed_ghost_equity': routed_ghost_equity,
+        'routed_ghost_return': routed_ghost_return,
         'alpha': alpha,
+        'alpha_vs_full_ghost': alpha,
+        'alpha_vs_routed_ghost': strategy_return - routed_ghost_return,
         'realized_pnl': realized,
         'cost': total_cost,
         'trades': trade_count,
@@ -506,8 +543,15 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         'regime_counts': regime_counts,
         'regime_trades': regime_trades,
         'router_checks': router_checks,
+        'router_active_count': router_active,
         'router_active_frac': router_active_frac,
+        'route_multiplier_sum': route_multiplier_sum,
+        'policy_multiplier_sum': policy_multiplier_sum,
+        'avg_route_multiplier': avg_route_multiplier,
+        'avg_policy_multiplier': avg_policy_multiplier,
         'dominant_regime': dominant_regime,
+        'regime_check_distribution': regime_check_distribution,
+        'regime_trade_distribution': regime_trade_distribution,
     }
 
 
@@ -526,7 +570,10 @@ def evaluate_individual(genome, env, season, markets, rng, args):
     ruin = 0
     regime_counts = {k: 0 for k in ['trend_up', 'trend_down', 'chop', 'high_vol', 'low_vol', 'neutral']}
     regime_trades = {k: 0 for k in regime_counts}
-    router_active_fracs = []
+    router_checks_total = 0
+    router_active_total = 0.0
+    route_multiplier_sum = 0.0
+    policy_multiplier_sum = 0.0
     for symbol, m in markets.items():
         close = m['close']
         if len(close) > args.window_bars:
@@ -550,7 +597,11 @@ def evaluate_individual(genome, env, season, markets, rng, args):
             regime_counts[key] = regime_counts.get(key, 0) + int(value)
         for key, value in (res.get('regime_trades') or {}).items():
             regime_trades[key] = regime_trades.get(key, 0) + int(value)
-        router_active_fracs.append(float(res.get('router_active_frac', 1.0)))
+        checks = int(res.get('router_checks', 0))
+        router_checks_total += checks
+        router_active_total += float(res.get('router_active_count', res.get('router_active_frac', 1.0) * checks))
+        route_multiplier_sum += float(res.get('route_multiplier_sum', res.get('avg_route_multiplier', 1.0) * checks))
+        policy_multiplier_sum += float(res.get('policy_multiplier_sum', res.get('avg_policy_multiplier', 1.0) * checks))
     n = max(1, len(alphas))
     avg_alpha = float(np.mean(alphas)) if alphas else -999.0
     min_alpha = float(np.min(alphas)) if alphas else -999.0
@@ -566,10 +617,22 @@ def evaluate_individual(genome, env, season, markets, rng, args):
     return_shortfall = max(0.0, min_return_floor - min_return)
     positive_frac = positive_alpha / n
     min_shortfall = max(0.0, args.min_alpha - min_alpha)
-    router_active_frac = float(np.mean(router_active_fracs)) if router_active_fracs else 0.0
+    router_active_frac = router_active_total / max(1, router_checks_total)
+    avg_route_multiplier = route_multiplier_sum / max(1, router_checks_total)
+    avg_policy_multiplier = policy_multiplier_sum / max(1, router_checks_total)
     regime_min_coverage = float(getattr(eval_genome, 'RegimeMinCoverage', 0.02))
     coverage_shortfall = max(0.0, regime_min_coverage - router_active_frac)
     dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
+    total_regime_checks = sum(regime_counts.values())
+    total_regime_trades = sum(regime_trades.values())
+    regime_check_distribution = {
+        k: v / max(1, total_regime_checks)
+        for k, v in regime_counts.items()
+    }
+    regime_trade_distribution = {
+        k: v / max(1, total_regime_trades)
+        for k, v in regime_trades.items()
+    }
     score = (
         min_alpha * 160.0
         + avg_alpha * 45.0
@@ -612,8 +675,14 @@ def evaluate_individual(genome, env, season, markets, rng, args):
         'ruin_symbols': ruin,
         'regime_counts': regime_counts,
         'regime_trades': regime_trades,
+        'router_checks': router_checks_total,
+        'router_active_count': router_active_total,
         'router_active_frac': router_active_frac,
+        'avg_route_multiplier': avg_route_multiplier,
+        'avg_policy_multiplier': avg_policy_multiplier,
         'dominant_regime': dominant_regime,
+        'regime_check_distribution': regime_check_distribution,
+        'regime_trade_distribution': regime_trade_distribution,
         'regime_min_coverage': regime_min_coverage,
         'regime_coverage_shortfall': coverage_shortfall,
         'per_symbol': per,

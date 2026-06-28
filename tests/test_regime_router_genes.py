@@ -3,6 +3,8 @@ import random
 import sys
 from dataclasses import asdict
 
+import numpy as np
+
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -83,3 +85,44 @@ def test_chop_regime_can_be_suppressed_by_gene():
 
     assert route["label"] == "chop"
     assert route["combined_multiplier"] == 0.0
+
+
+def test_full_ghost_is_not_weakened_by_router():
+    genome = _base_genome(
+        EMAAnchor=20,
+        TMacro=10,
+        TMicro=10,
+        TDeadline=10,
+        MaxDCAMonths=12,
+        BetaThreshold=0.0,
+        TrendGate=0.000001,
+        VolGateLow=0.0,
+        VolGateHigh=1.0,
+        ChopGate=1_000_000.0,
+        RegimeFireScale=1.0,
+        RegimeRouterBlend=1.0,
+        UpTrendFireScale=0.0,
+        MinTradeThreshold=0.12,
+        MicroReserveRate=0.01,
+    )
+    close = np.linspace(100.0, 200.0, 1500)
+    env = lab.Environment(DeadReserveRatio=0.10, GlobalStopLoss=0.99)
+    season = lab.Season(winter=1.0, spring=1.0, summer=1.0, autumn=1.0, tick_offset=0)
+
+    result = lab.simulate_symbol(
+        genome,
+        env,
+        season,
+        close,
+        initial_cash=10_000.0,
+        cost_rate=0.001,
+        lot_step=0.0001,
+        lot_min=0.0001,
+        min_notional=10.0,
+        bar_minutes=240,
+    )
+
+    assert result["routed_ghost_return"] < result["full_ghost_return"]
+    assert result["full_ghost_return"] > 0
+    assert result["alpha_vs_full_ghost"] < result["alpha_vs_routed_ghost"]
+    assert result["alpha"] == result["alpha_vs_full_ghost"]

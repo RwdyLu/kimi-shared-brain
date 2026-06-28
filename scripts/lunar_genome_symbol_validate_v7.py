@@ -42,12 +42,15 @@ def symbol_metrics_from_rows(rows):
     details = []
     regime_counts = {}
     regime_trades = {}
-    router_active_fracs = []
+    router_checks_total = 0
+    router_active_total = 0.0
+    route_multiplier_sum = 0.0
+    policy_multiplier_sum = 0.0
     for r in rows:
         per = r.get('per_symbol') or {}
         # Single-symbol scenarios should have exactly one entry.
         sym, sm = next(iter(per.items()))
-        alpha = float(sm.get('alpha_vs_ghost', sm.get('alpha', 0.0)))
+        alpha = float(sm.get('alpha_vs_full_ghost', sm.get('alpha_vs_ghost', sm.get('alpha', 0.0))))
         net_return = float(sm.get('return', sm.get('strategy_return', 0.0)))
         dd = float(sm.get('max_drawdown', sm.get('drawdown', r.get('max_drawdown', 0.0))))
         tr = int(sm.get('trades', r.get('trades', 0)))
@@ -61,7 +64,11 @@ def symbol_metrics_from_rows(rows):
             regime_counts[key] = regime_counts.get(key, 0) + int(value)
         for key, value in (sm.get('regime_trades') or {}).items():
             regime_trades[key] = regime_trades.get(key, 0) + int(value)
-        router_active_fracs.append(float(sm.get('router_active_frac', 1.0)))
+        checks = int(sm.get('router_checks', 0))
+        router_checks_total += checks
+        router_active_total += float(sm.get('router_active_count', sm.get('router_active_frac', 1.0) * checks))
+        route_multiplier_sum += float(sm.get('route_multiplier_sum', sm.get('avg_route_multiplier', 1.0) * checks))
+        policy_multiplier_sum += float(sm.get('policy_multiplier_sum', sm.get('avg_policy_multiplier', 1.0) * checks))
         row_ok = bool(alpha >= 0.0 and net_return >= 0.0 and dd <= 0.35 and tr >= 1)
         qualified_rows += 1 if row_ok else 0
         details.append({
@@ -70,6 +77,10 @@ def symbol_metrics_from_rows(rows):
             'symbol': sym,
             'alpha': alpha,
             'return': net_return,
+            'alpha_vs_full_ghost': alpha,
+            'alpha_vs_routed_ghost': sm.get('alpha_vs_routed_ghost'),
+            'full_ghost_return': sm.get('full_ghost_return', sm.get('ghost_return')),
+            'routed_ghost_return': sm.get('routed_ghost_return'),
             'max_drawdown': dd,
             'trades': tr,
             'qualified': row_ok,
@@ -81,8 +92,20 @@ def symbol_metrics_from_rows(rows):
     min_trades_per_scenario = min(trade_values) if trade_values else 0
     max_trades_per_scenario = max(trade_values) if trade_values else 0
     avg_trades_per_scenario = trade_total / n
-    router_active_frac = sum(router_active_fracs) / max(1, len(router_active_fracs))
+    router_active_frac = router_active_total / max(1, router_checks_total)
+    avg_route_multiplier = route_multiplier_sum / max(1, router_checks_total)
+    avg_policy_multiplier = policy_multiplier_sum / max(1, router_checks_total)
     dominant_regime = max(regime_counts, key=regime_counts.get) if regime_counts else 'neutral'
+    total_regime_checks = sum(regime_counts.values())
+    total_regime_trades = sum(regime_trades.values())
+    regime_check_distribution = {
+        k: v / max(1, total_regime_checks)
+        for k, v in regime_counts.items()
+    }
+    regime_trade_distribution = {
+        k: v / max(1, total_regime_trades)
+        for k, v in regime_trades.items()
+    }
     return {
         'qualified_rows': qualified_rows,
         'scenario_count': n,
@@ -101,8 +124,14 @@ def symbol_metrics_from_rows(rows):
         'avg_trades_per_scenario': avg_trades_per_scenario,
         'regime_counts': regime_counts,
         'regime_trades': regime_trades,
+        'router_checks': router_checks_total,
+        'router_active_count': router_active_total,
         'router_active_frac': router_active_frac,
+        'avg_route_multiplier': avg_route_multiplier,
+        'avg_policy_multiplier': avg_policy_multiplier,
         'dominant_regime': dominant_regime,
+        'regime_check_distribution': regime_check_distribution,
+        'regime_trade_distribution': regime_trade_distribution,
         'details': details,
     }
 
