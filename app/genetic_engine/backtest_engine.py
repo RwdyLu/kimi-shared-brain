@@ -69,8 +69,8 @@ class KlineCache:
         if "_open_time_ms" in df.columns:
             values = df["_open_time_ms"].astype("int64")
             return pd.Series(values.to_numpy(), index=df.index)
-        values = (df.index.astype("int64") // 10**6).astype("int64")
-        return pd.Series(values, index=df.index)
+        values = [int(pd.Timestamp(ts).timestamp() * 1000) for ts in df.index]
+        return pd.Series(values, index=df.index, dtype="int64")
     
     def has_cache(self, symbol: str, interval: str) -> bool:
         return self._parquet_path(symbol, interval).exists()
@@ -211,8 +211,8 @@ class KlineCache:
         df_to_write.index.name = "timestamp"
         df_to_write = df_to_write.reset_index()
         df_to_write["timestamp"] = pd.to_datetime(df_to_write["timestamp"], utc=True)
-        df_to_write["_open_time_ms"] = (
-            df_to_write["timestamp"].astype("int64") // 10**6
+        df_to_write["_open_time_ms"] = df_to_write["timestamp"].map(
+            lambda ts: int(pd.Timestamp(ts).timestamp() * 1000)
         ).astype("int64")
         df_to_write.to_parquet(path, index=False)
         # 清除記憶體快取，確保下次重新讀取
