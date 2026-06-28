@@ -182,9 +182,7 @@ layout = dbc.Container(
                 ),
                 dbc.CardBody(
                     id="signals-run-history",
-                    children=[
-                        html.P("Loading run history...", className="text-muted")
-                    ]
+                    children=[]
                 )
             ],
             className="mb-4"
@@ -209,7 +207,7 @@ layout = dbc.Container(
             [
                 dbc.CardHeader(
                     [
-                        html.H5("Signal Feed / 訊號串流", className="mb-0"),
+                        html.H5("訊號串流", className="mb-0"),
                         html.Small("Latest signals filtered by type and symbol / 依類型與幣種篩選的最新訊號", className="text-muted")
                     ]
                 ),
@@ -488,7 +486,7 @@ def update_signals_page(n_intervals, n_clicks):
         return str(total), str(confirmed), str(watch), run_history
         
     except Exception as e:
-        return "--", "--", "--", dbc.Alert(f"Error loading data: {e}", color="danger")
+        return "0", "0", "0", html.P(f"資料載入失敗：{str(e)[:80]}", className="text-warning")
 
 
 # T-052-D: Handle run row clicks and show modal with indicator details
@@ -649,14 +647,14 @@ def update_signals_feed(n_intervals, n_clicks, filter_type, filter_symbol, filte
         
         # Type mapping / 類型映射
         type_mapping = {
-            "trend_long": ["MA_CROSS_TREND", "EMA_CROSS_FAST", "VOLUME_SPIKE", "PRICE_CHANNEL_BREAK"],
-            "trend_short": ["MA_CROSS_TREND_SHORT"],
-            "contrarian_watch": ["CONTRARIAN_WATCH_OVERHEATED", "CONTRARIAN_WATCH_OVERSOLD"],
-            "cycle": ["HILBERT_CYCLE"],
-            "breakout": ["STOCHASTIC_BREAKOUT"],
-            "momentum": ["RSI_TREND", "RSI_MID_BOUNCE", "MOMENTUM_DIVERGENCE"],
-            "reversal_long": ["BB_MEAN_REVERSION"],
-            "mean_reversion": ["BB_MEAN_REVERSION"],
+            "trend_long": ["ma_cross_trend", "ema_cross_fast", "volume_spike", "price_channel_break"],
+            "trend_short": ["ma_cross_trend_short"],
+            "contrarian_watch": ["contrarian_watch_overheated", "contrarian_watch_oversold"],
+            "cycle": ["hilbert_cycle"],
+            "breakout": ["stochastic_breakout"],
+            "momentum": ["rsi_trend", "rsi_mid_bounce", "momentum_divergence"],
+            "reversal_long": ["bb_mean_reversion"],
+            "mean_reversion": ["bb_mean_reversion"],
         }
         
         # Read and filter snapshots / 讀取並篩選快照
@@ -730,19 +728,19 @@ def update_signals_feed(n_intervals, n_clicks, filter_type, filter_symbol, filte
             
             # Badge colors / 徽章顏色
             type_colors = {
-                "MA_CROSS_TREND": "success",
-                "MA_CROSS_TREND_SHORT": "danger",
-                "CONTRARIAN_WATCH_OVERHEATED": "warning",
-                "CONTRARIAN_WATCH_OVERSOLD": "warning",
-                "HILBERT_CYCLE": "info",
-                "STOCHASTIC_BREAKOUT": "primary",
-                "RSI_TREND": "secondary",
-                "RSI_MID_BOUNCE": "secondary",
-                "BB_MEAN_REVERSION": "dark",
-                "EMA_CROSS_FAST": "success",
-                "VOLUME_SPIKE": "secondary",
-                "PRICE_CHANNEL_BREAK": "primary",
-                "MOMENTUM_DIVERGENCE": "info",
+                "ma_cross_trend": "success",
+                "ma_cross_trend_short": "danger",
+                "contrarian_watch_overheated": "warning",
+                "contrarian_watch_oversold": "warning",
+                "hilbert_cycle": "info",
+                "stochastic_breakout": "primary",
+                "rsi_trend": "secondary",
+                "rsi_mid_bounce": "secondary",
+                "bb_mean_reversion": "dark",
+                "ema_cross_fast": "success",
+                "volume_spike": "secondary",
+                "price_channel_break": "primary",
+                "momentum_divergence": "info",
             }
             
             badges = []

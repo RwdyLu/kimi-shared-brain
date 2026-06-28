@@ -21,6 +21,7 @@ from ui.services.monitor_service import (
     read_recent_jsonl,
 )
 from config.loader import get_enabled_symbols
+from app.strategy_identity import build_strategy_alias_map, resolve_strategy_id
 
 # Fix H: Strategy display names / 策略顯示名稱
 _DISPLAY_NAMES = None
@@ -363,9 +364,7 @@ layout = dbc.Container(
                                 dbc.CardHeader("📊 Rankings / 排名", className="fw-bold"),
                                 dbc.CardBody(
                                     id="center-panel-strategy-ranking",
-                                    children=[
-                                        html.P("Loading strategy data...", className="text-muted")
-                                    ]
+                                    children=[]
                                 )
                             ],
                             color="dark",
@@ -420,9 +419,7 @@ layout = dbc.Container(
                             dbc.CardHeader("🔔 Signals & History / 訊號與歷史", className="fw-bold"),
                             dbc.CardBody(
                                 id="right-panel-signals-history",
-                                children=[
-                                    html.P("Loading signals...", className="text-muted")
-                                ]
+                                children=[]
                             )
                         ],
                         color="dark",
@@ -1462,16 +1459,11 @@ def update_strategy_ranking(n, selected_symbol):
         # Load live strategy ranking / 載入即時策略排名
         ranking_file = Path(__file__).resolve().parents[2] / "state" / "live_strategy_ranking.json"
         if not ranking_file.exists():
-            # Fallback to backtest storage
-            from backtest import BacktestStorage
-            storage = BacktestStorage()
-            backtests = storage.get_latest_backtests(limit=100)
-            
-            if not backtests:
-                return html.Div([
-                    html.P("No strategy data available", className="text-muted text-center"),
-                    html.Small("Run monitoring to generate strategy rankings", className="text-muted d-block text-center")
-                ])
+            # Fallback: show empty state (no backtest storage dependency)
+            return html.Div([
+                html.P("尚無策略排名資料", className="text-muted text-center"),
+                html.Small("監控運行後會自動產生排名", className="text-muted d-block text-center")
+            ])
             
             symbol_backtests = [bt for bt in backtests if selected_symbol in bt.get("symbols", [])]
             if not symbol_backtests:
@@ -1523,6 +1515,25 @@ def update_strategy_ranking(n, selected_symbol):
         symbol_scores = ranking_data.get("symbols", {})
         symbol_entry = symbol_scores.get(selected_symbol, {})
         symbol_data = symbol_entry.get("strategies", [])
+        # 將 gen_x alias 合併为 canonical ID
+        try:
+            import json as _json
+            _strats_cfg = _json.loads(open(project_root / "config" / "strategies.json").read()).get("strategies", [])
+            _aliases = build_strategy_alias_map(_strats_cfg)
+            _merged = {}
+            for _entry in symbol_data:
+                _canon = resolve_strategy_id(_entry.get("name", ""), _entry.get("name", ""), _aliases)
+                if _canon not in _merged:
+                    _merged[_canon] = dict(_entry)
+                    _merged[_canon]["name"] = _canon
+                else:
+                    # 取較高的 rolling_avg
+                    if _entry.get("rolling_avg", 0) > _merged[_canon].get("rolling_avg", 0):
+                        _merged[_canon] = dict(_entry)
+                        _merged[_canon]["name"] = _canon
+            symbol_data = list(_merged.values())
+        except Exception:
+            pass  # 如果 identity 模組失敗，保留原始資料
         if not symbol_data:
             script_file = project_root / "state" / "live_strategy_ranking_script.json"
             if script_file.exists():
@@ -1633,7 +1644,7 @@ def update_strategy_ranking(n, selected_symbol):
                 html.H6("🎯 Best Opportunities / 最佳機會", className="fw-bold mb-2"),
                 dbc.Table(
                     [html.Thead(html.Tr([
-                        html.Th("Strategy"), html.Th("Score"), html.Th("Price")
+                        html.Th("Strategy"), html.Th("Readiness"), html.Th("Price")
                     ]))] + [html.Tbody(opp_rows)],
                     bordered=False,
                     hover=True,
@@ -1651,7 +1662,7 @@ def update_strategy_ranking(n, selected_symbol):
             dbc.Table(
                 [
                     html.Thead(html.Tr([
-                        html.Th("#"), html.Th("Strategy"), html.Th("Score"),
+                        html.Th("#"), html.Th("Strategy"), html.Th("Signal Readiness / 訊號準備度"),
                         html.Th("Today Trigs / 今日觸發", className="text-center"),
                         html.Th("Win Rate / 歷史勝率", className="text-center"),
                         html.Th("Today PnL / 今日損益", className="text-center"),
@@ -1678,16 +1689,19 @@ def update_strategy_ranking(n, selected_symbol):
 def update_signals_history(n):
     """Update right panel signals and history / 更新右欄訊號與歷史 (T-077)"""
     try:
-        from backtest import BacktestStorage
         from ui.services.monitor_service import get_today_signals
-        
+
         # Get watch signals
         signals = get_today_signals()
-        watch_signals = []  # Placeholder - would filter for watch-only
-        
-        # Get backtest history
-        storage = BacktestStorage()
-        backtests = storage.get_latest_backtests(limit=7)
+
+        # Get backtest history (optional — skip if module unavailable)
+        backtests = []
+        try:
+            from backtest import BacktestStorage
+            storage = BacktestStorage()
+            backtests = storage.get_latest_backtests(limit=7)
+        except Exception:
+            pass
         
         return html.Div([
             # Watch Signals Section

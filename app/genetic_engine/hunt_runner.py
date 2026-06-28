@@ -10,7 +10,7 @@ Hunt Mode Runner — 持續基因演化任務
 - 篩選：PnL>0, 回撤<20%, 勝率>40%, 交易>20
 - 輸出：每輪 TOP_20.json
 - 通知：Discord Webhook
-- 自動部署：fitness > 0.377 時自動部署替換
+- 部署隔離：研究結果只供人工審核，不自動替換運行策略
 
 用法:
     cd kimi-shared-brain
@@ -452,7 +452,12 @@ class HuntEngine:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def deploy_strategy(chrom, config):
-    """將染色體部署到 strategies.json 和 paper_trading_state.json（帶文件鎖）"""
+    """Disabled: runtime replacement requires Archive Promote."""
+    raise RuntimeError(
+        "Direct GA deployment is disabled; archive the candidate and manually Promote it."
+    )
+
+    # Legacy implementation retained below for migration reference only.
     strategy_json = convert_to_strategy_json(chrom)
     strategy_id = strategy_json.get("id", chrom.chromosome_id.lower())
 
@@ -614,12 +619,13 @@ def main():
                 msg += f"✅ Filter: {'PASSED' if passed else 'FAILED'}\n"
             msg += f"📈 Best Ever: `{best_fitness_ever:.4f}` (ID: `{best_ever.chromosome_id[:16] if best_ever else 'None'}`)\n"
 
-            # 檢查是否應該部署
+            # Stage 7: fitness thresholds never authorize runtime deployment.
             if fit > CONFIG["deploy_threshold_fitness"]:
-                msg += f"\n🚀 **DEPLOYING** — fitness {fit:.4f} > threshold {CONFIG['deploy_threshold_fitness']}\n"
-                deployed_id = deploy_strategy(round_best, CONFIG)
-                msg += f"Deployed as: `{deployed_id}`\n"
-                send_discord(f"🚀 ROUND {round_num} — NEW WINNER DEPLOYED", msg, color=0xffd700)
+                msg += (
+                    f"\n📋 Candidate requires manual review — fitness {fit:.4f} "
+                    f"> threshold {CONFIG['deploy_threshold_fitness']}\n"
+                )
+                send_discord(f"📋 ROUND {round_num} — CANDIDATE READY", msg, color=0xffd700)
             else:
                 msg += f"\n⏸️ Not deploying — fitness {fit:.4f} ≤ threshold {CONFIG['deploy_threshold_fitness']}\n"
                 send_discord(f"📊 ROUND {round_num} Complete", msg, color=0x3498db)

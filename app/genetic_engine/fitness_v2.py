@@ -70,7 +70,10 @@ class BacktestMetricsV2:
     dead_hold_value: float = 0.0     # 底倉價值
     float_hold_value: float = 0.0    # 浮動倉價值
     total_portfolio_value: float = 0.0  # 總組合價值
-    
+
+    # 資料無效標記（資料驗證失敗時設為 True，無法計算正常 fitness）
+    data_invalid: bool = False
+
     def is_valid(self) -> bool:
         """檢查 metrics 是否有效（有交易數據）"""
         return self.total_trades > 0
@@ -557,6 +560,53 @@ def calculate_ruin_probability(
     return ruin_count / n_simulations
 
 
+def calculate_monte_carlo_report(
+    trades: List[Dict[str, Any]],
+    initial_capital: float = 1000.0,
+    n_simulations: int = 1000,
+    ruin_threshold: float = 0.5,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """Return reproducible ruin risk and final-return quantiles."""
+    profits = [float(t["pnl_pct"]) for t in trades if "pnl_pct" in t]
+    if len(profits) < 10:
+        return {
+            "insufficient_data": True,
+            "sample_trades": len(profits),
+            "simulations": 0,
+            "ruin_probability": None,
+            "return_quantiles": {},
+        }
+
+    rng = np.random.default_rng(seed)
+    final_returns = []
+    ruin_count = 0
+
+    for _ in range(n_simulations):
+        capital = initial_capital
+        ruined = False
+        for pnl in rng.choice(profits, size=len(profits), replace=True):
+            capital *= 1.0 + pnl
+            if capital <= initial_capital * ruin_threshold:
+                ruined = True
+                break
+        ruin_count += int(ruined)
+        final_returns.append((capital - initial_capital) / initial_capital)
+
+    quantiles = np.quantile(final_returns, [0.05, 0.50, 0.95])
+    return {
+        "insufficient_data": False,
+        "sample_trades": len(profits),
+        "simulations": n_simulations,
+        "ruin_probability": round(ruin_count / n_simulations, 6),
+        "return_quantiles": {
+            "p05": round(float(quantiles[0]), 6),
+            "p50": round(float(quantiles[1]), 6),
+            "p95": round(float(quantiles[2]), 6),
+        },
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 兼容性包裝（讓舊代碼也能用 V2）
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -597,6 +647,87 @@ def compute_fitness_v2_from_v1(
     )
     
     return compute_fitness_v2(metrics)
+
+
+def calculate_monte_carlo_report(
+    trades: List[Dict[str, Any]],
+    initial_capital: float = 1000.0,
+    n_simulations: int = 1000,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """
+    Run Monte Carlo simulation over trade sequence to estimate ruin probability
+    and return quantiles.
+
+    Parameters
+    ----------
+    trades        : list of {"pnl_pct": float} dicts
+    initial_capital : starting capital
+    n_simulations : number of bootstrap runs
+    seed          : RNG seed for reproducibility
+
+    Returns
+    -------
+    dict with keys: insufficient_data, sample_trades, ruin_probability,
+                    return_quantiles, simulations, seed
+    """
+    import random as _rng
+    _rng.seed(seed)
+
+    pnl_pcts = []
+    for trade in trades:
+        if isinstance(trade, dict):
+            pnl_pcts.append(float(trade.get("pnl_pct", 0.0)))
+        elif hasattr(trade, "pnl_pct"):
+            pnl_pcts.append(float(trade.pnl_pct))
+
+    if len(pnl_pcts) < 10:
+        return {
+            "insufficient_data": True,
+            "sample_trades": len(pnl_pcts),
+            "ruin_probability": None,
+            "return_quantiles": {},
+            "simulations": n_simulations,
+            "seed": seed,
+        }
+
+    ruin_count = 0
+    final_returns: List[float] = []
+    ruin_threshold = -0.95  # capital drops below 5% of initial → ruin
+
+    for _ in range(n_simulations):
+        sample = _rng.choices(pnl_pcts, k=len(pnl_pcts))
+        capital = initial_capital
+        for pct in sample:
+            capital *= (1.0 + pct)
+        total_return = (capital - initial_capital) / initial_capital
+        final_returns.append(total_return)
+        if total_return <= ruin_threshold:
+            ruin_count += 1
+
+    final_returns.sort()
+    n = len(final_returns)
+    p5  = final_returns[max(0, int(n * 0.05))]
+    p50 = final_returns[max(0, int(n * 0.50))]
+    p95 = final_returns[min(n - 1, int(n * 0.95))]
+
+    return {
+        "insufficient_data": False,
+        "sample_trades": len(pnl_pcts),
+        "ruin_probability": ruin_count / n_simulations,
+        "return_quantiles": {
+            "p05": round(p5, 6),
+            "p50": round(p50, 6),
+            "p95": round(p95, 6),
+        },
+        "p5_return": round(p5, 6),
+        "p50_return": round(p50, 6),
+        "p95_return": round(p95, 6),
+        "n_trades": len(pnl_pcts),
+        "n_simulations": n_simulations,
+        "simulations": n_simulations,
+        "seed": seed,
+    }
 
 
 if __name__ == "__main__":

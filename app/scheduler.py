@@ -212,9 +212,7 @@ class MonitoringScheduler:
             try:
                 from app.genetic_integration import GeneticIntegration
                 self.genetic_integration = GeneticIntegration()
-                # Quick deploy existing best strategies
-                deployed_path = self.genetic_integration.quick_deploy(top_n=5)
-                self._log(f"🧬 Genetic strategies deployed: {deployed_path}")
+                self._log("🧬 Genetic integration ready; runtime deployment requires manual Promote")
             except Exception as e:
                 self._log(f"🧬 Genetic integration init error: {e}")
         
@@ -324,21 +322,9 @@ class MonitoringScheduler:
 
             # Get enabled strategies from executor (dynamic, not hardcoded) / 從執行器動態取得啟用策略
             enabled_strategies = self.runner.strategy_executor.enabled_strategies
+            from app.strategy_identity import build_strategy_alias_map, resolve_strategy_id
             all_strategy_names = [s["id"] for s in enabled_strategies]
-            strategy_id_to_name = {s["id"]: s.get("name", s["id"]) for s in enabled_strategies}
-            # Also include normalized names for matching
-            extra_names = {}
-            for sid, sname in strategy_id_to_name.items():
-                normalized = sname.lower().replace(" ", "_").replace("-", "_")
-                if normalized not in all_strategy_names:
-                    all_strategy_names.append(normalized)
-                    extra_names[normalized] = sname
-            strategy_id_to_name.update(extra_names)
-            # Ensure genetic strategy is included if enabled
-            genetic_ids = [s["id"] for s in enabled_strategies if s.get("source") == "genetic"]
-            for gid in genetic_ids:
-                if gid not in all_strategy_names:
-                    all_strategy_names.append(gid)
+            strategy_aliases = build_strategy_alias_map(enabled_strategies)
 
             # Load previous rolling scores / 載入之前的滾動分數
             rolling_scores = {}
@@ -353,6 +339,7 @@ class MonitoringScheduler:
 
             ranking = {
                 "last_updated": datetime.now().isoformat(),
+                "score_type": "signal_readiness",
                 "symbols": {},
                 "rolling_scores": rolling_scores
             }
@@ -372,14 +359,11 @@ class MonitoringScheduler:
 
                 for sig in confirmed:
                     meta = getattr(sig, 'metadata', {})
-                    name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
-                    strategy_id = meta.get('strategy_id', name) if meta else name
+                    display_name = meta.get('strategy_name', 'Unknown') if meta else 'Unknown'
+                    strategy_id = meta.get('strategy_id', display_name) if meta else display_name
+                    name = resolve_strategy_id(strategy_id, display_name, strategy_aliases)
                     if name not in all_strategy_names:
-                        normalized = name.lower().replace(" ", "_").replace("-", "_")
-                        if normalized in all_strategy_names:
-                            name = normalized
-                        else:
-                            name = strategy_id
+                        continue
                     
                     cp = sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
                     ct = sig.metadata.get('conditions_total', 0) if hasattr(sig, 'metadata') and sig.metadata else 0
@@ -387,6 +371,8 @@ class MonitoringScheduler:
                     
                     scores[name] = {
                         "name": name,
+                        "strategy_id": name,
+                        "score_type": "signal_readiness",
                         "status": "Confirmed",
                         "score": round(raw_score, 3),
                         "conditions_passed": cp,
@@ -395,14 +381,11 @@ class MonitoringScheduler:
 
                 for sig in watch_only:
                     meta = getattr(sig, 'metadata', {})
-                    name = meta.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
-                    strategy_id = meta.get('strategy_id', name) if meta else name
+                    display_name = meta.get('strategy_name', 'Unknown') if hasattr(sig, 'metadata') and sig.metadata else 'Unknown'
+                    strategy_id = meta.get('strategy_id', display_name) if meta else display_name
+                    name = resolve_strategy_id(strategy_id, display_name, strategy_aliases)
                     if name not in all_strategy_names:
-                        normalized = name.lower().replace(" ", "_").replace("-", "_")
-                        if normalized in all_strategy_names:
-                            name = normalized
-                        else:
-                            name = strategy_id
+                        continue
                     
                     if name not in scores:
                         cp = sig.metadata.get('conditions_passed', 0) if hasattr(sig, 'metadata') and sig.metadata else 0

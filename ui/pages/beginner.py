@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 from pathlib import Path
 import json
+from ui.services.monitor_service import read_recent_jsonl
 
 # Register page with Dash Pages
 # 使用 Dash Pages 註冊頁面
@@ -163,6 +164,8 @@ STRATEGY_DISPLAY_NAMES = {
     "williams_r": "Williams %R 反轉",
     "keltner_breakout": "Keltner 通道突破",
     "atr_breakout": "ATR 波動突破",
+    "parabolic_sar": "拋物線轉向指標",
+    "parabolic_sar_v2": "拋物線轉向 V2",
 }
 
 
@@ -185,6 +188,8 @@ STRATEGY_EXPLANATIONS = {
     "williams_r": "Williams %R 從超賣區反彈，短線買點出現",
     "keltner_breakout": "價格突破 Keltner 上軌，波動率突破訊號",
     "atr_breakout": "價格突破 ATR 波動範圍，動能加速",
+    "parabolic_sar": "拋物線轉向指標，適用於識別趨勢轉折點，適合趨勢市場。",
+    "parabolic_sar_v2": "拋物線轉向 V2，加入訂正後的入出場設計，減少震盪訊號。",
 }
 
 
@@ -196,6 +201,23 @@ def get_strategy_display_name(strategy_id: str) -> str:
 def get_strategy_explanation(strategy_id: str) -> str:
     """Get one-sentence explanation / 取得一句話說明"""
     return STRATEGY_EXPLANATIONS.get(strategy_id, "策略訊號觸發")
+
+
+def load_all_latest_snapshots() -> dict:
+    """Load latest indicator snapshot for ALL symbols in one tail read."""
+    snapshots_file = Path(__file__).parents[2] / "logs" / "indicator_snapshots.jsonl"
+    if not snapshots_file.exists():
+        return {}
+    records = read_recent_jsonl(snapshots_file, max_bytes=8 * 1024 * 1024)
+    latest_by_symbol = {}
+    for snap in records:
+        symbol = snap.get("symbol")
+        if not symbol:
+            continue
+        ts = snap.get("timestamp", "")
+        if symbol not in latest_by_symbol or ts > latest_by_symbol[symbol].get("timestamp", ""):
+            latest_by_symbol[symbol] = snap
+    return latest_by_symbol
 
 
 def load_latest_snapshot(symbol: str) -> dict:
@@ -281,12 +303,20 @@ layout = dbc.Container(
 )
 def update_beginner_grid(n):
     """Update beginner-friendly coin grid / 更新新手幣種網格"""
+    try:
+        return _build_beginner_grid()
+    except Exception as e:
+        return [dbc.Col(dbc.Alert(f"載入失敗：{e}", color="warning"), width=12)]
+
+
+def _build_beginner_grid():
     ranking_data = load_live_ranking()
     prices_data = load_prices()
     symbol_scores = ranking_data.get("symbols", {})
 
     coins = get_coin_config()
     cards = []
+    all_snapshots = load_all_latest_snapshots()  # single tail read, replaces 10x full scans
 
     for coin in coins:
         symbol = coin["symbol"]
@@ -298,7 +328,7 @@ def update_beginner_grid(n):
 
         # ─── New Feature F: Why explanation / 為什麼說明 ───
         # Load latest snapshot for this symbol / 載入該幣種最新快照
-        snapshot = load_latest_snapshot(symbol)
+        snapshot = all_snapshots.get(symbol, {})
         signal_types = snapshot.get("signal_types", []) if snapshot else []
         snapshot_price = snapshot.get("price", 0) if snapshot else 0
 
@@ -392,16 +422,16 @@ def update_beginner_grid(n):
                                     html.Small("進場參考: ", className="text-muted"),
                                     html.Span(ref_display, className="fw-bold")
                                 ]),
-                                html.Div([
-                                    html.Small("建議止損: ", className="text-muted"),
-                                    html.Span(sl_display, className="text-danger fw-bold"),
-                                    html.Small(f" ({sl_pct})", className="text-danger") if sl_pct else None
-                                ]),
-                                html.Div([
-                                    html.Small("建議止盈: ", className="text-muted"),
-                                    html.Span(tp_display, className="text-success fw-bold"),
-                                    html.Small(f" ({tp_pct})", className="text-success") if tp_pct else None
-                                ]),
+                                html.Div(
+                                    [html.Small("建議止損: ", className="text-muted"),
+                                     html.Span(sl_display, className="text-danger fw-bold")]
+                                    + ([html.Small(f" ({sl_pct})", className="text-danger")] if sl_pct else [])
+                                ),
+                                html.Div(
+                                    [html.Small("建議止盈: ", className="text-muted"),
+                                     html.Span(tp_display, className="text-success fw-bold")]
+                                    + ([html.Small(f" ({tp_pct})", className="text-success")] if tp_pct else [])
+                                ),
                             ], className="text-center small mb-2"),
 
                             # Disclaimer / 免責聲明
@@ -425,6 +455,9 @@ def update_beginner_grid(n):
         cards.append(card)
 
     return cards
+
+
+# end of _build_beginner_grid
 
 
 @callback(

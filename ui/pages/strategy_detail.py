@@ -74,15 +74,15 @@ def find_strategy(strategy_name: str):
     return None
 
 
-def get_latest_snapshot(symbol: str) -> dict:
+def get_latest_snapshot(symbol: str, records=None) -> dict:
     """Get latest indicator snapshot for a symbol"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return {}
         
         latest = {}
-        for data in read_recent_jsonl(snapshot_file):
+        for data in (records if records is not None else read_recent_jsonl(snapshot_file)):
             if data.get("symbol") == symbol:
                 latest = data
         return latest
@@ -91,18 +91,19 @@ def get_latest_snapshot(symbol: str) -> dict:
         return {}
 
 
-def get_signal_history(strategy_id: str, strategy_signal_type: str, symbol: str, limit: int = 5) -> list:
+def get_signal_history(strategy_id: str, strategy_signal_type: str, symbol: str, limit: int = 5, records=None) -> list:
     """Get recent signal history for a strategy and symbol from snapshots"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         # Expected signal type in snapshots (uppercase)
         expected_signal = strategy_signal_type.upper().replace(" ", "_")
         
         runs = defaultdict(list)
-        for data in reversed(read_recent_jsonl(snapshot_file)):
+        source_records = records if records is not None else read_recent_jsonl(snapshot_file)
+        for data in reversed(source_records):
             if data.get("symbol") != symbol:
                 continue
             signal_types = data.get("signal_types", [])
@@ -139,15 +140,16 @@ def get_signal_history(strategy_id: str, strategy_signal_type: str, symbol: str,
         return []
 
 
-def get_recent_runs_for_strategy(strategy_signal_type: str, symbol: str, limit: int = 5) -> list:
+def get_recent_runs_for_strategy(strategy_signal_type: str, symbol: str, limit: int = 5, records=None) -> list:
     """Get recent runs with signal info for this strategy, even if no signal was generated"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         runs = {}
-        for data in reversed(read_recent_jsonl(snapshot_file)):
+        source_records = records if records is not None else read_recent_jsonl(snapshot_file)
+        for data in reversed(source_records):
             if data.get("symbol") != symbol:
                 continue
             run_id = str(data.get("run_id", data.get("timestamp", "unknown")))
@@ -197,7 +199,7 @@ STATUS_LABELS = {
 }
 
 
-def layout(strategy_name=None):
+def layout(strategy_name=None, **query_params):
     """Page layout with strategy name from URL"""
     
     # Decode URL encoding and normalize: "Hilbert%20Cycle" → "hilbert_cycle"
@@ -333,7 +335,7 @@ def layout(strategy_name=None):
                                     ),
                                     dbc.Col(
                                         [
-                                            html.Label("Strategy Score / 策略評分", className="fw-bold"),
+                                            html.Label("Signal Readiness / 訊號準備度", className="fw-bold"),
                                             html.H4(id="strategy-score", children="--", className="text-info mb-0")
                                         ],
                                         width=12,
@@ -470,8 +472,10 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     if not strategy:
         return "--", "--", dbc.Alert("Strategy not found / 策略未找到", color="danger"), html.Div(), html.Div(), html.Div(), html.Div()
     
-    # Get latest snapshot for selected symbol
-    snapshot = get_latest_snapshot(selected_symbol)
+    # Read the snapshot tail once and reuse it across every section.
+    snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
+    snapshot_records = read_recent_jsonl(snapshot_file) if snapshot_file.exists() else []
+    snapshot = get_latest_snapshot(selected_symbol, records=snapshot_records)
     
     # Current price
     price = snapshot.get("price")
@@ -501,13 +505,13 @@ def update_strategy_detail(selected_symbol, n_intervals, strategy_name):
     indicators_component = render_indicators(snapshot, strategy)
     
     # Render signal history
-    signal_history_component = render_signal_history(strategy, selected_symbol)
+    signal_history_component = render_signal_history(strategy, selected_symbol, snapshot_records)
     
     # Render trading log
-    trading_log_component = render_trading_log(strategy, selected_symbol, price)
+    trading_log_component = render_trading_log(strategy, selected_symbol, price, snapshot_records)
     
     # Render signal simulation
-    signal_simulation_component = render_signal_simulation(strategy, selected_symbol)
+    signal_simulation_component = render_signal_simulation(strategy, selected_symbol, snapshot_records)
     
     return price_display, score, conditions_component, indicators_component, signal_history_component, trading_log_component, signal_simulation_component
 
@@ -778,12 +782,12 @@ def make_indicator_card(title, value, color):
     )
 
 
-def render_signal_history(strategy, symbol):
+def render_signal_history(strategy, symbol, snapshot_records=None):
     """Render signal history for last 5 runs"""
     signal_type = strategy.get("signal_type", "")
     
     # Get recent runs (with or without signals)
-    runs = get_recent_runs_for_strategy(signal_type, symbol, limit=5)
+    runs = get_recent_runs_for_strategy(signal_type, symbol, limit=5, records=snapshot_records)
     
     if not runs:
         return dbc.Alert(
@@ -847,18 +851,18 @@ def render_signal_history(strategy, symbol):
     )
 
 
-def get_today_signals_for_strategy(strategy_id: str, signal_type: str, symbol: str) -> list:
+def get_today_signals_for_strategy(strategy_id: str, signal_type: str, symbol: str, records=None) -> list:
     """Get today's confirmed signals for a strategy and symbol from snapshots"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         expected = signal_type.upper().replace(" ", "_")
         today = datetime.now().strftime("%Y-%m-%d")
         
         signals = []
-        for data in read_recent_jsonl(snapshot_file):
+        for data in (records if records is not None else read_recent_jsonl(snapshot_file)):
             if data.get("symbol") != symbol:
                 continue
             ts = data.get("timestamp", "")
@@ -921,13 +925,13 @@ def get_paper_trades(strategy_id: str, symbol: str) -> dict:
         return {"trades": [], "positions": []}
 
 
-def render_trading_log(strategy, symbol, current_price=None):
+def render_trading_log(strategy, symbol, current_price=None, snapshot_records=None):
     """Render trading log for today's confirmed signals matched with trades"""
     strategy_id = strategy.get("id", "")
     signal_type = strategy.get("signal_type", "")
     
     # 1. Get today's confirmed signals from snapshots
-    signals = get_today_signals_for_strategy(strategy_id, signal_type, symbol)
+    signals = get_today_signals_for_strategy(strategy_id, signal_type, symbol, records=snapshot_records)
     
     # 2. Get trades and positions from paper trading state
     trades_data = get_paper_trades(strategy_id, symbol)
@@ -1128,17 +1132,17 @@ def render_trading_log(strategy, symbol, current_price=None):
 
 
 
-def get_symbol_snapshots_today(symbol: str) -> list:
+def get_symbol_snapshots_today(symbol: str, records=None) -> list:
     """Get all snapshots for a symbol today, sorted by time ascending"""
     try:
         snapshot_file = LOGS_DIR / "indicator_snapshots.jsonl"
-        if not snapshot_file.exists():
+        if records is None and not snapshot_file.exists():
             return []
         
         today = datetime.now().strftime("%Y-%m-%d")
         snapshots = []
         
-        for data in read_recent_jsonl(snapshot_file):
+        for data in (records if records is not None else read_recent_jsonl(snapshot_file)):
             if data.get("symbol") != symbol:
                 continue
             ts = data.get("timestamp", "")
@@ -1153,13 +1157,13 @@ def get_symbol_snapshots_today(symbol: str) -> list:
         return []
 
 
-def render_signal_simulation(strategy, symbol):
+def render_signal_simulation(strategy, symbol, snapshot_records=None):
     """Render signal simulation: pure signal-based, no capital constraints"""
     strategy_id = strategy.get("id", "")
     signal_type = strategy.get("signal_type", "")
     
     # Get all snapshots for this symbol today
-    all_snapshots = get_symbol_snapshots_today(symbol)
+    all_snapshots = get_symbol_snapshots_today(symbol, records=snapshot_records)
     if not all_snapshots:
         return dbc.Alert("No snapshot data today / 今日無快照資料", color="info")
     

@@ -30,10 +30,14 @@ from .chromosome_v2 import (
     validate_chromosome_v2, MacroGenes, MicroGenes
 )
 from .backtest_engine_v2 import GeneBacktestEngineV2, evaluate_chromosome_multi_symbol_v2, GhostDCABaseline
+from .windows import (
+    WINDOWS, WINDOW_WEIGHTS, WindowResult,
+    run_all_windows, aggregate_multi_symbol_windows, stable_window_seed,
+)
 from .fitness_v2 import (
     BacktestMetricsV2, compute_fitness_v2,
     compute_fitness_details_v2, aggregate_fitness_v2,
-    calculate_ruin_probability, compute_fitness_v2_from_v1
+    calculate_monte_carlo_report, compute_fitness_v2_from_v1
 )
 from .environment import (
     Environment, SeasonConfig, SeasonSampler,
@@ -78,9 +82,31 @@ DEFAULT_CONFIG_V2 = {
     "use_orthogonal_crossover": True,
     "use_multi_window": True,
     "windows": ["all", "5y", "2y", "6m"],  # 坩堝多窗
+    # Maximum lookback for the "all" window. Non-strict boundary validation is
+    # intentional because symbols listed less than ten years ago start later.
+    "multi_window_history_days": 10 * 365,
     "n_season_segments": 4,
     "ruin_probability_warn_threshold": 0.05,  # 3rd-chapter: Monte Carlo final-review warn level
+    "monte_carlo_interval": "1m",
+    "monte_carlo_history_days": 90,
+    "monte_carlo_simulations": 1000,
+    "monte_carlo_seed": 42,
 }
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EVOLUTION_CONFIG_FILE = PROJECT_ROOT / "config" / "evolution_v2.json"
+
+
+def load_saved_evolution_config() -> Dict[str, Any]:
+    """Load UI-edited next-run settings without depending on the UI package."""
+    if not EVOLUTION_CONFIG_FILE.exists():
+        return {}
+    try:
+        with EVOLUTION_CONFIG_FILE.open(encoding="utf-8") as handle:
+            saved = json.load(handle)
+        return saved if isinstance(saved, dict) else {}
+    except (OSError, ValueError):
+        return {}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -107,7 +133,11 @@ class EvolutionEngineV2:
         save_dir: Optional[str] = None,
         archive: Optional[StrategyArchive] = None,
     ):
-        self.config = {**DEFAULT_CONFIG_V2, **(config or {})}
+        self.config = {
+            **DEFAULT_CONFIG_V2,
+            **load_saved_evolution_config(),
+            **(config or {}),
+        }
         self.backtest_engine = engine or GeneBacktestEngineV2()
         self.population: List[StrategyChromosomeV2] = []
         self.generation = 0
@@ -127,11 +157,32 @@ class EvolutionEngineV2:
         # 保存路徑
         self.save_dir = Path(save_dir) if save_dir else Path("data/genetic_evolution_v2")
         self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.runtime_state_file = (
+            self.save_dir / "evolution_v2_running.json"
+            if save_dir else PROJECT_ROOT / "state" / "evolution_v2_running.json"
+        )
         
         # 突變斜坡狀態
         self.current_mutation_rate = self.config["mutation_rate"]
         self.current_mutation_intensity = self.config["mutation_intensity"]
         self.stagnation_count = 0
+
+    def start_new_epoch(self) -> None:
+        """Resample the shared environment once, then keep it fixed for the epoch."""
+        previous_environment = self.three_layer.environment
+        self.epoch_id = f"epoch_{random.randint(10000, 99999)}"
+        self.three_layer = ThreeLayerConfig.create_for_new_epoch(
+            prev_env=previous_environment,
+            n_season_segments=self.config["n_season_segments"],
+        )
+        self.three_layer.epoch_id = self.epoch_id
+        self.generation = 0
+        self.history = []
+        self.best_fitness_history = []
+        for chrom in self.population:
+            chrom.epoch_id = self.epoch_id
+            chrom.fitness_score = None
+            chrom.fitness_details = {}
     
     # ═══════════════════════════════════════════════════════
     # 1-4-5 黃金配比初始化
@@ -224,54 +275,146 @@ class EvolutionEngineV2:
                 print(f"   [{i+1}/{len(self.population)}] {chrom.chromosome_id[:8]}...", end=" ")
             
             try:
-                # 使用 V2 多幣種評估
-                fitness, per_symbol, all_trades = evaluate_chromosome_multi_symbol_v2(
-                    chrom,
-                    symbols=self.config["symbols"],
-                    engine=self.backtest_engine,
-                    interval=self.config["backtest_interval"],
-                    days=self.config["backtest_days"],
-                    seasons=self.three_layer.seasons,
-                    environment=self.three_layer.environment,
-                    verbose=False,
-                )
-                
-                # 收集各幣種的 V2 metrics
-                all_metrics = []
-                total_trades = 0
-                total_alpha = 0.0
-                total_friction = 0.0
-                
-                for symbol, result in per_symbol.items():
-                    all_metrics.append(result.strategy_metrics)
-                    total_trades += result.strategy_metrics.total_trades
-                    total_alpha += result.alpha_vs_dca
-                    total_friction += result.friction_penalty
-                
-                # 計算 V2 fitness
-                avg_alpha = total_alpha / len(per_symbol) if per_symbol else 0.0
-                
-                # 使用 fitness_v2 的完整評分
-                if all_metrics:
-                    fitness_details = compute_fitness_details_v2(all_metrics[0])
-                    # 簡化：直接用 fitness_v2 計算
-                    fitness_score = compute_fitness_v2(all_metrics[0])
+                use_multi_window = self.config.get("use_multi_window", True)
+
+                if use_multi_window:
+                    # ── Stage 3: multi-window cross-validation ────────────────
+                    # Fetch data ONCE per symbol; slice in-memory per window.
+                    import time as _time
+                    symbols = self.config["symbols"]
+                    end_ms = int(_time.time() * 1000)
+                    history_days = int(self.config["multi_window_history_days"])
+                    start_ms = end_ms - history_days * 24 * 60 * 60 * 1000
+
+                    all_window_results: List[WindowResult] = []
+                    symbol_window_map: Dict[str, List[WindowResult]] = {}
+
+                    for symbol in symbols:
+                        # Fetch full history ONCE via cache — avoids re-hitting Binance per window
+                        df_full, validation = self.backtest_engine.cache.load_or_fetch(
+                            self.backtest_engine.fetcher,
+                            symbol=symbol,
+                            interval=self.config["backtest_interval"],
+                            start_ms=start_ms,
+                            end_ms=end_ms,
+                            limit=1000,
+                            paginate=True,
+                            strict_validation=False,
+                        )
+                        if (
+                            df_full is None
+                            or validation is None
+                            or not validation.get("valid", False)
+                            or validation.get("data_invalid", False)
+                        ):
+                            # Mark all windows as insufficient for this symbol
+                            failed_results = [
+                                WindowResult(w, insufficient_data=True, weight=WINDOW_WEIGHTS[w])
+                                for w in WINDOWS
+                            ]
+                            symbol_window_map[symbol] = failed_results
+                            all_window_results.extend(failed_results)
+                            continue
+
+                        r_seed = stable_window_seed(
+                            chrom.chromosome_id, self.epoch_id, self.generation
+                        )
+                        win_results = run_all_windows(
+                            chromosome=chrom,
+                            symbol_df=df_full,
+                            end_ms=end_ms,
+                            engine=self.backtest_engine,
+                            seed=r_seed,
+                            seasons=self.three_layer.seasons,
+                            environment=self.three_layer.environment,
+                        )
+                        symbol_window_map[symbol] = win_results
+                        all_window_results.extend(win_results)
+
+                    fitness_score, per_symbol_fitness, failed_symbols = (
+                        aggregate_multi_symbol_windows(symbol_window_map, symbols)
+                    )
+
+                    total_trades = 0
+                    total_alpha = 0.0
+                    per_window_summary: Dict[str, Any] = {}
+                    for sym, wrs in symbol_window_map.items():
+                        for wr in wrs:
+                            if not wr.insufficient_data:
+                                total_alpha += wr.alpha
+                                total_trades += wr.details.get("n_trades", 0)
+                            key = f"{sym}:{wr.window_name}"
+                            per_window_summary[key] = {
+                                "fitness": round(wr.fitness, 4),
+                                "alpha": round(wr.alpha, 4),
+                                "ghost_dca_return": round(wr.ghost_dca_return, 4),
+                                "strategy_return": round(wr.strategy_return, 4),
+                                "insufficient_data": wr.insufficient_data,
+                                "n_candles": wr.n_candles,
+                            }
+
+                    n_valid = len([r for r in all_window_results if not r.insufficient_data])
+                    avg_alpha = total_alpha / n_valid if n_valid > 0 else 0.0
+
+                    chrom.fitness_score = fitness_score
+                    chrom.fitness_details = {
+                        "fitness": round(fitness_score, 4),
+                        "avg_alpha": round(avg_alpha, 4),
+                        "total_trades": total_trades,
+                        "symbols_tested": len(symbols),
+                        "windows_valid": n_valid,
+                        "windows_total": len(all_window_results),
+                        "per_symbol_fitness": per_symbol_fitness,
+                        "failed_symbols": failed_symbols,
+                        "insufficient_data": bool(failed_symbols),
+                        "per_window": per_window_summary,
+                        "data_provenance": self.backtest_engine.data_provenance.to_dict(),
+                        "stage": "stage3_multi_window",
+                    }
+
+                    if verbose:
+                        print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} "
+                              f"Trades={total_trades} Windows={n_valid}/{len(all_window_results)}")
+
                 else:
+                    # ── Stage 2: single-window multi-symbol (original) ────────
+                    fitness, per_symbol, all_trades = evaluate_chromosome_multi_symbol_v2(
+                        chrom,
+                        symbols=self.config["symbols"],
+                        engine=self.backtest_engine,
+                        interval=self.config["backtest_interval"],
+                        days=self.config["backtest_days"],
+                        seasons=self.three_layer.seasons,
+                        environment=self.three_layer.environment,
+                        verbose=False,
+                    )
+
                     fitness_score = fitness
-                    fitness_details = {}
-                
-                chrom.fitness_score = fitness_score
-                chrom.fitness_details = {
-                    "fitness": round(fitness_score, 4),
-                    "avg_alpha": round(avg_alpha, 4),
-                    "total_trades": total_trades,
-                    "total_friction": round(total_friction, 4),
-                    "symbols_tested": len(per_symbol),
-                    "seasons_applied": len(self.three_layer.seasons),
-                }
-                
-                if verbose:
-                    print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} Trades={total_trades}")
+
+                    total_trades = 0
+                    total_alpha = 0.0
+                    total_friction = 0.0
+
+                    for symbol, result in per_symbol.items():
+                        total_trades += result.strategy_metrics.total_trades
+                        total_alpha += result.alpha_vs_dca
+                        total_friction += result.friction_penalty
+
+                    avg_alpha = total_alpha / len(per_symbol) if per_symbol else 0.0
+
+                    chrom.fitness_score = fitness_score
+                    chrom.fitness_details = {
+                        "fitness": round(fitness_score, 4),
+                        "avg_alpha": round(avg_alpha, 4),
+                        "total_trades": total_trades,
+                        "total_friction": round(total_friction, 4),
+                        "symbols_tested": len(per_symbol),
+                        "seasons_applied": len(self.three_layer.seasons),
+                        "data_provenance": self.backtest_engine.data_provenance.to_dict(),
+                    }
+
+                    if verbose:
+                        print(f"Fit={fitness_score:.3f} Alpha={avg_alpha:+.3f} Trades={total_trades}")
                 
             except Exception as e:
                 if verbose:
@@ -431,6 +574,19 @@ class EvolutionEngineV2:
         max_generations: Optional[int] = None,
         verbose: bool = True,
     ) -> StrategyChromosomeV2:
+        """Run one Epoch and publish UI-readable progress state."""
+        max_gen = max_generations or self.config["max_generations"]
+        self._write_runtime_state(True, max_gen)
+        try:
+            return self._run_impl(max_generations=max_generations, verbose=verbose)
+        finally:
+            self._write_runtime_state(False, max_gen)
+
+    def _run_impl(
+        self,
+        max_generations: Optional[int] = None,
+        verbose: bool = True,
+    ) -> StrategyChromosomeV2:
         """運行完整 V2 演化循環"""
         max_gen = max_generations or self.config["max_generations"]
         
@@ -453,6 +609,7 @@ class EvolutionEngineV2:
         
         for gen in range(max_gen):
             self.evaluate_generation(verbose=verbose)
+            self._write_runtime_state(True, max_gen)
             
             current_best = self.population[0]
             current_best_fit = current_best.fitness_score or 0.0
@@ -478,29 +635,26 @@ class EvolutionEngineV2:
         
         # Epoch 結束：最佳個體作為挑戰者寫入檔案館
         if best_ever:
-            # 3rd-chapter: Monte Carlo final review (Epoch-end only, does not affect fitness)
+            fitness_before_review = best_ever.fitness_score
             try:
-                _, _, mc_trades = evaluate_chromosome_multi_symbol_v2(
-                    best_ever,
-                    symbols=self.config["symbols"],
-                    engine=self.backtest_engine,
-                    interval=self.config["backtest_interval"],
-                    days=self.config["backtest_days"],
-                    seasons=self.three_layer.seasons,
-                    environment=self.three_layer.environment,
-                    verbose=False,
-                )
-                ruin_prob = calculate_ruin_probability(
-                    [{"pnl_pct": t.pnl_pct} for t in mc_trades]
-                )
-                best_ever.fitness_details["ruin_probability"] = round(ruin_prob, 4)
+                report = self._run_monte_carlo_final_review(best_ever)
+                best_ever.fitness_details["monte_carlo_final_review"] = report
+                ruin_prob = report.get("ruin_probability")
                 warn_threshold = self.config.get("ruin_probability_warn_threshold", 0.05)
-                if ruin_prob > warn_threshold:
+                if ruin_prob is None:
+                    print("  Monte Carlo final review: insufficient 1m trade samples")
+                elif ruin_prob > warn_threshold:
                     print(f"  \u26a0\ufe0f Warn: Ruin probability {ruin_prob:.4f} exceeds threshold {warn_threshold:.4f} (fitness unchanged)")
                 else:
                     print(f"  Monte Carlo final review: ruin probability = {ruin_prob:.4f}")
             except Exception as e:
+                best_ever.fitness_details["monte_carlo_final_review"] = {
+                    "error": str(e),
+                    "interval": "1m",
+                }
                 print(f"  Monte Carlo final review failed: {e}")
+            finally:
+                best_ever.fitness_score = fitness_before_review
             self._archive_challenger(best_ever)
         
         print(f"\n{'='*70}")
@@ -511,6 +665,52 @@ class EvolutionEngineV2:
             print(f"Summary: {best_ever.summary()}")
         
         return best_ever or (self.population[0] if self.population else None)
+
+    def _write_runtime_state(self, running: bool, max_generations: int) -> None:
+        self.runtime_state_file.parent.mkdir(parents=True, exist_ok=True)
+        with self.runtime_state_file.open("w", encoding="utf-8") as handle:
+            json.dump({
+                "running": running,
+                "epoch_id": self.epoch_id,
+                "generation": self.generation,
+                "max_generations": max_generations,
+                "updated_at": datetime.now().isoformat(),
+            }, handle, indent=2)
+
+    def _run_monte_carlo_final_review(
+        self,
+        challenger: StrategyChromosomeV2,
+    ) -> Dict[str, Any]:
+        """Run once per Epoch on the final Challenger using the complete 1m sample."""
+        interval = self.config.get("monte_carlo_interval", "1m")
+        if interval != "1m":
+            raise ValueError("Monte Carlo final review interval must be 1m")
+
+        days = int(self.config.get("monte_carlo_history_days", 90))
+        _, _, trades = evaluate_chromosome_multi_symbol_v2(
+            challenger,
+            symbols=self.config["symbols"],
+            engine=self.backtest_engine,
+            interval=interval,
+            days=days,
+            seasons=self.three_layer.seasons,
+            environment=self.three_layer.environment,
+            verbose=False,
+        )
+        report = calculate_monte_carlo_report(
+            [{"pnl_pct": t.pnl_pct} for t in trades],
+            initial_capital=self.backtest_engine.initial_capital,
+            n_simulations=int(self.config.get("monte_carlo_simulations", 1000)),
+            seed=int(self.config.get("monte_carlo_seed", 42)),
+        )
+        report.update({
+            "interval": interval,
+            "history_days": days,
+            "symbols": list(self.config["symbols"]),
+            "data_provenance": self.backtest_engine.data_provenance.to_dict(),
+            "fitness_unchanged": True,
+        })
+        return report
     
     # ═══════════════════════════════════════════════════════
     # 保存與檔案
@@ -572,7 +772,7 @@ class ContinuousEvolutionV2:
     
     - 每 X 小時執行一輪（較短世代數）
     - 每次用全歷史數據回測
-    - 自動將最佳部署到 Paper Trading
+    - Epoch 最佳只進 Challenger，不會自動部署
     - 表現差的自動淘汰，從基因池補新血
     """
     
@@ -606,6 +806,8 @@ class ContinuousEvolutionV2:
         cycle = 0
         while self.running:
             cycle += 1
+            if cycle > 1:
+                self.engine.start_new_epoch()
             print(f"\n{'='*60}")
             print(f"🔄 CYCLE {cycle} | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
             print(f"{'='*60}")
@@ -622,10 +824,9 @@ class ContinuousEvolutionV2:
             
             best = self.engine.run(max_generations=10, verbose=True)
             
-            top_strategies = self.engine.get_top_strategies(self.live_pool_size)
-            self.live_pool = top_strategies
-            
-            self._deploy_to_paper(top_strategies)
+            # Research continuity only. These strategies remain candidates and
+            # must never become runtime strategies without manual Promote.
+            self.live_pool = self.engine.get_top_strategies(self.live_pool_size)
             
             if self.running:
                 sleep_seconds = int(self.evolution_interval_hours * 3600)
@@ -636,13 +837,14 @@ class ContinuousEvolutionV2:
         self.running = False
         print("🛑 Continuous Evolution V2 stopped")
     
-    def _deploy_to_paper(self, strategies: List[StrategyChromosomeV2]) -> None:
+    def _deploy_to_paper(self, strategies: Optional[List[StrategyChromosomeV2]] = None) -> None:
+        """Write only the promoted Champion, or the deterministic fallback."""
         from .converter import convert_to_strategy_json
-        
-        deployed = []
-        for chrom in strategies:
-            strategy_json = convert_to_strategy_json(chrom)
-            deployed.append(strategy_json)
+
+        chrom = StrategyChromosomeV2.from_dict(
+            self.engine.archive.get_runtime_chromosome_data("default")
+        )
+        deployed = [convert_to_strategy_json(chrom)]
         
         save_path = Path("data/genetic_evolution_v2/live_pool_strategies.json")
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -654,7 +856,7 @@ class ContinuousEvolutionV2:
                 "strategies": deployed,
             }, f, indent=2)
         
-        print(f"\n📋 Deployed {len(deployed)} strategies to live pool")
+        print(f"\n📋 Runtime strategy refreshed from Champion/default")
 
 
 if __name__ == "__main__":

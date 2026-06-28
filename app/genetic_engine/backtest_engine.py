@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from data.fetcher import BinanceFetcher, KlineData
+from data.providers import DataProvider, require_official_data
 from .gene_library import IndicatorGene, IndicatorType, ConditionType
 from .chromosome import StrategyChromosome, RiskGenes
 from .fitness import calculate_metrics, compute_fitness, compute_fitness_details, BacktestMetrics
@@ -47,82 +48,247 @@ class KlineCache:
         self._memory_cache: Dict[str, pd.DataFrame] = {}
     
     def _cache_key(self, symbol: str, interval: str) -> str:
-        return f"{symbol}_{interval}"
+        safe_symbol = symbol.replace("/", "_").replace(":", "_")
+        return f"{safe_symbol}_{interval}"
     
     def _parquet_path(self, symbol: str, interval: str) -> Path:
-        return self.cache_dir / f"{symbol}_{interval}.parquet"
+        return self.cache_dir / f"{self._cache_key(symbol, interval)}.parquet"
+
+    def _normalize_datetime_index(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalize cache data to a UTC DatetimeIndex across pandas/pyarrow versions."""
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index, utc=True)
+        elif df.index.tz is None:
+            df.index = df.index.tz_localize("UTC")
+        else:
+            df.index = df.index.tz_convert("UTC")
+        return df.sort_index()
+
+    def _index_open_time_ms(self, df: pd.DataFrame) -> pd.Series:
+        """Return candle open times as integer milliseconds."""
+        if "_open_time_ms" in df.columns:
+            values = df["_open_time_ms"].astype("int64")
+            return pd.Series(values.to_numpy(), index=df.index)
+        values = [int(pd.Timestamp(ts).timestamp() * 1000) for ts in df.index]
+        return pd.Series(values, index=df.index, dtype="int64")
     
     def has_cache(self, symbol: str, interval: str) -> bool:
         return self._parquet_path(symbol, interval).exists()
     
     def load(self, symbol: str, interval: str,
              start_ms: Optional[int] = None,
-             end_ms: Optional[int] = None) -> Optional[pd.DataFrame]:
+             end_ms: Optional[int] = None,
+             session_based: bool = False) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
         從快取載入 K 線 DataFrame，可選時間過濾。
         使用記憶體二級快取加速重複讀取。
+
+        Returns:
+            (df, validation) tuple.
+            - (df, {"valid": True, ...}) on a good cache hit
+            - (None, {"valid": False, "data_invalid": True, "errors": [...]}) on miss or bad data
+              Never returns validation=None; the caller can always inspect the dict.
         """
+        from data.fetcher import interval_to_ms as _interval_to_ms
+
+        def _miss(reason: str) -> Tuple[None, Dict]:
+            return None, {
+                "valid": False,
+                "data_invalid": True,
+                "errors": [f"cache miss: {reason}"],
+            }
+
         key = self._cache_key(symbol, interval)
-        
+
         # 記憶體快取
         if key in self._memory_cache:
-            df = self._memory_cache[key]
+            df_full = self._memory_cache[key]
         else:
             path = self._parquet_path(symbol, interval)
             if not path.exists():
-                return None
-            
-            df = pd.read_parquet(path)
+                return _miss("no parquet file")
+
+            df_full = pd.read_parquet(path)
             # 確保 timestamp 是 datetime
-            if 'timestamp' in df.columns:
-                if df['timestamp'].dtype == 'int64':
-                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
-                elif not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-            
+            if '_open_time_ms' in df_full.columns:
+                df_full['_open_time_ms'] = df_full['_open_time_ms'].astype('int64')
+                df_full['timestamp'] = pd.to_datetime(df_full['_open_time_ms'], unit='ms', utc=True)
+            elif 'timestamp' in df_full.columns:
+                if pd.api.types.is_numeric_dtype(df_full['timestamp']):
+                    df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], unit='ms', utc=True)
+                else:
+                    df_full['timestamp'] = pd.to_datetime(df_full['timestamp'], utc=True)
+
             # 設為索引
-            if 'timestamp' in df.columns:
-                df = df.set_index('timestamp').sort_index()
-            
-            self._memory_cache[key] = df
-        
-        # 時間過濾
+            if 'timestamp' in df_full.columns:
+                df_full = df_full.set_index('timestamp')
+            df_full = self._normalize_datetime_index(df_full)
+            if '_open_time_ms' not in df_full.columns:
+                df_full['_open_time_ms'] = self._index_open_time_ms(df_full).to_numpy()
+
+            self._memory_cache[key] = df_full
+
+        # ── Coverage validation ────────────────────────────────────────────────
+        if start_ms is not None and end_ms is not None:
+            try:
+                iv_ms = _interval_to_ms(interval)
+            except ValueError:
+                iv_ms = None
+
+            # Check that cached data covers the requested range
+            if len(df_full) == 0:
+                return _miss("empty cache")
+
+            open_time_ms = self._index_open_time_ms(df_full)
+            cache_start_ms = int(open_time_ms.iloc[0])
+            cache_end_ms = int(open_time_ms.iloc[-1])
+
+            # Kline requests are half-open by open time: [start_ms, end_ms).
+            # The final expected candle opens at end_ms - interval.
+            margin = iv_ms if iv_ms else 60_000
+            requested_last_open_ms = end_ms - margin
+            if cache_end_ms < requested_last_open_ms:
+                return _miss(
+                    f"cache end {cache_end_ms} is before requested end {end_ms} "
+                    f"(stale by {(end_ms - cache_end_ms) // 1000}s)"
+                )
+
+            # Does not cover start
+            if cache_start_ms > start_ms + margin:
+                return _miss(
+                    f"cache start {cache_start_ms} is after requested start {start_ms}"
+                )
+
+            # Continuous markets require every interval. Exchange-session data
+            # legitimately contains overnight, weekend and holiday gaps.
+            if iv_ms is not None and not session_based:
+                expected_count = max(0, (end_ms - start_ms + iv_ms - 1) // iv_ms)
+                # Filter to requested window first
+                window_mask = (open_time_ms >= start_ms) & (open_time_ms < end_ms)
+                df_window = df_full.loc[window_mask.to_numpy()]
+                actual_count = len(df_window)
+
+                if actual_count < expected_count:
+                    return _miss(
+                        f"partial data: have {actual_count} candles, "
+                        f"need {expected_count} for {interval} from {start_ms} to {end_ms}"
+                    )
+
+                # Check sorted and continuous (no gaps)
+                if actual_count > 1:
+                    ts_ms = self._index_open_time_ms(df_window).to_numpy()
+                    diffs = ts_ms[1:] - ts_ms[:-1]
+                    if not (diffs == iv_ms).all():
+                        return _miss("gap or duplicate detected in cached data")
+
+                return df_window.copy(), {"valid": True, "data_invalid": False, "errors": []}
+
+        # 時間過濾 (when start_ms/end_ms not both provided, return raw slice)
+        df = df_full
         if start_ms is not None:
             start_dt = pd.to_datetime(start_ms, unit='ms', utc=True)
             df = df[df.index >= start_dt]
         if end_ms is not None:
             end_dt = pd.to_datetime(end_ms, unit='ms', utc=True)
-            df = df[df.index <= end_dt]
-        
-        return df.copy()  # 避免修改記憶體快取
+            if session_based:
+                df = df[df.index <= end_dt]
+            else:
+                df = df[df.index < end_dt]
+
+        if len(df) == 0:
+            return _miss("filtered range is empty")
+
+        return df.copy(), {"valid": True, "data_invalid": False, "errors": []}
     
-    def load_or_fetch(self, fetcher: BinanceFetcher,
+    def save(self, df: pd.DataFrame, symbol: str, interval: str) -> None:
+        """
+        將 DataFrame 寫入 Parquet 快取。df 必須以 timestamp 為索引。
+        """
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        path = self._parquet_path(symbol, interval)
+        # 寫入時重置索引以保留 timestamp 欄位
+        df_to_write = self._normalize_datetime_index(df.copy())
+        df_to_write.index.name = "timestamp"
+        df_to_write = df_to_write.reset_index()
+        df_to_write["timestamp"] = pd.to_datetime(df_to_write["timestamp"], utc=True)
+        df_to_write["_open_time_ms"] = df_to_write["timestamp"].map(
+            lambda ts: int(pd.Timestamp(ts).timestamp() * 1000)
+        ).astype("int64")
+        df_to_write.to_parquet(path, index=False)
+        # 清除記憶體快取，確保下次重新讀取
+        key = self._cache_key(symbol, interval)
+        self._memory_cache.pop(key, None)
+
+    def load_or_fetch(self, fetcher: DataProvider,
                       symbol: str, interval: str,
                       start_ms: Optional[int] = None,
                       end_ms: Optional[int] = None,
-                      limit: int = 1000) -> Optional[pd.DataFrame]:
+                      limit: int = 1000,
+                      paginate: bool = True,
+                      strict_validation: bool = False) -> Tuple[Optional[pd.DataFrame], Optional[Dict]]:
         """
-        優先讀取本地快取，不存在則呼叫 API（並回傳 raw klines 格式）。
+        優先讀取本地快取，不存在則呼叫 API（分頁抓取），成功後寫入快取。
+
+        Returns:
+            (df, validation) where validation is None when served from cache,
+            or the validation dict from fetch_klines_paginated when fetched from API.
+            If validation["data_invalid"] is True the caller must abort.
+
+        Args:
+            paginate: 若 True 且時間範圍大，使用分頁抓取以取得完整資料
         """
-        df = self.load(symbol, interval, start_ms, end_ms)
-        if df is not None:
-            return df
-        
+        session_detector = getattr(fetcher, "is_session_based", None)
+        session_based = (
+            callable(session_detector) and session_detector(symbol) is True
+        )
+        df, cache_validation = self.load(
+            symbol, interval, start_ms, end_ms, session_based=session_based
+        )
+        if df is not None and cache_validation is not None and cache_validation.get("valid"):
+            return df, cache_validation
+
         # 回退到 API
-        klines = fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=limit)
+        validation: Optional[Dict] = None
+        if paginate and start_ms is not None and end_ms is not None:
+            klines, validation = fetcher.fetch_klines_paginated(
+                symbol=symbol,
+                interval=interval,
+                start_time=start_ms,
+                end_time=end_ms,
+                limit=limit,
+                validate=True,
+                verbose=False,
+                strict_validation=strict_validation,
+            )
+            if not klines:
+                return None, validation
+            # Log warnings if any
+            if validation.get("warnings"):
+                for w in validation["warnings"]:
+                    print(f"   ⚠️ {w}")
+            # If data is invalid, return immediately — do NOT cache bad data
+            if validation.get("data_invalid"):
+                return None, validation
+        else:
+            klines = fetcher.fetch_klines(symbol, interval, start_time=start_ms, end_time=end_ms, limit=limit)
+
         if not klines:
-            return None
-        
+            return None, validation
+
         df = pd.DataFrame(klines, columns=[
             'timestamp', 'open', 'high', 'low', 'close', 'volume',
             'close_time', 'quote_volume', 'trades', 'taker_buy_base',
             'taker_buy_quote', 'ignore'
         ])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
+        df['timestamp'] = pd.to_datetime(df['timestamp'].astype('int64'), unit='ms', utc=True)
         df.set_index('timestamp', inplace=True)
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = df[col].astype(float)
-        return df
+
+        # Write to cache after successful fetch
+        self.save(df, symbol, interval)
+
+        return df, validation
 
 
 
@@ -362,10 +528,21 @@ class GeneBacktestEngine:
     每個策略基因體會被評估其在歷史數據上的表現。
     """
     
-    def __init__(self, initial_capital: float = 1000.0, fee_rate: float = 0.001):
+    def __init__(
+        self,
+        initial_capital: float = 1000.0,
+        fee_rate: float = 0.001,
+        data_provider: Optional[DataProvider] = None,
+        official_ranking: bool = True,
+    ):
         self.initial_capital = initial_capital
         self.fee_rate = fee_rate  # 0.1% per trade
-        self.fetcher = BinanceFetcher()
+        self.data_provider = data_provider or BinanceFetcher()
+        if official_ranking:
+            require_official_data(self.data_provider)
+        # Backward-compatible alias used by existing cache and tests.
+        self.fetcher = self.data_provider
+        self.data_provenance = self.data_provider.provenance
         self.calculator = IndicatorCalculator()
         self.cache = KlineCache()
     
@@ -391,14 +568,27 @@ class GeneBacktestEngine:
             (metrics, trades)
         """
         # 獲取數據 — 優先本地快取，不存在才走 API
+        # 使用分頁抓取確保 90 天 5m 資料完整（~25,920 根）
         end_ms = int(datetime.now().timestamp() * 1000)
         start_ms = end_ms - (days * 24 * 60 * 60 * 1000)
-        
-        df = self.cache.load_or_fetch(
+
+        df, validation = self.cache.load_or_fetch(
             self.fetcher, symbol, interval,
-            start_ms=start_ms, end_ms=end_ms, limit=1000
+            start_ms=start_ms, end_ms=end_ms, limit=1000, paginate=True,
+            strict_validation=True,
         )
-        
+
+        # Fail-closed: abort immediately on invalid data
+        if validation is not None and (
+            not validation.get("valid", True) or validation.get("data_invalid", False)
+        ):
+            if verbose:
+                for e in validation.get("errors", []):
+                    print(f"   ❌ {e}")
+            metrics = BacktestMetrics()
+            metrics.data_invalid = True
+            return metrics, []
+
         if df is None or len(df) < 100:
             if verbose:
                 print(f"   ⚠️ {symbol}: insufficient data ({len(df) if df is not None else 0} bars)")
@@ -763,38 +953,119 @@ def evaluate_chromosome_multi_symbol(
 ) -> Tuple[float, Dict[str, BacktestMetrics], List[SimulatedTrade]]:
     """
     在多個幣種上評估策略，返回聚合 fitness
-    
+
+    Multi-symbol aggregation (Stage 2):
+    - Collects BacktestMetrics from ALL symbols (required_symbols = all configured symbols)
+    - If ANY symbol has data_invalid=True, empty trades, or < MIN_TRADES samples → fitness=0,
+      insufficient_data=True is logged
+    - Aggregates metrics across ALL successful symbols (approach: build a combined
+      BacktestMetrics object and pass to compute_fitness, consistent with existing scoring)
+
+    Aggregated fields:
+      - total_pnl         : weighted average (by trade count) across symbols
+      - max_drawdown      : worst (max) across symbols
+      - win_rate          : weighted by trade count
+      - profit_factor     : aggregate (total_gross_profit / total_gross_loss)
+      - consecutive_losses: max across symbols
+      - total_trades      : sum across symbols
+      - sharpe_ratio      : mean across symbols
+
     Returns:
         (aggregated_fitness, per_symbol_metrics, all_trades)
     """
+    from .fitness import compute_fitness
+
+    MIN_TRADES_PER_SYMBOL = 5  # must match fitness.py threshold
+
     if engine is None:
         engine = GeneBacktestEngine()
-    
-    per_symbol = {}
-    all_trades = []
-    
+
+    per_symbol: Dict[str, BacktestMetrics] = {}
+    all_trades: List[SimulatedTrade] = []
+
     if verbose:
         print(f"\n🔬 Evaluating {chrom.chromosome_id[:8]} on {len(symbols)} symbols...")
-    
+
     for symbol in symbols:
         metrics, trades = engine.evaluate(chrom, symbol, interval, days, verbose)
         per_symbol[symbol] = metrics
         all_trades.extend(trades)
-    
-    # 聚合 fitness — 用最差表現作為保守估計
-    from .fitness import aggregate_fitness
-    agg_fitness = aggregate_fitness(per_symbol, aggregation="worst")
-    
+
+    # ── Validate ALL required symbols (required = all configured symbols) ──────
+    insufficient_data = False
+    for symbol in symbols:
+        m = per_symbol.get(symbol)
+        if m is None:
+            if verbose:
+                print(f"   ❌ {symbol}: missing result")
+            insufficient_data = True
+        elif m.data_invalid:
+            if verbose:
+                print(f"   ❌ {symbol}: data_invalid=True")
+            insufficient_data = True
+        elif m.total_trades == 0:
+            if verbose:
+                print(f"   ❌ {symbol}: empty trades")
+            insufficient_data = True
+        elif m.total_trades < MIN_TRADES_PER_SYMBOL:
+            if verbose:
+                print(f"   ❌ {symbol}: insufficient samples ({m.total_trades} trades)")
+            insufficient_data = True
+
+    if insufficient_data:
+        chrom.fitness_score = 0.0
+        chrom.fitness_details = {"insufficient_data": True, "symbols_tested": len(symbols)}
+        if verbose:
+            print(f"   ⚠️ Required symbol failed — fitness=0")
+        return 0.0, per_symbol, all_trades
+
+    # ── Aggregate metrics across ALL successful symbols ────────────────────────
+    # Approach (b): compute per-symbol fitness with compute_fitness, then weighted average
+    # by trade count.  This is consistent with existing compute_fitness logic and avoids
+    # inventing a new formula.
+
+    valid_metrics = [per_symbol[s] for s in symbols]
+
+    total_trades_all = sum(m.total_trades for m in valid_metrics)
+
+    def _weighted(vals: List[float], weights: List[int]) -> float:
+        total_w = sum(weights)
+        if total_w == 0:
+            return 0.0
+        return sum(v * w for v, w in zip(vals, weights)) / total_w
+
+    trade_counts = [m.total_trades for m in valid_metrics]
+
+    # Build aggregated BacktestMetrics
+    agg = BacktestMetrics(
+        total_trades=total_trades_all,
+        winning_trades=sum(m.winning_trades for m in valid_metrics),
+        losing_trades=sum(m.losing_trades for m in valid_metrics),
+        win_rate=_weighted([m.win_rate for m in valid_metrics], trade_counts),
+        avg_profit=_weighted([m.avg_profit for m in valid_metrics], trade_counts),
+        avg_loss=_weighted([m.avg_loss for m in valid_metrics], trade_counts),
+        total_pnl=_weighted([m.total_pnl for m in valid_metrics], trade_counts),
+        max_drawdown=max(m.max_drawdown for m in valid_metrics),
+        sharpe_ratio=float(np.mean([m.sharpe_ratio for m in valid_metrics])),
+        profit_factor=(
+            sum(m.avg_profit * m.winning_trades for m in valid_metrics)
+            / max(1e-9, sum(abs(m.avg_loss) * m.losing_trades for m in valid_metrics))
+        ),
+        expectancy=_weighted([m.expectancy for m in valid_metrics], trade_counts),
+        avg_trade_duration=_weighted([m.avg_trade_duration for m in valid_metrics], trade_counts),
+        consecutive_losses=max(m.consecutive_losses for m in valid_metrics),
+        best_trade=max(m.best_trade for m in valid_metrics),
+        worst_trade=min(m.worst_trade for m in valid_metrics),
+    )
+
+    agg_fitness = compute_fitness(agg)
+
     # 存入染色體
     chrom.fitness_score = agg_fitness
-    chrom.fitness_details = compute_fitness_details(
-        BacktestMetrics(
-            total_trades=sum(m.total_trades for m in per_symbol.values()),
-            total_pnl=np.mean([m.total_pnl for m in per_symbol.values()]),
-        )
-    )
-    
+    chrom.fitness_details = compute_fitness_details(agg)
+    chrom.fitness_details["symbols_tested"] = len(symbols)
+
     if verbose:
-        print(f"   Aggregate Fitness: {agg_fitness:.4f}")
-    
+        print(f"   Aggregate Fitness: {agg_fitness:.4f} | Trades={total_trades_all}")
+
     return agg_fitness, per_symbol, all_trades

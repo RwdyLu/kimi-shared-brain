@@ -136,7 +136,7 @@ def render_strategy_title(strategy):
     enabled = strategy.get("enabled", False)
     
     badge_color = "success" if enabled else "secondary"
-    badge_text = "Enabled / 啟用" if enabled else "Disabled / 停用"
+    badge_text = "啟用" if enabled else "停用"
     
     return html.Div(
         [

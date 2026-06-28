@@ -60,6 +60,26 @@ class MacroGenes:
     t_micro: int = 5        # 微觀統計窗口
     t_deadline: int = 3     # 耐心耗盡期限
     ema_anchor: int = 50    # EMA 錨定期
+
+    # Stage 4: DCA 行為基因
+    dca_interval: int = 24       # 定投間隔（K 線根數）
+    hold_period: int = 48        # 最大持倉 K 線數，超過強制出場
+    recycle_ratio: float = 0.20  # 實現盈利再投入比例 [0, 1]
+
+    # Stage 4: 目標持倉權重（用於 kp/kv/ka PDE 公式）
+    target_weight: float = 0.50  # 目標倉位佔比
+
+    # Legacy fields remain serializable so archived chromosomes still load, but
+    # only behaviorally connected fields participate in GA exploration.
+    ACTIVE_EVOLUTION_FIELDS = (
+        "t_macro",
+        "t_micro",
+        "t_deadline",
+        "dca_interval",
+        "hold_period",
+        "recycle_ratio",
+        "target_weight",
+    )
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -73,8 +93,12 @@ class MacroGenes:
             "t_micro": self.t_micro,
             "t_deadline": self.t_deadline,
             "ema_anchor": self.ema_anchor,
+            "dca_interval": self.dca_interval,
+            "hold_period": self.hold_period,
+            "recycle_ratio": self.recycle_ratio,
+            "target_weight": self.target_weight,
         }
-    
+
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "MacroGenes":
         return cls(
@@ -88,22 +112,23 @@ class MacroGenes:
             t_micro=d.get("t_micro", 5),
             t_deadline=d.get("t_deadline", 3),
             ema_anchor=d.get("ema_anchor", 50),
+            dca_interval=d.get("dca_interval", 24),
+            hold_period=d.get("hold_period", 48),
+            recycle_ratio=d.get("recycle_ratio", 0.20),
+            target_weight=d.get("target_weight", 0.50),
         )
     
     @classmethod
     def random(cls) -> "MacroGenes":
-        """隨機生成宏觀基因（在合理範圍內）"""
+        """Randomize only macro genes that currently affect backtest behavior."""
         return cls(
-            max_dca_months=random.randint(3, 24),
-            beta_threshold=round(random.uniform(0.05, 0.25), 3),
-            moon_phase_pressure=round(random.uniform(0.5, 2.0), 2),
-            deadline_force_pct=round(random.uniform(0.10, 0.50), 2),
-            gc_threshold_months=random.randint(3, 12),
-            gc_max_ratio=round(random.uniform(0.20, 0.80), 2),
             t_macro=random.randint(10, 50),
-            t_micro=random.randint(3, 15),
+            t_micro=random.randint(1, 15),
             t_deadline=random.randint(1, 6),
-            ema_anchor=random.randint(20, 200),
+            dca_interval=random.randint(1, 100),
+            hold_period=random.randint(10, 200),
+            recycle_ratio=round(random.uniform(0.0, 0.5), 3),
+            target_weight=round(random.uniform(0.2, 0.8), 3),
         )
     
     def mutate(self, intensity: float = 0.3) -> "MacroGenes":
@@ -112,10 +137,8 @@ class MacroGenes:
         
         # 各參數獨立以一定概率擾動
         fields_float = [
-            ("beta_threshold", 0.01, 0.50),
-            ("moon_phase_pressure", 0.1, 3.0),
-            ("deadline_force_pct", 0.05, 0.80),
-            ("gc_max_ratio", 0.10, 0.90),
+            ("recycle_ratio", 0.0, 0.80),
+            ("target_weight", 0.10, 0.90),
         ]
         
         for field_name, min_v, max_v in fields_float:
@@ -126,12 +149,11 @@ class MacroGenes:
                 setattr(new, field_name, round(new_val, 3))
         
         fields_int = [
-            ("max_dca_months", 1, 36),
-            ("gc_threshold_months", 1, 24),
-            ("t_macro", 5, 100),
-            ("t_micro", 2, 30),
+            ("t_macro", 1, 100),
+            ("t_micro", 1, 30),
             ("t_deadline", 1, 12),
-            ("ema_anchor", 10, 300),
+            ("dca_interval", 1, 200),
+            ("hold_period", 5, 500),
         ]
         
         for field_name, min_v, max_v in fields_int:
@@ -248,6 +270,24 @@ class MicroGenes:
         if random.random() < 0.3:
             new.micro_reserve_rate = max(0.02, min(0.50,
                 new.micro_reserve_rate + random.uniform(-0.05, 0.05)))
+
+        if random.random() < 0.3:
+            new.sigmoid_scale = round(max(0.1, min(
+                10.0,
+                new.sigmoid_scale * (1 + intensity * random.uniform(-1, 1)),
+            )), 3)
+
+        if random.random() < 0.3:
+            new.gamma = round(max(0.1, min(
+                5.0,
+                new.gamma * (1 + intensity * random.uniform(-1, 1)),
+            )), 3)
+
+        if random.random() < 0.3:
+            new.beta = round(max(0.0, min(
+                1.0,
+                new.beta + intensity * random.uniform(-0.25, 0.25),
+            )), 3)
         
         return new
 
@@ -276,6 +316,31 @@ class RiskGenesV2:
     
     # 加速度解封閾值：當 ka 超過此值時，DeadHold 可轉為 FloatHold
     unlock_ka_threshold: float = 0.60
+
+    @classmethod
+    def random_bridge(cls, base: "RiskGenesV2") -> "RiskGenesV2":
+        dead_ratio = round(random.uniform(0.10, 0.60), 3)
+        base.dead_hold_ratio = dead_ratio
+        base.float_hold_ratio = round(1.0 - dead_ratio, 3)
+        base.unlock_ka_threshold = round(random.uniform(0.01, 0.30), 4)
+        return base
+
+    def mutate_bridge(self, intensity: float = 0.3) -> "RiskGenesV2":
+        new = RiskGenesV2.from_dict(self.to_dict())
+        if random.random() < 0.4:
+            dead_ratio = max(0.0, min(
+                1.0,
+                new.dead_hold_ratio + intensity * random.uniform(-0.25, 0.25),
+            ))
+            new.dead_hold_ratio = round(dead_ratio, 3)
+            new.float_hold_ratio = round(1.0 - dead_ratio, 3)
+        if random.random() < 0.4:
+            new.unlock_ka_threshold = round(max(0.0, min(
+                1.0,
+                new.unlock_ka_threshold
+                + intensity * random.uniform(-0.20, 0.20),
+            )), 4)
+        return new
     
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -403,28 +468,82 @@ class StrategyChromosomeV2:
             epoch_id=d.get("epoch_id", "epoch_0"),
             symbol=d.get("symbol", "default"),
         )
-    
+
     def summary(self) -> str:
         """簡短文字描述"""
         entry_names = " + ".join([g.name for g in self.entry_genes])
         exit_names = " + ".join([g.name for g in self.exit_genes])
-        
+
         fit = f"fit={self.fitness_score:.3f}" if self.fitness_score else "fit=??"
-        
+
         return (
             f"[{self.chromosome_id[:8]}] G{self.generation} | "
             f"Entry({self.entry_logic}): {entry_names} | "
             f"Exit({self.exit_logic}): {exit_names} | "
-            f"Macro: DCA={self.macro_genes.max_dca_months}mo β={self.macro_genes.beta_threshold:.1%} | "
+            f"Macro: DCA={self.macro_genes.dca_interval} bars | "
             f"Micro: kp={self.micro_genes.kp:.2f} kv={self.micro_genes.kv:.2f} ka={self.micro_genes.ka:.2f} | "
             f"Risk: SL={self.risk_genes.stop_loss_pct:.1%} TP={self.risk_genes.take_profit_pct:.1%} | "
             f"{fit}"
         )
 
 
+def built_in_default_chromosome(symbol: str = "default") -> StrategyChromosomeV2:
+    """Deterministic spot-only fallback used when no Champion has been promoted."""
+    return StrategyChromosomeV2(
+        chromosome_id=f"builtin_default_{symbol.lower()}",
+        entry_genes=[
+            IndicatorGene(
+                name="ema_cross",
+                indicator_type=IndicatorType.TREND,
+                timeframe="5m",
+                params={"short_period": 12, "long_period": 48},
+                condition=ConditionType.CROSS_UP,
+                threshold=0.0,
+            )
+        ],
+        exit_genes=[
+            IndicatorGene(
+                name="ema_cross",
+                indicator_type=IndicatorType.TREND,
+                timeframe="5m",
+                params={"short_period": 12, "long_period": 48},
+                condition=ConditionType.CROSS_DOWN,
+                threshold=0.0,
+            )
+        ],
+        entry_logic="AND",
+        exit_logic="OR",
+        macro_genes=MacroGenes(),
+        micro_genes=MicroGenes(),
+        risk_genes=RiskGenesV2(),
+        symbol=symbol,
+        fitness_details={"source": "built_in_default"},
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # V2 染色體生成器
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def built_in_default_chromosome(symbol: str = "default") -> "StrategyChromosomeV2":
+    """
+    Return a deterministic built-in default chromosome used when no Champion exists.
+    Seeds random with a fixed value so output is always identical.
+    """
+    import random as _r
+    state = _r.getstate()
+    _r.seed(42)
+    chrom = random_chromosome_v2(generation=0)
+    _r.setstate(state)
+    chrom.chromosome_id = f"builtin_default_{symbol.lower()}"
+    chrom.epoch_id = "builtin"
+    chrom.macro_genes.dca_interval = 24
+    chrom.macro_genes.target_weight = 0.3
+    chrom.micro_genes.min_trade_threshold = 0.05
+    chrom.fitness_score = 0.0
+    chrom.fitness_details = {"builtin": True, "symbol": symbol}
+    return chrom
+
 
 def random_chromosome_v2(
     generation: int = 0,
@@ -460,7 +579,7 @@ def random_chromosome_v2(
         volume_filter=old_chrom.volume_filter,
         macro_genes=MacroGenes.random(),
         micro_genes=MicroGenes.random(),
-        risk_genes=RiskGenesV2(
+        risk_genes=RiskGenesV2.random_bridge(RiskGenesV2(
             stop_loss_pct=old_chrom.risk_genes.stop_loss_pct,
             take_profit_pct=old_chrom.risk_genes.take_profit_pct,
             position_pct=old_chrom.risk_genes.position_pct,
@@ -468,7 +587,7 @@ def random_chromosome_v2(
             trailing_stop=old_chrom.risk_genes.trailing_stop,
             trailing_stop_pct=old_chrom.risk_genes.trailing_stop_pct,
             profit_targets=old_chrom.risk_genes.profit_targets,
-        ),
+        )),
         generation=generation,
     )
 
@@ -488,6 +607,17 @@ def mutate_chromosome_v2(
     # 突變宏觀/微觀基因
     new_macro = chrom.macro_genes.mutate(intensity) if random.random() < mutation_rate else chrom.macro_genes
     new_micro = chrom.micro_genes.mutate(intensity) if random.random() < mutation_rate else chrom.micro_genes
+    new_risk = RiskGenesV2.from_dict(chrom.risk_genes.to_dict())
+    old_risk = old_chrom.risk_genes
+    new_risk.stop_loss_pct = old_risk.stop_loss_pct
+    new_risk.take_profit_pct = old_risk.take_profit_pct
+    new_risk.position_pct = old_risk.position_pct
+    new_risk.max_hold_bars = old_risk.max_hold_bars
+    new_risk.trailing_stop = old_risk.trailing_stop
+    new_risk.trailing_stop_pct = old_risk.trailing_stop_pct
+    new_risk.profit_targets = old_risk.profit_targets
+    if random.random() < mutation_rate:
+        new_risk = new_risk.mutate_bridge(intensity)
     
     return StrategyChromosomeV2(
         chromosome_id=old_chrom.chromosome_id,
@@ -501,7 +631,7 @@ def mutate_chromosome_v2(
         volume_filter=old_chrom.volume_filter,
         macro_genes=new_macro,
         micro_genes=new_micro,
-        risk_genes=RiskGenesV2.from_dict(old_chrom.risk_genes.to_dict()),
+        risk_genes=new_risk,
         generation=generation,
         parent_ids=old_chrom.parent_ids,
     )
@@ -567,6 +697,20 @@ def crossover_chromosomes_v2(
     micro_child.kp = round(micro_child.kp / total, 3)
     micro_child.kv = round(micro_child.kv / total, 3)
     micro_child.ka = round(micro_child.ka / total, 3)
+
+    base_risk = RiskGenesV2.from_dict(old_child.risk_genes.to_dict())
+    base_risk.dead_hold_ratio = round(
+        (parent1.risk_genes.dead_hold_ratio + parent2.risk_genes.dead_hold_ratio) / 2,
+        3,
+    )
+    base_risk.float_hold_ratio = round(1.0 - base_risk.dead_hold_ratio, 3)
+    base_risk.unlock_ka_threshold = round(
+        (
+            parent1.risk_genes.unlock_ka_threshold
+            + parent2.risk_genes.unlock_ka_threshold
+        ) / 2,
+        4,
+    )
     
     return StrategyChromosomeV2(
         chromosome_id=old_child.chromosome_id,
@@ -580,7 +724,7 @@ def crossover_chromosomes_v2(
         volume_filter=old_child.volume_filter,
         macro_genes=macro_child,
         micro_genes=micro_child,
-        risk_genes=RiskGenesV2.from_dict(old_child.risk_genes.to_dict()),
+        risk_genes=base_risk,
         generation=generation,
         parent_ids=old_child.parent_ids,
     )
@@ -614,7 +758,8 @@ def validate_chromosome_v2(chrom: StrategyChromosomeV2) -> bool:
         return False
     
     # 倉位比例合理
-    if chrom.risk_genes.dead_hold_ratio + chrom.risk_genes.float_hold_ratio > 1.0:
+    bridge_sum = chrom.risk_genes.dead_hold_ratio + chrom.risk_genes.float_hold_ratio
+    if abs(bridge_sum - 1.0) > 1e-6:
         return False
     
     return True
