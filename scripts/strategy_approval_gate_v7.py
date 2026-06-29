@@ -142,7 +142,19 @@ def deterministic_audit(genome, symbol: str, args, seed: int) -> dict[str, Any]:
                 diffs[field] = diff
         elif a != b:
             diffs[field] = [a, b]
-    return {"passed": not diffs, "diffs": diffs, "metrics": compact_metrics(first)}
+    return {
+        "passed": not diffs,
+        "diffs": diffs,
+        "metrics": compact_metrics(first),
+        "replay_hashes": {
+            "same_metrics_hash": not diffs,
+            "same_signal_hash": None,
+            "same_trade_hash": None,
+            "same_equity_curve_hash": None,
+            "same_benchmark_hash": None,
+            "unavailable_reason": "current evaluator does not emit signal/trade/equity/benchmark tables",
+        },
+    }
 
 
 def validation_seed_checks(genome, symbol: str, args, seeds: list[int]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -285,6 +297,7 @@ def holdout_manifest(args) -> dict[str, Any]:
     payload = {
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "note": "Locked holdout for final approval only. Do not use these seeds in GA search or adversarial training.",
+        "pollution_policy": "private_holdout_failures_are_not_written_to_adversarial_bank_until_holdout_version_is_retired",
         "seeds": seeds,
         "scenario_count": args.holdout_scenarios,
         "scenario_costs": args.scenario_costs,
@@ -396,6 +409,11 @@ def approve_candidate(row: dict[str, Any], args, seeds: list[int]) -> dict[str, 
         "walkforward": wf_result,
         "monte_carlo": mc,
         "holdout": holdout,
+        "holdout_pollution_policy": {
+            "private_holdout_failures_written_to_adversarial_bank": False,
+            "public_validation_failures_written_to_adversarial_bank": not paper_ready and bool(failures),
+            "retirement_required_before_holdout_reuse": True,
+        },
         "adversarial_rows_written": adversarial_rows,
         "genome": genome_dict,
     }
@@ -415,6 +433,8 @@ def main() -> None:
     ap.add_argument("--scenarios", type=int, default=24)
     ap.add_argument("--scenario-costs", default="20,30,50")
     ap.add_argument("--validation-seeds", default="930777,930778,930779")
+    ap.add_argument("--data-manifest-dir", default="")
+    ap.add_argument("--data-audit-summary-hash", default="")
     ap.add_argument("--initial-cash", type=float, default=10000.0)
     ap.add_argument("--lot-step", type=float, default=0.0001)
     ap.add_argument("--lot-min", type=float, default=0.0001)

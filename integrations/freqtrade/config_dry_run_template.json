@@ -5,7 +5,7 @@
     "listen_ip_address": "127.0.0.1",
     "listen_port": 8080
   },
-  "bot_name": "kimi-artifact-dry-run",
+  "bot_name": "kimi-artifact-smoke-only",
   "cancel_open_orders_on_exit": true,
   "dry_run": true,
   "entry_pricing": {

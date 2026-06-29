@@ -52,6 +52,26 @@ configured missing-bar fraction. Full missing months between a symbol's observed
 start and end, unreadable files, duplicate bars, invalid OHLC rows, or large gap
 fractions mark a symbol manifest invalid for research.
 
+The search and approval runners now consume the manifest layer through
+`scripts/data_health_gate.py`. Scenario generation is allowed to use only
+manifest-approved `valid_months`. A symbol can still be used after its Binance
+listing date when it has a contiguous valid tradable range; missing pre-listing
+history is not treated as corruption. Missing months or bad bars inside the
+tradable history split the valid ranges and cannot be sampled.
+
+Every staged run writes a run manifest:
+
+```text
+state/run_manifest_v7_<stage>_<profile>.json
+```
+
+The run manifest records requested symbols, allowed symbols, blocked symbols,
+the data audit summary hash, and the active gate:
+
+```text
+strict_valid_month_manifest_required
+```
+
 ### Search
 
 GA search remains the source of internal candidates. It may optimize robust
@@ -90,6 +110,10 @@ holdout failures must not be recycled into the same training cycle.
 Current artifacts do not yet contain trade-level parquet or full equity curves
 because the evaluator does not emit those tables yet.
 
+Artifacts include repo commit, engine hashes, data-audit hash, per-symbol data
+manifest hash, cost-bps semantics, manual approval stub, and whether Freqtrade
+export is allowed. Artifact export refuses invalid data-gate symbols by default.
+
 ### Freqtrade
 
 `scripts/freqtrade_dry_run_bridge.py` creates a dry-run scaffold only:
@@ -102,3 +126,25 @@ because the evaluator does not emit those tables yet.
 - external signal CSV bridge
 
 Freqtrade is an execution/paper layer, not the strategy approval engine.
+
+By default the bridge refuses artifacts whose approval status is not paper-ready.
+For integration smoke tests only, use:
+
+```bash
+python3 scripts/freqtrade_dry_run_bridge.py --artifact <artifact> --allow-unvalidated-smoke-test
+```
+
+Smoke output is marked not paper approved and not live ready.
+
+## Legacy Ready File
+
+`FOUND_STRATEGY_READY.txt` is legacy only and must not be consumed by execution
+scripts. Current state files are:
+
+```text
+FOUND_INTERNAL_CANDIDATE.txt
+FOUND_VALIDATED_CANDIDATE.txt
+FOUND_PAPER_READY.txt
+FOUND_LIVE_CANARY_READY.txt
+FOUND_PRODUCTION_READY.txt
+```

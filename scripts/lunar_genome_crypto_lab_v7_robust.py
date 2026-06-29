@@ -26,6 +26,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import lunar_genome_crypto_lab_v6 as lab  # noqa: E402
+import data_health_gate as dhg  # noqa: E402
 
 GENOME_FIELDS = {f.name for f in fields(lab.LunarGenome)}
 
@@ -116,18 +117,50 @@ def make_eval_args(args: argparse.Namespace, cost_bps: float) -> SimpleNamespace
     )
 
 
+def prepare_public_months_with_data_gate(args: argparse.Namespace, rng: random.Random, months: list[str]) -> tuple[dict[str, list[Path]], dict[str, Any]]:
+    gate = dhg.build_gate_from_args(args)
+    audit_hash = getattr(args, "data_audit_summary_hash", None)
+    if not gate.enabled:
+        selected = lab.prepare_public_months(args.symbols, args.timeframe, months, args.months_per_symbol, rng)
+        result = gate.summarize(list(args.symbols), months, audit_hash)
+        return selected, gate.to_jsonable(result)
+
+    selected: dict[str, list[Path]] = {}
+    result = gate.summarize(list(args.symbols), months, audit_hash)
+    for symbol in result.allowed_symbols:
+        valid_months = gate.valid_months(symbol, months)
+        blocks = [block for block in dhg.contiguous_blocks(valid_months) if len(block) >= args.months_per_symbol]
+        if not blocks:
+            result.blocked_symbols[symbol] = f"no_contiguous_valid_block_{args.months_per_symbol}_months"
+            continue
+        choices = []
+        for block in blocks:
+            for start_idx in range(0, len(block) - args.months_per_symbol + 1):
+                choices.append(block[start_idx:start_idx + args.months_per_symbol])
+        picked = rng.choice(choices)
+        cache_dir = Path(getattr(args, "data_cache_dir", ROOT / "data" / "binance_public_cache"))
+        paths = [cache_dir / f"{symbol}_{args.timeframe}_{month}.parquet" for month in picked]
+        missing_paths = [str(path) for path in paths if not path.exists()]
+        if missing_paths:
+            result.blocked_symbols[symbol] = "scenario_selected_missing_cache_files"
+            continue
+        selected[symbol] = paths
+
+    result.allowed_symbols = sorted(selected)
+    if not selected:
+        raise SystemExit(
+            "data_health_gate_rejected_all_symbols "
+            + json.dumps(gate.to_jsonable(result), ensure_ascii=False, sort_keys=True)
+        )
+    return selected, gate.to_jsonable(result)
+
+
 def build_scenarios(args: argparse.Namespace, rng: random.Random, epoch: int) -> list[dict[str, Any]]:
     costs = parse_costs(args.scenario_costs)
     months = lab.month_range(args.start, args.end)
     scenarios = []
     for idx in range(args.scenarios):
-        selected = lab.prepare_public_months(
-            args.symbols,
-            args.timeframe,
-            months,
-            args.months_per_symbol,
-            rng,
-        )
+        selected, data_gate = prepare_public_months_with_data_gate(args, rng, months)
         markets = lab.load_markets(selected, args.timeframe)
         env = lab.sample_environment(rng)
         season = lab.sample_season(rng)
@@ -137,6 +170,7 @@ def build_scenarios(args: argparse.Namespace, rng: random.Random, epoch: int) ->
                 'scenario': idx + 1,
                 'cost_bps': cost,
                 'selected': {k: [Path(p).name.rsplit('_', 1)[-1].replace('.parquet', '') for p in v] for k, v in selected.items()},
+                'data_gate': data_gate,
                 'markets': markets,
                 'env': env,
                 'season': season,
@@ -317,6 +351,9 @@ def main() -> None:
     parser.add_argument('--window-bars', type=int, default=25000)
     parser.add_argument('--scenarios', type=int, default=4)
     parser.add_argument('--scenario-costs', default='20,30,50')
+    parser.add_argument('--data-manifest-dir', default='')
+    parser.add_argument('--data-cache-dir', default=str(ROOT / 'data' / 'binance_public_cache'))
+    parser.add_argument('--data-audit-summary-hash', default='')
     parser.add_argument('--elite-ratio', type=float, default=0.18)
     parser.add_argument('--mut-prob', type=float, default=0.35)
     parser.add_argument('--mut-scale', type=float, default=0.22)

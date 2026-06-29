@@ -9,6 +9,7 @@ from typing import Any
 
 BASE = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = BASE / "integrations" / "freqtrade"
+ALLOWED_APPROVAL_STATUSES = {"paper_ready", "paper_ready_requires_manual_launch"}
 
 
 STRATEGY_TEMPLATE = '''from __future__ import annotations
@@ -100,7 +101,7 @@ def write_text(path: Path, text: str) -> None:
     path.write_text(text)
 
 
-def dry_run_config(pair: str, timeframe: str) -> dict[str, Any]:
+def dry_run_config(pair: str, timeframe: str, smoke_only: bool) -> dict[str, Any]:
     return {
         "$schema": "https://schema.freqtrade.io/schema.json",
         "dry_run": True,
@@ -127,7 +128,7 @@ def dry_run_config(pair: str, timeframe: str) -> dict[str, Any]:
         "exit_pricing": {"price_side": "same", "use_order_book": True, "order_book_top": 1},
         "telegram": {"enabled": False, "token": "", "chat_id": ""},
         "api_server": {"enabled": False, "listen_ip_address": "127.0.0.1", "listen_port": 8080},
-        "bot_name": "kimi-artifact-dry-run",
+        "bot_name": "kimi-artifact-smoke-only" if smoke_only else "kimi-artifact-dry-run",
         "initial_state": "stopped",
         "force_entry_enable": False,
         "internals": {"process_throttle_secs": 5},
@@ -145,6 +146,7 @@ def main() -> int:
     parser.add_argument("--artifact", required=True, help="Path to artifact directory or manifest.json")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUT))
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--allow-unvalidated-smoke-test", action="store_true")
     args = parser.parse_args()
 
     artifact_path = Path(args.artifact)
@@ -162,6 +164,12 @@ def main() -> int:
     pair = pair_from_symbol(symbol)
     timeframe = manifest.get("timeframe") or "4h"
     status = manifest.get("approval_status") or "unknown"
+    smoke_only = status not in ALLOWED_APPROVAL_STATUSES
+    if smoke_only and not args.allow_unvalidated_smoke_test:
+        raise SystemExit(
+            "Refusing to export Freqtrade dry-run strategy: "
+            f"approval_status={status}. Use --allow-unvalidated-smoke-test only for integration smoke tests."
+        )
 
     strategy_path = out_dir / "user_data" / "strategies" / "ExternalArtifactSignalStrategy.py"
     config_path = out_dir / "config_dry_run_template.json"
@@ -172,7 +180,7 @@ def main() -> int:
             raise SystemExit(f"Refusing to overwrite {path}; rerun with --force")
 
     write_text(strategy_path, STRATEGY_TEMPLATE.format(timeframe=timeframe))
-    save_json(config_path, dry_run_config(pair, timeframe))
+    save_json(config_path, dry_run_config(pair, timeframe, smoke_only))
     write_text(
         signal_path,
         "date,pair,enter_long,exit_long\n"
@@ -186,12 +194,15 @@ Artifact: `{manifest.get('strategy_id')}`
 
 Approval status: `{status}`
 
+{"NOT PAPER APPROVED. NOT LIVE READY. FOR INTEGRATION SMOKE TEST ONLY." if smoke_only else "Paper-ready artifact bridge. Still requires manual operator launch approval."}
+
 This directory is a dry-run scaffold only. It does not contain Binance API keys,
 does not enable live trading, and starts Freqtrade in `initial_state=stopped`.
 
-Use this bridge only after the artifact is `paper_ready_requires_manual_launch`,
-or after a manual operator override. The current bridge reads external signals
-from `user_data/signals/external_signals.csv` or from `$KIMI_SIGNAL_CSV`.
+By default this exporter refuses non-paper-ready artifacts. If this directory was
+generated with `--allow-unvalidated-smoke-test`, do not use it for paper approval
+or live trading. The current bridge reads external signals from
+`user_data/signals/external_signals.csv` or from `$KIMI_SIGNAL_CSV`.
 
 Signal CSV schema:
 
@@ -221,6 +232,7 @@ approval chain has passed.
                 "signals": str(signal_path),
                 "live_trading_enabled": False,
                 "dry_run": True,
+                "smoke_only": smoke_only,
             },
             ensure_ascii=False,
             indent=2,

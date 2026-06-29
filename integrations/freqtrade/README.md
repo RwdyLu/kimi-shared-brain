@@ -4,12 +4,15 @@ Artifact: `ETHUSDT_6acca71f138511a6_smoke_internal_candidate`
 
 Approval status: `internal_candidate_only`
 
+NOT PAPER APPROVED. NOT LIVE READY. FOR INTEGRATION SMOKE TEST ONLY.
+
 This directory is a dry-run scaffold only. It does not contain Binance API keys,
 does not enable live trading, and starts Freqtrade in `initial_state=stopped`.
 
-Use this bridge only after the artifact is `paper_ready_requires_manual_launch`,
-or after a manual operator override. The current bridge reads external signals
-from `user_data/signals/external_signals.csv` or from `$KIMI_SIGNAL_CSV`.
+By default this exporter refuses non-paper-ready artifacts. If this directory was
+generated with `--allow-unvalidated-smoke-test`, do not use it for paper approval
+or live trading. The current bridge reads external signals from
+`user_data/signals/external_signals.csv` or from `$KIMI_SIGNAL_CSV`.
 
 Signal CSV schema:
 

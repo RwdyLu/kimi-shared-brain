@@ -101,6 +101,31 @@ def month_bounds_ms(month: str) -> tuple[int, int]:
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
 
 
+def next_month(month: str) -> str:
+    y, m = [int(x) for x in month.split("-")]
+    m += 1
+    if m == 13:
+        y += 1
+        m = 1
+    return f"{y:04d}-{m:02d}"
+
+
+def month_blocks(months: list[str]) -> list[list[str]]:
+    ordered = sorted(set(months))
+    if not ordered:
+        return []
+    blocks: list[list[str]] = []
+    current = [ordered[0]]
+    for month in ordered[1:]:
+        if month == next_month(current[-1]):
+            current.append(month)
+        else:
+            blocks.append(current)
+            current = [month]
+    blocks.append(current)
+    return blocks
+
+
 def expected_rows_for_month(month: str, timeframe: str) -> int | None:
     interval = INTERVAL_MS.get(timeframe)
     if interval is None:
@@ -282,6 +307,48 @@ class Aggregate:
     def manifest(self, requested_start: str, requested_end: str, max_missing_bar_frac: float) -> dict[str, Any]:
         readable = [f for f in self.files if f.get("readable")]
         months_found = sorted({f["month"] for f in readable})
+        valid_months = sorted(
+            f["month"]
+            for f in readable
+            if not f.get("duplicate_bars", 0)
+            and not f.get("invalid_ohlc_rows", 0)
+            and not f.get("missing_internal_bars", 0)
+            and not f.get("outside_month_rows", 0)
+        )
+        invalid_months = [
+            {
+                "month": f["month"],
+                "reason": (
+                    "unreadable" if not f.get("readable") else
+                    "duplicate_bars" if f.get("duplicate_bars", 0) else
+                    "invalid_ohlc_rows" if f.get("invalid_ohlc_rows", 0) else
+                    "missing_internal_bars" if f.get("missing_internal_bars", 0) else
+                    "outside_month_rows" if f.get("outside_month_rows", 0) else
+                    "unknown"
+                ),
+            }
+            for f in self.files
+            if (not f.get("readable"))
+            or f.get("duplicate_bars", 0)
+            or f.get("invalid_ohlc_rows", 0)
+            or f.get("missing_internal_bars", 0)
+            or f.get("outside_month_rows", 0)
+        ]
+        valid_ranges = []
+        for block in month_blocks(valid_months):
+            start_ms, _ = month_bounds_ms(block[0])
+            _, end_ms = month_bounds_ms(block[-1])
+            valid_ranges.append(
+                {
+                    "start_month": block[0],
+                    "end_month": block[-1],
+                    "start": ms_to_iso(start_ms),
+                    "end_exclusive": ms_to_iso(end_ms),
+                    "months": len(block),
+                    "missing_bars": 0,
+                    "duplicate_bars": 0,
+                }
+            )
         all_rows = pd.concat(self.frames, ignore_index=True) if self.frames else pd.DataFrame()
         duplicate_bars = int(all_rows["open_time"].duplicated().sum()) if not all_rows.empty else 0
         all_rows = all_rows.sort_values("open_time").drop_duplicates("open_time", keep="last") if not all_rows.empty else all_rows
@@ -330,6 +397,11 @@ class Aggregate:
             "requested_end_month": requested_end,
             "observed_start": ms_to_iso(start_ms),
             "observed_end": ms_to_iso(end_ms),
+            "first_valid_bar": ms_to_iso(start_ms),
+            "last_valid_bar": ms_to_iso(end_ms),
+            "valid_months": valid_months,
+            "invalid_months": invalid_months,
+            "valid_tradable_ranges": valid_ranges,
             "timestamp_unit_normalized": "ms",
             "timestamp_unit_report": timestamp_units,
             "rows": int(len(all_rows)),

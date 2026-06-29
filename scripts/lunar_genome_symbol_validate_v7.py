@@ -151,6 +151,8 @@ def main() -> None:
     ap.add_argument('--window-bars', type=int, default=18000)
     ap.add_argument('--scenarios', type=int, default=5)
     ap.add_argument('--scenario-costs', default='20,30,50')
+    ap.add_argument('--data-manifest-dir', default='')
+    ap.add_argument('--data-audit-summary-hash', default='')
     ap.add_argument('--initial-cash', type=float, default=10000.0)
     ap.add_argument('--lot-step', type=float, default=0.0001)
     ap.add_argument('--lot-min', type=float, default=0.0001)

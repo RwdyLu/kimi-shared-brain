@@ -373,6 +373,8 @@ def main() -> None:
     parser.add_argument('--window-bars', type=int, default=12000)
     parser.add_argument('--scenarios', type=int, default=3)
     parser.add_argument('--scenario-costs', default='20,30,50')
+    parser.add_argument('--data-manifest-dir', default='')
+    parser.add_argument('--data-audit-summary-hash', default='')
     parser.add_argument('--initial-cash', type=float, default=10000.0)
     parser.add_argument('--cost-bps', type=float, default=20.0)
     parser.add_argument('--lot-step', type=float, default=0.0001)

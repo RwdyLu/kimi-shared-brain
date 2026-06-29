@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+import data_health_gate as dhg
 
 
 BASE = Path("/root/.openclaw/workspace/kimi-shared-brain")
@@ -22,6 +23,8 @@ FOUND = STATE / "FOUND_STRATEGY_READY.txt"
 FOUND_INTERNAL = STATE / "FOUND_INTERNAL_CANDIDATE.txt"
 FOUND_VALIDATED = STATE / "FOUND_VALIDATED_CANDIDATE.txt"
 FOUND_PAPER_READY = STATE / "FOUND_PAPER_READY.txt"
+FOUND_LIVE_CANARY_READY = STATE / "FOUND_LIVE_CANARY_READY.txt"
+FOUND_PRODUCTION_READY = STATE / "FOUND_PRODUCTION_READY.txt"
 STAGE_STATE = STATE / "staged_autohunter_state.json"
 
 SYMBOLS = "BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT LINKUSDT AVAXUSDT"
@@ -249,6 +252,10 @@ def artifact_export_marker(stage: Stage, profile: Profile) -> Path:
     return STATE / f"artifact_export_v7_{stage.name}_{profile.name}.json"
 
 
+def run_manifest_path(stage: Stage, profile: Profile) -> Path:
+    return STATE / f"run_manifest_v7_{stage.name}_{profile.name}.json"
+
+
 def normalize_open_time_ms(series: pd.Series) -> pd.Series:
     ts = pd.to_numeric(series, errors="coerce")
     clean = ts.dropna()
@@ -347,6 +354,10 @@ def data_audit_command(stage: Stage) -> str:
     )
 
 
+def data_audit_summary_hash(stage: Stage) -> str:
+    return str(load_json(data_audit_summary_path(stage)).get("summary_hash") or "")
+
+
 def data_audit_ok(stage: Stage) -> bool:
     obj = load_json(data_audit_summary_path(stage))
     return bool(obj.get("manifest_count", 0) > 0)
@@ -371,11 +382,43 @@ def ensure_data_audit(stage: Stage) -> tuple[bool, str]:
     )
 
 
+def write_run_manifest(stage: Stage, profile: Profile) -> dict:
+    months = dhg.month_range("2017-08", "2026-05")
+    gate = dhg.DataHealthGate(
+        DATA_MANIFESTS / stage.name,
+        stage.timeframe,
+        "2017-08",
+        "2026-05",
+        stage.months_per_symbol,
+    )
+    result = gate.summarize(SYMBOLS.split(), months, data_audit_summary_hash(stage))
+    payload = gate.to_jsonable(result)
+    payload.update(
+        {
+            "created_at": now(),
+            "run_id": f"{stage.name}_{profile.name}",
+            "stage": stage.name,
+            "profile": profile.name,
+            "timeframe": stage.timeframe,
+            "months_per_symbol": stage.months_per_symbol,
+            "scenario_data_gate": "strict_valid_month_manifest_required",
+            "data_audit_summary": str(data_audit_summary_path(stage)),
+        }
+    )
+    run_manifest_path(stage, profile).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    return payload
+
+
 def command_common(stage: Stage, profile: Profile) -> str:
     min_trades, max_trades = trade_band(stage, profile)
+    data_args = (
+        f"--data-manifest-dir data/manifests/{stage.name} "
+        f"--data-audit-summary-hash {data_audit_summary_hash(stage)} "
+    )
     return (
         f"{seed_args(stage)} --symbols {SYMBOLS} --timeframe {stage.timeframe} "
         f"--start 2017-08 --end 2026-05 --months-per-symbol {stage.months_per_symbol} "
+        f"{data_args}"
         f"--window-bars {stage.window_bars} --scenario-costs 20,30,50 "
         f"--min-survival-rate 1.0 --min-positive-alpha-frac 1.0 --min-alpha 0.0 --min-return 0.0 "
         f"--max-drawdown 0.20 --max-trades {max_trades} --min-trades {min_trades} "
@@ -408,6 +451,7 @@ def validate_command(stage: Stage, profile: Profile) -> str:
         f"--archive {archive_path(stage, profile)} --out {validate_path(stage, profile)} --limit 30 --seed {930000 + STAGES.index(stage) * 100 + PROFILES.index(profile)} "
         f"--symbols {SYMBOLS} --timeframe {stage.timeframe} --start 2017-08 --end 2026-05 "
         f"--months-per-symbol {stage.months_per_symbol} --window-bars {stage.window_bars} --scenarios 24 "
+        f"--data-manifest-dir data/manifests/{stage.name} --data-audit-summary-hash {data_audit_summary_hash(stage)} "
         f"--scenario-costs 20,30,50 --min-survival-rate 1.0 --min-positive-alpha-frac 1.0 --min-alpha 0.0 "
         f"--max-drawdown 0.20 --max-trades {max_trades} --min-trades {min_trades} --min-notional 10"
     )
@@ -433,6 +477,7 @@ def approval_command(stage: Stage, profile: Profile) -> str:
         f"--archive {archive_path(stage, profile)} --out {approval_path(stage, profile)} --limit 12 "
         f"--symbols {SYMBOLS} --timeframe {stage.timeframe} --start 2017-08 --end 2026-05 "
         f"--months-per-symbol {stage.months_per_symbol} --window-bars {stage.window_bars} --scenarios 24 "
+        f"--data-manifest-dir data/manifests/{stage.name} --data-audit-summary-hash {data_audit_summary_hash(stage)} "
         f"--scenario-costs 20,30,50 --validation-seeds 930777,930778,930779 "
         f"--stress-costs 20,30,50,75,100 --stress-scenarios 24 "
         f"--walkforward-window-months 18 --walkforward-step-months 9 --walkforward-scenarios 6 "
@@ -581,8 +626,11 @@ def next_profile_or_stage(data: dict, idx: int, pidx: int) -> dict:
 
 
 def tick() -> None:
-    if FOUND.exists() and FOUND.read_text().strip().startswith("FOUND"):
-        SUMMARY.write_text(FOUND.read_text())
+    if FOUND_PRODUCTION_READY.exists() and FOUND_PRODUCTION_READY.read_text().strip().startswith("FOUND_PRODUCTION_READY"):
+        SUMMARY.write_text(FOUND_PRODUCTION_READY.read_text())
+        return
+    if FOUND_LIVE_CANARY_READY.exists() and FOUND_LIVE_CANARY_READY.read_text().strip().startswith("FOUND_LIVE_CANARY_READY"):
+        SUMMARY.write_text(FOUND_LIVE_CANARY_READY.read_text())
         return
     if FOUND_PAPER_READY.exists() and FOUND_PAPER_READY.read_text().strip().startswith("FOUND_PAPER_READY"):
         SUMMARY.write_text(FOUND_PAPER_READY.read_text())
@@ -624,6 +672,11 @@ def tick() -> None:
                 f"created={created} available={available}\n"
             )
             return
+        run_manifest = write_run_manifest(stage, profile)
+        data["run_manifest"] = str(run_manifest_path(stage, profile))
+        data["allowed_symbols"] = run_manifest.get("allowed_symbols", [])
+        data["blocked_symbols"] = run_manifest.get("blocked_symbols", {})
+        save_state(data)
         out = smoke_path(stage)
         session = f"smoke_{stage.name}_{profile.name}"[:80]
         if not out.exists():
@@ -728,7 +781,11 @@ def main() -> None:
     STATE.mkdir(exist_ok=True)
     LOGS.mkdir(exist_ok=True)
     if not FOUND.exists():
-        FOUND.write_text("none\n")
+        FOUND.write_text("legacy_alias_do_not_consume\n")
+    if not FOUND_LIVE_CANARY_READY.exists():
+        FOUND_LIVE_CANARY_READY.write_text("none\n")
+    if not FOUND_PRODUCTION_READY.exists():
+        FOUND_PRODUCTION_READY.write_text("none\n")
     while True:
         try:
             tick()
