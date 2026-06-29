@@ -112,6 +112,7 @@ def make_eval_args(args: argparse.Namespace, cost_bps: float) -> SimpleNamespace
         min_return=getattr(args, 'min_return', 0.0),
         timeframe=args.timeframe,
         window_bars=args.window_bars,
+        signal_delay_bars=getattr(args, 'signal_delay_bars', 0),
     )
 
 
@@ -166,6 +167,16 @@ def robust_evaluate(genome: lab.LunarGenome, scenarios: list[dict[str, Any]], ar
     avg_returns = [float(r.get('avg_return', 0.0)) for r in rows]
     max_dds = [float(r.get('max_drawdown', 0.0)) for r in rows]
     trades = [int(r.get('trades', 0)) for r in rows]
+    sorted_min_alphas = sorted(min_alphas)
+    sorted_min_returns = sorted(min_returns)
+    p05_idx = max(0, int(0.05 * (len(sorted_min_alphas) - 1))) if sorted_min_alphas else 0
+    p05_alpha = sorted_min_alphas[p05_idx] if sorted_min_alphas else -9.0
+    p05_return = sorted_min_returns[p05_idx] if sorted_min_returns else -9.0
+    negative_alpha_tail = [x for x in min_alphas if x < args.min_alpha]
+    expected_shortfall_alpha = (
+        sum(args.min_alpha - x for x in negative_alpha_tail) / max(1, len(negative_alpha_tail))
+    )
+    trade_concentration = max(trades) / max(1, sum(trades)) if trades else 1.0
 
     survival_rate = survival / n
     worst_min_alpha = min(min_alphas) if min_alphas else -9.0
@@ -185,17 +196,21 @@ def robust_evaluate(genome: lab.LunarGenome, scenarios: list[dict[str, Any]], ar
 
     robust_score = (
         survival_rate * 1000.0
-        + worst_min_alpha * 450.0
+        + worst_min_alpha * 360.0
+        + p05_alpha * 160.0
         + avg_min_alpha * 180.0
         + avg_alpha * 90.0
-        + worst_min_return * 220.0
+        + worst_min_return * 170.0
+        + p05_return * 80.0
         + avg_return * 80.0
         + min_pos_frac * 90.0
         - shortfall * 600.0
         - return_shortfall * 700.0
+        - expected_shortfall_alpha * 500.0
         - pos_shortfall * 160.0
         - dd_excess * 220.0
         - trade_shortfall * 80.0
+        - trade_concentration * 25.0
     )
 
     qualified = bool(
@@ -213,13 +228,17 @@ def robust_evaluate(genome: lab.LunarGenome, scenarios: list[dict[str, Any]], ar
         'scenario_count': n,
         'survival_rate': survival_rate,
         'worst_min_alpha': worst_min_alpha,
+        'p05_alpha': p05_alpha,
+        'expected_shortfall_alpha': expected_shortfall_alpha,
         'avg_min_alpha': avg_min_alpha,
         'avg_alpha': avg_alpha,
         'worst_min_return': worst_min_return,
+        'p05_return': p05_return,
         'avg_return': avg_return,
         'min_positive_alpha_frac': min_pos_frac,
         'max_drawdown': max_dd,
         'avg_trades': avg_trades,
+        'trade_concentration': trade_concentration,
         'rows': rows,
     }
     return robust_score, metrics

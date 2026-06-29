@@ -14,8 +14,14 @@ BASE = Path("/root/.openclaw/workspace/kimi-shared-brain")
 STATE = BASE / "state"
 LOGS = BASE / "logs"
 CACHE = BASE / "data" / "binance_public_cache"
+DATA_AUDITS = BASE / "data" / "audits"
+DATA_MANIFESTS = BASE / "data" / "manifests"
+ARTIFACTS = BASE / "artifacts"
 SUMMARY = STATE / "latest_strategy_summary.txt"
 FOUND = STATE / "FOUND_STRATEGY_READY.txt"
+FOUND_INTERNAL = STATE / "FOUND_INTERNAL_CANDIDATE.txt"
+FOUND_VALIDATED = STATE / "FOUND_VALIDATED_CANDIDATE.txt"
+FOUND_PAPER_READY = STATE / "FOUND_PAPER_READY.txt"
 STAGE_STATE = STATE / "staged_autohunter_state.json"
 
 SYMBOLS = "BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT LINKUSDT AVAXUSDT"
@@ -170,6 +176,45 @@ def row_summary(row: dict) -> str:
     )
 
 
+def write_candidate_marker(path: Path, label: str, stage: Stage, profile: Profile, source: Path, row: dict, extra: str = "") -> None:
+    path.write_text(
+        f"{label} {now()} stage={stage.name} profile={profile.name} source={source.name} "
+        f"{row_summary(row)}{extra}\n"
+    )
+
+
+def publish_best_internal_candidate() -> None:
+    best: tuple[tuple[float, float, float], Stage, Profile, Path, dict] | None = None
+    for stage in STAGES:
+        for profile in PROFILES:
+            source = archive_path(stage, profile)
+            obj = load_json(source)
+            if not obj:
+                continue
+            rows = strict_rows((obj.get("qualified") or []) + (obj.get("top") or []))
+            for row in rows:
+                m = row.get("metrics") or row
+                score = (
+                    float(m.get("min_alpha", -999)),
+                    float(m.get("avg_alpha", -999)),
+                    -float(m.get("max_drawdown", 999)),
+                )
+                if best is None or score > best[0]:
+                    best = (score, stage, profile, source, row)
+    if best is None:
+        return
+    _, stage, profile, source, row = best
+    write_candidate_marker(
+        FOUND_INTERNAL,
+        "FOUND_INTERNAL_CANDIDATE",
+        stage,
+        profile,
+        source,
+        row,
+        " note=discovery_only_requires_independent_validation",
+    )
+
+
 def trade_band(stage: Stage, profile: Profile) -> tuple[int, int]:
     min_trades = max(1, int(round(stage.min_trades * profile.trade_min_mult)))
     max_trades = max(min_trades, int(round(stage.max_trades * profile.trade_max_mult)))
@@ -190,6 +235,18 @@ def validate_path(stage: Stage, profile: Profile) -> Path:
 
 def walkforward_path(stage: Stage, profile: Profile) -> Path:
     return STATE / f"lunar_genome_symbol_walkforward_v7_{stage.name}_{profile.name}_terminal.json"
+
+
+def approval_path(stage: Stage, profile: Profile) -> Path:
+    return STATE / f"strategy_approval_gate_v7_{stage.name}_{profile.name}.json"
+
+
+def data_audit_summary_path(stage: Stage) -> Path:
+    return DATA_AUDITS / stage.name / "binance_kline_audit_summary.json"
+
+
+def artifact_export_marker(stage: Stage, profile: Profile) -> Path:
+    return STATE / f"artifact_export_v7_{stage.name}_{profile.name}.json"
 
 
 def normalize_open_time_ms(series: pd.Series) -> pd.Series:
@@ -280,6 +337,40 @@ def prepare_resampled_cache(stage: Stage) -> tuple[int, int]:
     return (created, available)
 
 
+def data_audit_command(stage: Stage) -> str:
+    write_normalized = "--write-normalized" if stage.timeframe in {"4h", "1h", "15m"} else ""
+    return (
+        f"cd {BASE} && python3 scripts/binance_kline_data_audit.py "
+        f"--symbols {SYMBOLS} --timeframes {stage.timeframe} --start 2017-08 --end 2026-05 "
+        f"--manifest-dir data/manifests/{stage.name} --audit-dir data/audits/{stage.name} "
+        f"--normalized-dir data/normalized {write_normalized}"
+    )
+
+
+def data_audit_ok(stage: Stage) -> bool:
+    obj = load_json(data_audit_summary_path(stage))
+    return bool(obj.get("manifest_count", 0) > 0)
+
+
+def ensure_data_audit(stage: Stage) -> tuple[bool, str]:
+    if data_audit_ok(stage):
+        obj = load_json(data_audit_summary_path(stage))
+        return (
+            True,
+            f"existing summary={data_audit_summary_path(stage)} "
+            f"valid={obj.get('valid_manifest_count', 0)} invalid={obj.get('invalid_manifest_count', 0)}",
+        )
+    out = sh(data_audit_command(stage))
+    ok = data_audit_ok(stage)
+    obj = load_json(data_audit_summary_path(stage))
+    detail = out[-800:].replace("\n", " ")
+    return (
+        ok,
+        f"summary={data_audit_summary_path(stage)} ok={ok} "
+        f"valid={obj.get('valid_manifest_count', 0)} invalid={obj.get('invalid_manifest_count', 0)} detail={detail}",
+    )
+
+
 def command_common(stage: Stage, profile: Profile) -> str:
     min_trades, max_trades = trade_band(stage, profile)
     return (
@@ -335,6 +426,40 @@ def walkforward_command(stage: Stage, profile: Profile) -> str:
     )
 
 
+def approval_command(stage: Stage, profile: Profile) -> str:
+    min_trades, max_trades = trade_band(stage, profile)
+    return (
+        f"cd {BASE} && /usr/bin/time -f wall=%e python3 scripts/strategy_approval_gate_v7.py "
+        f"--archive {archive_path(stage, profile)} --out {approval_path(stage, profile)} --limit 12 "
+        f"--symbols {SYMBOLS} --timeframe {stage.timeframe} --start 2017-08 --end 2026-05 "
+        f"--months-per-symbol {stage.months_per_symbol} --window-bars {stage.window_bars} --scenarios 24 "
+        f"--scenario-costs 20,30,50 --validation-seeds 930777,930778,930779 "
+        f"--stress-costs 20,30,50,75,100 --stress-scenarios 24 "
+        f"--walkforward-window-months 18 --walkforward-step-months 9 --walkforward-scenarios 6 "
+        f"--max-drawdown 0.20 --max-trades {max_trades} --min-trades {min_trades} "
+        f"--min-alpha 0.0 --min-return 0.0 --min-survival-rate 1.0 --min-positive-alpha-frac 1.0 "
+        f"--min-notional 10"
+    )
+
+
+def export_artifacts_command(stage: Stage, profile: Profile) -> str:
+    tag = f"{stage.name}_{profile.name}_{now().replace(':', '').replace('-', '')}"
+    return (
+        f"cd {BASE} && python3 scripts/export_strategy_artifact_v7.py "
+        f"--archive {archive_path(stage, profile)} --approval {approval_path(stage, profile)} "
+        f"--data-audit {data_audit_summary_path(stage)} --out-root {ARTIFACTS} --limit 3 --tag {tag}"
+    )
+
+
+def export_approval_artifacts(stage: Stage, profile: Profile) -> None:
+    marker = artifact_export_marker(stage, profile)
+    approval = load_json(approval_path(stage, profile))
+    if marker.exists() or not approval or not approval.get("top"):
+        return
+    out = sh(export_artifacts_command(stage, profile))
+    marker.write_text(out + "\n")
+
+
 def launch_session(name: str, command: str, log: Path) -> None:
     if tmux_has(name):
         return
@@ -343,6 +468,40 @@ def launch_session(name: str, command: str, log: Path) -> None:
 
 
 def process_validation(stage: Stage, profile: Profile) -> bool:
+    approval = load_json(approval_path(stage, profile))
+    if approval:
+        export_approval_artifacts(stage, profile)
+        paper_ready = approval.get("paper_ready") or []
+        if paper_ready:
+            best = paper_ready[0]
+            ready = {
+                "symbol": best.get("symbol"),
+                "qualified": best.get("paper_ready"),
+                "metrics": best.get("internal_metrics") or {},
+            }
+            FOUND_PAPER_READY.write_text(
+                f"FOUND_PAPER_READY {now()} stage={stage.name} profile={profile.name} "
+                f"approval={approval_path(stage, profile).name} {row_summary(ready)} "
+                f"note=passed_approval_gate_requires_manual_paper_launch\n"
+            )
+            SUMMARY.write_text(FOUND_PAPER_READY.read_text())
+            return True
+        validated = approval.get("validated") or []
+        if validated:
+            best = validated[0]
+            ready = {
+                "symbol": best.get("symbol"),
+                "qualified": best.get("validated"),
+                "metrics": best.get("internal_metrics") or {},
+            }
+            FOUND_VALIDATED.write_text(
+                f"FOUND_VALIDATED_CANDIDATE {now()} stage={stage.name} profile={profile.name} "
+                f"approval={approval_path(stage, profile).name} {row_summary(ready)} "
+                f"note=validated_but_not_paper_ready\n"
+            )
+            SUMMARY.write_text(FOUND_VALIDATED.read_text())
+            return False
+
     path = walkforward_path(stage, profile)
     obj = load_json(path)
     rows = obj.get("qualified") or []
@@ -375,11 +534,12 @@ def process_validation(stage: Stage, profile: Profile) -> bool:
         "qualified": best.get("qualified"),
         "metrics": metrics,
     }
-    FOUND.write_text(
-        f"FOUND {now()} stage={stage.name} profile={profile.name} validation={validate_path(stage, profile).name} "
-        f"walkforward={path.name} {row_summary(ready)}\n"
+    FOUND_PAPER_READY.write_text(
+        f"FOUND_PAPER_READY {now()} stage={stage.name} profile={profile.name} "
+        f"validation={validate_path(stage, profile).name} walkforward={path.name} "
+        f"{row_summary(ready)} note=legacy_FOUND_STRATEGY_READY_reserved_for_final_recheck_montecarlo_paper\n"
     )
-    SUMMARY.write_text(FOUND.read_text())
+    SUMMARY.write_text(FOUND_PAPER_READY.read_text())
     return True
 
 
@@ -409,7 +569,14 @@ def stage_done(stage: Stage, profile: Profile) -> bool:
 
 def next_profile_or_stage(data: dict, idx: int, pidx: int) -> dict:
     if pidx + 1 < len(PROFILES):
-        return {"stage_index": idx, "profile_index": pidx + 1, "phase": "smoke", "cache_ready": True}
+        return {
+            "stage_index": idx,
+            "profile_index": pidx + 1,
+            "phase": "smoke",
+            "cache_ready": True,
+            "data_audit_ready": data.get("data_audit_ready", False),
+            "data_audit_summary": data.get("data_audit_summary"),
+        }
     return {"stage_index": idx + 1, "profile_index": 0, "phase": "smoke"}
 
 
@@ -417,6 +584,10 @@ def tick() -> None:
     if FOUND.exists() and FOUND.read_text().strip().startswith("FOUND"):
         SUMMARY.write_text(FOUND.read_text())
         return
+    if FOUND_PAPER_READY.exists() and FOUND_PAPER_READY.read_text().strip().startswith("FOUND_PAPER_READY"):
+        SUMMARY.write_text(FOUND_PAPER_READY.read_text())
+        return
+    publish_best_internal_candidate()
 
     data = load_json(STAGE_STATE) or {"stage_index": 0, "profile_index": 0, "phase": "smoke"}
     idx = int(data.get("stage_index", 0))
@@ -433,6 +604,14 @@ def tick() -> None:
         return
     profile = PROFILES[pidx]
     phase = data.get("phase", "smoke")
+    audit_ready_phase = phase in {"search", "validate"} or (phase == "smoke" and data.get("cache_ready"))
+    if not data.get("data_audit_ready") and audit_ready_phase:
+        ok, detail = ensure_data_audit(stage)
+        data["data_audit_ready"] = ok
+        data["data_audit_summary"] = str(data_audit_summary_path(stage))
+        save_state(data)
+        SUMMARY.write_text(f"{now()} stage={stage.name} phase=data_audit {detail}\n")
+        return
     if phase == "smoke":
         if not data.get("cache_ready"):
             created, available = prepare_resampled_cache(stage)
@@ -459,6 +638,25 @@ def tick() -> None:
         session = f"ga_{stage.name}_{profile.name}"[:80]
         if not stage_done(stage, profile):
             launch_session(session, search_command(stage, profile, archive_path(stage, profile), smoke=False), LOGS / f"{session}.log")
+            archive_obj = load_json(archive_path(stage, profile))
+            internal_good = strict_rows((archive_obj.get("qualified") or []) + (archive_obj.get("top") or [])) if archive_obj else []
+            if internal_good:
+                best_internal = max(
+                    internal_good,
+                    key=lambda row: (
+                        float((row.get("metrics") or row).get("min_alpha", -999)),
+                        float((row.get("metrics") or row).get("avg_alpha", -999)),
+                    ),
+                )
+                write_candidate_marker(
+                    FOUND_INTERNAL,
+                    "FOUND_INTERNAL_CANDIDATE",
+                    stage,
+                    profile,
+                    archive_path(stage, profile),
+                    best_internal,
+                    " note=discovery_only_requires_independent_validation",
+                )
             SUMMARY.write_text(summarize_stage(stage, profile, "search") + f" session={session}\n")
             return
         data["phase"] = "validate"
@@ -468,6 +666,21 @@ def tick() -> None:
     if phase == "validate":
         if process_validation(stage, profile):
             return
+        approval = load_json(approval_path(stage, profile))
+        if not approval:
+            session = f"approval_{stage.name}_{profile.name}"[:80]
+            launch_session(session, approval_command(stage, profile), LOGS / f"{session}.log")
+            SUMMARY.write_text(summarize_stage(stage, profile, "approval_gate") + f" session={session}\n")
+            return
+        if approval and not approval.get("paper_ready"):
+            SUMMARY.write_text(
+                f"{now()} stage={stage.name} profile={profile.name} approval_gate_failed "
+                f"validated_count={approval.get('validated_count', 0)} paper_ready_count={approval.get('paper_ready_count', 0)} "
+                f"adv_bank={approval.get('adversarial_bank')} advancing_next_profile_or_stage\n"
+            )
+            data = next_profile_or_stage(data, idx, pidx)
+            save_state(data)
+            return
         session = f"val_{stage.name}_{profile.name}"[:80]
         validation = load_json(validate_path(stage, profile))
         if not validation:
@@ -476,6 +689,22 @@ def tick() -> None:
             return
         independent_good = strict_rows((validation.get("qualified") or []) + (validation.get("top") or []))
         if independent_good and not walkforward_path(stage, profile).exists():
+            best_validated = max(
+                independent_good,
+                key=lambda row: (
+                    float((row.get("metrics") or row).get("min_alpha", -999)),
+                    float((row.get("metrics") or row).get("avg_alpha", -999)),
+                ),
+            )
+            write_candidate_marker(
+                FOUND_VALIDATED,
+                "FOUND_VALIDATED_CANDIDATE",
+                stage,
+                profile,
+                validate_path(stage, profile),
+                best_validated,
+                " note=requires_walkforward_montecarlo_before_paper",
+            )
             wf_session = f"wf_{stage.name}_{profile.name}"[:80]
             launch_session(wf_session, walkforward_command(stage, profile), LOGS / f"{wf_session}.log")
             SUMMARY.write_text(

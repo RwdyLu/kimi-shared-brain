@@ -338,7 +338,7 @@ def regime_route(genome, pos_term, vel_value, acc_value):
     }
 
 
-def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_step, lot_min, min_notional, bar_minutes=1):
+def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_step, lot_min, min_notional, bar_minutes=1, signal_delay_bars=0):
     n = len(close)
     if n < max(1000, genome.EMAAnchor + 10):
         return None
@@ -379,7 +379,9 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         price = close[i]
         if not np.isfinite(price) or price <= 0:
             continue
-        sig_i = i - 1
+        sig_i = i - 1 - max(0, int(signal_delay_bars or 0))
+        if sig_i < 0:
+            continue
         signal_price = close[sig_i]
         if not np.isfinite(signal_price) or signal_price <= 0:
             continue
@@ -580,7 +582,8 @@ def evaluate_individual(genome, env, season, markets, rng, args):
             start = rng.randint(0, len(close) - args.window_bars)
             close = close[start:start + args.window_bars]
         res = simulate_symbol(eval_genome, env, season, close, args.initial_cash, args.cost_bps / 10000.0,
-                              args.lot_step, args.lot_min, args.min_notional, bar_minutes)
+                              args.lot_step, args.lot_min, args.min_notional, bar_minutes,
+                              getattr(args, 'signal_delay_bars', 0))
         if not res:
             continue
         per[symbol] = res

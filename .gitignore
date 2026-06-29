@@ -106,12 +106,19 @@ logs/scheduler_nohup.out
 
 # Kimi GA strategy search runtime artifacts
 data/binance_public_cache/
+data/audits/
+data/manifests/
+data/normalized/
+artifacts/
 state/*
 !state/actions/
 !state/actions/.gitkeep
 *.pid
 *.progress
 scripts/*.bak*
+
+# Freqtrade bridge runtime signals
+integrations/freqtrade/user_data/signals/*.csv
 
 # Local notification secrets
 config/channel_config.json
