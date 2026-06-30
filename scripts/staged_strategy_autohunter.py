@@ -186,10 +186,22 @@ def write_candidate_marker(path: Path, label: str, stage: Stage, profile: Profil
     )
 
 
+def write_no_internal_candidate(reason: str) -> None:
+    FOUND_INTERNAL.write_text(f"none {now()} {reason}\n")
+
+
+def approval_completed(stage: Stage, profile: Profile) -> bool:
+    return bool(load_json(approval_path(stage, profile)))
+
+
 def publish_best_internal_candidate() -> None:
     best: tuple[tuple[float, float, float], Stage, Profile, Path, dict] | None = None
+    skipped_approved = 0
     for stage in STAGES:
         for profile in PROFILES:
+            if approval_completed(stage, profile):
+                skipped_approved += 1
+                continue
             source = archive_path(stage, profile)
             obj = load_json(source)
             if not obj:
@@ -205,6 +217,7 @@ def publish_best_internal_candidate() -> None:
                 if best is None or score > best[0]:
                     best = (score, stage, profile, source, row)
     if best is None:
+        write_no_internal_candidate(f"no_unvalidated_internal_candidate skipped_approved_profiles={skipped_approved}")
         return
     _, stage, profile, source, row = best
     write_candidate_marker(
@@ -635,6 +648,9 @@ def tick() -> None:
     if FOUND_PAPER_READY.exists() and FOUND_PAPER_READY.read_text().strip().startswith("FOUND_PAPER_READY"):
         SUMMARY.write_text(FOUND_PAPER_READY.read_text())
         return
+    if FOUND_VALIDATED.exists() and FOUND_VALIDATED.read_text().strip().startswith("FOUND_VALIDATED_CANDIDATE"):
+        SUMMARY.write_text(FOUND_VALIDATED.read_text())
+        return
     publish_best_internal_candidate()
 
     data = load_json(STAGE_STATE) or {"stage_index": 0, "profile_index": 0, "phase": "smoke"}
@@ -733,6 +749,7 @@ def tick() -> None:
             )
             data = next_profile_or_stage(data, idx, pidx)
             save_state(data)
+            publish_best_internal_candidate()
             return
         session = f"val_{stage.name}_{profile.name}"[:80]
         validation = load_json(validate_path(stage, profile))
