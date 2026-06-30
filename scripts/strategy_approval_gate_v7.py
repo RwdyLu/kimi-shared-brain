@@ -227,28 +227,45 @@ def random_control_checks(symbol: str, args, seed: int) -> dict[str, Any]:
     return {"passed": not accidental_passes, "accidental_passes": accidental_passes, "count": args.random_control_count}
 
 
+def is_data_gate_rejection(exc: SystemExit) -> bool:
+    return str(exc).startswith("data_health_gate_rejected_all_symbols")
+
+
 def walkforward_check(genome_dict: dict[str, Any], symbol: str, args, seed: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     genome = v7.dict_to_genome(genome_dict)
     wf_windows = wf.windows(args.start, args.end, args.walkforward_window_months, args.walkforward_step_months)
     windows = []
     failures = []
     passed = 0
+    tested = 0
+    skipped = 0
     for idx, (ws, we) in enumerate(wf_windows, 1):
         wf_args = SimpleNamespace(**vars(args))
         wf_args.scenarios = args.walkforward_scenarios
         wf_args.scenario_costs = args.scenario_costs
-        scenarios = wf.make_symbol_window_scenarios(wf_args, symbol, ws, we, seed + idx)
+        try:
+            scenarios = wf.make_symbol_window_scenarios(wf_args, symbol, ws, we, seed + idx)
+        except SystemExit as exc:
+            if not is_data_gate_rejection(exc):
+                raise
+            skipped += 1
+            windows.append({"window": f"{ws}..{we}", "skipped": True, "skip_reason": str(exc)})
+            continue
         eval_args = make_args(args, symbol, seed + idx, args.scenario_costs, args.walkforward_scenarios)
         _, metrics = symbol_metrics(genome, scenarios, eval_args)
         ok = strict_ok(metrics, args)
+        tested += 1
         passed += 1 if ok else 0
         windows.append({"window": f"{ws}..{we}", "passed": ok, "metrics": compact_metrics(metrics)})
         if not ok:
             failures.extend(failing_details(symbol, seed + idx, f"walkforward:{ws}..{we}", scenarios, metrics))
     return {
-        "passed": bool(wf_windows and passed == len(wf_windows)),
+        "passed": bool(tested >= args.min_walkforward_windows and passed == tested),
         "passed_windows": passed,
+        "tested_windows": tested,
+        "skipped_windows": skipped,
         "window_count": len(wf_windows),
+        "min_required_tested_windows": args.min_walkforward_windows,
         "windows": windows,
     }, failures
 
@@ -468,6 +485,7 @@ def main() -> None:
     ap.add_argument("--walkforward-window-months", type=int, default=18)
     ap.add_argument("--walkforward-step-months", type=int, default=9)
     ap.add_argument("--walkforward-scenarios", type=int, default=6)
+    ap.add_argument("--min-walkforward-windows", type=int, default=3)
     ap.add_argument("--monte-carlo-seed", type=int, default=936777)
     ap.add_argument("--monte-carlo-sims", type=int, default=1000)
     ap.add_argument("--monte-carlo-bust-return", type=float, default=-0.05)

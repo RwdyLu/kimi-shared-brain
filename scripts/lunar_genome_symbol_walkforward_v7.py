@@ -106,6 +106,10 @@ def make_symbol_window_scenarios(args, symbol: str, start: str, end: str, seed: 
     return v7.build_scenarios(one, rng, 1)
 
 
+def is_data_gate_rejection(exc: SystemExit) -> bool:
+    return str(exc).startswith("data_health_gate_rejected_all_symbols")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Walk-forward terminal validation for v7 symbol genomes")
     ap.add_argument("--archive", required=True)
@@ -134,6 +138,7 @@ def main() -> None:
     ap.add_argument("--min-alpha", type=float, default=0.0)
     ap.add_argument("--min-return", type=float, default=0.0)
     ap.add_argument("--min-survival-rate", type=float, default=1.0)
+    ap.add_argument("--min-tested-windows", type=int, default=3)
     args = ap.parse_args()
 
     started = time.time()
@@ -162,9 +167,16 @@ def main() -> None:
         if not genome:
             continue
         window_rows = []
+        skipped_rows = []
         passed = 0
         for wi, (ws, we) in enumerate(wf_windows, 1):
-            scenarios = make_symbol_window_scenarios(args, symbol, ws, we, args.seed + ci * 1000 + wi)
+            try:
+                scenarios = make_symbol_window_scenarios(args, symbol, ws, we, args.seed + ci * 1000 + wi)
+            except SystemExit as exc:
+                if not is_data_gate_rejection(exc):
+                    raise
+                skipped_rows.append({"window": f"{ws}..{we}", "skipped": True, "skip_reason": str(exc)})
+                continue
             score, metrics = v7.robust_evaluate(genome, scenarios, args)
             sm = symbol_metrics(metrics.get("rows") or [])
             ok = strict_ok(sm, args)
@@ -194,7 +206,7 @@ def main() -> None:
             default=0.0,
         )
         qualified = bool(
-            window_rows
+            len(window_rows) >= args.min_tested_windows
             and passed == len(window_rows)
             and min_alpha >= args.min_alpha
             and min_return >= args.min_return
@@ -216,7 +228,10 @@ def main() -> None:
             "score": wf_score,
             "qualified": qualified,
             "passed_windows": passed,
-            "window_count": len(window_rows),
+            "tested_windows": len(window_rows),
+            "skipped_windows": len(skipped_rows),
+            "window_count": len(window_rows) + len(skipped_rows),
+            "min_required_tested_windows": args.min_tested_windows,
             "min_alpha": min_alpha,
             "avg_alpha": avg_alpha,
             "min_return": min_return,
@@ -227,7 +242,7 @@ def main() -> None:
             "min_trades_per_scenario": min_trades_per_scenario,
             "max_trades_per_scenario": max_trades_per_scenario,
             "avg_trades_per_scenario": avg_trades_per_scenario,
-            "windows": window_rows,
+            "windows": window_rows + skipped_rows,
             "genome": row["genome"],
         })
         best = max(results, key=lambda r: r["score"])
