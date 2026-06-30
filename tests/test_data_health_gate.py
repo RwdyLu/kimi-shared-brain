@@ -25,6 +25,34 @@ def test_data_gate_allows_only_symbols_with_contiguous_valid_months(tmp_path):
     assert result.blocked_symbols["ETHUSDT"] == "missing_data_manifest"
 
 
+def test_data_gate_uses_full_range_manifest_for_subwindow(tmp_path):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import data_health_gate as gate_mod
+
+    manifest_dir = tmp_path / "manifests"
+    manifest_dir.mkdir()
+    (manifest_dir / "LINKUSDT_4h_2017-08_2026-05.json").write_text(
+        json.dumps(
+            {
+                "valid_months": [
+                    "2024-01",
+                    "2024-02",
+                    "2024-03",
+                    "2024-04",
+                    "2024-05",
+                    "2024-06",
+                ]
+            }
+        )
+    )
+
+    gate = gate_mod.DataHealthGate(manifest_dir, "4h", "2024-01", "2024-06", 3)
+    result = gate.summarize(["LINKUSDT"], gate_mod.month_range("2024-01", "2024-06"))
+
+    assert result.allowed_symbols == ["LINKUSDT"]
+    assert result.blocked_symbols == {}
+
+
 def test_freqtrade_bridge_rejects_internal_candidate_without_smoke_flag(tmp_path):
     artifact = tmp_path / "artifact"
     artifact.mkdir()

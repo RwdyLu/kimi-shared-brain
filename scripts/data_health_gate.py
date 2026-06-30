@@ -79,7 +79,11 @@ class DataHealthGate:
     def manifest_path(self, symbol: str) -> Path | None:
         if not self.manifest_dir:
             return None
-        return self.manifest_dir / f"{symbol}_{self.timeframe}_{self.start}_{self.end}.json"
+        exact = self.manifest_dir / f"{symbol}_{self.timeframe}_{self.start}_{self.end}.json"
+        if exact.exists():
+            return exact
+        matches = sorted(self.manifest_dir.glob(f"{symbol}_{self.timeframe}_*.json"))
+        return matches[0] if matches else exact
 
     def manifest(self, symbol: str) -> dict[str, Any]:
         if symbol not in self._manifests:
