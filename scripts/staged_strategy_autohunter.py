@@ -105,6 +105,10 @@ MAX_MONTH_ROWS = {
     "4h": 210,
 }
 
+EARLY_APPROVAL_MIN_EPOCH = 200
+EARLY_APPROVAL_INTERVAL = 100
+EARLY_APPROVAL_LIMIT = 8
+
 
 def sh(cmd: str) -> str:
     return subprocess.run(
@@ -255,6 +259,24 @@ def walkforward_path(stage: Stage, profile: Profile) -> Path:
 
 def approval_path(stage: Stage, profile: Profile) -> Path:
     return STATE / f"strategy_approval_gate_v7_{stage.name}_{profile.name}.json"
+
+
+def early_snapshot_path(stage: Stage, profile: Profile, bucket: int) -> Path:
+    return STATE / f"early_snapshot_{stage.name}_{profile.name}_epoch{bucket}.json"
+
+
+def early_approval_path(stage: Stage, profile: Profile, bucket: int) -> Path:
+    return STATE / f"strategy_approval_gate_v7_{stage.name}_{profile.name}_early_epoch{bucket}.json"
+
+
+def early_approval_epoch(path: Path) -> int | None:
+    marker = "_early_epoch"
+    if marker not in path.stem:
+        return None
+    try:
+        return int(path.stem.rsplit(marker, 1)[-1])
+    except ValueError:
+        return None
 
 
 def data_audit_summary_path(stage: Stage) -> Path:
@@ -500,6 +522,96 @@ def approval_command(stage: Stage, profile: Profile) -> str:
     )
 
 
+def early_approval_command(stage: Stage, profile: Profile, snapshot: Path, out: Path) -> str:
+    min_trades, max_trades = trade_band(stage, profile)
+    return (
+        f"cd {BASE} && /usr/bin/time -f wall=%e nice -n 5 python3 scripts/strategy_approval_gate_v7.py "
+        f"--archive {snapshot} --out {out} --limit {EARLY_APPROVAL_LIMIT} "
+        f"--symbols {SYMBOLS} --timeframe {stage.timeframe} --start 2017-08 --end 2026-05 "
+        f"--months-per-symbol {stage.months_per_symbol} --window-bars {stage.window_bars} --scenarios 24 "
+        f"--data-manifest-dir data/manifests/{stage.name} --data-audit-summary-hash {data_audit_summary_hash(stage)} "
+        f"--scenario-costs 20,30,50 --validation-seeds 930777,930778,930779 "
+        f"--stress-costs 20,30,50,75,100 --stress-scenarios 24 "
+        f"--walkforward-window-months 18 --walkforward-step-months 9 --walkforward-scenarios 6 --min-walkforward-windows 3 "
+        f"--max-drawdown 0.20 --max-trades {max_trades} --min-trades {min_trades} "
+        f"--min-alpha 0.0 --min-return 0.0 --min-survival-rate 1.0 --min-positive-alpha-frac 1.0 "
+        f"--min-notional 10 --max-adversarial-rows-per-candidate 0"
+    )
+
+
+def early_approval_bucket_done(stage: Stage, profile: Profile, bucket: int) -> bool:
+    pattern = f"strategy_approval_gate_v7_{stage.name}_{profile.name}_early_epoch*.json"
+    for path in STATE.glob(pattern):
+        epoch = early_approval_epoch(path)
+        if epoch is not None and bucket <= epoch < bucket + EARLY_APPROVAL_INTERVAL:
+            return True
+    return False
+
+
+def maybe_launch_early_approval(stage: Stage, profile: Profile, archive_obj: dict, internal_good: list[dict]) -> str:
+    if not internal_good or approval_path(stage, profile).exists():
+        return ""
+    epoch = int(archive_obj.get("epoch") or 0)
+    if epoch < EARLY_APPROVAL_MIN_EPOCH:
+        return ""
+    bucket = (epoch // EARLY_APPROVAL_INTERVAL) * EARLY_APPROVAL_INTERVAL
+    if bucket <= 0 or early_approval_bucket_done(stage, profile, bucket):
+        return ""
+    session = f"approval_{stage.name}_{profile.name}_early_{bucket}"[:80]
+    if tmux_has(session):
+        return f"early_approval_running={session}"
+    snapshot = early_snapshot_path(stage, profile, bucket)
+    out = early_approval_path(stage, profile, bucket)
+    if not snapshot.exists():
+        snapshot.write_text(json.dumps(archive_obj, ensure_ascii=False, indent=2, sort_keys=True, default=str) + "\n")
+    launch_session(session, early_approval_command(stage, profile, snapshot, out), LOGS / f"{session}.log")
+    return f"early_approval_launched={session}"
+
+
+def write_approval_marker_from_result(path: Path, label: str, stage: Stage, profile: Profile, source: Path, row: dict, note: str) -> None:
+    ready = {
+        "symbol": row.get("symbol"),
+        "qualified": row.get("paper_ready") if label == "FOUND_PAPER_READY" else row.get("validated"),
+        "metrics": row.get("internal_metrics") or {},
+    }
+    path.write_text(
+        f"{label} {now()} stage={stage.name} profile={profile.name} approval={source.name} "
+        f"{row_summary(ready)} note={note}\n"
+    )
+
+
+def process_early_approval_results(stage: Stage, profile: Profile) -> bool:
+    pattern = f"strategy_approval_gate_v7_{stage.name}_{profile.name}_early_epoch*.json"
+    for path in sorted(STATE.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True):
+        approval = load_json(path)
+        paper_ready = approval.get("paper_ready") or []
+        if paper_ready:
+            write_approval_marker_from_result(
+                FOUND_PAPER_READY,
+                "FOUND_PAPER_READY",
+                stage,
+                profile,
+                path,
+                paper_ready[0],
+                "early_approval_passed_requires_manual_paper_launch",
+            )
+            SUMMARY.write_text(FOUND_PAPER_READY.read_text())
+            return True
+        validated = approval.get("validated") or []
+        if validated:
+            write_approval_marker_from_result(
+                FOUND_VALIDATED,
+                "FOUND_VALIDATED_CANDIDATE",
+                stage,
+                profile,
+                path,
+                validated[0],
+                "early_approval_validated_but_not_paper_ready",
+            )
+            return False
+    return False
+
+
 def export_artifacts_command(stage: Stage, profile: Profile) -> str:
     tag = f"{stage.name}_{profile.name}_{now().replace(':', '').replace('-', '')}"
     return (
@@ -648,9 +760,6 @@ def tick() -> None:
     if FOUND_PAPER_READY.exists() and FOUND_PAPER_READY.read_text().strip().startswith("FOUND_PAPER_READY"):
         SUMMARY.write_text(FOUND_PAPER_READY.read_text())
         return
-    if FOUND_VALIDATED.exists() and FOUND_VALIDATED.read_text().strip().startswith("FOUND_VALIDATED_CANDIDATE"):
-        SUMMARY.write_text(FOUND_VALIDATED.read_text())
-        return
     publish_best_internal_candidate()
 
     data = load_json(STAGE_STATE) or {"stage_index": 0, "profile_index": 0, "phase": "smoke"}
@@ -668,6 +777,8 @@ def tick() -> None:
         return
     profile = PROFILES[pidx]
     phase = data.get("phase", "smoke")
+    if process_early_approval_results(stage, profile):
+        return
     audit_ready_phase = phase in {"search", "validate"} or (phase == "smoke" and data.get("cache_ready"))
     if not data.get("data_audit_ready") and audit_ready_phase:
         ok, detail = ensure_data_audit(stage)
@@ -726,7 +837,9 @@ def tick() -> None:
                     best_internal,
                     " note=discovery_only_requires_independent_validation",
                 )
-            SUMMARY.write_text(summarize_stage(stage, profile, "search") + f" session={session}\n")
+            early_status = maybe_launch_early_approval(stage, profile, archive_obj, internal_good) if archive_obj else ""
+            early_text = f" {early_status}" if early_status else ""
+            SUMMARY.write_text(summarize_stage(stage, profile, "search") + f" session={session}{early_text}\n")
             return
         data["phase"] = "validate"
         save_state(data)
