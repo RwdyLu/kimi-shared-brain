@@ -383,7 +383,7 @@ def data_audit_command(stage: Stage) -> str:
     write_normalized = "--write-normalized" if stage.timeframe in {"4h", "1h", "15m"} else ""
     return (
         f"cd {BASE} && python3 scripts/binance_kline_data_audit.py "
-        f"--symbols {SYMBOLS} --timeframes {stage.timeframe} --start 2017-08 --end 2026-05 "
+        f"--symbols {json.dumps(SYMBOLS)} --timeframes {stage.timeframe} --start 2017-08 --end 2026-05 "
         f"--manifest-dir data/manifests/{stage.name} --audit-dir data/audits/{stage.name} "
         f"--normalized-dir data/normalized {write_normalized}"
     )
