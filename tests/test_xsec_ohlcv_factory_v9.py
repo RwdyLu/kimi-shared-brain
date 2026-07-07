@@ -11,11 +11,14 @@ sys.path.insert(0, str(ROOT))
 
 from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     OhlcvConfig,
+    RunConfig,
     advance_checks,
+    bootstrap_seed,
     bootstrap_threshold,
     config_for_preset,
     long_only_weights,
     market_filter,
+    run_grid,
     score_matrix,
     simulate,
     split_selection_validation,
@@ -90,6 +93,93 @@ def test_trial_adjusted_thresholds_tighten_with_prior_trials() -> None:
     assert bootstrap_threshold(16 + 500) > bootstrap_threshold(16)
     assert validation_sharpe_threshold(10) == 0.70
     assert validation_sharpe_threshold(1000) > validation_sharpe_threshold(10)
+
+
+def test_bootstrap_seed_is_stable_and_segment_specific() -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=48, vol_target_ann=0.0)
+    first = bootstrap_seed(cfg, 20.0, "selection", "2020-01-01", "2021-01-01")
+    assert first == bootstrap_seed(cfg, 20.0, "selection", "2020-01-01", "2021-01-01")
+    assert first != bootstrap_seed(cfg, 20.0, "selection_confirm", "2020-01-01", "2021-01-01")
+    assert first != bootstrap_seed(cfg, 40.0, "selection", "2020-01-01", "2021-01-01")
+
+
+def test_run_grid_confirm_gate_can_reject_initial_bootstrap_pass(monkeypatch, tmp_path) -> None:
+    def fake_load_close_matrix(cache_dir, symbols, start, end, embargo):
+        return close_matrix(600)
+
+    def fake_simulate(
+        closes,
+        cfg,
+        cost_bps,
+        bootstrap_iterations=500,
+        bootstrap_seed_value=20260707,
+        bootstrap_confirm_iterations=0,
+        bootstrap_confirm_seed_value=None,
+    ):
+        result = {
+            "config": {
+                "lookback_h": cfg.lookback_h,
+                "skip_h": cfg.skip_h,
+                "rebalance_h": cfg.rebalance_h,
+                "k": cfg.k,
+                "score_mode": cfg.score_mode,
+                "market_filter_h": cfg.market_filter_h,
+                "vol_target_ann": cfg.vol_target_ann,
+            },
+            "cost_bps": float(cost_bps),
+            "total_return": 0.20,
+            "net_pnl": 2000.0,
+            "sharpe": 1.5,
+            "max_drawdown": 0.10,
+            "daily_turnover": 0.01,
+            "avg_gross_exposure": 1.0,
+            "avg_rebalance_scale": 1.0,
+            "yearly": {
+                "2021": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+                "2022": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+                "2023": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+                "2024H1": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+            },
+            "yearly_positive_count": 4,
+            "symbol_pnl": {"AAA": 1000.0, "BBB": 900.0, "CCC": 0.0, "DDD": 0.0},
+            "top_positive_symbol_share": 0.52,
+            "bootstrap_30d_sharpe_p5": 0.50,
+            "bootstrap_seed": int(bootstrap_seed_value),
+            "bootstrap_iterations": int(bootstrap_iterations),
+            "equal_weight_benchmark": {
+                "sharpe": 0.8,
+                "max_drawdown": 0.20,
+                "sharpe_excess": 0.20,
+                "drawdown_ratio": 0.50,
+            },
+        }
+        if bootstrap_confirm_iterations:
+            result["bootstrap_30d_sharpe_p5_confirm"] = 0.0
+            result["bootstrap_confirm_seed"] = int(bootstrap_confirm_seed_value)
+            result["bootstrap_confirm_iterations"] = int(bootstrap_confirm_iterations)
+        return result
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", fake_load_close_matrix)
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+    payload = run_grid(cfg)
+    row = payload["rows"][0]
+    assert row["selection"]["checks"]["bootstrap_p5_ge_adjusted_min"] is True
+    assert row["selection"]["checks"]["bootstrap_p5_confirm_ge_adjusted_min"] is False
+    assert row["advance_passed"] is False
+    assert payload["summary"]["pass_count"] == 0
 
 
 def test_presets_select_distinct_search_spaces() -> None:

@@ -50,7 +50,7 @@ LEGACY_TASK_PRESETS = {
 DEFAULT_TRAIN_START = "2017-08-01"
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
-EVALUATION_VERSION = "selection_validation_v1"
+EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import itertools
+import json
 import math
 import random
 import time
@@ -241,6 +243,20 @@ def annual_bucket(ts: pd.Timestamp) -> str:
     return str(ts.year)
 
 
+def bootstrap_seed(cfg: OhlcvConfig, cost_bps: float, segment: str, train_start: str, train_end: str) -> int:
+    raw = json.dumps(
+        {
+            "cfg": asdict(cfg),
+            "cost_bps": float(cost_bps),
+            "segment": segment,
+            "train_start": train_start,
+            "train_end": train_end,
+        },
+        sort_keys=True,
+    )
+    return int(hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8], 16)
+
+
 def block_bootstrap_p5(daily_returns: pd.Series, iterations: int = 500, block_days: int = 30, seed: int = 20260707) -> float:
     values = [float(v) for v in daily_returns.dropna()]
     if len(values) < block_days * 2 or iterations <= 0:
@@ -258,7 +274,15 @@ def block_bootstrap_p5(daily_returns: pd.Series, iterations: int = 500, block_da
     return float(samples[int(0.05 * (len(samples) - 1))])
 
 
-def simulate(closes: pd.DataFrame, cfg: OhlcvConfig, cost_bps: float, bootstrap_iterations: int = 500) -> dict[str, Any]:
+def simulate(
+    closes: pd.DataFrame,
+    cfg: OhlcvConfig,
+    cost_bps: float,
+    bootstrap_iterations: int = 500,
+    bootstrap_seed_value: int = 20260707,
+    bootstrap_confirm_iterations: int = 0,
+    bootstrap_confirm_seed_value: int | None = None,
+) -> dict[str, Any]:
     symbols = [c for c in closes.columns if c != "dt"]
     scores = score_matrix(closes, cfg)
     allowed = market_filter(closes, cfg)
@@ -322,9 +346,9 @@ def simulate(closes: pd.DataFrame, cfg: OhlcvConfig, cost_bps: float, bootstrap_
     ew_period_returns = (1.0 + equal_weight).resample(f"{cfg.rebalance_h}h").prod() - 1.0
     ew_sharpe = sharpe(ew_period_returns, 8760.0 / cfg.rebalance_h)
     ew_dd = max_drawdown_from_returns(equal_weight)
-    bootstrap_p5 = block_bootstrap_p5(daily_returns, iterations=bootstrap_iterations)
+    bootstrap_p5 = block_bootstrap_p5(daily_returns, iterations=bootstrap_iterations, seed=bootstrap_seed_value)
     yearly_positive = sum(1 for row in by_year.values() if row["net_return"] > 0)
-    return {
+    result = {
         "config": asdict(cfg),
         "cost_bps": float(cost_bps),
         "total_return": total_return,
@@ -339,6 +363,8 @@ def simulate(closes: pd.DataFrame, cfg: OhlcvConfig, cost_bps: float, bootstrap_
         "symbol_pnl": symbol_pnl,
         "top_positive_symbol_share": float(top_symbol_share),
         "bootstrap_30d_sharpe_p5": bootstrap_p5,
+        "bootstrap_seed": int(bootstrap_seed_value),
+        "bootstrap_iterations": int(bootstrap_iterations),
         "equal_weight_benchmark": {
             "sharpe": ew_sharpe,
             "max_drawdown": ew_dd,
@@ -346,6 +372,16 @@ def simulate(closes: pd.DataFrame, cfg: OhlcvConfig, cost_bps: float, bootstrap_
             "drawdown_ratio": dd / ew_dd if ew_dd > 0 else 1.0,
         },
     }
+    if bootstrap_confirm_iterations > 0:
+        confirm_seed = int(bootstrap_confirm_seed_value if bootstrap_confirm_seed_value is not None else bootstrap_seed_value)
+        result["bootstrap_30d_sharpe_p5_confirm"] = block_bootstrap_p5(
+            daily_returns,
+            iterations=bootstrap_confirm_iterations,
+            seed=confirm_seed,
+        )
+        result["bootstrap_confirm_seed"] = confirm_seed
+        result["bootstrap_confirm_iterations"] = int(bootstrap_confirm_iterations)
+    return result
 
 
 def bootstrap_threshold(n_trials: int, base: float = 0.25) -> float:
@@ -426,15 +462,54 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     effective_trials = n_trials + prior_trials
     bootstrap_p5_min = bootstrap_threshold(effective_trials)
     validation_sharpe20_min = validation_sharpe_threshold(effective_trials)
+    confirm_iterations = max(500, 5 * int(cfg.bootstrap_iterations))
     rows = []
     for g in grid:
         selection_closes, validation_closes, split_meta = split_selection_validation(closes, g)
-        cost20 = simulate(selection_closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
-        cost40 = simulate(selection_closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
+        cost20 = simulate(
+            selection_closes,
+            g,
+            20.0,
+            bootstrap_iterations=cfg.bootstrap_iterations,
+            bootstrap_seed_value=bootstrap_seed(g, 20.0, "selection", cfg.train_start, cfg.train_end),
+        )
+        cost40 = simulate(
+            selection_closes,
+            g,
+            40.0,
+            bootstrap_iterations=cfg.bootstrap_iterations,
+            bootstrap_seed_value=bootstrap_seed(g, 40.0, "selection", cfg.train_start, cfg.train_end),
+        )
         selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
+        if all(selection_checks.values()):
+            cost20 = simulate(
+                selection_closes,
+                g,
+                20.0,
+                bootstrap_iterations=cfg.bootstrap_iterations,
+                bootstrap_seed_value=bootstrap_seed(g, 20.0, "selection", cfg.train_start, cfg.train_end),
+                bootstrap_confirm_iterations=confirm_iterations,
+                bootstrap_confirm_seed_value=bootstrap_seed(g, 20.0, "selection_confirm", cfg.train_start, cfg.train_end),
+            )
+            selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
+            selection_checks["bootstrap_p5_confirm_ge_adjusted_min"] = (
+                float(cost20["bootstrap_30d_sharpe_p5_confirm"]) >= bootstrap_p5_min
+            )
         if all(selection_checks.values()) and split_meta["validation_usable"]:
-            val20 = simulate(validation_closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
-            val40 = simulate(validation_closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
+            val20 = simulate(
+                validation_closes,
+                g,
+                20.0,
+                bootstrap_iterations=cfg.bootstrap_iterations,
+                bootstrap_seed_value=bootstrap_seed(g, 20.0, "validation", cfg.train_start, cfg.train_end),
+            )
+            val40 = simulate(
+                validation_closes,
+                g,
+                40.0,
+                bootstrap_iterations=cfg.bootstrap_iterations,
+                bootstrap_seed_value=bootstrap_seed(g, 40.0, "validation", cfg.train_start, cfg.train_end),
+            )
             val_checks = validation_checks(val20, val40, sharpe20_min=validation_sharpe20_min)
         else:
             val20 = {}
@@ -476,6 +551,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "prior_trials": prior_trials,
             "effective_trials": effective_trials,
             "selection_bootstrap_p5_min": bootstrap_p5_min,
+            "selection_bootstrap_confirm_iterations": confirm_iterations,
             "validation_sharpe20_min": validation_sharpe20_min,
             "note": "All selection and validation data remains before embargo_start.",
         },
