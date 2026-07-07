@@ -82,6 +82,46 @@ def test_simulate_reports_gate_inputs() -> None:
     assert "equal_weight_benchmark" in result20
     assert "bootstrap_p5_ge_adjusted_min" in checks
     assert result20["daily_turnover"] >= 0
+    assert result20["rebalance_offsets_h"] == [0]
+
+
+def test_tranche_one_matches_default_single_phase() -> None:
+    data = close_matrix(240)
+    base = OhlcvConfig(lookback_h=12, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    explicit = OhlcvConfig(
+        lookback_h=12,
+        skip_h=0,
+        rebalance_h=12,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        n_tranches=1,
+    )
+
+    assert simulate(data, base, cost_bps=20.0, bootstrap_iterations=10) == simulate(data, explicit, cost_bps=20.0, bootstrap_iterations=10)
+
+
+def test_tranched_rebalancing_uses_staggered_offsets() -> None:
+    data = close_matrix(240)
+    single = OhlcvConfig(lookback_h=12, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    tranched = OhlcvConfig(
+        lookback_h=12,
+        skip_h=0,
+        rebalance_h=12,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        n_tranches=3,
+    )
+
+    single_result = simulate(data, single, cost_bps=20.0, bootstrap_iterations=10)
+    tranched_result = simulate(data, tranched, cost_bps=20.0, bootstrap_iterations=10)
+
+    assert tranched_result["rebalance_offsets_h"] == [0, 4, 8]
+    assert tranched_result["rebalance_event_count"] > single_result["rebalance_event_count"]
+    assert tranched_result["avg_gross_exposure"] <= single_result["avg_gross_exposure"]
 
 
 def test_split_selection_validation_keeps_validation_after_purge() -> None:
@@ -297,6 +337,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
     hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
     hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
+    hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
     assert core.out_json == "a.json"
@@ -313,6 +354,8 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_plateau.plateau_center_config["lookback_h"] == 504
     assert len(hq_plateau.lookbacks_h) * len(hq_plateau.rebalances_h) * len(hq_plateau.market_filters_h) * len(hq_plateau.vol_targets_ann) == 81
     assert hq_plateau.stress_costs_bps == (30.0, 40.0)
+    assert hq_cadence.n_tranches == (3,)
+    assert len(hq_cadence.lookbacks_h) * len(hq_cadence.rebalances_h) * len(hq_cadence.ks) * len(hq_cadence.market_filters_h) * len(hq_cadence.vol_targets_ann) == 72
     assert 24 in hq_fast.rebalances_h
     assert 5 in hq_breadth.ks
 

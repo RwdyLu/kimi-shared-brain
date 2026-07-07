@@ -20,7 +20,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v2_seeded_confirm_progress_v1"
+ROW_CACHE_VERSION = "selection_validation_v2_seeded_confirm_progress_v2_tranche"
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,7 @@ class OhlcvConfig:
     score_mode: str
     market_filter_h: int
     vol_target_ann: float
+    n_tranches: int = 1
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class RunConfig:
     score_modes: tuple[str, ...] = ("mom", "risk_adj_mom")
     market_filters_h: tuple[int, ...] = (0, 720)
     vol_targets_ann: tuple[float, ...] = (0.16,)
+    n_tranches: tuple[int, ...] = (1,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -181,6 +183,18 @@ def config_for_preset(
                 "market_filter_h": 1008,
                 "vol_target_ann": 0.06,
             },
+            **base,
+        )
+    if preset == "hq_cadence_tranche":
+        return RunConfig(
+            lookbacks_h=(336, 504, 720),
+            skips_h=(0,),
+            rebalances_h=(48, 96, 168),
+            ks=(2, 3),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(720, 1008),
+            vol_targets_ann=(0.10, 0.12),
+            n_tranches=(3,),
             **base,
         )
     if preset == "hq_fast_rebal":
@@ -413,10 +427,14 @@ def simulate(
     bootstrap_confirm_seed_value: int | None = None,
 ) -> dict[str, Any]:
     symbols = [c for c in closes.columns if c != "dt"]
+    if cfg.n_tranches < 1:
+        raise ValueError("n_tranches must be >= 1")
     scores = score_matrix(closes, cfg)
     allowed = market_filter(closes, cfg)
     returns = closes[symbols].pct_change().shift(-1)
     weights = {sym: 0.0 for sym in symbols}
+    tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
+    tranche_offsets = [(idx * cfg.rebalance_h) // cfg.n_tranches for idx in range(cfg.n_tranches)]
     rows = []
     rebalances = []
     symbol_returns = {sym: 0.0 for sym in symbols}
@@ -426,19 +444,22 @@ def simulate(
 
     for idx in range(len(closes) - 1):
         ts = pd.Timestamp(closes["dt"].iloc[idx])
-        if idx % cfg.rebalance_h == 0:
+        old_weights = dict(weights)
+        due_rebalance = False
+        for tranche_idx, offset in enumerate(tranche_offsets):
+            if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
+                continue
+            due_rebalance = True
             target = long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
             if target is not None:
                 scale = exposure_scale(past_returns, cfg.vol_target_ann)
-                target = {sym: target[sym] * scale for sym in symbols}
-                turnover = sum(abs(target[sym] - weights[sym]) for sym in symbols)
-                cost = turnover * cost_bps / 10000.0
-                weights = target
+                tranche_weights[tranche_idx] = {sym: target[sym] * scale / cfg.n_tranches for sym in symbols}
                 scale_sum += scale
                 scale_count += 1
-            else:
-                turnover = 0.0
-                cost = 0.0
+        if due_rebalance:
+            weights = {sym: sum(tranche[sym] for tranche in tranche_weights) for sym in symbols}
+            turnover = sum(abs(weights[sym] - old_weights[sym]) for sym in symbols)
+            cost = turnover * cost_bps / 10000.0
             rebalances.append({"dt": ts, "turnover": turnover, "cost": cost, "gross_exposure": sum(abs(v) for v in weights.values())})
         else:
             cost = 0.0
@@ -487,6 +508,8 @@ def simulate(
         "daily_turnover": float(reb["turnover"].resample("1D").sum().mean()) if len(reb) else 0.0,
         "avg_gross_exposure": float(ret["gross_exposure"].mean()) if len(ret) else 0.0,
         "avg_rebalance_scale": float(scale_sum / scale_count) if scale_count else 1.0,
+        "rebalance_event_count": int(len(reb)),
+        "rebalance_offsets_h": [int(v) for v in tranche_offsets],
         "yearly": by_year,
         "yearly_positive_count": yearly_positive,
         "symbol_pnl": symbol_pnl,
@@ -678,8 +701,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
     closes_fingerprint = data_fingerprint(closes)
     grid = [
-        OhlcvConfig(l, s, r, k, mode, mf, vt)
-        for l, s, r, k, mode, mf, vt in itertools.product(
+        OhlcvConfig(l, s, r, k, mode, mf, vt, nt)
+        for l, s, r, k, mode, mf, vt, nt in itertools.product(
             cfg.lookbacks_h,
             cfg.skips_h,
             cfg.rebalances_h,
@@ -687,6 +710,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             cfg.score_modes,
             cfg.market_filters_h,
             cfg.vol_targets_ann,
+            cfg.n_tranches,
         )
     ]
     n_trials = len(grid)
@@ -926,7 +950,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         c20 = row["cost20"]
         v20 = row.get("validation", {}).get("cost20", {}) or {}
         bench = c20["equal_weight_benchmark"]
-        label = "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_MF{market_filter_h}_VT{vol_target_ann}".format(**cfg)
+        label = "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_MF{market_filter_h}_VT{vol_target_ann}_NT{n_tranches}".format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
                 label,
@@ -959,6 +983,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_drawdown",
             "hq_dd_long",
             "hq_dd_plateau",
+            "hq_cadence_tranche",
             "hq_fast_rebal",
             "hq_breadth_wide",
         ),

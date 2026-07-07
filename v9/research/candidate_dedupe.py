@@ -21,6 +21,14 @@ def accepted_row(payload: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def canonical_config(config: dict[str, Any] | None) -> dict[str, Any] | None:
+    if config is None:
+        return None
+    out = dict(config)
+    out.setdefault("n_tranches", 1)
+    return out
+
+
 def candidate_signature(payload: dict[str, Any]) -> str | None:
     if not payload.get("summary", {}).get("accepted_train_only"):
         return None
@@ -31,7 +39,7 @@ def candidate_signature(payload: dict[str, Any]) -> str | None:
         {
             "kind": payload.get("kind"),
             "symbols": payload.get("symbols"),
-            "config": row.get("config"),
+            "config": canonical_config(row.get("config")),
         },
         sort_keys=True,
     )

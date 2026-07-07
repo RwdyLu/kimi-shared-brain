@@ -12,9 +12,10 @@ import pandas as pd
 from v9.research.candidate_dedupe import dedupe_candidates
 
 
-FOCUS_PRESETS = ("hq_dd_plateau",)
+FOCUS_PRESETS = ("hq_cadence_tranche", "hq_dd_plateau")
 
 PRESETS = (
+    "hq_cadence_tranche",
     "hq_dd_plateau",
     "hq_dd_long",
     "hq_fast_rebal",
