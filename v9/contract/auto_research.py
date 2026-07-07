@@ -16,6 +16,7 @@ from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_c
 from v9.research.task_planner import (
     PlannedTask,
     append_explored_record,
+    cumulative_trials,
     legacy_fingerprints_from_results,
     load_explored_fingerprints,
     propose_tasks,
@@ -150,6 +151,32 @@ def task_result_status(payload: dict[str, Any] | None) -> str:
     return "completed_no_candidate"
 
 
+def trial_metadata(payload: dict[str, Any] | None) -> dict[str, int]:
+    if not payload:
+        return {}
+    selection_validation = payload.get("selection_validation", {}) or {}
+    summary = payload.get("summary", {}) or {}
+    n_configs = int(selection_validation.get("n_configs_tested") or summary.get("rows") or 0)
+    metadata = {"n_configs_tested": n_configs}
+    for key in ("prior_trials", "effective_trials"):
+        if key in selection_validation:
+            metadata[key] = int(selection_validation.get(key) or 0)
+    return metadata
+
+
+def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
+    total = 0
+    for result in task_results:
+        if result.get("n_configs_tested") is not None:
+            total += int(result.get("n_configs_tested") or 0)
+            continue
+        output_json = result.get("output_json")
+        if not output_json:
+            continue
+        total += int(trial_metadata(read_json(Path(str(output_json)))).get("n_configs_tested", 0))
+    return total
+
+
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{pd.Timestamp.now(tz='UTC').isoformat()} status={status} reason={reason}\n")
@@ -246,6 +273,7 @@ def run_task(
             "output_json": task.output_json,
             "output_md": task.output_md,
             "returncode": 0,
+            **trial_metadata(existing),
         }
 
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -280,6 +308,7 @@ def run_task(
         "log": str(log_path),
         "returncode": returncode,
         "elapsed_sec": round(time.time() - started, 3),
+        **trial_metadata(payload),
     }
 
 
@@ -494,11 +523,13 @@ def run_continuous_research(
             write_latest_summary(latest_summary_path, "paused", reason)
             return payload
 
+        prior_trials = max(cumulative_trials(explored_path), cumulative_trials_from_results(task_results))
         planned = propose_tasks(
             explored,
             planner_batch_size,
             task_results=task_results,
             candidates=candidates_found,
+            prior_trials=prior_trials,
         )
         tasks = tuple(research_task_from_planned(task) for task in planned)
         if not tasks:
@@ -598,6 +629,9 @@ def run_continuous_research(
                     "output_json": result["output_json"],
                     "output_md": result["output_md"],
                     "returncode": result["returncode"],
+                    "n_configs_tested": result.get("n_configs_tested", 0),
+                    "prior_trials": result.get("prior_trials", 0),
+                    "effective_trials": result.get("effective_trials", 0),
                 },
             )
 

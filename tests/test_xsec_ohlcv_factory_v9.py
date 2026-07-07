@@ -12,12 +12,14 @@ sys.path.insert(0, str(ROOT))
 from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     OhlcvConfig,
     advance_checks,
+    bootstrap_threshold,
     config_for_preset,
     long_only_weights,
     market_filter,
     score_matrix,
     simulate,
     split_selection_validation,
+    validation_sharpe_threshold,
 )
 
 
@@ -82,6 +84,12 @@ def test_split_selection_validation_keeps_validation_after_purge() -> None:
     assert pd.Timestamp(validation["dt"].iloc[0]) > pd.Timestamp(selection["dt"].iloc[-1])
     assert meta["purge_hours"] == 48
     assert meta["validation_usable"] is True
+
+
+def test_trial_adjusted_thresholds_tighten_with_prior_trials() -> None:
+    assert bootstrap_threshold(16 + 500) > bootstrap_threshold(16)
+    assert validation_sharpe_threshold(10) == 0.70
+    assert validation_sharpe_threshold(1000) > validation_sharpe_threshold(10)
 
 
 def test_presets_select_distinct_search_spaces() -> None:

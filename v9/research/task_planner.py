@@ -64,6 +64,7 @@ class PlannedTask:
     output_json: str
     output_md: str
     bootstrap_iterations: int = 100
+    prior_trials: int = 0
     timeout_sec: int = 3 * 60 * 60
 
     def command(self) -> tuple[str, ...]:
@@ -81,6 +82,8 @@ class PlannedTask:
             self.embargo_start,
             "--bootstrap-iterations",
             str(self.bootstrap_iterations),
+            "--prior-trials",
+            str(self.prior_trials),
             "--out-json",
             self.output_json,
             "--out-md",
@@ -148,6 +151,21 @@ def append_explored_record(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def cumulative_trials(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        total += int(row.get("n_configs_tested", 0) or 0)
+    return total
 
 
 def preset_from_result(result: dict[str, Any]) -> str | None:
@@ -263,6 +281,7 @@ def proposed_search_space(
     embargo_start: str = DEFAULT_EMBARGO_START,
     bootstrap_iterations: int = 100,
     preset_order: tuple[str, ...] = PRESETS,
+    prior_trials: int = 0,
 ) -> list[PlannedTask]:
     tasks: list[PlannedTask] = []
     embargo = utc_ts(embargo_start)
@@ -286,6 +305,7 @@ def proposed_search_space(
                     output_json=output_json,
                     output_md=output_md,
                     bootstrap_iterations=bootstrap_iterations,
+                    prior_trials=max(0, int(prior_trials)),
                 )
             )
     return tasks
@@ -298,6 +318,7 @@ def propose_tasks(
     bootstrap_iterations: int = 100,
     task_results: list[dict[str, Any]] | None = None,
     candidates: list[dict[str, Any]] | None = None,
+    prior_trials: int = 0,
 ) -> list[PlannedTask]:
     if count <= 0:
         return []
@@ -308,6 +329,7 @@ def propose_tasks(
             embargo_start=embargo_start,
             bootstrap_iterations=bootstrap_iterations,
             preset_order=(preset,),
+            prior_trials=prior_trials,
         ):
             if task.fingerprint in explored_fingerprints:
                 continue

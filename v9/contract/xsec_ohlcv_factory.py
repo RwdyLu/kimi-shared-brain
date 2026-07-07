@@ -45,6 +45,7 @@ class RunConfig:
     embargo_start: str = "2024-07-01"
     cache_dir: str = "data/binance_public_cache"
     bootstrap_iterations: int = 500
+    prior_trials: int = 0
     out_json: str = "artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.json"
     out_md: str = "artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.md"
 
@@ -58,6 +59,7 @@ def config_for_preset(
     bootstrap_iterations: int,
     out_json: str,
     out_md: str,
+    prior_trials: int = 0,
 ) -> RunConfig:
     base = {
         "cache_dir": cache_dir,
@@ -65,6 +67,7 @@ def config_for_preset(
         "train_end": train_end,
         "embargo_start": embargo_start,
         "bootstrap_iterations": bootstrap_iterations,
+        "prior_trials": prior_trials,
         "out_json": out_json,
         "out_md": out_md,
     }
@@ -349,6 +352,10 @@ def bootstrap_threshold(n_trials: int, base: float = 0.25) -> float:
     return base + 0.05 * math.log10(max(1, int(n_trials)))
 
 
+def validation_sharpe_threshold(effective_trials: int, base: float = 0.70, slope: float = 0.10) -> float:
+    return base + slope * max(0.0, math.log10(max(1, int(effective_trials))) - 1.0)
+
+
 def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_min: float = 0.25) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     return {
@@ -364,9 +371,9 @@ def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_
     }
 
 
-def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any]) -> dict[str, bool]:
+def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_min: float = 0.70) -> dict[str, bool]:
     return {
-        "validation_sharpe20_ge_0_7": float(cost20["sharpe"]) >= 0.7,
+        "validation_sharpe20_ge_adjusted_min": float(cost20["sharpe"]) >= sharpe20_min,
         "validation_max_dd20_le_30pct": float(cost20["max_drawdown"]) <= 0.30,
         "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
@@ -415,7 +422,10 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         )
     ]
     n_trials = len(grid)
-    bootstrap_p5_min = bootstrap_threshold(n_trials)
+    prior_trials = max(0, int(cfg.prior_trials))
+    effective_trials = n_trials + prior_trials
+    bootstrap_p5_min = bootstrap_threshold(effective_trials)
+    validation_sharpe20_min = validation_sharpe_threshold(effective_trials)
     rows = []
     for g in grid:
         selection_closes, validation_closes, split_meta = split_selection_validation(closes, g)
@@ -425,7 +435,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         if all(selection_checks.values()) and split_meta["validation_usable"]:
             val20 = simulate(validation_closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
             val40 = simulate(validation_closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
-            val_checks = validation_checks(val20, val40)
+            val_checks = validation_checks(val20, val40, sharpe20_min=validation_sharpe20_min)
         else:
             val20 = {}
             val40 = {}
@@ -463,7 +473,10 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "enabled": True,
             "selection_frac": 0.75,
             "n_configs_tested": n_trials,
+            "prior_trials": prior_trials,
+            "effective_trials": effective_trials,
             "selection_bootstrap_p5_min": bootstrap_p5_min,
+            "validation_sharpe20_min": validation_sharpe20_min,
             "note": "All selection and validation data remains before embargo_start.",
         },
         "symbols": list(cfg.symbols),
@@ -555,6 +568,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--train-end", default="2024-06-30 23:59:59")
     ap.add_argument("--embargo-start", default="2024-07-01")
     ap.add_argument("--bootstrap-iterations", type=int, default=500)
+    ap.add_argument("--prior-trials", type=int, default=0)
     ap.add_argument("--out-json", default="artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.json")
     ap.add_argument("--out-md", default="artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.md")
     return ap
@@ -571,6 +585,7 @@ def main() -> None:
         bootstrap_iterations=args.bootstrap_iterations,
         out_json=args.out_json,
         out_md=args.out_md,
+        prior_trials=args.prior_trials,
     )
     started = time.time()
     payload = run_grid(cfg)

@@ -8,8 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from v9.research.task_planner import (  # noqa: E402
-    load_explored_fingerprints,
     append_explored_record,
+    cumulative_trials,
+    load_explored_fingerprints,
     ordered_presets_by_quality,
     propose_tasks,
     proposed_search_space,
@@ -45,6 +46,21 @@ def test_explored_jsonl_round_trip(tmp_path) -> None:
     path = tmp_path / "explored.jsonl"
     append_explored_record(path, {"fingerprint": fp, "status": "completed_no_candidate"})
     assert load_explored_fingerprints(path) == {fp}
+
+
+def test_cumulative_trials_sums_explored_ledger(tmp_path) -> None:
+    path = tmp_path / "explored.jsonl"
+    append_explored_record(path, {"fingerprint": "a", "n_configs_tested": 8})
+    append_explored_record(path, {"fingerprint": "b", "n_configs_tested": 12})
+    append_explored_record(path, {"fingerprint": "c"})
+    assert cumulative_trials(path) == 20
+
+
+def test_prior_trials_in_command_but_not_fingerprint() -> None:
+    with_prior = propose_tasks(set(), 1, prior_trials=250)[0]
+    without_prior = propose_tasks(set(), 1, prior_trials=0)[0]
+    assert "--prior-trials 250" in " ".join(with_prior.command())
+    assert with_prior.fingerprint == without_prior.fingerprint
 
 
 def test_task_fingerprint_changes_with_evaluation_version() -> None:
