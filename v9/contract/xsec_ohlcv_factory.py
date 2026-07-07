@@ -136,6 +136,39 @@ def config_for_preset(
             vol_targets_ann=(0.08, 0.10, 0.12),
             **base,
         )
+    if preset == "hq_dd_long":
+        return RunConfig(
+            lookbacks_h=(504, 720, 1008),
+            skips_h=(0,),
+            rebalances_h=(120, 168, 336),
+            ks=(2, 3),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(720, 1008, 1440),
+            vol_targets_ann=(0.06, 0.08, 0.10, 0.12),
+            **base,
+        )
+    if preset == "hq_fast_rebal":
+        return RunConfig(
+            lookbacks_h=(168, 240, 336),
+            skips_h=(0,),
+            rebalances_h=(24, 48, 96),
+            ks=(2, 3),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(504, 720, 1008),
+            vol_targets_ann=(0.10, 0.12, 0.14),
+            **base,
+        )
+    if preset == "hq_breadth_wide":
+        return RunConfig(
+            lookbacks_h=(336, 504, 672),
+            skips_h=(0,),
+            rebalances_h=(48, 72, 120),
+            ks=(3, 4, 5),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(504, 720, 1008),
+            vol_targets_ann=(0.08, 0.10, 0.12),
+            **base,
+        )
     raise ValueError(f"unknown preset: {preset}")
 
 
@@ -450,6 +483,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_neighbor",
             "defensive_breadth",
             "defensive_drawdown",
+            "hq_dd_long",
+            "hq_fast_rebal",
+            "hq_breadth_wide",
         ),
         default="core",
     )

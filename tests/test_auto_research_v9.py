@@ -180,7 +180,7 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
         output_md=str(tmp_path / "planned.md"),
         timeout_sec=1,
     )
-    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count: [planned] if "abc123" not in explored else [])
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned] if "abc123" not in explored else [])
     control = tmp_path / "control"
 
     def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
@@ -223,7 +223,7 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
 
 
 def test_continuous_research_idles_when_search_space_is_exhausted_until_stop(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count: [])
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [])
     control = tmp_path / "control"
     states = []
     original_write_state = auto_research.write_state

@@ -78,6 +78,9 @@ def test_presets_select_distinct_search_spaces() -> None:
     slow = config_for_preset("slow", "cache", "start", "end", "embargo", 10, "b.json", "b.md")
     neighbor = config_for_preset("defensive_neighbor", "cache", "start", "end", "embargo", 10, "c.json", "c.md")
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
+    hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
+    hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
+    hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
     assert core.out_json == "a.json"
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
@@ -86,3 +89,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert 0.10 in neighbor.vol_targets_ann
     assert min(drawdown.vol_targets_ann) == 0.08
     assert max(drawdown.market_filters_h) == 2160
+    assert 1008 in hq_dd.lookbacks_h
+    assert 0.06 in hq_dd.vol_targets_ann
+    assert 24 in hq_fast.rebalances_h
+    assert 5 in hq_breadth.ks

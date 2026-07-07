@@ -494,7 +494,12 @@ def run_continuous_research(
             write_latest_summary(latest_summary_path, "paused", reason)
             return payload
 
-        planned = propose_tasks(explored, planner_batch_size)
+        planned = propose_tasks(
+            explored,
+            planner_batch_size,
+            task_results=task_results,
+            candidates=candidates_found,
+        )
         tasks = tuple(research_task_from_planned(task) for task in planned)
         if not tasks:
             reason = "search_space_exhausted_waiting_for_new_plan"

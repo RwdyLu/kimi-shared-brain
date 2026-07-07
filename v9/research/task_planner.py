@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from v9.research.candidate_dedupe import dedupe_candidates
+
 
 PRESETS = (
+    "hq_dd_long",
+    "hq_fast_rebal",
+    "hq_breadth_wide",
     "defensive_neighbor",
     "defensive_breadth",
     "defensive_drawdown",
@@ -141,16 +147,125 @@ def append_explored_record(path: Path, record: dict[str, Any]) -> None:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
+def preset_from_result(result: dict[str, Any]) -> str | None:
+    planned = result.get("planned_task") or {}
+    if planned.get("preset"):
+        return str(planned["preset"])
+    return LEGACY_TASK_PRESETS.get(str(result.get("task")))
+
+
+def accepted_row(payload: dict[str, Any]) -> dict[str, Any] | None:
+    for row in payload.get("rows", []):
+        if row.get("advance_passed"):
+            return row
+    for row in payload.get("top", []):
+        if row.get("advance_passed"):
+            return row
+    return None
+
+
+def candidate_quality(output_json: str | None) -> float:
+    if not output_json:
+        return 1.0
+    path = Path(output_json)
+    if not path.exists():
+        return 1.0
+    payload = json.loads(path.read_text())
+    row = accepted_row(payload)
+    if not row:
+        return 1.0
+    c20 = row.get("cost20", {})
+    c40 = row.get("cost40", {})
+    boot = float(c20.get("bootstrap_30d_sharpe_p5", 0.0) or 0.0)
+    sh40 = float(c40.get("sharpe", 0.0) or 0.0)
+    dd20 = float(c20.get("max_drawdown", 1.0) or 1.0)
+    return max(0.0, boot) + 0.25 * max(0.0, sh40) - 0.5 * max(0.0, dd20)
+
+
+def preset_stats(
+    task_results: list[dict[str, Any]] | None = None,
+    candidates: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, float]]:
+    task_results = task_results or []
+    attempts = {preset: 0.0 for preset in PRESETS}
+    rewards = {preset: 0.0 for preset in PRESETS}
+    qualities = {preset: [] for preset in PRESETS}
+    output_to_preset: dict[str, str] = {}
+
+    for result in task_results:
+        preset = preset_from_result(result)
+        if not preset or preset not in attempts:
+            continue
+        attempts[preset] += 1.0
+        output_json = result.get("output_json")
+        if output_json:
+            output_to_preset[str(output_json)] = preset
+
+    for candidate in dedupe_candidates(candidates or []):
+        if candidate.get("duplicate_of"):
+            continue
+        output_json = candidate.get("output_json")
+        preset = output_to_preset.get(str(output_json)) if output_json else None
+        if not preset or preset not in rewards:
+            continue
+        rewards[preset] += 1.0
+        qualities[preset].append(candidate_quality(str(output_json)))
+
+    out: dict[str, dict[str, float]] = {}
+    for preset in PRESETS:
+        mean_quality = sum(qualities[preset]) / len(qualities[preset]) if qualities[preset] else 1.0
+        out[preset] = {
+            "attempts": attempts[preset],
+            "distinct_rewards": rewards[preset],
+            "mean_quality": mean_quality,
+        }
+    return out
+
+
+def preset_score(
+    preset: str,
+    stats: dict[str, dict[str, float]],
+    total_tasks: int,
+    exploration_c: float = 0.5,
+    quality_ref: float = 1.5,
+) -> float:
+    row = stats[preset]
+    attempts = float(row["attempts"])
+    rewards = float(row["distinct_rewards"])
+    q = (rewards + 1.0) / (attempts + 2.0)
+    quality_bonus = max(0.25, float(row["mean_quality"]) / quality_ref)
+    ucb = exploration_c * math.sqrt(math.log(total_tasks + 2.0) / (attempts + 1.0))
+    return q * quality_bonus + ucb
+
+
+def ordered_presets_by_quality(
+    task_results: list[dict[str, Any]] | None = None,
+    candidates: list[dict[str, Any]] | None = None,
+    exploration_c: float = 0.5,
+) -> list[str]:
+    stats = preset_stats(task_results, candidates)
+    total_tasks = sum(int(stats[preset]["attempts"]) for preset in PRESETS)
+    return sorted(
+        PRESETS,
+        key=lambda preset: (
+            preset_score(preset, stats, total_tasks, exploration_c=exploration_c),
+            -PRESETS.index(preset),
+        ),
+        reverse=True,
+    )
+
+
 def proposed_search_space(
     embargo_start: str = DEFAULT_EMBARGO_START,
     bootstrap_iterations: int = 100,
+    preset_order: tuple[str, ...] = PRESETS,
 ) -> list[PlannedTask]:
     tasks: list[PlannedTask] = []
     embargo = utc_ts(embargo_start)
     for train_start, train_end, window_label in TRAIN_WINDOWS:
         if utc_ts(train_end) >= embargo:
             raise ValueError(f"train window leaks into embargo: {train_end} >= {embargo_start}")
-        for preset in PRESETS:
+        for preset in preset_order:
             fingerprint = task_fingerprint(preset, train_start, train_end, embargo_start, bootstrap_iterations)
             short = fingerprint[:12]
             name = f"xsec_ohlcv_cont_{window_label}_{preset}_{short}"
@@ -177,15 +292,23 @@ def propose_tasks(
     count: int,
     embargo_start: str = DEFAULT_EMBARGO_START,
     bootstrap_iterations: int = 100,
+    task_results: list[dict[str, Any]] | None = None,
+    candidates: list[dict[str, Any]] | None = None,
 ) -> list[PlannedTask]:
     if count <= 0:
         return []
+    preset_order = tuple(ordered_presets_by_quality(task_results, candidates))
     proposals = []
-    for task in proposed_search_space(embargo_start=embargo_start, bootstrap_iterations=bootstrap_iterations):
-        if task.fingerprint in explored_fingerprints:
-            continue
-        proposals.append(task)
+    for preset in preset_order:
+        for task in proposed_search_space(
+            embargo_start=embargo_start,
+            bootstrap_iterations=bootstrap_iterations,
+            preset_order=(preset,),
+        ):
+            if task.fingerprint in explored_fingerprints:
+                continue
+            proposals.append(task)
+            break
         if len(proposals) >= count:
             break
     return proposals
-
