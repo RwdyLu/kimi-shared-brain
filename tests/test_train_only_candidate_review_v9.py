@@ -22,7 +22,19 @@ def test_build_review_summarizes_train_only_candidate(tmp_path) -> None:
             {
                 "kind": "xsec_ohlcv_factory_v1_train_only_grid",
                 "data": {"fingerprint": "data-fp"},
-                "selection_validation": {"prior_trials": 10, "effective_trials": 12},
+                "selection_validation": {
+                    "prior_trials": 10,
+                    "effective_trials": 12,
+                    "plateau_stability": {
+                        "passed": True,
+                        "neighbor_pass_count": 7,
+                        "neighbor_total": 10,
+                        "neighbor_pass_fraction": 0.7,
+                        "center_validation_sharpe20": 1.2,
+                        "best_neighbor_validation_sharpe20": 1.4,
+                        "center_not_spike": True,
+                    },
+                },
                 "summary": {
                     "accepted_train_only": True,
                     "pass_count": 1,
@@ -69,6 +81,7 @@ def test_build_review_summarizes_train_only_candidate(tmp_path) -> None:
     assert review["live_trading_authorized"] is False
     assert review["top_pass"]["selection"]["sharpe20"] == 2.1
     assert review["top_pass"]["validation"]["sharpe20"] == 1.1
+    assert review["selection_validation"]["plateau_stability"]["passed"] is True
 
 
 def test_format_text_keeps_train_only_safety_visible(tmp_path) -> None:
@@ -81,7 +94,19 @@ def test_format_text_keeps_train_only_safety_visible(tmp_path) -> None:
             "paper_trading_authorized": False,
             "live_trading_authorized": False,
             "data": {"fingerprint": "fp"},
-            "selection_validation": {"prior_trials": 10, "effective_trials": 12},
+            "selection_validation": {
+                "prior_trials": 10,
+                "effective_trials": 12,
+                "plateau_stability": {
+                    "passed": False,
+                    "neighbor_pass_count": 3,
+                    "neighbor_total": 10,
+                    "neighbor_pass_fraction": 0.3,
+                    "center_validation_sharpe20": 1.2,
+                    "best_neighbor_validation_sharpe20": 0.8,
+                    "center_not_spike": False,
+                },
+            },
             "top_pass": {
                 "config": {"lookback_h": 504},
                 "selection": {
@@ -97,3 +122,5 @@ def test_format_text_keeps_train_only_safety_visible(tmp_path) -> None:
     assert "decision=train_only_manual_review_required" in text
     assert "holdout:False paper:False live:False" in text
     assert "validation=sharpe20:1.100" in text
+    assert "plateau=passed:False" in text
+    assert "neighbors:3/10" in text

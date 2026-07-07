@@ -45,6 +45,12 @@ class RunConfig:
     market_filters_h: tuple[int, ...] = (0, 720)
     vol_targets_ann: tuple[float, ...] = (0.16,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
+    stress_costs_bps: tuple[float, ...] = ()
+    validate_all_rows: bool = False
+    plateau_center_config: dict[str, Any] | None = None
+    plateau_validation_sharpe_min: float = 1.0
+    plateau_neighbor_pass_fraction_min: float = 0.70
+    plateau_center_max_ratio: float = 1.30
     train_start: str = "2017-08-01"
     train_end: str = "2024-06-30 23:59:59"
     embargo_start: str = "2024-07-01"
@@ -153,6 +159,28 @@ def config_for_preset(
             score_modes=("risk_adj_mom",),
             market_filters_h=(720, 1008, 1440),
             vol_targets_ann=(0.06, 0.08, 0.10, 0.12),
+            **base,
+        )
+    if preset == "hq_dd_plateau":
+        return RunConfig(
+            lookbacks_h=(336, 504, 672),
+            skips_h=(0,),
+            rebalances_h=(120, 168, 240),
+            ks=(3,),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(720, 1008, 1344),
+            vol_targets_ann=(0.05, 0.06, 0.08),
+            stress_costs_bps=(30.0, 40.0),
+            validate_all_rows=True,
+            plateau_center_config={
+                "lookback_h": 504,
+                "skip_h": 0,
+                "rebalance_h": 168,
+                "k": 3,
+                "score_mode": "risk_adj_mom",
+                "market_filter_h": 1008,
+                "vol_target_ann": 0.06,
+            },
             **base,
         )
     if preset == "hq_fast_rebal":
@@ -288,6 +316,8 @@ def row_cache_key(
             "bootstrap_iterations": int(cfg.bootstrap_iterations),
             "confirm_iterations": int(confirm_iterations),
             "bootstrap_p5_min": float(bootstrap_p5_min),
+            "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
+            "validate_all_rows": bool(cfg.validate_all_rows),
             "validation_sharpe20_min": float(validation_sharpe20_min),
         },
         sort_keys=True,
@@ -515,6 +545,108 @@ def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_m
     }
 
 
+def cost_label(cost_bps: float) -> str:
+    raw = f"{float(cost_bps):g}".replace(".", "p")
+    return f"cost{raw}"
+
+
+def stress_cost_results(
+    closes: pd.DataFrame,
+    cfg: OhlcvConfig,
+    base_results: dict[str, dict[str, Any]],
+    costs_bps: tuple[float, ...],
+    segment: str,
+    train_start: str,
+    train_end: str,
+) -> dict[str, dict[str, Any]]:
+    results: dict[str, dict[str, Any]] = {}
+    for cost in costs_bps:
+        label = cost_label(cost)
+        if math.isclose(float(cost), 20.0):
+            result = base_results.get("cost20", {})
+        elif math.isclose(float(cost), 40.0):
+            result = base_results.get("cost40", {})
+        else:
+            result = simulate(
+                closes,
+                cfg,
+                float(cost),
+                bootstrap_iterations=0,
+                bootstrap_seed_value=bootstrap_seed(cfg, float(cost), f"{segment}_stress", train_start, train_end),
+            )
+        if result:
+            results[label] = result
+    return results
+
+
+def _config_value_matches(left: Any, right: Any) -> bool:
+    if isinstance(left, (int, float)) or isinstance(right, (int, float)):
+        try:
+            return math.isclose(float(left), float(right), rel_tol=1e-12, abs_tol=1e-12)
+        except (TypeError, ValueError):
+            return False
+    return left == right
+
+
+def config_matches(config: dict[str, Any], target: dict[str, Any]) -> bool:
+    return all(_config_value_matches(config.get(key), value) for key, value in target.items())
+
+
+def validation_sharpe20(row: dict[str, Any]) -> float | None:
+    value = ((row.get("validation") or {}).get("cost20") or {}).get("sharpe")
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def plateau_stability_summary(rows: list[dict[str, Any]], cfg: RunConfig) -> dict[str, Any] | None:
+    if not cfg.plateau_center_config:
+        return None
+    center_config = dict(cfg.plateau_center_config)
+    center_row = next((row for row in rows if config_matches(row.get("config", {}), center_config)), None)
+    neighbor_rows = [row for row in rows if not config_matches(row.get("config", {}), center_config)]
+    neighbor_values = [validation_sharpe20(row) for row in neighbor_rows]
+    valid_neighbor_values = [value for value in neighbor_values if value is not None]
+    neighbor_pass_count = sum(
+        1 for value in neighbor_values if value is not None and value >= cfg.plateau_validation_sharpe_min
+    )
+    neighbor_total = len(neighbor_rows)
+    neighbor_pass_fraction = neighbor_pass_count / neighbor_total if neighbor_total else 0.0
+    center_sharpe = validation_sharpe20(center_row) if center_row else None
+    best_neighbor_sharpe = max(valid_neighbor_values) if valid_neighbor_values else None
+    center_not_spike = False
+    if center_sharpe is not None and best_neighbor_sharpe is not None:
+        if center_sharpe <= best_neighbor_sharpe:
+            center_not_spike = True
+        elif best_neighbor_sharpe > 0.0:
+            center_not_spike = center_sharpe <= best_neighbor_sharpe * cfg.plateau_center_max_ratio
+    passed = bool(
+        center_sharpe is not None
+        and center_sharpe >= cfg.plateau_validation_sharpe_min
+        and neighbor_pass_fraction >= cfg.plateau_neighbor_pass_fraction_min
+        and center_not_spike
+    )
+    return {
+        "enabled": True,
+        "passed": passed,
+        "center_config": center_config,
+        "center_found": center_row is not None,
+        "center_validation_sharpe20": center_sharpe,
+        "best_neighbor_validation_sharpe20": best_neighbor_sharpe,
+        "neighbor_pass_count": int(neighbor_pass_count),
+        "neighbor_total": int(neighbor_total),
+        "neighbor_pass_fraction": float(neighbor_pass_fraction),
+        "validation_sharpe20_min": float(cfg.plateau_validation_sharpe_min),
+        "neighbor_pass_fraction_min": float(cfg.plateau_neighbor_pass_fraction_min),
+        "center_max_ratio": float(cfg.plateau_center_max_ratio),
+        "center_not_spike": bool(center_not_spike),
+        "note": "Train-only plateau diagnostic; it does not authorize holdout, paper trading, or live trading.",
+    }
+
+
 def split_selection_validation(closes: pd.DataFrame, cfg: OhlcvConfig, selection_frac: float = 0.75) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     if not 0.50 <= selection_frac <= 0.90:
         raise ValueError("selection_frac must be between 0.50 and 0.90")
@@ -612,7 +744,9 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             selection_checks["bootstrap_p5_confirm_ge_adjusted_min"] = (
                 float(cost20["bootstrap_30d_sharpe_p5_confirm"]) >= bootstrap_p5_min
             )
-        if all(selection_checks.values()) and split_meta["validation_usable"]:
+        selection_passed = all(selection_checks.values())
+        should_validate = bool(split_meta["validation_usable"] and (selection_passed or cfg.validate_all_rows))
+        if should_validate:
             val20 = simulate(
                 validation_closes,
                 g,
@@ -633,7 +767,31 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             val40 = {}
             val_checks = {
                 "validation_usable": bool(split_meta["validation_usable"]),
-                "selection_passed_before_validation": bool(all(selection_checks.values())),
+                "selection_passed_before_validation": bool(selection_passed),
+            }
+        cost_stress = {}
+        if cfg.stress_costs_bps:
+            cost_stress = {
+                "selection": stress_cost_results(
+                    selection_closes,
+                    g,
+                    {"cost20": cost20, "cost40": cost40},
+                    cfg.stress_costs_bps,
+                    "selection",
+                    cfg.train_start,
+                    cfg.train_end,
+                ),
+                "validation": stress_cost_results(
+                    validation_closes,
+                    g,
+                    {"cost20": val20, "cost40": val40},
+                    cfg.stress_costs_bps,
+                    "validation",
+                    cfg.train_start,
+                    cfg.train_end,
+                )
+                if val20
+                else {},
             }
         checks = {**selection_checks, **val_checks}
         row = {
@@ -643,6 +801,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "cost40": cost40,
             "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
             "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
+            "cost_stress": cost_stress,
             "advance_checks": checks,
             "advance_passed": all(checks.values()),
         }
@@ -668,7 +827,36 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         reverse=True,
     )
     pass_rows = [row for row in rows if row["advance_passed"]]
+    stability = plateau_stability_summary(rows, cfg)
     accepted = len(pass_rows) >= 3
+    if stability:
+        accepted = accepted and bool(stability["passed"])
+    selection_validation = {
+        "enabled": True,
+        "selection_frac": 0.75,
+        "n_configs_tested": n_trials,
+        "prior_trials": prior_trials,
+        "effective_trials": effective_trials,
+        "selection_bootstrap_p5_min": bootstrap_p5_min,
+        "selection_bootstrap_confirm_iterations": confirm_iterations,
+        "validation_sharpe20_min": validation_sharpe20_min,
+        "validate_all_rows": bool(cfg.validate_all_rows),
+        "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
+        "note": "All selection and validation data remains before embargo_start.",
+    }
+    if stability:
+        selection_validation["plateau_stability"] = stability
+    summary = {
+        "rows": len(rows),
+        "pass_count": len(pass_rows),
+        "accepted_train_only": accepted,
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+    if stability:
+        summary["plateau_stability_passed"] = bool(stability["passed"])
+        summary["plateau_neighbor_pass_fraction"] = stability["neighbor_pass_fraction"]
     payload = {
         "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "kind": "xsec_ohlcv_factory_v1_train_only_grid",
@@ -680,27 +868,10 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "last_dt": closes["dt"].iloc[-1].isoformat(),
             "symbols": list(cfg.symbols),
         },
-        "selection_validation": {
-            "enabled": True,
-            "selection_frac": 0.75,
-            "n_configs_tested": n_trials,
-            "prior_trials": prior_trials,
-            "effective_trials": effective_trials,
-            "selection_bootstrap_p5_min": bootstrap_p5_min,
-            "selection_bootstrap_confirm_iterations": confirm_iterations,
-            "validation_sharpe20_min": validation_sharpe20_min,
-            "note": "All selection and validation data remains before embargo_start.",
-        },
+        "selection_validation": selection_validation,
         "symbols": list(cfg.symbols),
         "config": asdict(cfg),
-        "summary": {
-            "rows": len(rows),
-            "pass_count": len(pass_rows),
-            "accepted_train_only": accepted,
-            "holdout_authorized": False,
-            "paper_trading_authorized": False,
-            "live_trading_authorized": False,
-        },
+        "summary": summary,
         "top": rows[:25],
         "rows": rows,
     }
@@ -726,6 +897,21 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
     ]
     for key, value in payload["summary"].items():
         lines.append(f"- {key}: `{value}`")
+    plateau = payload.get("selection_validation", {}).get("plateau_stability")
+    if plateau:
+        lines.extend(
+            [
+                "",
+                "## Plateau Stability",
+                "",
+                f"- passed: `{plateau['passed']}`",
+                f"- neighbor_pass_fraction: `{plateau['neighbor_pass_fraction']:.3f}`",
+                f"- neighbor_pass_count: `{plateau['neighbor_pass_count']}/{plateau['neighbor_total']}`",
+                f"- center_validation_sharpe20: `{float(plateau['center_validation_sharpe20'] or 0.0):.3f}`",
+                f"- best_neighbor_validation_sharpe20: `{float(plateau['best_neighbor_validation_sharpe20'] or 0.0):.3f}`",
+                f"- center_not_spike: `{plateau['center_not_spike']}`",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -772,6 +958,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_breadth",
             "defensive_drawdown",
             "hq_dd_long",
+            "hq_dd_plateau",
             "hq_fast_rebal",
             "hq_breadth_wide",
         ),

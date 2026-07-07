@@ -42,7 +42,7 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         assert "--embargo-start 2024-07-01" in cmd
         assert task.train_end < "2024-07"
     presets = {task.preset for task in proposed_search_space()}
-    assert {"hq_dd_long", "hq_fast_rebal", "hq_breadth_wide"}.issubset(presets)
+    assert {"hq_dd_long", "hq_dd_plateau", "hq_fast_rebal", "hq_breadth_wide"}.issubset(presets)
 
 
 def test_explored_jsonl_round_trip(tmp_path) -> None:

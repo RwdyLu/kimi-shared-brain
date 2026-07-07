@@ -14,6 +14,7 @@ from v9.research.candidate_dedupe import dedupe_candidates
 
 PRESETS = (
     "hq_dd_long",
+    "hq_dd_plateau",
     "hq_fast_rebal",
     "hq_breadth_wide",
     "defensive_neighbor",

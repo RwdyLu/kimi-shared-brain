@@ -90,6 +90,17 @@ def format_text(review: dict[str, Any]) -> str:
         f"data_fingerprint={data.get('fingerprint')}",
         f"effective_trials={sv.get('effective_trials')} prior_trials={sv.get('prior_trials')}",
     ]
+    plateau = sv.get("plateau_stability") or {}
+    if plateau:
+        lines.append(
+            "plateau="
+            f"passed:{plateau.get('passed')} "
+            f"neighbors:{plateau.get('neighbor_pass_count')}/{plateau.get('neighbor_total')} "
+            f"frac:{fmt(plateau.get('neighbor_pass_fraction'))} "
+            f"center_sharpe20:{fmt(plateau.get('center_validation_sharpe20'))} "
+            f"best_neighbor:{fmt(plateau.get('best_neighbor_validation_sharpe20'))} "
+            f"center_not_spike:{plateau.get('center_not_spike')}"
+        )
     if top:
         lines.extend(
             [

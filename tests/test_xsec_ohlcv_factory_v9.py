@@ -19,6 +19,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     data_fingerprint,
     long_only_weights,
     market_filter,
+    plateau_stability_summary,
     append_progress_row,
     progress_meta_path_for,
     progress_path_for,
@@ -295,6 +296,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     neighbor = config_for_preset("defensive_neighbor", "cache", "start", "end", "embargo", 10, "c.json", "c.md")
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
     hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
+    hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
     assert core.out_json == "a.json"
@@ -307,5 +309,45 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert max(drawdown.market_filters_h) == 2160
     assert 1008 in hq_dd.lookbacks_h
     assert 0.06 in hq_dd.vol_targets_ann
+    assert hq_plateau.validate_all_rows is True
+    assert hq_plateau.plateau_center_config["lookback_h"] == 504
+    assert len(hq_plateau.lookbacks_h) * len(hq_plateau.rebalances_h) * len(hq_plateau.market_filters_h) * len(hq_plateau.vol_targets_ann) == 81
+    assert hq_plateau.stress_costs_bps == (30.0, 40.0)
     assert 24 in hq_fast.rebalances_h
     assert 5 in hq_breadth.ks
+
+
+def test_plateau_stability_summary_passes_plateau_and_rejects_spike() -> None:
+    center = {
+        "lookback_h": 504,
+        "skip_h": 0,
+        "rebalance_h": 168,
+        "k": 3,
+        "score_mode": "risk_adj_mom",
+        "market_filter_h": 1008,
+        "vol_target_ann": 0.06,
+    }
+
+    def row(config, sharpe):
+        return {"config": config, "validation": {"cost20": {"sharpe": sharpe}}}
+
+    rows = [row(center, 1.2)]
+    for idx, sharpe in enumerate([1.1, 1.2, 1.3, 1.4, 1.0, 1.05, 1.15, 0.8, 0.7, 0.6]):
+        cfg = dict(center)
+        cfg["lookback_h"] = 300 + idx
+        rows.append(row(cfg, sharpe))
+    cfg = RunConfig(plateau_center_config=center, plateau_neighbor_pass_fraction_min=0.70)
+
+    summary = plateau_stability_summary(rows, cfg)
+
+    assert summary is not None
+    assert summary["passed"] is True
+    assert summary["neighbor_pass_count"] == 7
+    assert summary["center_not_spike"] is True
+
+    spike_rows = [row(center, 2.1), row({**center, "lookback_h": 336}, 1.0), row({**center, "lookback_h": 672}, 1.1)]
+    spike_cfg = RunConfig(plateau_center_config=center, plateau_neighbor_pass_fraction_min=0.50)
+    spike = plateau_stability_summary(spike_rows, spike_cfg)
+    assert spike is not None
+    assert spike["passed"] is False
+    assert spike["center_not_spike"] is False
