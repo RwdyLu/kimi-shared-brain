@@ -168,7 +168,7 @@ def test_continuous_research_honors_stop_file(tmp_path) -> None:
     assert payload["task_results"] == []
 
 
-def test_continuous_research_records_planned_task_and_stops_on_distinct_target(tmp_path, monkeypatch) -> None:
+def test_continuous_research_records_planned_task_and_continues_until_manual_stop(tmp_path, monkeypatch) -> None:
     planned = PlannedTask(
         name="planned",
         preset="core",
@@ -181,6 +181,7 @@ def test_continuous_research_records_planned_task_and_stops_on_distinct_target(t
         timeout_sec=1,
     )
     monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count: [planned] if "abc123" not in explored else [])
+    control = tmp_path / "control"
 
     def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
         write_json(
@@ -192,6 +193,8 @@ def test_continuous_research_records_planned_task_and_stops_on_distinct_target(t
             },
             Path(task.output_json),
         )
+        control.mkdir(parents=True, exist_ok=True)
+        (control / "STOP").write_text("stop after first accepted task")
         return {
             "task": task.name,
             "status": "accepted_train_only_candidate_found",
@@ -207,13 +210,45 @@ def test_continuous_research_records_planned_task_and_stops_on_distinct_target(t
         tmp_path / "latest.txt",
         tmp_path / "logs",
         tmp_path / "explored.jsonl",
-        tmp_path / "control",
+        control,
         planner_batch_size=1,
         target_distinct_candidates=1,
         cycle_sleep_sec=0,
     )
     assert payload["status"] == "paused"
-    assert payload["reason"] == "distinct_target_reached_manual_review:1"
+    assert payload["reason"] == "manual_stop_file"
     assert payload["mode"] == "continuous"
     assert payload["task_results"][0]["fingerprint"] == "abc123"
     assert "abc123" in (tmp_path / "explored.jsonl").read_text()
+
+
+def test_continuous_research_idles_when_search_space_is_exhausted_until_stop(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count: [])
+    control = tmp_path / "control"
+    states = []
+    original_write_state = auto_research.write_state
+
+    def recording_write_state(*args, **kwargs):
+        payload = original_write_state(*args, **kwargs)
+        states.append(payload["status"])
+        return payload
+
+    def stop_after_idle_sleep(seconds: float) -> None:
+        control.mkdir(parents=True, exist_ok=True)
+        (control / "STOP").write_text("stop idle")
+
+    monkeypatch.setattr(auto_research, "write_state", recording_write_state)
+    monkeypatch.setattr(auto_research.time, "sleep", stop_after_idle_sleep)
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        control,
+        idle_backoff_initial_sec=0.1,
+        idle_poll_sec=0.1,
+        cycle_sleep_sec=0,
+    )
+    assert "idle" in states
+    assert payload["status"] == "paused"
+    assert payload["reason"] == "manual_stop_file"

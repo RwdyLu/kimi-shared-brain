@@ -40,12 +40,14 @@ By default this starts continuous train-only research:
 python3 -m v9.contract.auto_research \
   --mode continuous \
   --continue-after-candidate \
-  --target-distinct-candidates 8 \
+  --target-distinct-candidates 0 \
   --planner-batch-size 3 \
   --max-cycles 0
 ```
 
-`--max-cycles 0` means no explicit cycle limit. The runner still stops for a manual stop file, low disk, repeated task failure, exhausted deterministic search space, or a distinct-candidate manual-review target.
+`--max-cycles 0` means no explicit cycle limit. `--target-distinct-candidates 0` means the runner records candidate milestones but does not stop because a candidate count was reached. If the deterministic planner has no new task, the runner enters `idle` and waits with backoff for new code, data, or planner space.
+
+The runner still stops for a manual stop file, low disk, repeated task failure, or an explicit operator budget such as `--max-cycles` or `--max-hours`.
 
 To stop gracefully after the current task:
 

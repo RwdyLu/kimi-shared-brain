@@ -391,6 +391,23 @@ def free_disk_gb(path: Path) -> float:
     return float(usage.free) / (1024.0**3)
 
 
+def interruptible_idle_sleep(
+    seconds: float,
+    control_dir: Path,
+    poll_sec: float,
+    heartbeat: Callable[[float], None],
+) -> bool:
+    deadline = time.time() + max(0.0, seconds)
+    poll = max(0.1, poll_sec)
+    while time.time() < deadline:
+        if stop_file_requested(control_dir):
+            return True
+        remaining = max(0.0, deadline - time.time())
+        heartbeat(remaining)
+        time.sleep(min(poll, remaining))
+    return stop_file_requested(control_dir)
+
+
 def run_continuous_research(
     state_path: Path,
     latest_summary_path: Path,
@@ -399,14 +416,19 @@ def run_continuous_research(
     control_dir: Path,
     force: bool = False,
     planner_batch_size: int = 3,
-    target_distinct_candidates: int = 8,
+    target_distinct_candidates: int = 0,
+    pause_on_target_distinct: bool = False,
     max_cycles: int = 0,
     max_hours: float = 0.0,
     cycle_sleep_sec: float = 60.0,
+    idle_backoff_initial_sec: float = 60.0,
+    idle_backoff_max_sec: float = 3600.0,
+    idle_poll_sec: float = 30.0,
     max_consecutive_failures: int = 3,
     min_free_disk_gb: float = 2.0,
 ) -> dict[str, Any]:
     started_at = pd.Timestamp.now(tz="UTC").isoformat()
+    control_dir.mkdir(parents=True, exist_ok=True)
     deadline_time = time.time() + max_hours * 3600.0 if max_hours > 0 else None
     deadline_at = pd.Timestamp.fromtimestamp(deadline_time, tz="UTC").isoformat() if deadline_time else None
     previous = read_json(state_path) or {}
@@ -419,6 +441,8 @@ def run_continuous_research(
     write_latest_summary(latest_summary_path, "running", "v9_auto_research_train_only:continuous_starting")
     consecutive_failures = 0
     cycle_index = int(previous.get("cycle_index") or 0)
+    idle_backoff_sec = max(0.0, idle_backoff_initial_sec)
+    target_milestone_emitted = False
 
     while True:
         if stop_file_requested(control_dir):
@@ -473,22 +497,35 @@ def run_continuous_research(
         planned = propose_tasks(explored, planner_batch_size)
         tasks = tuple(research_task_from_planned(task) for task in planned)
         if not tasks:
-            reason = "search_space_exhausted"
-            payload = write_state(
-                state_path,
-                started_at,
-                "paused",
-                reason,
-                task_results,
-                candidates_found=candidates_found,
-                mode="continuous",
-                cycle_index=cycle_index,
-                stop_reason=reason,
-                deadline_at=deadline_at,
-            )
-            write_latest_summary(latest_summary_path, "paused", reason)
-            return payload
+            reason = "search_space_exhausted_waiting_for_new_plan"
+            write_latest_summary(latest_summary_path, "idle", reason)
+
+            def idle_heartbeat(remaining_sec: float) -> None:
+                write_state(
+                    state_path,
+                    started_at,
+                    "idle",
+                    reason,
+                    task_results,
+                    active_task={
+                        "status": "idle",
+                        "backoff_sec": round(idle_backoff_sec, 3),
+                        "remaining_sleep_sec": round(remaining_sec, 3),
+                    },
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    deadline_at=deadline_at,
+                )
+
+            idle_heartbeat(idle_backoff_sec)
+            interruptible_idle_sleep(idle_backoff_sec, control_dir, idle_poll_sec, idle_heartbeat)
+            if idle_backoff_max_sec > 0:
+                idle_backoff_sec = min(idle_backoff_max_sec, max(1.0, idle_backoff_sec * 2.0))
+            continue
         validate_train_only_tasks(tasks)
+        idle_backoff_sec = max(0.0, idle_backoff_initial_sec)
 
         write_state(
             state_path,
@@ -597,21 +634,37 @@ def run_continuous_research(
             distinct = distinct_candidate_count(candidates_found)
             if target_distinct_candidates > 0 and distinct >= target_distinct_candidates:
                 reason = f"distinct_target_reached_manual_review:{distinct}"
-                payload = write_state(
-                    state_path,
-                    started_at,
-                    "paused",
-                    reason,
-                    task_results,
-                    candidates_found=candidates_found,
-                    tasks=tasks,
-                    mode="continuous",
-                    cycle_index=cycle_index,
-                    stop_reason=reason,
-                    deadline_at=deadline_at,
-                )
-                write_latest_summary(latest_summary_path, "paused", reason)
-                return payload
+                if pause_on_target_distinct:
+                    payload = write_state(
+                        state_path,
+                        started_at,
+                        "paused",
+                        reason,
+                        task_results,
+                        candidates_found=candidates_found,
+                        tasks=tasks,
+                        mode="continuous",
+                        cycle_index=cycle_index,
+                        stop_reason=reason,
+                        deadline_at=deadline_at,
+                    )
+                    write_latest_summary(latest_summary_path, "paused", reason)
+                    return payload
+                if not target_milestone_emitted:
+                    target_milestone_emitted = True
+                    write_state(
+                        state_path,
+                        started_at,
+                        "running",
+                        f"milestone:{reason}",
+                        task_results,
+                        candidates_found=candidates_found,
+                        tasks=tasks,
+                        mode="continuous",
+                        cycle_index=cycle_index,
+                        deadline_at=deadline_at,
+                    )
+                    write_latest_summary(latest_summary_path, "running", f"milestone:{reason}")
 
             if stop_file_requested(control_dir):
                 reason = "manual_stop_file"
@@ -662,10 +715,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--continue-after-candidate", action="store_true")
     ap.add_argument("--planner-batch-size", type=int, default=3)
-    ap.add_argument("--target-distinct-candidates", type=int, default=8)
+    ap.add_argument("--target-distinct-candidates", type=int, default=0, help="0 means milestone tracking only; no progress-based stop")
+    ap.add_argument("--pause-on-target-distinct", action="store_true")
     ap.add_argument("--max-cycles", type=int, default=0, help="0 means no explicit cycle limit")
     ap.add_argument("--max-hours", type=float, default=0.0, help="0 means no explicit time limit")
     ap.add_argument("--cycle-sleep-sec", type=float, default=60.0)
+    ap.add_argument("--idle-backoff-initial-sec", type=float, default=60.0)
+    ap.add_argument("--idle-backoff-max-sec", type=float, default=3600.0)
+    ap.add_argument("--idle-poll-sec", type=float, default=30.0)
     ap.add_argument("--max-consecutive-failures", type=int, default=3)
     ap.add_argument("--min-free-disk-gb", type=float, default=2.0)
     return ap
@@ -683,9 +740,13 @@ def main() -> None:
             force=args.force,
             planner_batch_size=args.planner_batch_size,
             target_distinct_candidates=args.target_distinct_candidates,
+            pause_on_target_distinct=args.pause_on_target_distinct,
             max_cycles=args.max_cycles,
             max_hours=args.max_hours,
             cycle_sleep_sec=args.cycle_sleep_sec,
+            idle_backoff_initial_sec=args.idle_backoff_initial_sec,
+            idle_backoff_max_sec=args.idle_backoff_max_sec,
+            idle_poll_sec=args.idle_poll_sec,
             max_consecutive_failures=args.max_consecutive_failures,
             min_free_disk_gb=args.min_free_disk_gb,
         )
