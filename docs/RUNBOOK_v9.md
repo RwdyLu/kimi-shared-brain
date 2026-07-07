@@ -56,6 +56,14 @@ mkdir -p control
 touch control/STOP
 ```
 
+To keep the train-only runner alive after accidental tmux exits, add a cron monitor:
+
+```bash
+* * * * cd /root/.openclaw/workspace/kimi-shared-brain && ./scripts/ensure_train_only_running.sh v9_auto_research_continuous >> logs/v9_auto_research/ensure.log 2>&1
+```
+
+The ensure script does not start anything while `control/STOP` exists. It also refuses to auto-restart after `disk_guard`, `failure_fuse`, or explicit budget stops unless `FORCE_RESTART=1` is set by an operator.
+
 Check status without reading full logs:
 
 ```bash
