@@ -12,9 +12,11 @@ import pandas as pd
 from v9.research.candidate_dedupe import dedupe_candidates
 
 
+FOCUS_PRESETS = ("hq_dd_plateau",)
+
 PRESETS = (
-    "hq_dd_long",
     "hq_dd_plateau",
+    "hq_dd_long",
     "hq_fast_rebal",
     "hq_breadth_wide",
     "defensive_neighbor",
@@ -269,7 +271,7 @@ def ordered_presets_by_quality(
 ) -> list[str]:
     stats = preset_stats(task_results, candidates)
     total_tasks = sum(int(stats[preset]["attempts"]) for preset in PRESETS)
-    return sorted(
+    scored = sorted(
         PRESETS,
         key=lambda preset: (
             preset_score(preset, stats, total_tasks, exploration_c=exploration_c),
@@ -277,6 +279,8 @@ def ordered_presets_by_quality(
         ),
         reverse=True,
     )
+    focused = [preset for preset in FOCUS_PRESETS if preset in scored]
+    return focused + [preset for preset in scored if preset not in focused]
 
 
 def proposed_search_space(

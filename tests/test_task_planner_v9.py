@@ -153,6 +153,11 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
     assert candidate_quality(str(out)) == pytest.approx(0.30 + 0.25 * 1.0)
 
 
+def test_focus_plateau_preset_takes_priority() -> None:
+    first = propose_tasks(set(), 1)
+    assert first[0].preset == "hq_dd_plateau"
+
+
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
     out = tmp_path / "accepted.json"
     write_json(
@@ -184,5 +189,6 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         }
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
-    first = propose_tasks(set(), 1, task_results=task_results, candidates=candidates)
-    assert first[0].preset == "defensive_drawdown"
+    first = propose_tasks(set(), 2, task_results=task_results, candidates=candidates)
+    assert first[0].preset == "hq_dd_plateau"
+    assert first[1].preset == "defensive_drawdown"
