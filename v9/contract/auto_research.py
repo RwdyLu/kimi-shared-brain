@@ -151,6 +151,23 @@ def task_result_status(payload: dict[str, Any] | None) -> str:
     return "completed_no_candidate"
 
 
+def progress_metadata_for_output(output_json: str) -> dict[str, Any]:
+    progress_path = Path(output_json).with_suffix(".progress.jsonl")
+    if not progress_path.exists():
+        return {"progress_exists": False, "progress_rows": 0, "progress_bytes": 0}
+    try:
+        progress_rows = sum(1 for _ in progress_path.open())
+        progress_bytes = progress_path.stat().st_size
+    except OSError:
+        return {"progress_exists": False, "progress_rows": 0, "progress_bytes": 0}
+    return {
+        "progress_exists": True,
+        "progress_path": str(progress_path),
+        "progress_rows": int(progress_rows),
+        "progress_bytes": int(progress_bytes),
+    }
+
+
 def trial_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
     if not payload:
         return {}
@@ -420,7 +437,12 @@ def run_auto_research(
                 reason,
                 task_results,
                 current_task=task_name,
-                active_task={"name": task_name, "status": "running", "elapsed_sec": round(elapsed, 3)},
+                active_task={
+                    "name": task_name,
+                    "status": "running",
+                    "elapsed_sec": round(elapsed, 3),
+                    **progress_metadata_for_output(task.output_json),
+                },
                 candidates_found=candidates_found,
             )
 
@@ -664,6 +686,7 @@ def run_continuous_research(
                         "status": "running",
                         "elapsed_sec": round(elapsed, 3),
                         "fingerprint": planned_task.fingerprint,
+                        **progress_metadata_for_output(task.output_json),
                     },
                     candidates_found=candidates_found,
                     tasks=tasks,

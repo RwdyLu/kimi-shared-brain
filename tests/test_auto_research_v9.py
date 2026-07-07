@@ -167,6 +167,22 @@ def test_trial_metadata_carries_data_fingerprint() -> None:
     }
 
 
+def test_progress_metadata_reports_progress_rows(tmp_path) -> None:
+    out_json = tmp_path / "result.json"
+    assert auto_research.progress_metadata_for_output(str(out_json)) == {
+        "progress_exists": False,
+        "progress_rows": 0,
+        "progress_bytes": 0,
+    }
+    progress = tmp_path / "result.progress.jsonl"
+    progress.write_text('{"row": 1}\n{"row": 2}\n')
+    metadata = auto_research.progress_metadata_for_output(str(out_json))
+    assert metadata["progress_exists"] is True
+    assert metadata["progress_path"] == str(progress)
+    assert metadata["progress_rows"] == 2
+    assert metadata["progress_bytes"] == progress.stat().st_size
+
+
 def test_data_drift_marks_candidate_for_manual_review() -> None:
     planned = {
         "train_start": "2017-08-01",
