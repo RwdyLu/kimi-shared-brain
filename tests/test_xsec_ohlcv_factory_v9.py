@@ -20,6 +20,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     long_only_weights,
     market_filter,
     append_progress_row,
+    progress_meta_path_for,
     progress_path_for,
     run_grid,
     score_matrix,
@@ -138,6 +139,7 @@ def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
     payload = run_grid(cfg)
     assert payload["data"]["fingerprint"] == data_fingerprint(closes)
     assert payload["data"]["rows"] == len(closes)
+    assert not progress_meta_path_for(cfg.out_json).exists()
 
 
 def tiny_grid_config(tmp_path) -> RunConfig:
@@ -163,6 +165,7 @@ def test_run_grid_resumes_all_rows_from_progress(monkeypatch, tmp_path) -> None:
     first = run_grid(cfg)
     progress_path = progress_path_for(cfg.out_json)
     assert not progress_path.exists()
+    assert not progress_meta_path_for(cfg.out_json).exists()
     for row in first["rows"]:
         append_progress_row(progress_path, row["row_cache_key"], row)
 
@@ -173,6 +176,7 @@ def test_run_grid_resumes_all_rows_from_progress(monkeypatch, tmp_path) -> None:
     second = run_grid(cfg)
     assert second["rows"] == first["rows"]
     assert not progress_path.exists()
+    assert not progress_meta_path_for(cfg.out_json).exists()
 
 
 def test_progress_key_mismatch_forces_recompute(monkeypatch, tmp_path) -> None:

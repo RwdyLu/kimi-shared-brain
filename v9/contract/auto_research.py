@@ -153,6 +153,7 @@ def task_result_status(payload: dict[str, Any] | None) -> str:
 
 def progress_metadata_for_output(output_json: str) -> dict[str, Any]:
     progress_path = Path(output_json).with_suffix(".progress.jsonl")
+    progress_meta_path = Path(output_json).with_suffix(".progress.meta.json")
     if not progress_path.exists():
         return {"progress_exists": False, "progress_rows": 0, "progress_bytes": 0}
     try:
@@ -160,12 +161,24 @@ def progress_metadata_for_output(output_json: str) -> dict[str, Any]:
         progress_bytes = progress_path.stat().st_size
     except OSError:
         return {"progress_exists": False, "progress_rows": 0, "progress_bytes": 0}
-    return {
+    metadata: dict[str, Any] = {
         "progress_exists": True,
         "progress_path": str(progress_path),
         "progress_rows": int(progress_rows),
         "progress_bytes": int(progress_bytes),
     }
+    if progress_meta_path.exists():
+        try:
+            progress_meta = json.loads(progress_meta_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            progress_meta = {}
+        total_rows = int(progress_meta.get("total_rows") or 0)
+        if total_rows > 0:
+            metadata["progress_total_rows"] = total_rows
+            metadata["progress_pct"] = round(min(1.0, progress_rows / total_rows), 6)
+        if progress_meta.get("cache_version"):
+            metadata["progress_cache_version"] = str(progress_meta["cache_version"])
+    return metadata
 
 
 def trial_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:

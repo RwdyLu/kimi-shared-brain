@@ -176,11 +176,16 @@ def test_progress_metadata_reports_progress_rows(tmp_path) -> None:
     }
     progress = tmp_path / "result.progress.jsonl"
     progress.write_text('{"row": 1}\n{"row": 2}\n')
+    progress_meta = tmp_path / "result.progress.meta.json"
+    progress_meta.write_text('{"cache_version": "v1", "total_rows": 4}\n')
     metadata = auto_research.progress_metadata_for_output(str(out_json))
     assert metadata["progress_exists"] is True
     assert metadata["progress_path"] == str(progress)
     assert metadata["progress_rows"] == 2
     assert metadata["progress_bytes"] == progress.stat().st_size
+    assert metadata["progress_total_rows"] == 4
+    assert metadata["progress_pct"] == 0.5
+    assert metadata["progress_cache_version"] == "v1"
 
 
 def test_data_drift_marks_candidate_for_manual_review() -> None:

@@ -299,6 +299,10 @@ def progress_path_for(out_json: str) -> Path:
     return Path(out_json).with_suffix(".progress.jsonl")
 
 
+def progress_meta_path_for(out_json: str) -> Path:
+    return Path(out_json).with_suffix(".progress.meta.json")
+
+
 def load_progress_rows(path: Path) -> dict[str, dict[str, Any]]:
     if not path.exists():
         return {}
@@ -322,6 +326,34 @@ def append_progress_row(path: Path, key: str, row: dict[str, Any]) -> None:
     with path.open("a") as handle:
         handle.write(json.dumps({"key": key, "row": row}, sort_keys=True) + "\n")
         handle.flush()
+
+
+def write_progress_meta(
+    path: Path,
+    total_rows: int,
+    completed_rows: int,
+    closes_fingerprint: str,
+    cfg: RunConfig,
+    bootstrap_p5_min: float,
+    validation_sharpe20_min: float,
+    confirm_iterations: int,
+) -> None:
+    payload = {
+        "updated_at": pd.Timestamp.now(tz="UTC").isoformat(),
+        "cache_version": ROW_CACHE_VERSION,
+        "total_rows": int(total_rows),
+        "completed_rows": int(completed_rows),
+        "data_fingerprint": closes_fingerprint,
+        "train_start": cfg.train_start,
+        "train_end": cfg.train_end,
+        "embargo_start": cfg.embargo_start,
+        "bootstrap_iterations": int(cfg.bootstrap_iterations),
+        "confirm_iterations": int(confirm_iterations),
+        "bootstrap_p5_min": float(bootstrap_p5_min),
+        "validation_sharpe20_min": float(validation_sharpe20_min),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def block_bootstrap_p5(daily_returns: pd.Series, iterations: int = 500, block_days: int = 30, seed: int = 20260707) -> float:
@@ -532,7 +564,18 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     validation_sharpe20_min = validation_sharpe_threshold(effective_trials)
     confirm_iterations = max(500, 5 * int(cfg.bootstrap_iterations))
     progress_path = progress_path_for(cfg.out_json)
+    progress_meta_path = progress_meta_path_for(cfg.out_json)
     progress_rows = load_progress_rows(progress_path)
+    write_progress_meta(
+        progress_meta_path,
+        n_trials,
+        len(progress_rows),
+        closes_fingerprint,
+        cfg,
+        bootstrap_p5_min,
+        validation_sharpe20_min,
+        confirm_iterations,
+    )
     rows = []
     for g in grid:
         cache_key = row_cache_key(g, closes_fingerprint, cfg, bootstrap_p5_min, validation_sharpe20_min, confirm_iterations)
@@ -604,6 +647,17 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "advance_passed": all(checks.values()),
         }
         append_progress_row(progress_path, cache_key, row)
+        progress_rows[cache_key] = row
+        write_progress_meta(
+            progress_meta_path,
+            n_trials,
+            len(progress_rows),
+            closes_fingerprint,
+            cfg,
+            bootstrap_p5_min,
+            validation_sharpe20_min,
+            confirm_iterations,
+        )
         rows.append(row)
     rows.sort(
         key=lambda row: (
@@ -654,6 +708,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     if cfg.out_md:
         write_markdown(payload, Path(cfg.out_md))
     progress_path.unlink(missing_ok=True)
+    progress_meta_path.unlink(missing_ok=True)
     return payload
 
 
