@@ -7,7 +7,7 @@ This runbook rebuilds the v9 train-only research runner on a new machine. It doe
 - Repository: `git@github.com:RwdyLu/kimi-shared-brain.git`
 - Train window default: `2017-08-01` to `2024-06-30 23:59:59`
 - Embargo start: `2024-07-01`
-- Runner: `python3 -m v9.contract.auto_research --continue-after-candidate`
+- Runner: `python3 -m v9.contract.auto_research --mode continuous --continue-after-candidate`
 - Outputs: `artifacts/v9/contract_lab/`, `logs/v9_auto_research/`, `state/v9_auto_research_state.json`
 
 ## New Machine Setup
@@ -34,6 +34,26 @@ rsync -av kimi-claw-cf:/root/.openclaw/workspace/kimi-shared-brain/data/binance_
 ./scripts/start_train_only.sh v9_auto_research
 ```
 
+By default this starts continuous train-only research:
+
+```bash
+python3 -m v9.contract.auto_research \
+  --mode continuous \
+  --continue-after-candidate \
+  --target-distinct-candidates 8 \
+  --planner-batch-size 3 \
+  --max-cycles 0
+```
+
+`--max-cycles 0` means no explicit cycle limit. The runner still stops for a manual stop file, low disk, repeated task failure, exhausted deterministic search space, or a distinct-candidate manual-review target.
+
+To stop gracefully after the current task:
+
+```bash
+mkdir -p control
+touch control/STOP
+```
+
 Check status without reading full logs:
 
 ```bash
@@ -56,6 +76,7 @@ PY
 - The runner rejects any task where `--train-end` is on or after `--embargo-start`.
 - `load_symbol_1h()` also refuses data on or after `embargo_start`.
 - Candidate discovery stops at `manual_review_required`; it does not launch holdout, paper trading, or live trading.
+- Continuous mode writes `state/v9_auto_research_explored.jsonl` so restarts avoid repeating completed task fingerprints.
 
 ## Promotion Rule
 

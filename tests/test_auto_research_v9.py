@@ -8,8 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import v9.contract.auto_research as auto_research  # noqa: E402
-from v9.contract.auto_research import ResearchTask, run_auto_research  # noqa: E402
+from v9.contract.auto_research import ResearchTask, run_auto_research, run_continuous_research  # noqa: E402
 from v9.contract.report import write_json  # noqa: E402
+from v9.research.task_planner import PlannedTask  # noqa: E402
 
 
 def safe_existing_task(name: str, out_json: Path, out_md: Path) -> ResearchTask:
@@ -148,3 +149,71 @@ def test_auto_research_rejects_train_window_on_or_after_embargo(tmp_path, monkey
         assert "train_end must be before embargo_start" in str(exc)
     else:
         raise AssertionError("leaky train window should be rejected")
+
+
+def test_continuous_research_honors_stop_file(tmp_path) -> None:
+    control = tmp_path / "control"
+    control.mkdir()
+    (control / "STOP").write_text("stop")
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        control,
+        cycle_sleep_sec=0,
+    )
+    assert payload["status"] == "paused"
+    assert payload["reason"] == "manual_stop_file"
+    assert payload["task_results"] == []
+
+
+def test_continuous_research_records_planned_task_and_stops_on_distinct_target(tmp_path, monkeypatch) -> None:
+    planned = PlannedTask(
+        name="planned",
+        preset="core",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        timeout_sec=1,
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count: [planned] if "abc123" not in explored else [])
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        write_json(
+            {
+                "kind": "xsec_ohlcv_factory_v1_train_only_grid",
+                "symbols": ["AAA", "BBB"],
+                "summary": {"accepted_train_only": True},
+                "rows": [{"advance_passed": True, "config": {"lookback_h": 1}}],
+            },
+            Path(task.output_json),
+        )
+        return {
+            "task": task.name,
+            "status": "accepted_train_only_candidate_found",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        tmp_path / "control",
+        planner_batch_size=1,
+        target_distinct_candidates=1,
+        cycle_sleep_sec=0,
+    )
+    assert payload["status"] == "paused"
+    assert payload["reason"] == "distinct_target_reached_manual_review:1"
+    assert payload["mode"] == "continuous"
+    assert payload["task_results"][0]["fingerprint"] == "abc123"
+    assert "abc123" in (tmp_path / "explored.jsonl").read_text()

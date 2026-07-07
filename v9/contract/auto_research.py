@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -11,6 +12,14 @@ from typing import Any, Callable
 import pandas as pd
 
 from .report import write_json
+from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
+from v9.research.task_planner import (
+    PlannedTask,
+    append_explored_record,
+    legacy_fingerprints_from_results,
+    load_explored_fingerprints,
+    propose_tasks,
+)
 
 
 TRAIN_ONLY_MODULE = "v9.contract.xsec_ohlcv_factory"
@@ -76,6 +85,16 @@ DEFAULT_TASKS = (
     xsec_ohlcv_task("xsec_ohlcv_defensive_breadth_v1", "defensive_breadth", timeout_sec=3 * 60 * 60),
     xsec_ohlcv_task("xsec_ohlcv_defensive_drawdown_v1", "defensive_drawdown", timeout_sec=3 * 60 * 60),
 )
+
+
+def research_task_from_planned(task: PlannedTask) -> ResearchTask:
+    return ResearchTask(
+        name=task.name,
+        command=task.command(),
+        output_json=task.output_json,
+        output_md=task.output_md,
+        timeout_sec=task.timeout_sec,
+    )
 
 
 def command_option(command: tuple[str, ...], option: str, default: str) -> str:
@@ -144,21 +163,35 @@ def state_payload(
     current_task: str | None = None,
     active_task: dict[str, Any] | None = None,
     candidates_found: list[dict[str, Any]] | None = None,
+    tasks: tuple[ResearchTask, ...] = DEFAULT_TASKS,
+    mode: str = "oneshot",
+    cycle_index: int = 0,
+    stop_reason: str | None = None,
+    deadline_at: str | None = None,
 ) -> dict[str, Any]:
+    enriched_candidates = dedupe_candidates(candidates_found or [])
     payload = {
         "created_at": started_at,
         "updated_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "kind": "v9_auto_research_train_only_state",
+        "mode": mode,
         "status": status,
         "reason": reason,
+        "stop_reason": stop_reason,
+        "cycle_index": cycle_index,
         "current_task": current_task,
         "holdout_authorized": False,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
-        "tasks": [asdict(task) for task in DEFAULT_TASKS],
+        "tasks": [asdict(task) for task in tasks],
         "task_results": task_results,
-        "candidates_found": candidates_found or [],
+        "tasks_done_total": len(task_results),
+        "candidates_found": enriched_candidates,
+        "candidates_found_total": len(enriched_candidates),
+        "distinct_candidates": distinct_candidate_count(enriched_candidates),
     }
+    if deadline_at is not None:
+        payload["deadline_at"] = deadline_at
     if active_task is not None:
         payload["active_task"] = active_task
     return payload
@@ -173,8 +206,26 @@ def write_state(
     current_task: str | None = None,
     active_task: dict[str, Any] | None = None,
     candidates_found: list[dict[str, Any]] | None = None,
+    tasks: tuple[ResearchTask, ...] = DEFAULT_TASKS,
+    mode: str = "oneshot",
+    cycle_index: int = 0,
+    stop_reason: str | None = None,
+    deadline_at: str | None = None,
 ) -> dict[str, Any]:
-    payload = state_payload(started_at, status, reason, task_results, current_task, active_task, candidates_found)
+    payload = state_payload(
+        started_at,
+        status,
+        reason,
+        task_results,
+        current_task,
+        active_task,
+        candidates_found,
+        tasks,
+        mode,
+        cycle_index,
+        stop_reason,
+        deadline_at,
+    )
     write_json(payload, path)
     return payload
 
@@ -331,25 +382,321 @@ def run_auto_research(
     return payload
 
 
+def stop_file_requested(control_dir: Path) -> bool:
+    return (control_dir / "STOP").exists()
+
+
+def free_disk_gb(path: Path) -> float:
+    usage = shutil.disk_usage(path)
+    return float(usage.free) / (1024.0**3)
+
+
+def run_continuous_research(
+    state_path: Path,
+    latest_summary_path: Path,
+    log_dir: Path,
+    explored_path: Path,
+    control_dir: Path,
+    force: bool = False,
+    planner_batch_size: int = 3,
+    target_distinct_candidates: int = 8,
+    max_cycles: int = 0,
+    max_hours: float = 0.0,
+    cycle_sleep_sec: float = 60.0,
+    max_consecutive_failures: int = 3,
+    min_free_disk_gb: float = 2.0,
+) -> dict[str, Any]:
+    started_at = pd.Timestamp.now(tz="UTC").isoformat()
+    deadline_time = time.time() + max_hours * 3600.0 if max_hours > 0 else None
+    deadline_at = pd.Timestamp.fromtimestamp(deadline_time, tz="UTC").isoformat() if deadline_time else None
+    previous = read_json(state_path) or {}
+    task_results = list(previous.get("task_results", []))
+    candidates_found = list(previous.get("candidates_found", []))
+    explored = load_explored_fingerprints(explored_path)
+    explored.update(legacy_fingerprints_from_results(task_results))
+    explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
+
+    write_latest_summary(latest_summary_path, "running", "v9_auto_research_train_only:continuous_starting")
+    consecutive_failures = 0
+    cycle_index = int(previous.get("cycle_index") or 0)
+
+    while True:
+        if stop_file_requested(control_dir):
+            reason = "manual_stop_file"
+            payload = write_state(
+                state_path,
+                started_at,
+                "paused",
+                reason,
+                task_results,
+                candidates_found=candidates_found,
+                mode="continuous",
+                cycle_index=cycle_index,
+                stop_reason=reason,
+                deadline_at=deadline_at,
+            )
+            write_latest_summary(latest_summary_path, "paused", reason)
+            return payload
+        if deadline_time is not None and time.time() >= deadline_time:
+            reason = "budget_exhausted:max_hours"
+            payload = write_state(
+                state_path,
+                started_at,
+                "paused",
+                reason,
+                task_results,
+                candidates_found=candidates_found,
+                mode="continuous",
+                cycle_index=cycle_index,
+                stop_reason=reason,
+                deadline_at=deadline_at,
+            )
+            write_latest_summary(latest_summary_path, "paused", reason)
+            return payload
+        if free_disk_gb(Path(".")) < min_free_disk_gb:
+            reason = "disk_guard"
+            payload = write_state(
+                state_path,
+                started_at,
+                "paused",
+                reason,
+                task_results,
+                candidates_found=candidates_found,
+                mode="continuous",
+                cycle_index=cycle_index,
+                stop_reason=reason,
+                deadline_at=deadline_at,
+            )
+            write_latest_summary(latest_summary_path, "paused", reason)
+            return payload
+
+        planned = propose_tasks(explored, planner_batch_size)
+        tasks = tuple(research_task_from_planned(task) for task in planned)
+        if not tasks:
+            reason = "search_space_exhausted"
+            payload = write_state(
+                state_path,
+                started_at,
+                "paused",
+                reason,
+                task_results,
+                candidates_found=candidates_found,
+                mode="continuous",
+                cycle_index=cycle_index,
+                stop_reason=reason,
+                deadline_at=deadline_at,
+            )
+            write_latest_summary(latest_summary_path, "paused", reason)
+            return payload
+        validate_train_only_tasks(tasks)
+
+        write_state(
+            state_path,
+            started_at,
+            "running",
+            f"continuous_cycle_start:{cycle_index}",
+            task_results,
+            candidates_found=candidates_found,
+            tasks=tasks,
+            mode="continuous",
+            cycle_index=cycle_index,
+            deadline_at=deadline_at,
+        )
+
+        for planned_task, task in zip(planned, tasks):
+            reason = f"continuous_train_only:{planned_task.name}"
+            write_latest_summary(latest_summary_path, "running", reason)
+            write_state(
+                state_path,
+                started_at,
+                "running",
+                reason,
+                task_results,
+                current_task=task.name,
+                candidates_found=candidates_found,
+                tasks=tasks,
+                mode="continuous",
+                cycle_index=cycle_index,
+                deadline_at=deadline_at,
+            )
+
+            def heartbeat(elapsed: float, task_name: str = task.name) -> None:
+                write_state(
+                    state_path,
+                    started_at,
+                    "running",
+                    reason,
+                    task_results,
+                    current_task=task_name,
+                    active_task={
+                        "name": task_name,
+                        "status": "running",
+                        "elapsed_sec": round(elapsed, 3),
+                        "fingerprint": planned_task.fingerprint,
+                    },
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    deadline_at=deadline_at,
+                )
+
+            result = run_task(task, force=force, log_dir=log_dir, heartbeat=heartbeat)
+            result["fingerprint"] = planned_task.fingerprint
+            result["planned_task"] = planned_task.record()
+            task_results.append(result)
+            explored.add(planned_task.fingerprint)
+            append_explored_record(
+                explored_path,
+                {
+                    "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
+                    "fingerprint": planned_task.fingerprint,
+                    "task": task.name,
+                    "status": result["status"],
+                    "output_json": result["output_json"],
+                    "output_md": result["output_md"],
+                    "returncode": result["returncode"],
+                },
+            )
+
+            if result["status"] == "accepted_train_only_candidate_found":
+                known_outputs = {str(row.get("output_json")) for row in candidates_found}
+                if result["output_json"] not in known_outputs:
+                    candidates_found.append(
+                        {
+                            "task": task.name,
+                            "output_json": result["output_json"],
+                            "output_md": result["output_md"],
+                            "status": "manual_review_required",
+                            "fingerprint": planned_task.fingerprint,
+                        }
+                    )
+            if result["status"] == "failed":
+                consecutive_failures += 1
+            else:
+                consecutive_failures = 0
+
+            if consecutive_failures >= max_consecutive_failures:
+                reason = "failure_fuse"
+                payload = write_state(
+                    state_path,
+                    started_at,
+                    "paused",
+                    reason,
+                    task_results,
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    stop_reason=reason,
+                    deadline_at=deadline_at,
+                )
+                write_latest_summary(latest_summary_path, "paused", reason)
+                return payload
+
+            distinct = distinct_candidate_count(candidates_found)
+            if target_distinct_candidates > 0 and distinct >= target_distinct_candidates:
+                reason = f"distinct_target_reached_manual_review:{distinct}"
+                payload = write_state(
+                    state_path,
+                    started_at,
+                    "paused",
+                    reason,
+                    task_results,
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    stop_reason=reason,
+                    deadline_at=deadline_at,
+                )
+                write_latest_summary(latest_summary_path, "paused", reason)
+                return payload
+
+            if stop_file_requested(control_dir):
+                reason = "manual_stop_file"
+                payload = write_state(
+                    state_path,
+                    started_at,
+                    "paused",
+                    reason,
+                    task_results,
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    stop_reason=reason,
+                    deadline_at=deadline_at,
+                )
+                write_latest_summary(latest_summary_path, "paused", reason)
+                return payload
+
+        cycle_index += 1
+        if max_cycles > 0 and cycle_index >= max_cycles:
+            reason = "budget_exhausted:max_cycles"
+            payload = write_state(
+                state_path,
+                started_at,
+                "paused",
+                reason,
+                task_results,
+                candidates_found=candidates_found,
+                mode="continuous",
+                cycle_index=cycle_index,
+                stop_reason=reason,
+                deadline_at=deadline_at,
+            )
+            write_latest_summary(latest_summary_path, "paused", reason)
+            return payload
+        time.sleep(max(0.0, cycle_sleep_sec))
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Safe train-only v9 automatic research runner")
     ap.add_argument("--state", default="state/v9_auto_research_state.json")
     ap.add_argument("--latest-summary", default="state/latest_strategy_summary.txt")
     ap.add_argument("--log-dir", default="logs/v9_auto_research")
+    ap.add_argument("--explored", default="state/v9_auto_research_explored.jsonl")
+    ap.add_argument("--control-dir", default="control")
+    ap.add_argument("--mode", choices=("oneshot", "continuous"), default="oneshot")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--continue-after-candidate", action="store_true")
+    ap.add_argument("--planner-batch-size", type=int, default=3)
+    ap.add_argument("--target-distinct-candidates", type=int, default=8)
+    ap.add_argument("--max-cycles", type=int, default=0, help="0 means no explicit cycle limit")
+    ap.add_argument("--max-hours", type=float, default=0.0, help="0 means no explicit time limit")
+    ap.add_argument("--cycle-sleep-sec", type=float, default=60.0)
+    ap.add_argument("--max-consecutive-failures", type=int, default=3)
+    ap.add_argument("--min-free-disk-gb", type=float, default=2.0)
     return ap
 
 
 def main() -> None:
     args = build_arg_parser().parse_args()
-    payload = run_auto_research(
-        state_path=Path(args.state),
-        latest_summary_path=Path(args.latest_summary),
-        log_dir=Path(args.log_dir),
-        force=args.force,
-        continue_after_candidate=args.continue_after_candidate,
-    )
+    if args.mode == "continuous":
+        payload = run_continuous_research(
+            state_path=Path(args.state),
+            latest_summary_path=Path(args.latest_summary),
+            log_dir=Path(args.log_dir),
+            explored_path=Path(args.explored),
+            control_dir=Path(args.control_dir),
+            force=args.force,
+            planner_batch_size=args.planner_batch_size,
+            target_distinct_candidates=args.target_distinct_candidates,
+            max_cycles=args.max_cycles,
+            max_hours=args.max_hours,
+            cycle_sleep_sec=args.cycle_sleep_sec,
+            max_consecutive_failures=args.max_consecutive_failures,
+            min_free_disk_gb=args.min_free_disk_gb,
+        )
+    else:
+        payload = run_auto_research(
+            state_path=Path(args.state),
+            latest_summary_path=Path(args.latest_summary),
+            log_dir=Path(args.log_dir),
+            force=args.force,
+            continue_after_candidate=args.continue_after_candidate,
+        )
     print(
         "v9_auto_research done "
         f"status={payload['status']} reason={payload['reason']} "

@@ -120,5 +120,9 @@ scripts/*.bak*
 # Freqtrade bridge runtime signals
 integrations/freqtrade/user_data/signals/*.csv
 
+# Manual runtime controls
+control/*
+!control/.gitkeep
+
 # Local notification secrets
 config/channel_config.json
