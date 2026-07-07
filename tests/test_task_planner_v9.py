@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 from v9.research.task_planner import (  # noqa: E402
     append_explored_record,
     cumulative_trials,
+    candidate_quality,
     load_explored_fingerprints,
     ordered_presets_by_quality,
     propose_tasks,
@@ -108,6 +112,45 @@ def test_quality_aware_order_prefers_high_quality_distinct_candidate(tmp_path) -
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
     ordered = ordered_presets_by_quality(task_results, candidates)
     assert ordered.index("defensive_drawdown") < ordered.index("fast")
+
+
+def test_candidate_quality_uses_selection_not_validation(tmp_path) -> None:
+    sel20 = {"bootstrap_30d_sharpe_p5": 0.40, "max_drawdown": 0.10}
+    sel40 = {"sharpe": 1.10}
+    row = {
+        "advance_passed": True,
+        "cost20": sel20,
+        "cost40": sel40,
+        "selection": {"cost20": sel20, "cost40": sel40},
+        "validation": {
+            "cost20": {"bootstrap_30d_sharpe_p5": 9.9, "max_drawdown": 0.0},
+            "cost40": {"sharpe": 9.9},
+        },
+    }
+    out = tmp_path / "accepted.json"
+    out.write_text(json.dumps({"rows": [row]}))
+
+    quality = candidate_quality(str(out))
+    assert quality == pytest.approx(0.40 + 0.25 * 1.10 - 0.5 * 0.10)
+
+    row["validation"]["cost20"]["bootstrap_30d_sharpe_p5"] = 0.0
+    row["validation"]["cost40"]["sharpe"] = 0.0
+    out.write_text(json.dumps({"rows": [row]}))
+    assert candidate_quality(str(out)) == pytest.approx(quality)
+
+
+def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
+    row = {
+        "advance_passed": True,
+        "selection": {
+            "cost20": {"bootstrap_30d_sharpe_p5": 0.30, "max_drawdown": 0.0},
+            "cost40": {"sharpe": 1.0},
+        },
+    }
+    out = tmp_path / "accepted.json"
+    out.write_text(json.dumps({"rows": [row]}))
+
+    assert candidate_quality(str(out)) == pytest.approx(0.30 + 0.25 * 1.0)
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:

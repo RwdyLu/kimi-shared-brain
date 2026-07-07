@@ -195,12 +195,13 @@ def candidate_quality(output_json: str | None) -> float:
     row = accepted_row(payload)
     if not row:
         return 1.0
-    validation = row.get("validation", {}) or {}
-    c20 = validation.get("cost20") or row.get("cost20", {})
-    c40 = validation.get("cost40") or row.get("cost40", {})
+    selection = row.get("selection", {}) or {}
+    c20 = selection.get("cost20") or row.get("cost20", {})
+    c40 = selection.get("cost40") or row.get("cost40", {})
     boot = float(c20.get("bootstrap_30d_sharpe_p5", 0.0) or 0.0)
     sh40 = float(c40.get("sharpe", 0.0) or 0.0)
-    dd20 = float(c20.get("max_drawdown", 1.0) or 1.0)
+    dd_raw = c20.get("max_drawdown")
+    dd20 = float(dd_raw) if dd_raw is not None else 1.0
     return max(0.0, boot) + 0.25 * max(0.0, sh40) - 0.5 * max(0.0, dd20)
 
 
