@@ -1,0 +1,15 @@
+version: regime_v9_fixed_20260706
+trend_return_days: 200
+trend_up_threshold: 0.05
+trend_down_threshold: -0.05
+vol_window_days: 90
+vol_percentile_lookback_days: 730
+high_vol_percentile: 0.80
+low_vol_percentile: 0.35
+drawdown_lookback_days: 365
+deep_drawdown_threshold: 0.20
+min_daily_bars: 260
+folds: 4
+cvar_frac: 0.05
+train_pnl_concentration_limit: 0.60
+risk_budget_per_trade: 0.01

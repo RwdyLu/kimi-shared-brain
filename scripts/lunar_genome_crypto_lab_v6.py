@@ -278,6 +278,18 @@ def scale_genome_for_timeframe(genome, timeframe):
     return LunarGenome(**d)
 
 
+def open_time_to_iso(open_time, idx, bar_minutes):
+    if open_time is None or idx < 0 or idx >= len(open_time):
+        ms = int(idx * max(1, bar_minutes) * 60_000)
+    else:
+        ms = int(open_time[idx])
+    try:
+        iso = pd.to_datetime(ms, unit='ms', utc=True).isoformat()
+    except Exception:
+        iso = ''
+    return ms, iso
+
+
 def clamp01(value):
     return max(0.0, min(1.0, float(value)))
 
@@ -338,7 +350,7 @@ def regime_route(genome, pos_term, vel_value, acc_value):
     }
 
 
-def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_step, lot_min, min_notional, bar_minutes=1, signal_delay_bars=0):
+def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_step, lot_min, min_notional, bar_minutes=1, signal_delay_bars=0, open_time=None, record_trades=False):
     n = len(close)
     if n < max(1000, genome.EMAAnchor + 10):
         return None
@@ -364,6 +376,40 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
     router_active = 0
     route_multiplier_sum = 0.0
     policy_multiplier_sum = 0.0
+    trade_log = [] if record_trades else None
+
+    def record_order(i, sig_i, action, qty_delta, cash_delta, price, gross, fee, route, inventory_bucket, realized_pnl=0.0):
+        if trade_log is None:
+            return
+        ts_ms, ts_iso = open_time_to_iso(open_time, i, bar_minutes)
+        signal_ts_ms, signal_ts_iso = open_time_to_iso(open_time, sig_i, bar_minutes)
+        trade_log.append({
+            'order_index': len(trade_log) + 1,
+            'bar_index': int(i),
+            'signal_index': int(sig_i),
+            'ts_ms': ts_ms,
+            'ts': ts_iso,
+            'signal_ts_ms': signal_ts_ms,
+            'signal_ts': signal_ts_iso,
+            'action': action,
+            'side': 'buy' if qty_delta > 0 else 'sell',
+            'inventory_bucket': inventory_bucket,
+            'qty_delta': float(qty_delta),
+            'cash_delta': float(cash_delta),
+            'price': float(price),
+            'gross': float(gross),
+            'fee': float(fee),
+            'fee_rate': float(cost_rate),
+            'realized_pnl': float(realized_pnl),
+            'realized_return': (float(realized_pnl) / float(initial_cash)) if realized_pnl else 0.0,
+            'route_label': route.get('label') if route else None,
+            'route_multiplier': route.get('combined_multiplier') if route else None,
+            'policy_multiplier': route.get('policy_multiplier') if route else None,
+            'cash_after': float(cash),
+            'dead_qty_after': float(dead_qty),
+            'float_qty_after': float(float_qty),
+            'equity_after': float(cash + (dead_qty + float_qty) * price),
+        })
 
     ghost_cash = initial_cash
     ghost_qty = 0.0
@@ -414,6 +460,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                     trade_count += 1
                     regime_trades[macro_route['label']] += 1
                     lots.append({'qty': qty, 'price': price, 'dead': True})
+                    record_order(i, sig_i, 'macro_buy_dead', qty, -(gross + fee), price, gross, fee, macro_route, 'dead')
                 elif notional > 0:
                     truncated_orders += 1
 
@@ -471,6 +518,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                         lots.append({'qty': qty, 'price': price, 'dead': False})
                         total_cost += fee; trade_count += 1
                         regime_trades[route['label']] += 1
+                        record_order(i, sig_i, 'micro_buy_float', qty, -(gross + fee), price, gross, fee, route, 'float')
                     elif notional > 0:
                         truncated_orders += 1
                 else:
@@ -486,17 +534,21 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
                         # Approximate realized lot PnL FIFO over float/non-dead lots.
                         remain = qty
                         new_lots = []
+                        realized_order = 0.0
                         for lot in lots:
                             if remain <= 0:
                                 new_lots.append(lot); continue
                             if lot.get('dead'):
                                 new_lots.append(lot); continue
                             take = min(remain, lot['qty'])
-                            realized += take * (price - lot['price']) - (take * price * cost_rate)
+                            pnl = take * (price - lot['price']) - (take * price * cost_rate)
+                            realized += pnl
+                            realized_order += pnl
                             lot['qty'] -= take; remain -= take
                             if lot['qty'] > 1e-12:
                                 new_lots.append(lot)
                         lots = new_lots
+                        record_order(i, sig_i, 'micro_sell_float', -qty, gross - fee, price, gross, fee, route, 'float', realized_order)
                     elif sell_value > 0:
                         truncated_orders += 1
 
@@ -523,7 +575,7 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         k: v / max(1, total_regime_trades)
         for k, v in regime_trades.items()
     }
-    return {
+    result = {
         'equity': equity,
         'return': strategy_return,
         'full_ghost_equity': ghost_equity,
@@ -555,6 +607,11 @@ def simulate_symbol(genome, env, season, close, initial_cash, cost_rate, lot_ste
         'regime_check_distribution': regime_check_distribution,
         'regime_trade_distribution': regime_trade_distribution,
     }
+    if trade_log is not None:
+        result['trade_log'] = trade_log
+        result['trade_log_final_price'] = float(final_price)
+        result['trade_log_initial_cash'] = float(initial_cash)
+    return result
 
 
 def evaluate_individual(genome, env, season, markets, rng, args):
@@ -578,12 +635,16 @@ def evaluate_individual(genome, env, season, markets, rng, args):
     policy_multiplier_sum = 0.0
     for symbol, m in markets.items():
         close = m['close']
+        open_time = m.get('open_time')
         if len(close) > args.window_bars:
             start = rng.randint(0, len(close) - args.window_bars)
             close = close[start:start + args.window_bars]
+            if open_time is not None:
+                open_time = open_time[start:start + args.window_bars]
         res = simulate_symbol(eval_genome, env, season, close, args.initial_cash, args.cost_bps / 10000.0,
                               args.lot_step, args.lot_min, args.min_notional, bar_minutes,
-                              getattr(args, 'signal_delay_bars', 0))
+                              getattr(args, 'signal_delay_bars', 0), open_time,
+                              bool(getattr(args, 'record_trades', False)))
         if not res:
             continue
         per[symbol] = res

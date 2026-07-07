@@ -190,6 +190,8 @@ def load_markets(selected, timeframe):
         if len(df) < 2000:
             continue
         markets[symbol] = {k: df[k].to_numpy(dtype=np.float64) for k in ['close','high','low']}
+        if 'open_time' in df.columns:
+            markets[symbol]['open_time'] = df['open_time'].to_numpy(dtype=np.int64)
     if not markets:
         raise SystemExit('no usable markets loaded')
     return markets

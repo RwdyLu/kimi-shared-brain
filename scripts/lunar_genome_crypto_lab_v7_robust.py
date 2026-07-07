@@ -114,6 +114,7 @@ def make_eval_args(args: argparse.Namespace, cost_bps: float) -> SimpleNamespace
         timeframe=args.timeframe,
         window_bars=args.window_bars,
         signal_delay_bars=getattr(args, 'signal_delay_bars', 0),
+        record_trades=bool(getattr(args, 'record_trades', False)),
     )
 
 
