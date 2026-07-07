@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 import v9.contract.auto_research as auto_research  # noqa: E402
 from v9.contract.auto_research import ResearchTask, run_auto_research, run_continuous_research  # noqa: E402
 from v9.contract.report import write_json  # noqa: E402
-from v9.research.task_planner import PlannedTask  # noqa: E402
+from v9.research.task_planner import PlannedTask, append_explored_record  # noqa: E402
 
 
 def safe_existing_task(name: str, out_json: Path, out_md: Path) -> ResearchTask:
@@ -192,6 +192,27 @@ def test_data_drift_marks_candidate_for_manual_review() -> None:
     record = auto_research.candidate_record(task, current, status="manual_review_required_data_drift")
     assert record["status"] == "manual_review_required_data_drift"
     assert record["data_fingerprint"] == "new"
+
+
+def test_data_drift_survives_restart_via_explored_log(tmp_path) -> None:
+    explored = tmp_path / "explored.jsonl"
+    window = {
+        "train_start": "2017-08-01",
+        "train_end": "2024-06-30 23:59:59",
+        "embargo_start": "2024-07-01",
+    }
+    append_explored_record(explored, {**window, "fingerprint": "t1", "data_fingerprint": "old"})
+    append_explored_record(explored, {"fingerprint": "legacy_no_window", "data_fingerprint": "ignored"})
+
+    history = auto_research.drift_history_from_explored(explored)
+    assert len(history) == 1
+    assert history[0]["planned_task"] == window
+    assert history[0]["data_fingerprint"] == "old"
+
+    current = {"planned_task": window, "data_fingerprint": "new"}
+    same = {"planned_task": window, "data_fingerprint": "old"}
+    assert auto_research.has_data_drift(history, current) is True
+    assert auto_research.has_data_drift(history, same) is False
 
 
 def test_continuous_research_honors_stop_file(tmp_path) -> None:

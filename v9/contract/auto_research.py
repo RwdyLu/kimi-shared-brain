@@ -204,6 +204,29 @@ def has_data_drift(task_results: list[dict[str, Any]], result: dict[str, Any]) -
     return False
 
 
+def drift_history_from_explored(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    keys = ("train_start", "train_end", "embargo_start")
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not row.get("data_fingerprint") or not all(row.get(key) for key in keys):
+            continue
+        rows.append(
+            {
+                "planned_task": {key: str(row[key]) for key in keys},
+                "data_fingerprint": str(row["data_fingerprint"]),
+            }
+        )
+    return rows
+
+
 def candidate_record(task: ResearchTask, result: dict[str, Any], status: str = "manual_review_required") -> dict[str, Any]:
     record = {
         "task": task.name,
@@ -500,6 +523,7 @@ def run_continuous_research(
     explored = load_explored_fingerprints(explored_path)
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
+    drift_history = drift_history_from_explored(explored_path)
 
     write_latest_summary(latest_summary_path, "running", "v9_auto_research_train_only:continuous_starting")
     consecutive_failures = 0
@@ -651,7 +675,11 @@ def run_continuous_research(
             result = run_task(task, force=force, log_dir=log_dir, heartbeat=heartbeat)
             result["fingerprint"] = planned_task.fingerprint
             result["planned_task"] = planned_task.record()
-            candidate_status = "manual_review_required_data_drift" if has_data_drift(task_results, result) else "manual_review_required"
+            candidate_status = (
+                "manual_review_required_data_drift"
+                if has_data_drift(drift_history + task_results, result)
+                else "manual_review_required"
+            )
             task_results.append(result)
             explored.add(planned_task.fingerprint)
             append_explored_record(
@@ -664,12 +692,26 @@ def run_continuous_research(
                     "output_json": result["output_json"],
                     "output_md": result["output_md"],
                     "returncode": result["returncode"],
+                    "train_start": planned_task.train_start,
+                    "train_end": planned_task.train_end,
+                    "embargo_start": planned_task.embargo_start,
                     "n_configs_tested": result.get("n_configs_tested", 0),
                     "prior_trials": result.get("prior_trials", 0),
                     "effective_trials": result.get("effective_trials", 0),
                     "data_fingerprint": result.get("data_fingerprint", ""),
                 },
             )
+            if result.get("data_fingerprint"):
+                drift_history.append(
+                    {
+                        "planned_task": {
+                            "train_start": planned_task.train_start,
+                            "train_end": planned_task.train_end,
+                            "embargo_start": planned_task.embargo_start,
+                        },
+                        "data_fingerprint": str(result["data_fingerprint"]),
+                    }
+                )
 
             if result["status"] == "accepted_train_only_candidate_found":
                 known_outputs = {str(row.get("output_json")) for row in candidates_found}
