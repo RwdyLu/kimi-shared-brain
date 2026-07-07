@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE="$ROOT/state/v9_auto_research_state.json"
 STOP="$ROOT/control/STOP"
 FORCE_RESTART="${FORCE_RESTART:-0}"
+STALE_SEC="${STALE_SEC:-300}"
 
 cd "$ROOT"
 mkdir -p control logs/v9_auto_research state
@@ -16,8 +17,22 @@ if [[ -e "$STOP" ]]; then
 fi
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-  echo "already running: $SESSION"
-  exit 0
+  if [[ -f "$STATE" ]]; then
+    now="$(date +%s)"
+    mtime="$(stat -c %Y "$STATE")"
+    age="$((now - mtime))"
+    if (( age > STALE_SEC )) && ! pgrep -f "v9.contract.xsec_ohlcv_factory" >/dev/null 2>&1; then
+      echo "restarting stale session: $SESSION state_age_sec=$age"
+      tmux kill-session -t "$SESSION" 2>/dev/null || true
+      sleep 2
+    else
+      echo "already running: $SESSION state_age_sec=$age"
+      exit 0
+    fi
+  else
+    echo "already running: $SESSION"
+    exit 0
+  fi
 fi
 
 reason="$(
