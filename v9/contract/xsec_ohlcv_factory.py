@@ -20,6 +20,9 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
+ROW_CACHE_VERSION = "selection_validation_v2_seeded_confirm_progress_v1"
+
+
 @dataclass(frozen=True)
 class OhlcvConfig:
     lookback_h: int
@@ -266,6 +269,61 @@ def data_fingerprint(closes: pd.DataFrame) -> str:
     return h.hexdigest()
 
 
+def row_cache_key(
+    cfg_row: OhlcvConfig,
+    closes_fingerprint: str,
+    cfg: RunConfig,
+    bootstrap_p5_min: float,
+    validation_sharpe20_min: float,
+    confirm_iterations: int,
+) -> str:
+    raw = json.dumps(
+        {
+            "cache_version": ROW_CACHE_VERSION,
+            "config": asdict(cfg_row),
+            "data_fingerprint": closes_fingerprint,
+            "train_start": cfg.train_start,
+            "train_end": cfg.train_end,
+            "embargo_start": cfg.embargo_start,
+            "bootstrap_iterations": int(cfg.bootstrap_iterations),
+            "confirm_iterations": int(confirm_iterations),
+            "bootstrap_p5_min": float(bootstrap_p5_min),
+            "validation_sharpe20_min": float(validation_sharpe20_min),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def progress_path_for(out_json: str) -> Path:
+    return Path(out_json).with_suffix(".progress.jsonl")
+
+
+def load_progress_rows(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        key = record.get("key")
+        row = record.get("row")
+        if isinstance(key, str) and isinstance(row, dict):
+            rows[key] = row
+    return rows
+
+
+def append_progress_row(path: Path, key: str, row: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as handle:
+        handle.write(json.dumps({"key": key, "row": row}, sort_keys=True) + "\n")
+        handle.flush()
+
+
 def block_bootstrap_p5(daily_returns: pd.Series, iterations: int = 500, block_days: int = 30, seed: int = 20260707) -> float:
     values = [float(v) for v in daily_returns.dropna()]
     if len(values) < block_days * 2 or iterations <= 0:
@@ -473,8 +531,14 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     bootstrap_p5_min = bootstrap_threshold(effective_trials)
     validation_sharpe20_min = validation_sharpe_threshold(effective_trials)
     confirm_iterations = max(500, 5 * int(cfg.bootstrap_iterations))
+    progress_path = progress_path_for(cfg.out_json)
+    progress_rows = load_progress_rows(progress_path)
     rows = []
     for g in grid:
+        cache_key = row_cache_key(g, closes_fingerprint, cfg, bootstrap_p5_min, validation_sharpe20_min, confirm_iterations)
+        if cache_key in progress_rows:
+            rows.append(progress_rows[cache_key])
+            continue
         selection_closes, validation_closes, split_meta = split_selection_validation(closes, g)
         cost20 = simulate(
             selection_closes,
@@ -529,17 +593,18 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 "selection_passed_before_validation": bool(all(selection_checks.values())),
             }
         checks = {**selection_checks, **val_checks}
-        rows.append(
-            {
-                "config": asdict(g),
-                "cost20": cost20,
-                "cost40": cost40,
-                "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
-                "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
-                "advance_checks": checks,
-                "advance_passed": all(checks.values()),
-            }
-        )
+        row = {
+            "row_cache_key": cache_key,
+            "config": asdict(g),
+            "cost20": cost20,
+            "cost40": cost40,
+            "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
+            "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
+            "advance_checks": checks,
+            "advance_passed": all(checks.values()),
+        }
+        append_progress_row(progress_path, cache_key, row)
+        rows.append(row)
     rows.sort(
         key=lambda row: (
             bool(row["advance_passed"]),
@@ -588,6 +653,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     write_json(payload, Path(cfg.out_json))
     if cfg.out_md:
         write_markdown(payload, Path(cfg.out_md))
+    progress_path.unlink(missing_ok=True)
     return payload
 
 

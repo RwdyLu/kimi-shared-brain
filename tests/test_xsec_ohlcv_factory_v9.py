@@ -19,6 +19,8 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     data_fingerprint,
     long_only_weights,
     market_filter,
+    append_progress_row,
+    progress_path_for,
     run_grid,
     score_matrix,
     simulate,
@@ -136,6 +138,72 @@ def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
     payload = run_grid(cfg)
     assert payload["data"]["fingerprint"] == data_fingerprint(closes)
     assert payload["data"]["rows"] == len(closes)
+
+
+def tiny_grid_config(tmp_path) -> RunConfig:
+    return RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24, 48),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+
+
+def test_run_grid_resumes_all_rows_from_progress(monkeypatch, tmp_path) -> None:
+    closes = close_matrix(600)
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", lambda *args: closes)
+    cfg = tiny_grid_config(tmp_path)
+    first = run_grid(cfg)
+    progress_path = progress_path_for(cfg.out_json)
+    assert not progress_path.exists()
+    for row in first["rows"]:
+        append_progress_row(progress_path, row["row_cache_key"], row)
+
+    def fail_simulate(*args, **kwargs):
+        raise AssertionError("cached rows should not call simulate")
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fail_simulate)
+    second = run_grid(cfg)
+    assert second["rows"] == first["rows"]
+    assert not progress_path.exists()
+
+
+def test_progress_key_mismatch_forces_recompute(monkeypatch, tmp_path) -> None:
+    closes = close_matrix(600)
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", lambda *args: closes)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+    bad_row = {"row_cache_key": "bad", "config": {"lookback_h": 24}, "cost20": {"sharpe": 999.0}}
+    append_progress_row(progress_path_for(cfg.out_json), "wrong-key", bad_row)
+    calls = {"n": 0}
+    original_simulate = simulate
+
+    def counting_simulate(*args, **kwargs):
+        calls["n"] += 1
+        return original_simulate(*args, **kwargs)
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", counting_simulate)
+    payload = run_grid(cfg)
+    assert calls["n"] > 0
+    assert payload["rows"][0]["row_cache_key"] != "bad"
 
 
 def test_run_grid_confirm_gate_can_reject_initial_bootstrap_pass(monkeypatch, tmp_path) -> None:
