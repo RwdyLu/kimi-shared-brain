@@ -47,6 +47,12 @@ def test_explored_jsonl_round_trip(tmp_path) -> None:
     assert load_explored_fingerprints(path) == {fp}
 
 
+def test_task_fingerprint_changes_with_evaluation_version() -> None:
+    old = task_fingerprint("core", "2017-08-01", "2024-06-30 23:59:59", evaluation_version="old")
+    new = task_fingerprint("core", "2017-08-01", "2024-06-30 23:59:59", evaluation_version="new")
+    assert old != new
+
+
 def test_quality_aware_order_prefers_high_quality_distinct_candidate(tmp_path) -> None:
     out = tmp_path / "accepted.json"
     write_json(
@@ -60,6 +66,10 @@ def test_quality_aware_order_prefers_high_quality_distinct_candidate(tmp_path) -
                     "config": {"lookback_h": 720, "rebalance_h": 168},
                     "cost20": {"bootstrap_30d_sharpe_p5": 1.8, "max_drawdown": 0.14},
                     "cost40": {"sharpe": 2.2},
+                    "validation": {
+                        "cost20": {"bootstrap_30d_sharpe_p5": 2.0, "max_drawdown": 0.10},
+                        "cost40": {"sharpe": 2.4},
+                    },
                 }
             ],
         },
@@ -97,6 +107,10 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
                     "config": {"lookback_h": 720, "rebalance_h": 168},
                     "cost20": {"bootstrap_30d_sharpe_p5": 1.8, "max_drawdown": 0.14},
                     "cost40": {"sharpe": 2.2},
+                    "validation": {
+                        "cost20": {"bootstrap_30d_sharpe_p5": 2.0, "max_drawdown": 0.10},
+                        "cost40": {"sharpe": 2.4},
+                    },
                 }
             ],
         },

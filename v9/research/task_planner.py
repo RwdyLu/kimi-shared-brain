@@ -50,6 +50,7 @@ LEGACY_TASK_PRESETS = {
 DEFAULT_TRAIN_START = "2017-08-01"
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
+EVALUATION_VERSION = "selection_validation_v1"
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,7 @@ def task_fingerprint(
     train_end: str,
     embargo_start: str = DEFAULT_EMBARGO_START,
     bootstrap_iterations: int = 100,
+    evaluation_version: str = EVALUATION_VERSION,
 ) -> str:
     raw = json.dumps(
         {
@@ -109,6 +111,7 @@ def task_fingerprint(
             "train_end": train_end,
             "embargo_start": embargo_start,
             "bootstrap_iterations": bootstrap_iterations,
+            "evaluation_version": evaluation_version,
         },
         sort_keys=True,
     )
@@ -174,8 +177,9 @@ def candidate_quality(output_json: str | None) -> float:
     row = accepted_row(payload)
     if not row:
         return 1.0
-    c20 = row.get("cost20", {})
-    c40 = row.get("cost40", {})
+    validation = row.get("validation", {}) or {}
+    c20 = validation.get("cost20") or row.get("cost20", {})
+    c40 = validation.get("cost40") or row.get("cost40", {})
     boot = float(c20.get("bootstrap_30d_sharpe_p5", 0.0) or 0.0)
     sh40 = float(c40.get("sharpe", 0.0) or 0.0)
     dd20 = float(c20.get("max_drawdown", 1.0) or 1.0)

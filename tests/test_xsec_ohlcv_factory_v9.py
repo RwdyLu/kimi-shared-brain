@@ -17,6 +17,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     market_filter,
     score_matrix,
     simulate,
+    split_selection_validation,
 )
 
 
@@ -69,8 +70,18 @@ def test_simulate_reports_gate_inputs() -> None:
     result40 = simulate(close_matrix(120), cfg, cost_bps=40.0, bootstrap_iterations=10)
     checks = advance_checks(result20, result40)
     assert "equal_weight_benchmark" in result20
-    assert "bootstrap_p5_ge_0_25" in checks
+    assert "bootstrap_p5_ge_adjusted_min" in checks
     assert result20["daily_turnover"] >= 0
+
+
+def test_split_selection_validation_keeps_validation_after_purge() -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=48, vol_target_ann=0.0)
+    selection, validation, meta = split_selection_validation(close_matrix(1400), cfg)
+    assert len(selection) > 0
+    assert len(validation) > 0
+    assert pd.Timestamp(validation["dt"].iloc[0]) > pd.Timestamp(selection["dt"].iloc[-1])
+    assert meta["purge_hours"] == 48
+    assert meta["validation_usable"] is True
 
 
 def test_presets_select_distinct_search_spaces() -> None:

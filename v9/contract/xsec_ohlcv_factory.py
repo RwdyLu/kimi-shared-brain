@@ -345,19 +345,56 @@ def simulate(closes: pd.DataFrame, cfg: OhlcvConfig, cost_bps: float, bootstrap_
     }
 
 
-def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any]) -> dict[str, bool]:
+def bootstrap_threshold(n_trials: int, base: float = 0.25) -> float:
+    return base + 0.05 * math.log10(max(1, int(n_trials)))
+
+
+def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_min: float = 0.25) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     return {
         "sharpe20_ge_1_2": float(cost20["sharpe"]) >= 1.2,
         "max_dd20_le_25pct": float(cost20["max_drawdown"]) <= 0.25,
         "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
-        "bootstrap_p5_ge_0_25": float(cost20["bootstrap_30d_sharpe_p5"]) >= 0.25,
+        "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
         "sharpe40_ge_1": float(cost40["sharpe"]) >= 1.0,
         "top_symbol_share_le_60pct": float(cost20["top_positive_symbol_share"]) <= 0.60,
         "benchmark_sharpe_excess_ge_0_10": float(benchmark["sharpe_excess"]) >= 0.10,
         "drawdown_ratio_le_0_80": float(benchmark["drawdown_ratio"]) <= 0.80,
     }
+
+
+def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any]) -> dict[str, bool]:
+    return {
+        "validation_sharpe20_ge_0_7": float(cost20["sharpe"]) >= 0.7,
+        "validation_max_dd20_le_30pct": float(cost20["max_drawdown"]) <= 0.30,
+        "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
+        "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
+    }
+
+
+def split_selection_validation(closes: pd.DataFrame, cfg: OhlcvConfig, selection_frac: float = 0.75) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    if not 0.50 <= selection_frac <= 0.90:
+        raise ValueError("selection_frac must be between 0.50 and 0.90")
+    split_idx = max(1, min(len(closes) - 2, int(len(closes) * selection_frac)))
+    split_dt = pd.Timestamp(closes["dt"].iloc[split_idx])
+    purge_h = max(int(cfg.lookback_h + cfg.skip_h), int(cfg.rebalance_h), int(cfg.market_filter_h))
+    validation_start = split_dt + pd.Timedelta(hours=purge_h)
+    selection = closes.loc[closes["dt"] <= split_dt].copy().reset_index(drop=True)
+    validation = closes.loc[closes["dt"] >= validation_start].copy().reset_index(drop=True)
+    min_validation_rows = max(cfg.lookback_h + cfg.skip_h + cfg.rebalance_h + 24, cfg.market_filter_h + 24, 240)
+    meta = {
+        "selection_start": selection["dt"].iloc[0].isoformat() if len(selection) else None,
+        "selection_end": selection["dt"].iloc[-1].isoformat() if len(selection) else None,
+        "validation_start": validation["dt"].iloc[0].isoformat() if len(validation) else None,
+        "validation_end": validation["dt"].iloc[-1].isoformat() if len(validation) else None,
+        "purge_hours": purge_h,
+        "selection_rows": int(len(selection)),
+        "validation_rows": int(len(validation)),
+        "min_validation_rows": int(min_validation_rows),
+        "validation_usable": bool(len(validation) >= min_validation_rows),
+    }
+    return selection, validation, meta
 
 
 def run_grid(cfg: RunConfig) -> dict[str, Any]:
@@ -377,16 +414,33 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             cfg.vol_targets_ann,
         )
     ]
+    n_trials = len(grid)
+    bootstrap_p5_min = bootstrap_threshold(n_trials)
     rows = []
     for g in grid:
-        cost20 = simulate(closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
-        cost40 = simulate(closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
-        checks = advance_checks(cost20, cost40)
+        selection_closes, validation_closes, split_meta = split_selection_validation(closes, g)
+        cost20 = simulate(selection_closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
+        cost40 = simulate(selection_closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
+        selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
+        if all(selection_checks.values()) and split_meta["validation_usable"]:
+            val20 = simulate(validation_closes, g, 20.0, bootstrap_iterations=cfg.bootstrap_iterations)
+            val40 = simulate(validation_closes, g, 40.0, bootstrap_iterations=cfg.bootstrap_iterations)
+            val_checks = validation_checks(val20, val40)
+        else:
+            val20 = {}
+            val40 = {}
+            val_checks = {
+                "validation_usable": bool(split_meta["validation_usable"]),
+                "selection_passed_before_validation": bool(all(selection_checks.values())),
+            }
+        checks = {**selection_checks, **val_checks}
         rows.append(
             {
                 "config": asdict(g),
                 "cost20": cost20,
                 "cost40": cost40,
+                "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
+                "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
                 "advance_checks": checks,
                 "advance_passed": all(checks.values()),
             }
@@ -405,6 +459,13 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "kind": "xsec_ohlcv_factory_v1_train_only_grid",
         "train_window": {"start": closes["dt"].iloc[0].isoformat(), "end": closes["dt"].iloc[-1].isoformat()},
+        "selection_validation": {
+            "enabled": True,
+            "selection_frac": 0.75,
+            "n_configs_tested": n_trials,
+            "selection_bootstrap_p5_min": bootstrap_p5_min,
+            "note": "All selection and validation data remains before embargo_start.",
+        },
         "symbols": list(cfg.symbols),
         "config": asdict(cfg),
         "summary": {
@@ -443,14 +504,14 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
             "",
             "## Top Rows",
             "",
-            "| cfg | pass | 20bps sh | 40bps sh | DD | 2024H1 | boot p5 | EW excess | DD ratio | top sym |",
+            "| cfg | pass | sel 20bps sh | val 20bps sh | val ret | val DD | sel boot p5 | EW excess | DD ratio | top sym |",
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in payload["top"]:
         cfg = row["config"]
         c20 = row["cost20"]
-        c40 = row["cost40"]
+        v20 = row.get("validation", {}).get("cost20", {}) or {}
         bench = c20["equal_weight_benchmark"]
         label = "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_MF{market_filter_h}_VT{vol_target_ann}".format(**cfg)
         lines.append(
@@ -458,9 +519,9 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
                 label,
                 row["advance_passed"],
                 c20["sharpe"],
-                c40["sharpe"],
-                c20["max_drawdown"],
-                c20["yearly"]["2024H1"]["net_return"],
+                float(v20.get("sharpe", 0.0) or 0.0),
+                float(v20.get("total_return", 0.0) or 0.0),
+                float(v20.get("max_drawdown", 0.0) or 0.0),
                 c20["bootstrap_30d_sharpe_p5"],
                 bench["sharpe_excess"],
                 bench["drawdown_ratio"],
