@@ -151,16 +151,19 @@ def task_result_status(payload: dict[str, Any] | None) -> str:
     return "completed_no_candidate"
 
 
-def trial_metadata(payload: dict[str, Any] | None) -> dict[str, int]:
+def trial_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
     if not payload:
         return {}
     selection_validation = payload.get("selection_validation", {}) or {}
     summary = payload.get("summary", {}) or {}
+    data = payload.get("data", {}) or {}
     n_configs = int(selection_validation.get("n_configs_tested") or summary.get("rows") or 0)
-    metadata = {"n_configs_tested": n_configs}
+    metadata: dict[str, Any] = {"n_configs_tested": n_configs}
     for key in ("prior_trials", "effective_trials"):
         if key in selection_validation:
             metadata[key] = int(selection_validation.get(key) or 0)
+    if data.get("fingerprint"):
+        metadata["data_fingerprint"] = str(data["fingerprint"])
     return metadata
 
 
@@ -175,6 +178,44 @@ def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
             continue
         total += int(trial_metadata(read_json(Path(str(output_json)))).get("n_configs_tested", 0))
     return total
+
+
+def planned_window_key(result: dict[str, Any]) -> tuple[str, str, str] | None:
+    planned = result.get("planned_task") or {}
+    if not planned:
+        return None
+    keys = ("train_start", "train_end", "embargo_start")
+    if not all(planned.get(key) for key in keys):
+        return None
+    return tuple(str(planned[key]) for key in keys)
+
+
+def has_data_drift(task_results: list[dict[str, Any]], result: dict[str, Any]) -> bool:
+    fingerprint = result.get("data_fingerprint")
+    key = planned_window_key(result)
+    if not fingerprint or key is None:
+        return False
+    for previous in task_results:
+        if planned_window_key(previous) != key:
+            continue
+        previous_fingerprint = previous.get("data_fingerprint")
+        if previous_fingerprint and previous_fingerprint != fingerprint:
+            return True
+    return False
+
+
+def candidate_record(task: ResearchTask, result: dict[str, Any], status: str = "manual_review_required") -> dict[str, Any]:
+    record = {
+        "task": task.name,
+        "output_json": result["output_json"],
+        "output_md": result["output_md"],
+        "status": status,
+    }
+    if result.get("fingerprint"):
+        record["fingerprint"] = result["fingerprint"]
+    if result.get("data_fingerprint"):
+        record["data_fingerprint"] = result["data_fingerprint"]
+    return record
 
 
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
@@ -363,14 +404,7 @@ def run_auto_research(
         result = run_task(task, force=force, log_dir=log_dir, heartbeat=heartbeat)
         task_results.append(result)
         if result["status"] == "accepted_train_only_candidate_found":
-            candidates_found.append(
-                {
-                    "task": task.name,
-                    "output_json": result["output_json"],
-                    "output_md": result["output_md"],
-                    "status": "manual_review_required",
-                }
-            )
+            candidates_found.append(candidate_record(task, result))
         write_state(
             state_path,
             started_at,
@@ -617,6 +651,7 @@ def run_continuous_research(
             result = run_task(task, force=force, log_dir=log_dir, heartbeat=heartbeat)
             result["fingerprint"] = planned_task.fingerprint
             result["planned_task"] = planned_task.record()
+            candidate_status = "manual_review_required_data_drift" if has_data_drift(task_results, result) else "manual_review_required"
             task_results.append(result)
             explored.add(planned_task.fingerprint)
             append_explored_record(
@@ -632,21 +667,16 @@ def run_continuous_research(
                     "n_configs_tested": result.get("n_configs_tested", 0),
                     "prior_trials": result.get("prior_trials", 0),
                     "effective_trials": result.get("effective_trials", 0),
+                    "data_fingerprint": result.get("data_fingerprint", ""),
                 },
             )
 
             if result["status"] == "accepted_train_only_candidate_found":
                 known_outputs = {str(row.get("output_json")) for row in candidates_found}
                 if result["output_json"] not in known_outputs:
-                    candidates_found.append(
-                        {
-                            "task": task.name,
-                            "output_json": result["output_json"],
-                            "output_md": result["output_md"],
-                            "status": "manual_review_required",
-                            "fingerprint": planned_task.fingerprint,
-                        }
-                    )
+                    candidates_found.append(candidate_record(task, result, status=candidate_status))
+                    if candidate_status == "manual_review_required_data_drift":
+                        write_latest_summary(latest_summary_path, "running", f"data_drift_detected:{task.name}")
             if result["status"] == "failed":
                 consecutive_failures += 1
             else:

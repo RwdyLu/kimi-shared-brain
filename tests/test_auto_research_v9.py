@@ -151,6 +151,49 @@ def test_auto_research_rejects_train_window_on_or_after_embargo(tmp_path, monkey
         raise AssertionError("leaky train window should be rejected")
 
 
+def test_trial_metadata_carries_data_fingerprint() -> None:
+    metadata = auto_research.trial_metadata(
+        {
+            "summary": {"rows": 7},
+            "selection_validation": {"n_configs_tested": 3, "prior_trials": 10, "effective_trials": 13},
+            "data": {"fingerprint": "abc123"},
+        }
+    )
+    assert metadata == {
+        "n_configs_tested": 3,
+        "prior_trials": 10,
+        "effective_trials": 13,
+        "data_fingerprint": "abc123",
+    }
+
+
+def test_data_drift_marks_candidate_for_manual_review() -> None:
+    planned = {
+        "train_start": "2017-08-01",
+        "train_end": "2024-06-30 23:59:59",
+        "embargo_start": "2024-07-01",
+    }
+    previous = {"planned_task": planned, "data_fingerprint": "old"}
+    current = {
+        "planned_task": planned,
+        "data_fingerprint": "new",
+        "fingerprint": "fp",
+        "output_json": "out.json",
+        "output_md": "out.md",
+    }
+    task = ResearchTask(
+        name="candidate",
+        command=("python3", "-m", "v9.contract.xsec_ohlcv_factory", "--out-json", "out.json", "--out-md", "out.md"),
+        output_json="out.json",
+        output_md="out.md",
+        timeout_sec=1,
+    )
+    assert auto_research.has_data_drift([previous], current) is True
+    record = auto_research.candidate_record(task, current, status="manual_review_required_data_drift")
+    assert record["status"] == "manual_review_required_data_drift"
+    assert record["data_fingerprint"] == "new"
+
+
 def test_continuous_research_honors_stop_file(tmp_path) -> None:
     control = tmp_path / "control"
     control.mkdir()

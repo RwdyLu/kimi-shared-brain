@@ -257,6 +257,15 @@ def bootstrap_seed(cfg: OhlcvConfig, cost_bps: float, segment: str, train_start:
     return int(hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8], 16)
 
 
+def data_fingerprint(closes: pd.DataFrame) -> str:
+    symbols = [c for c in closes.columns if c != "dt"]
+    h = hashlib.sha1()
+    h.update(json.dumps(symbols, sort_keys=True).encode("utf-8"))
+    h.update(pd.to_datetime(closes["dt"]).astype("int64").to_numpy().tobytes())
+    h.update(np.ascontiguousarray(closes[symbols].to_numpy(dtype="float64")).tobytes())
+    return h.hexdigest()
+
+
 def block_bootstrap_p5(daily_returns: pd.Series, iterations: int = 500, block_days: int = 30, seed: int = 20260707) -> float:
     values = [float(v) for v in daily_returns.dropna()]
     if len(values) < block_days * 2 or iterations <= 0:
@@ -445,6 +454,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     end = utc_ts(cfg.train_end)
     embargo = utc_ts(cfg.embargo_start)
     closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
+    closes_fingerprint = data_fingerprint(closes)
     grid = [
         OhlcvConfig(l, s, r, k, mode, mf, vt)
         for l, s, r, k, mode, mf, vt in itertools.product(
@@ -544,6 +554,13 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "kind": "xsec_ohlcv_factory_v1_train_only_grid",
         "train_window": {"start": closes["dt"].iloc[0].isoformat(), "end": closes["dt"].iloc[-1].isoformat()},
+        "data": {
+            "fingerprint": closes_fingerprint,
+            "rows": int(len(closes)),
+            "first_dt": closes["dt"].iloc[0].isoformat(),
+            "last_dt": closes["dt"].iloc[-1].isoformat(),
+            "symbols": list(cfg.symbols),
+        },
         "selection_validation": {
             "enabled": True,
             "selection_frac": 0.75,

@@ -16,6 +16,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     bootstrap_seed,
     bootstrap_threshold,
     config_for_preset,
+    data_fingerprint,
     long_only_weights,
     market_filter,
     run_grid,
@@ -101,6 +102,40 @@ def test_bootstrap_seed_is_stable_and_segment_specific() -> None:
     assert first == bootstrap_seed(cfg, 20.0, "selection", "2020-01-01", "2021-01-01")
     assert first != bootstrap_seed(cfg, 20.0, "selection_confirm", "2020-01-01", "2021-01-01")
     assert first != bootstrap_seed(cfg, 40.0, "selection", "2020-01-01", "2021-01-01")
+
+
+def test_data_fingerprint_is_stable_and_sensitive() -> None:
+    closes = close_matrix(600)
+    assert data_fingerprint(closes) == data_fingerprint(closes.copy())
+    perturbed = closes.copy()
+    perturbed["AAA"] = perturbed["AAA"].astype(float)
+    perturbed.iloc[100, 1] += 1e-9
+    assert data_fingerprint(perturbed) != data_fingerprint(closes)
+
+
+def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
+    closes = close_matrix(600)
+
+    def fake_load_close_matrix(cache_dir, symbols, start, end, embargo):
+        return closes
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", fake_load_close_matrix)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+    payload = run_grid(cfg)
+    assert payload["data"]["fingerprint"] == data_fingerprint(closes)
+    assert payload["data"]["rows"] == len(closes)
 
 
 def test_run_grid_confirm_gate_can_reject_initial_bootstrap_pass(monkeypatch, tmp_path) -> None:
