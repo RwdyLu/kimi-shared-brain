@@ -47,6 +47,9 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         "tsmom_bear_short_medium_neighbor",
         "tsmom_bear_short_medium_risk",
         "tsmom_bear_short_cost_guard",
+        "tsmom_slow_cost_guard",
+        "tsmom_core_cost_guard",
+        "tsmom_core_slow_cost_guard",
         "tsmom_bear_short_fast",
         "tsmom_bear_short_regime",
         "tsmom_defensive_regime",
@@ -168,7 +171,7 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
 
 
 def test_focus_train_only_presets_take_priority() -> None:
-    first = propose_tasks(set(), 10)
+    first = propose_tasks(set(), 13)
     assert first[0].preset == "tsmom_bear_short_medium"
     assert first[0].module == "v9.contract.tsmom_factory"
     assert first[0].cli_preset == "bear_short_medium"
@@ -178,16 +181,22 @@ def test_focus_train_only_presets_take_priority() -> None:
     assert first[2].cli_preset == "bear_short_medium_risk"
     assert first[3].preset == "tsmom_bear_short_cost_guard"
     assert first[3].cli_preset == "bear_short_cost_guard"
-    assert first[4].preset == "tsmom_bear_short_fast"
-    assert first[4].cli_preset == "bear_short_fast"
-    assert first[5].preset == "tsmom_bear_short_regime"
-    assert first[5].cli_preset == "bear_short_regime"
-    assert first[6].preset == "tsmom_defensive_regime"
-    assert first[6].cli_preset == "defensive_regime"
-    assert first[7].preset == "tsmom_trend_ensemble"
-    assert first[7].cli_preset == "core"
-    assert first[8].preset == "hq_cadence_tranche"
-    assert first[9].preset == "hq_dd_plateau"
+    assert first[4].preset == "tsmom_slow_cost_guard"
+    assert first[4].cli_preset == "slow_cost_guard"
+    assert first[5].preset == "tsmom_core_cost_guard"
+    assert first[5].cli_preset == "core_cost_guard"
+    assert first[6].preset == "tsmom_core_slow_cost_guard"
+    assert first[6].cli_preset == "core_slow_cost_guard"
+    assert first[7].preset == "tsmom_bear_short_fast"
+    assert first[7].cli_preset == "bear_short_fast"
+    assert first[8].preset == "tsmom_bear_short_regime"
+    assert first[8].cli_preset == "bear_short_regime"
+    assert first[9].preset == "tsmom_defensive_regime"
+    assert first[9].cli_preset == "defensive_regime"
+    assert first[10].preset == "tsmom_trend_ensemble"
+    assert first[10].cli_preset == "core"
+    assert first[11].preset == "hq_cadence_tranche"
+    assert first[12].preset == "hq_dd_plateau"
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -221,15 +230,18 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         }
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
-    first = propose_tasks(set(), 11, task_results=task_results, candidates=candidates)
+    first = propose_tasks(set(), 14, task_results=task_results, candidates=candidates)
     assert first[0].preset == "tsmom_bear_short_medium"
     assert first[1].preset == "tsmom_bear_short_medium_neighbor"
     assert first[2].preset == "tsmom_bear_short_medium_risk"
     assert first[3].preset == "tsmom_bear_short_cost_guard"
-    assert first[4].preset == "tsmom_bear_short_fast"
-    assert first[5].preset == "tsmom_bear_short_regime"
-    assert first[6].preset == "tsmom_defensive_regime"
-    assert first[7].preset == "tsmom_trend_ensemble"
-    assert first[8].preset == "hq_cadence_tranche"
-    assert first[9].preset == "hq_dd_plateau"
-    assert first[10].preset == "defensive_drawdown"
+    assert first[4].preset == "tsmom_slow_cost_guard"
+    assert first[5].preset == "tsmom_core_cost_guard"
+    assert first[6].preset == "tsmom_core_slow_cost_guard"
+    assert first[7].preset == "tsmom_bear_short_fast"
+    assert first[8].preset == "tsmom_bear_short_regime"
+    assert first[9].preset == "tsmom_defensive_regime"
+    assert first[10].preset == "tsmom_trend_ensemble"
+    assert first[11].preset == "hq_cadence_tranche"
+    assert first[12].preset == "hq_dd_plateau"
+    assert first[13].preset == "defensive_drawdown"
