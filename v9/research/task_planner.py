@@ -13,12 +13,19 @@ from v9.research.candidate_dedupe import dedupe_candidates
 
 
 DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
-MODULE_BY_PRESET = {"tsmom_trend_ensemble": "v9.contract.tsmom_factory"}
-CLI_PRESET_BY_PRESET = {"tsmom_trend_ensemble": "core"}
+MODULE_BY_PRESET = {
+    "tsmom_defensive_regime": "v9.contract.tsmom_factory",
+    "tsmom_trend_ensemble": "v9.contract.tsmom_factory",
+}
+CLI_PRESET_BY_PRESET = {
+    "tsmom_defensive_regime": "defensive_regime",
+    "tsmom_trend_ensemble": "core",
+}
 
-FOCUS_PRESETS = ("tsmom_trend_ensemble", "hq_cadence_tranche", "hq_dd_plateau")
+FOCUS_PRESETS = ("tsmom_defensive_regime", "tsmom_trend_ensemble", "hq_cadence_tranche", "hq_dd_plateau")
 
 PRESETS = (
+    "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
     "hq_cadence_tranche",
     "hq_dd_plateau",
@@ -60,7 +67,10 @@ DEFAULT_TRAIN_START = "2017-08-01"
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
-EVALUATION_VERSION_BY_PRESET = {"tsmom_trend_ensemble": "selection_validation_v3_tsmom_split60"}
+EVALUATION_VERSION_BY_PRESET = {
+    "tsmom_defensive_regime": "selection_validation_v1_tsmom_defensive_regime",
+    "tsmom_trend_ensemble": "selection_validation_v3_tsmom_split60",
+}
 
 
 @dataclass(frozen=True)

@@ -37,6 +37,11 @@ class TsmomConfig:
     asset_vol_target_ann: float
     portfolio_vol_target_ann: float
     no_trade_band: float
+    vote_threshold: float = 0.50
+    market_filter_h: int = 0
+    market_off_scale: float = 0.0
+    drawdown_stop: float = 0.0
+    cooldown_h: int = 0
 
 
 @dataclass(frozen=True)
@@ -46,6 +51,11 @@ class RunConfig:
     asset_vol_targets_ann: tuple[float, ...] = (0.30, 0.40)
     portfolio_vol_targets_ann: tuple[float, ...] = (0.10, 0.15)
     no_trade_bands: tuple[float, ...] = (0.05, 0.10)
+    vote_thresholds: tuple[float, ...] = (0.50,)
+    market_filters_h: tuple[int, ...] = (0,)
+    drawdown_stops: tuple[float, ...] = (0.0,)
+    cooldowns_h: tuple[int, ...] = (0,)
+    preset_configs: tuple[TsmomConfig, ...] | None = None
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     train_start: str = "2017-08-01"
     train_end: str = "2024-06-30 23:59:59"
@@ -83,7 +93,34 @@ def config_for_preset(
     }
     if preset == "core":
         return RunConfig(**base)
+    if preset == "defensive_regime":
+        return RunConfig(
+            preset_configs=defensive_regime_configs(),
+            **base,
+        )
     raise ValueError(f"unknown preset: {preset}")
+
+
+def defensive_regime_configs() -> tuple[TsmomConfig, ...]:
+    base = TsmomConfig(0.35, 0.12, 0.10)
+    return (
+        base,
+        TsmomConfig(0.35, 0.08, 0.10),
+        TsmomConfig(0.25, 0.12, 0.10),
+        TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.625),
+        TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.75),
+        TsmomConfig(0.35, 0.12, 0.25),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, market_off_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=1440, market_off_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=2160, market_off_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, drawdown_stop=0.20, cooldown_h=480),
+        TsmomConfig(0.35, 0.12, 0.10, drawdown_stop=0.15, cooldown_h=336),
+        TsmomConfig(0.35, 0.08, 0.10, vote_threshold=0.625),
+        TsmomConfig(0.35, 0.08, 0.10, market_filter_h=720, market_off_scale=0.50),
+        TsmomConfig(0.35, 0.08, 0.10, drawdown_stop=0.20, cooldown_h=480),
+        TsmomConfig(0.35, 0.12, 0.25, vote_threshold=0.625),
+        TsmomConfig(0.25, 0.08, 0.10, vote_threshold=0.625),
+    )
 
 
 def price_frame(closes: pd.DataFrame) -> pd.DataFrame:
@@ -120,6 +157,16 @@ def target_weights_from_votes(vote_row: pd.Series, asset_scale_row: pd.Series, t
     if gross <= 0.0 or not math.isfinite(gross):
         return {sym: 0.0 for sym in vote_row.index}
     return {sym: raw[sym] / gross for sym in vote_row.index}
+
+
+def market_regime_series(closes: pd.DataFrame, market_filter_h: int) -> pd.Series:
+    if market_filter_h <= 0:
+        return pd.Series([True] * len(closes), index=closes.index)
+    prices = price_frame(closes)
+    market = prices.mean(axis=1)
+    trend = market > market.rolling(market_filter_h, min_periods=market_filter_h).mean()
+    momentum = (market / market.shift(market_filter_h) - 1.0) > 0.0
+    return (trend & momentum).fillna(False)
 
 
 def portfolio_exposure_scale(past_returns: list[float], vol_target_ann: float, lookback_h: int = 720) -> float:
@@ -211,6 +258,7 @@ def simulate(
     symbols = [c for c in closes.columns if c != "dt"]
     votes = vote_fraction_matrix(closes, lookbacks_h)
     asset_scales = asset_vol_scale_matrix(closes, cfg.asset_vol_target_ann)
+    market_allowed = market_regime_series(closes, cfg.market_filter_h)
     returns = closes[symbols].pct_change().shift(-1)
     weights = {sym: 0.0 for sym in symbols}
     rows = []
@@ -219,15 +267,37 @@ def simulate(
     past_returns: list[float] = []
     exposure_scale_sum = 0.0
     exposure_scale_count = 0
+    equity = 1.0
+    peak_equity = 1.0
+    risk_off_until = -1
+    risk_off_event_count = 0
+    market_filter_on_count = 0
+    market_filter_off_count = 0
 
     for idx in range(len(closes) - 1):
         ts = pd.Timestamp(closes["dt"].iloc[idx])
-        if idx % 24 == 0:
-            base = target_weights_from_votes(votes.iloc[idx], asset_scales.iloc[idx])
+        current_drawdown = 1.0 - equity / peak_equity if peak_equity > 0.0 else 0.0
+        if cfg.drawdown_stop > 0.0 and idx >= risk_off_until and current_drawdown >= cfg.drawdown_stop:
+            risk_off_until = idx + max(1, int(cfg.cooldown_h))
+            risk_off_event_count += 1
+        forced_exit = idx < risk_off_until and sum(abs(v) for v in weights.values()) > 0.0
+        if idx % 24 == 0 or forced_exit:
+            allow_market = bool(market_allowed.iloc[idx])
+            if idx % 24 == 0:
+                market_filter_on_count += int(allow_market)
+                market_filter_off_count += int(not allow_market)
+            risk_off = idx < risk_off_until
+            if risk_off:
+                base = {sym: 0.0 for sym in symbols}
+            else:
+                base = target_weights_from_votes(votes.iloc[idx], asset_scales.iloc[idx], threshold=cfg.vote_threshold)
+                if not allow_market:
+                    base = {sym: weight * max(0.0, min(1.0, cfg.market_off_scale)) for sym, weight in base.items()}
             scale = portfolio_exposure_scale(past_returns, cfg.portfolio_vol_target_ann)
             target = {sym: base[sym] * scale for sym in symbols}
             turnover = sum(abs(target[sym] - weights[sym]) for sym in symbols)
-            if turnover >= cfg.no_trade_band and turnover > 0.0:
+            must_exit = sum(abs(v) for v in target.values()) == 0.0 and sum(abs(v) for v in weights.values()) > 0.0
+            if turnover > 0.0 and (turnover >= cfg.no_trade_band or must_exit or forced_exit):
                 weights = target
                 cost = turnover * cost_bps / 10000.0
                 exposure_scale_sum += scale
@@ -252,6 +322,8 @@ def simulate(
             gross += value
             symbol_returns[sym] += value
         net = gross - cost
+        equity *= 1.0 + net
+        peak_equity = max(peak_equity, equity)
         rows.append(
             {
                 "dt": ts,
@@ -259,6 +331,8 @@ def simulate(
                 "gross_return": gross,
                 "cost": cost,
                 "gross_exposure": sum(abs(v) for v in weights.values()),
+                "market_allowed": bool(market_allowed.iloc[idx]),
+                "risk_off": bool(idx < risk_off_until),
             }
         )
         past_returns.append(net)
@@ -301,6 +375,10 @@ def simulate(
         "avg_gross_exposure": float(ret["gross_exposure"].mean()) if len(ret) else 0.0,
         "avg_portfolio_exposure_scale": float(exposure_scale_sum / exposure_scale_count) if exposure_scale_count else 1.0,
         "rebalance_event_count": int(len(reb)),
+        "risk_off_event_count": int(risk_off_event_count),
+        "risk_off_days": float(ret["risk_off"].resample("1D").max().sum()) if len(ret) else 0.0,
+        "market_filter_on_count": int(market_filter_on_count),
+        "market_filter_off_count": int(market_filter_off_count),
         "yearly": by_year,
         "yearly_positive_count": yearly_positive,
         "symbol_pnl": symbol_pnl,
@@ -420,14 +498,21 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     embargo = utc_ts(cfg.embargo_start)
     closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
     closes_fingerprint = data_fingerprint(closes)
-    grid = [
-        TsmomConfig(asset_vt, portfolio_vt, band)
-        for asset_vt, portfolio_vt, band in itertools.product(
-            cfg.asset_vol_targets_ann,
-            cfg.portfolio_vol_targets_ann,
-            cfg.no_trade_bands,
-        )
-    ]
+    if cfg.preset_configs:
+        grid = list(cfg.preset_configs)
+    else:
+        grid = [
+            TsmomConfig(asset_vt, portfolio_vt, band, threshold, market_filter_h, 0.0, dd_stop, cooldown_h)
+            for asset_vt, portfolio_vt, band, threshold, market_filter_h, dd_stop, cooldown_h in itertools.product(
+                cfg.asset_vol_targets_ann,
+                cfg.portfolio_vol_targets_ann,
+                cfg.no_trade_bands,
+                cfg.vote_thresholds,
+                cfg.market_filters_h,
+                cfg.drawdown_stops,
+                cfg.cooldowns_h,
+            )
+        ]
     n_trials = len(grid)
     prior_trials = max(0, int(cfg.prior_trials))
     effective_trials = n_trials + prior_trials
@@ -607,7 +692,10 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         c20 = row["cost20"]
         v20 = row.get("validation", {}).get("cost20", {}) or {}
         drop_one = row.get("drop_one_lookback", {}) or {}
-        label = "AVT{asset_vol_target_ann}_PVT{portfolio_vol_target_ann}_B{no_trade_band}".format(**cfg)
+        label = (
+            "AVT{asset_vol_target_ann}_PVT{portfolio_vol_target_ann}_B{no_trade_band}"
+            "_VT{vote_threshold}_MF{market_filter_h}_MO{market_off_scale}_DD{drawdown_stop}_CD{cooldown_h}"
+        ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | `{}/{}` | {:.3f} | `{}` |".format(
                 label,
@@ -629,7 +717,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Train-only OHLCV time-series momentum ensemble factory")
-    ap.add_argument("--preset", choices=("core",), default="core")
+    ap.add_argument("--preset", choices=("core", "defensive_regime"), default="core")
     ap.add_argument("--cache-dir", default="data/binance_public_cache")
     ap.add_argument("--train-start", default="2017-08-01")
     ap.add_argument("--train-end", default="2024-06-30 23:59:59")
