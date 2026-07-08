@@ -16,20 +16,27 @@ def accepted_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return [row for row in payload.get("rows", []) if row.get("advance_passed")]
 
 
-def top_pass_config(payload: dict[str, Any]) -> dict[str, Any] | None:
+def row_signature(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "config": row.get("config", {}),
+        "lookbacks_h": row.get("lookbacks_h") or [],
+    }
+
+
+def top_pass_signature(payload: dict[str, Any]) -> dict[str, Any] | None:
     rows = accepted_rows(payload)
     if not rows:
         return None
-    return rows[0].get("config", {})
+    return row_signature(rows[0])
 
 
-def same_config(left: dict[str, Any], right: dict[str, Any]) -> bool:
+def same_signature(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
 
 
-def find_config_row(payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any] | None:
+def find_signature_row(payload: dict[str, Any], signature: dict[str, Any]) -> dict[str, Any] | None:
     for row in payload.get("rows", []):
-        if same_config(row.get("config", {}), config):
+        if same_signature(row_signature(row), signature):
             return row
     return None
 
@@ -52,9 +59,9 @@ def artifact_label(path: Path, payload: dict[str, Any]) -> str:
     return f"{path.name}:{start}->{end}"
 
 
-def artifact_summary(path: Path, target_config: dict[str, Any]) -> dict[str, Any]:
+def artifact_summary(path: Path, target_signature: dict[str, Any]) -> dict[str, Any]:
     payload = read_json(path)
-    row = find_config_row(payload, target_config)
+    row = find_signature_row(payload, target_signature)
     summary = payload.get("summary", {}) or {}
     data = payload.get("data", {}) or {}
     selection_validation = payload.get("selection_validation", {}) or {}
@@ -114,20 +121,20 @@ def build_report(paths: list[Path], target_artifact: Path | None = None) -> dict
     payloads = [(path, read_json(path)) for path in paths]
     if target_artifact is not None:
         target_payload = read_json(target_artifact)
-        target_config = top_pass_config(target_payload)
+        target_signature = top_pass_signature(target_payload)
         source = str(target_artifact)
     else:
-        target_config = None
+        target_signature = None
         source = None
         for path, payload in payloads:
-            target_config = top_pass_config(payload)
-            if target_config:
+            target_signature = top_pass_signature(payload)
+            if target_signature:
                 source = str(path)
                 break
-    if not target_config:
+    if not target_signature:
         raise ValueError("could not find an accepted train-only config to audit")
 
-    rows = [artifact_summary(path, target_config) for path, _payload in payloads]
+    rows = [artifact_summary(path, target_signature) for path, _payload in payloads]
     found_rows = [row for row in rows if row["target_config_found"]]
     pass_rows = [row for row in found_rows if row["target_advance_passed"]]
     safety_clear = not any(row["holdout_authorized"] or row["paper_trading_authorized"] or row["live_trading_authorized"] for row in rows)
@@ -163,7 +170,9 @@ def build_report(paths: list[Path], target_artifact: Path | None = None) -> dict
         "kind": "tsmom_train_only_candidate_robustness_v1",
         "decision": decision,
         "target_config_source": source,
-        "target_config": target_config,
+        "target_config": target_signature["config"],
+        "target_lookbacks_h": target_signature["lookbacks_h"],
+        "target_signature": target_signature,
         "artifact_count": len(paths),
         "target_config_found_windows": found_windows,
         "target_config_pass_windows": pass_windows,
@@ -200,6 +209,7 @@ def format_text(report: dict[str, Any]) -> str:
         f"live:{report['live_trading_authorized']}",
         f"target_config_source={report.get('target_config_source')}",
         f"target_config={json.dumps(report.get('target_config'), sort_keys=True)}",
+        f"target_lookbacks_h={report.get('target_lookbacks_h')}",
         "summary="
         f"artifacts:{report['artifact_count']} "
         f"found:{report['target_config_found_windows']} "

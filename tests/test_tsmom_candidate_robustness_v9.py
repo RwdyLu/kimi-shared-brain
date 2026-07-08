@@ -15,10 +15,19 @@ robustness_mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(robustness_mod)
 
 
-def row(config: dict, passed: bool, val20: float, val40: float, dd20: float = 0.12, ret40: float = 0.10) -> dict:
+def row(
+    config: dict,
+    passed: bool,
+    val20: float,
+    val40: float,
+    dd20: float = 0.12,
+    ret40: float = 0.10,
+    lookbacks_h: list[int] | None = None,
+) -> dict:
     return {
         "advance_passed": passed,
         "config": config,
+        "lookbacks_h": lookbacks_h or [336, 720, 1440, 2160],
         "selection": {
             "cost20": {
                 "sharpe": 1.8,
@@ -85,6 +94,7 @@ def test_build_report_marks_cross_window_candidate_promising(tmp_path) -> None:
     assert report["target_config_found_windows"] == 4
     assert report["target_config_pass_windows"] == 3
     assert report["target_config_pass_fraction"] == 0.75
+    assert report["target_lookbacks_h"] == [336, 720, 1440, 2160]
     assert report["validation_sharpe20_min_pass_windows"] == 1.1
     assert report["holdout_authorized"] is False
     assert report["paper_trading_authorized"] is False
@@ -109,3 +119,18 @@ def test_build_report_blocks_single_window_promotion(tmp_path) -> None:
     assert report["checks"]["target_config_passed_at_least_3_windows"] is False
     assert "paper:False live:False" in text
     assert "passed:1" in text
+
+
+def test_build_report_does_not_match_same_config_with_different_lookbacks(tmp_path) -> None:
+    config = {"market_filter_h": 336, "portfolio_vol_target_ann": 0.12, "bear_mode": "short_weak"}
+    a = tmp_path / "a.json"
+    b = tmp_path / "b.json"
+    write_artifact(a, config, [row(config, True, 1.3, 0.9, lookbacks_h=[336, 720, 1440, 2160])])
+    write_artifact(b, config, [row(config, True, 1.5, 1.0, lookbacks_h=[240, 336, 720, 1440])])
+
+    report = robustness_mod.build_report([a, b], target_artifact=a)
+
+    assert report["target_config_found_windows"] == 1
+    assert report["target_config_pass_windows"] == 1
+    assert report["robustness_passed"] is False
+    assert report["windows"][1]["target_config_found"] is False
