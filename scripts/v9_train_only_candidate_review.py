@@ -23,25 +23,55 @@ def metric_view(row: dict[str, Any]) -> dict[str, Any]:
     val20 = validation.get("cost20") or {}
     val40 = validation.get("cost40") or {}
     bench = sel20.get("equal_weight_benchmark") or {}
+    drop_one = row.get("drop_one_lookback") or {}
     return {
         "config": row.get("config", {}),
         "selection": {
             "sharpe20": sel20.get("sharpe"),
             "sharpe40": sel40.get("sharpe"),
+            "total_return40": sel40.get("total_return"),
+            "max_drawdown40": sel40.get("max_drawdown"),
             "total_return20": sel20.get("total_return"),
             "max_drawdown20": sel20.get("max_drawdown"),
             "bootstrap_30d_sharpe_p5": sel20.get("bootstrap_30d_sharpe_p5"),
             "bootstrap_30d_sharpe_p5_confirm": sel20.get("bootstrap_30d_sharpe_p5_confirm"),
             "top_positive_symbol_share": sel20.get("top_positive_symbol_share"),
+            "positive_symbol_count": sel20.get("positive_symbol_count"),
+            "symbol_count": sel20.get("symbol_count"),
+            "positive_active_yearly_bucket_count": sel20.get("positive_active_yearly_bucket_count"),
+            "active_yearly_bucket_count": sel20.get("active_yearly_bucket_count"),
+            "daily_turnover": sel20.get("daily_turnover"),
             "benchmark_sharpe_excess": bench.get("sharpe_excess"),
             "drawdown_ratio": bench.get("drawdown_ratio"),
         },
         "validation": {
             "sharpe20": val20.get("sharpe"),
             "sharpe40": val40.get("sharpe"),
+            "total_return40": val40.get("total_return"),
+            "max_drawdown40": val40.get("max_drawdown"),
             "total_return20": val20.get("total_return"),
             "max_drawdown20": val20.get("max_drawdown"),
+            "positive_symbol_count": val20.get("positive_symbol_count"),
+            "symbol_count": val20.get("symbol_count"),
+            "positive_active_yearly_bucket_count": val20.get("positive_active_yearly_bucket_count"),
+            "active_yearly_bucket_count": val20.get("active_yearly_bucket_count"),
         },
+        "drop_one_lookback": {
+            "passed": drop_one.get("passed"),
+            "threshold_sharpe20": drop_one.get("threshold_sharpe20"),
+            "rows": [
+                {
+                    "dropped_lookback_h": r.get("dropped_lookback_h"),
+                    "sharpe20": r.get("sharpe20"),
+                    "total_return20": r.get("total_return20"),
+                    "max_drawdown20": r.get("max_drawdown20"),
+                    "passed": r.get("passed"),
+                }
+                for r in drop_one.get("rows", [])
+            ],
+        }
+        if drop_one
+        else {},
         "checks": row.get("advance_checks", {}),
     }
 
@@ -51,6 +81,7 @@ def build_review(path: Path) -> dict[str, Any]:
     summary = payload.get("summary", {}) or {}
     rows = accepted_rows(payload)
     top = metric_view(rows[0]) if rows else None
+    all_passes = [metric_view(row) for row in rows]
     return {
         "artifact": str(path),
         "kind": payload.get("kind"),
@@ -64,6 +95,7 @@ def build_review(path: Path) -> dict[str, Any]:
         "data": payload.get("data", {}),
         "selection_validation": payload.get("selection_validation", {}),
         "top_pass": top,
+        "all_passes": all_passes,
     }
 
 
@@ -75,8 +107,10 @@ def fmt(value: Any, digits: int = 3) -> str:
 
 def format_text(review: dict[str, Any]) -> str:
     top = review.get("top_pass") or {}
+    all_passes = review.get("all_passes") or []
     selection = top.get("selection") or {}
     validation = top.get("validation") or {}
+    drop_one = top.get("drop_one_lookback") or {}
     config = top.get("config") or {}
     data = review.get("data") or {}
     sv = review.get("selection_validation") or {}
@@ -107,15 +141,38 @@ def format_text(review: dict[str, Any]) -> str:
                 f"top_config={json.dumps(config, sort_keys=True)}",
                 "selection="
                 f"sharpe20:{fmt(selection.get('sharpe20'))} "
+                f"sharpe40:{fmt(selection.get('sharpe40'))} "
                 f"dd20:{fmt(selection.get('max_drawdown20'))} "
+                f"dd40:{fmt(selection.get('max_drawdown40'))} "
+                f"return20:{fmt(selection.get('total_return20'))} "
                 f"boot:{fmt(selection.get('bootstrap_30d_sharpe_p5'))} "
-                f"confirm:{fmt(selection.get('bootstrap_30d_sharpe_p5_confirm'))}",
+                f"confirm:{fmt(selection.get('bootstrap_30d_sharpe_p5_confirm'))} "
+                f"active_years:{fmt(selection.get('positive_active_yearly_bucket_count'), 0)}/{fmt(selection.get('active_yearly_bucket_count'), 0)} "
+                f"symbols:{fmt(selection.get('positive_symbol_count'), 0)}/{fmt(selection.get('symbol_count'), 0)} "
+                f"turnover:{fmt(selection.get('daily_turnover'))}",
                 "validation="
                 f"sharpe20:{fmt(validation.get('sharpe20'))} "
+                f"sharpe40:{fmt(validation.get('sharpe40'))} "
                 f"dd20:{fmt(validation.get('max_drawdown20'))} "
-                f"return20:{fmt(validation.get('total_return20'))}",
+                f"dd40:{fmt(validation.get('max_drawdown40'))} "
+                f"return20:{fmt(validation.get('total_return20'))} "
+                f"active_years:{fmt(validation.get('positive_active_yearly_bucket_count'), 0)}/{fmt(validation.get('active_yearly_bucket_count'), 0)} "
+                f"symbols:{fmt(validation.get('positive_symbol_count'), 0)}/{fmt(validation.get('symbol_count'), 0)}",
             ]
         )
+        if drop_one:
+            rows = drop_one.get("rows") or []
+            compact = ",".join(
+                f"{r.get('dropped_lookback_h')}h:{fmt(r.get('sharpe20'))}:{r.get('passed')}" for r in rows
+            )
+            lines.append(
+                "drop_one="
+                f"passed:{drop_one.get('passed')} "
+                f"threshold:{fmt(drop_one.get('threshold_sharpe20'))} "
+                f"rows:{compact}"
+            )
+        if all_passes:
+            lines.append(f"all_pass_count={len(all_passes)}")
     return "\n".join(lines)
 
 
