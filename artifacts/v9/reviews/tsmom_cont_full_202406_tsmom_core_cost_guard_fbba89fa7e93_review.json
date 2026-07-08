@@ -1,0 +1,44 @@
+{
+  "accepted_train_only": false,
+  "all_passes": [],
+  "artifact": "artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_core_cost_guard_fbba89fa7e93.json",
+  "data": {
+    "fingerprint": "5a8a75f4d6bc13697f1cf6e1c0120407939a5f01",
+    "first_dt": "2020-08-11T06:00:00+00:00",
+    "last_dt": "2024-06-30T23:00:00+00:00",
+    "rows": 31127,
+    "symbols": [
+      "ADAUSDT",
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ]
+  },
+  "decision": "train_only_no_candidate",
+  "holdout_authorized": false,
+  "kind": "tsmom_factory_v1_train_only_grid",
+  "live_trading_authorized": false,
+  "paper_trading_authorized": false,
+  "pass_count": 0,
+  "rows": 14,
+  "selection_validation": {
+    "breadth_min_symbols": 4,
+    "drop_one_lookback_required": true,
+    "effective_trials": 11780,
+    "enabled": true,
+    "lookbacks_h": [
+      336,
+      720,
+      1440,
+      2160
+    ],
+    "n_configs_tested": 14,
+    "note": "All selection and validation data remains before embargo_start.",
+    "prior_trials": 11766,
+    "selection_bootstrap_p5_min": 0.4535572645225542,
+    "selection_frac": 0.6,
+    "validation_sharpe20_min": 1.0071145290451082
+  },
+  "top_pass": null
+}
