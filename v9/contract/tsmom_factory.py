@@ -390,7 +390,7 @@ def drop_one_lookback_summary(
     }
 
 
-def split_selection_validation(closes: pd.DataFrame, cfg: RunConfig, selection_frac: float = 0.75) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+def split_selection_validation(closes: pd.DataFrame, cfg: RunConfig, selection_frac: float = 0.60) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     if not 0.50 <= selection_frac <= 0.90:
         raise ValueError("selection_frac must be between 0.50 and 0.90")
     split_idx = max(1, min(len(closes) - 2, int(len(closes) * selection_frac)))
@@ -511,7 +511,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     pass_rows = [row for row in rows if row["advance_passed"]]
     selection_validation = {
         "enabled": True,
-        "selection_frac": 0.75,
+        "selection_frac": 0.60,
         "n_configs_tested": n_trials,
         "prior_trials": prior_trials,
         "effective_trials": effective_trials,
