@@ -60,6 +60,7 @@ DEFAULT_TRAIN_START = "2017-08-01"
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
+EVALUATION_VERSION_BY_PRESET = {"tsmom_trend_ensemble": "selection_validation_v3_tsmom_split60"}
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,10 @@ def task_fingerprint(
         sort_keys=True,
     )
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def evaluation_version_for_preset(preset: str) -> str:
+    return EVALUATION_VERSION_BY_PRESET.get(preset, EVALUATION_VERSION)
 
 
 def legacy_fingerprints_from_results(task_results: list[dict[str, Any]]) -> set[str]:
@@ -303,7 +308,14 @@ def proposed_search_space(
         if utc_ts(train_end) >= embargo:
             raise ValueError(f"train window leaks into embargo: {train_end} >= {embargo_start}")
         for preset in preset_order:
-            fingerprint = task_fingerprint(preset, train_start, train_end, embargo_start, bootstrap_iterations)
+            fingerprint = task_fingerprint(
+                preset,
+                train_start,
+                train_end,
+                embargo_start,
+                bootstrap_iterations,
+                evaluation_version=evaluation_version_for_preset(preset),
+            )
             short = fingerprint[:12]
             module = MODULE_BY_PRESET.get(preset, DEFAULT_TRAIN_MODULE)
             cli_preset = CLI_PRESET_BY_PRESET.get(preset)
