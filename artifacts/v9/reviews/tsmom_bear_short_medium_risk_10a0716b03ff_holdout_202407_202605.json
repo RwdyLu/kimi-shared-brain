@@ -1,0 +1,144 @@
+{
+  "checks": {
+    "holdout_20bps_drawdown_le_25pct": true,
+    "holdout_20bps_return_gt_0": false,
+    "holdout_20bps_sharpe_ge_0_7": false,
+    "holdout_40bps_return_gt_0": false,
+    "holdout_40bps_sharpe_gt_0": false
+  },
+  "costs": {
+    "20bps": {
+      "avg_gross_exposure": 0.265727717103868,
+      "bootstrap_30d_sharpe_p5": -1.4277082518115052,
+      "daily_turnover": 0.11639355546941926,
+      "max_drawdown": 0.21421795841188096,
+      "positive_symbol_count": 5,
+      "rebalance_event_count": 189,
+      "sharpe": -0.05546957460620205,
+      "symbol_count": 8,
+      "symbol_pnl": {
+        "ADAUSDT": 119.62610515728498,
+        "AVAXUSDT": -244.2393775390125,
+        "BNBUSDT": -81.77124391418468,
+        "BTCUSDT": 682.7333015777851,
+        "ETHUSDT": 469.43851705387425,
+        "LINKUSDT": -9.75485418822901,
+        "SOLUSDT": 462.68453093381316,
+        "XRPUSDT": 56.76920719409083
+      },
+      "top_positive_symbol_share": 0.3811487330859924,
+      "total_return": -0.04466467462502144
+    },
+    "40bps": {
+      "avg_gross_exposure": 0.26423731822654845,
+      "bootstrap_30d_sharpe_p5": -1.983635190711971,
+      "daily_turnover": 0.11536969953283313,
+      "max_drawdown": 0.2742670109495603,
+      "positive_symbol_count": 4,
+      "rebalance_event_count": 190,
+      "sharpe": -0.6112606688433438,
+      "symbol_count": 8,
+      "symbol_pnl": {
+        "ADAUSDT": 156.68002815477627,
+        "AVAXUSDT": -308.4929528611723,
+        "BNBUSDT": -116.35760095466617,
+        "BTCUSDT": 696.4200401744328,
+        "ETHUSDT": 443.29111791968177,
+        "LINKUSDT": -73.67357932237337,
+        "SOLUSDT": 459.3006408263204,
+        "XRPUSDT": -4.037489616101925
+      },
+      "top_positive_symbol_share": 0.39666416932326426,
+      "total_return": -0.20169536710020275
+    },
+    "60bps": {
+      "avg_gross_exposure": 0.2617171764899682,
+      "bootstrap_30d_sharpe_p5": -2.5439876051462127,
+      "daily_turnover": 0.11443003679838484,
+      "max_drawdown": 0.3644720374364196,
+      "positive_symbol_count": 5,
+      "rebalance_event_count": 189,
+      "sharpe": -1.0801482246906644,
+      "symbol_count": 8,
+      "symbol_pnl": {
+        "ADAUSDT": 154.52674588607314,
+        "AVAXUSDT": -333.99864946258356,
+        "BNBUSDT": -74.59123896509317,
+        "BTCUSDT": 672.7322640610545,
+        "ETHUSDT": 446.5986731505283,
+        "LINKUSDT": -47.809664715651664,
+        "SOLUSDT": 446.8143535455454,
+        "XRPUSDT": 62.37256665671018
+      },
+      "top_positive_symbol_share": 0.3772941309578107,
+      "total_return": -0.31244839862224105
+    },
+    "80bps": {
+      "avg_gross_exposure": 0.25727520113738356,
+      "bootstrap_30d_sharpe_p5": -3.166403372961064,
+      "daily_turnover": 0.11384390786535473,
+      "max_drawdown": 0.47000841831931456,
+      "positive_symbol_count": 4,
+      "rebalance_event_count": 191,
+      "sharpe": -1.6728908316101252,
+      "symbol_count": 8,
+      "symbol_pnl": {
+        "ADAUSDT": -13.074561651524592,
+        "AVAXUSDT": -316.4425658977696,
+        "BNBUSDT": -114.08433091188652,
+        "BTCUSDT": 645.2981505205614,
+        "ETHUSDT": 406.20588910279724,
+        "LINKUSDT": -79.78275609380341,
+        "SOLUSDT": 437.5130998380151,
+        "XRPUSDT": 39.36051307738882
+      },
+      "top_positive_symbol_share": 0.4222111920104743,
+      "total_return": -0.43070447820012514
+    }
+  },
+  "decision": "holdout_failed_do_not_paper_trade",
+  "holdout_authorized": false,
+  "holdout_data": {
+    "first_dt": "2024-07-01T00:00:00+00:00",
+    "last_dt": "2026-05-31T23:00:00+00:00",
+    "rows": 16800,
+    "symbols": [
+      "ADAUSDT",
+      "AVAXUSDT",
+      "BNBUSDT",
+      "BTCUSDT",
+      "ETHUSDT",
+      "LINKUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ]
+  },
+  "holdout_requested": {
+    "end": "2026-05-31 23:59:59",
+    "start": "2024-07-01"
+  },
+  "kind": "tsmom_holdout_audit_v1",
+  "live_trading_authorized": false,
+  "note": "Read-only holdout audit. It does not authorize paper trading or live trading.",
+  "paper_trading_authorized": false,
+  "source_artifact": "artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_bear_short_medium_risk_10a0716b03ff.json",
+  "target_config": {
+    "asset_vol_target_ann": 0.25,
+    "bear_mode": "short_weak",
+    "bear_short_scale": 0.33,
+    "cooldown_h": 0,
+    "drawdown_stop": 0.0,
+    "market_filter_h": 336,
+    "market_off_scale": 0.0,
+    "no_trade_band": 0.15,
+    "portfolio_vol_target_ann": 0.08,
+    "short_vote_threshold": 0.375,
+    "vote_threshold": 0.5
+  },
+  "target_lookbacks_h": [
+    336,
+    720,
+    1440,
+    2160
+  ]
+}
