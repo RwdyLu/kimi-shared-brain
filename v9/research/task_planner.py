@@ -14,17 +14,20 @@ from v9.research.candidate_dedupe import dedupe_candidates
 
 DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
 MODULE_BY_PRESET = {
+    "tsmom_bear_short_medium": "v9.contract.tsmom_factory",
     "tsmom_bear_short_regime": "v9.contract.tsmom_factory",
     "tsmom_defensive_regime": "v9.contract.tsmom_factory",
     "tsmom_trend_ensemble": "v9.contract.tsmom_factory",
 }
 CLI_PRESET_BY_PRESET = {
+    "tsmom_bear_short_medium": "bear_short_medium",
     "tsmom_bear_short_regime": "bear_short_regime",
     "tsmom_defensive_regime": "defensive_regime",
     "tsmom_trend_ensemble": "core",
 }
 
 FOCUS_PRESETS = (
+    "tsmom_bear_short_medium",
     "tsmom_bear_short_regime",
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
@@ -33,6 +36,7 @@ FOCUS_PRESETS = (
 )
 
 PRESETS = (
+    "tsmom_bear_short_medium",
     "tsmom_bear_short_regime",
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
@@ -77,6 +81,7 @@ DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
 EVALUATION_VERSION_BY_PRESET = {
+    "tsmom_bear_short_medium": "selection_validation_v1_tsmom_bear_short_medium",
     "tsmom_bear_short_regime": "selection_validation_v1_tsmom_bear_short_regime",
     "tsmom_defensive_regime": "selection_validation_v2_tsmom_defensive_active_years",
     "tsmom_trend_ensemble": "selection_validation_v4_tsmom_active_years",

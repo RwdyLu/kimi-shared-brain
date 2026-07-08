@@ -106,6 +106,12 @@ def config_for_preset(
             preset_configs=bear_short_regime_configs(),
             **base,
         )
+    if preset == "bear_short_medium":
+        return RunConfig(
+            lookbacks_h=(336, 720, 1440, 2160),
+            preset_configs=bear_short_medium_configs(),
+            **base,
+        )
     raise ValueError(f"unknown preset: {preset}")
 
 
@@ -145,6 +151,19 @@ def bear_short_regime_configs() -> tuple[TsmomConfig, ...]:
         TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.625, market_filter_h=1440, bear_mode="short_weak", bear_short_scale=0.50),
         TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, drawdown_stop=0.20, cooldown_h=480, bear_mode="short_weak", bear_short_scale=0.50),
         TsmomConfig(0.35, 0.12, 0.10, market_filter_h=1440, drawdown_stop=0.20, cooldown_h=480, bear_mode="short_weak", bear_short_scale=0.50),
+    )
+
+
+def bear_short_medium_configs() -> tuple[TsmomConfig, ...]:
+    return (
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=1.00),
+        TsmomConfig(0.35, 0.08, 0.10, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.08, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.625, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=336, drawdown_stop=0.20, cooldown_h=336, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, drawdown_stop=0.20, cooldown_h=336, bear_mode="short_weak", bear_short_scale=0.50),
     )
 
 
@@ -777,7 +796,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Train-only OHLCV time-series momentum ensemble factory")
-    ap.add_argument("--preset", choices=("core", "defensive_regime", "bear_short_regime"), default="core")
+    ap.add_argument("--preset", choices=("core", "defensive_regime", "bear_short_regime", "bear_short_medium"), default="core")
     ap.add_argument("--cache-dir", default="data/binance_public_cache")
     ap.add_argument("--train-start", default="2017-08-01")
     ap.add_argument("--train-end", default="2024-06-30 23:59:59")
