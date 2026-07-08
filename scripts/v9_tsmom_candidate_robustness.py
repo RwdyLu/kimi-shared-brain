@@ -141,9 +141,11 @@ def build_report(paths: list[Path], target_artifact: Path | None = None) -> dict
     cost40_positive_windows = sum(
         1 for row in pass_rows if isinstance(row.get("validation_return40"), (int, float)) and float(row["validation_return40"]) > 0.0
     )
+    pass_fraction = pass_windows / found_windows if found_windows > 0 else 0.0
     checks = {
-        "target_config_seen_in_at_least_2_windows": found_windows >= 2,
-        "target_config_passed_at_least_2_windows": pass_windows >= 2,
+        "target_config_seen_in_at_least_3_windows": found_windows >= 3,
+        "target_config_passed_at_least_3_windows": pass_windows >= 3,
+        "target_config_pass_fraction_ge_75pct": pass_fraction >= 0.75,
         "all_pass_windows_drop_one_stable": bool(pass_rows) and drop_one_pass_windows == pass_windows,
         "all_pass_windows_validation_40bps_positive": bool(pass_rows) and cost40_positive_windows == pass_windows,
         "min_validation_sharpe20_ge_1_0": validation_sharpe20_min is not None and validation_sharpe20_min >= 1.0,
@@ -165,6 +167,7 @@ def build_report(paths: list[Path], target_artifact: Path | None = None) -> dict
         "artifact_count": len(paths),
         "target_config_found_windows": found_windows,
         "target_config_pass_windows": pass_windows,
+        "target_config_pass_fraction": pass_fraction,
         "drop_one_pass_windows": drop_one_pass_windows,
         "cost40_positive_pass_windows": cost40_positive_windows,
         "validation_sharpe20_min_pass_windows": validation_sharpe20_min,
@@ -201,6 +204,7 @@ def format_text(report: dict[str, Any]) -> str:
         f"artifacts:{report['artifact_count']} "
         f"found:{report['target_config_found_windows']} "
         f"passed:{report['target_config_pass_windows']} "
+        f"pass_frac:{fmt(report.get('target_config_pass_fraction'))} "
         f"drop_one:{report['drop_one_pass_windows']} "
         f"cost40_positive:{report['cost40_positive_pass_windows']}",
         "pass_window_minima="

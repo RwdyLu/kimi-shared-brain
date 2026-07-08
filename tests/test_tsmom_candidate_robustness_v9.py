@@ -70,16 +70,21 @@ def test_build_report_marks_cross_window_candidate_promising(tmp_path) -> None:
     config = {"market_filter_h": 336, "portfolio_vol_target_ann": 0.12, "bear_mode": "short_weak"}
     a = tmp_path / "a.json"
     b = tmp_path / "b.json"
+    c = tmp_path / "c.json"
+    d = tmp_path / "d.json"
     write_artifact(a, config, [row(config, True, 1.3, 0.9)])
     write_artifact(b, config, [row(config, True, 1.1, 0.7)])
+    write_artifact(c, config, [row(config, True, 1.2, 0.8)])
+    write_artifact(d, config, [row(config, False, 1.0, 0.5)])
 
-    report = robustness_mod.build_report([a, b], target_artifact=a)
+    report = robustness_mod.build_report([a, b, c, d], target_artifact=a)
 
     assert report["kind"] == "tsmom_train_only_candidate_robustness_v1"
     assert report["decision"] == "promising_train_only_robustness_manual_review_required"
     assert report["robustness_passed"] is True
-    assert report["target_config_found_windows"] == 2
-    assert report["target_config_pass_windows"] == 2
+    assert report["target_config_found_windows"] == 4
+    assert report["target_config_pass_windows"] == 3
+    assert report["target_config_pass_fraction"] == 0.75
     assert report["validation_sharpe20_min_pass_windows"] == 1.1
     assert report["holdout_authorized"] is False
     assert report["paper_trading_authorized"] is False
@@ -101,6 +106,6 @@ def test_build_report_blocks_single_window_promotion(tmp_path) -> None:
     assert report["robustness_passed"] is False
     assert report["target_config_found_windows"] == 2
     assert report["target_config_pass_windows"] == 1
-    assert report["checks"]["target_config_passed_at_least_2_windows"] is False
+    assert report["checks"]["target_config_passed_at_least_3_windows"] is False
     assert "paper:False live:False" in text
     assert "passed:1" in text
