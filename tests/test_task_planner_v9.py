@@ -35,14 +35,14 @@ def test_task_planner_is_deterministic_and_does_not_repeat_explored() -> None:
 def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
     for task in proposed_search_space()[:20]:
         cmd = " ".join(task.command())
-        assert "v9.contract.xsec_ohlcv_factory" in cmd
+        assert "v9.contract.xsec_ohlcv_factory" in cmd or "v9.contract.tsmom_factory" in cmd
         assert "holdout" not in cmd
         assert "paper" not in cmd
         assert "live" not in cmd
         assert "--embargo-start 2024-07-01" in cmd
         assert task.train_end < "2024-07"
     presets = {task.preset for task in proposed_search_space()}
-    assert {"hq_cadence_tranche", "hq_dd_long", "hq_dd_plateau", "hq_fast_rebal", "hq_breadth_wide"}.issubset(presets)
+    assert {"tsmom_trend_ensemble", "hq_cadence_tranche", "hq_dd_long", "hq_dd_plateau", "hq_fast_rebal", "hq_breadth_wide"}.issubset(presets)
 
 
 def test_explored_jsonl_round_trip(tmp_path) -> None:
@@ -153,10 +153,13 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
     assert candidate_quality(str(out)) == pytest.approx(0.30 + 0.25 * 1.0)
 
 
-def test_focus_cadence_tranche_preset_takes_priority() -> None:
-    first = propose_tasks(set(), 2)
-    assert first[0].preset == "hq_cadence_tranche"
-    assert first[1].preset == "hq_dd_plateau"
+def test_focus_train_only_presets_take_priority() -> None:
+    first = propose_tasks(set(), 3)
+    assert first[0].preset == "tsmom_trend_ensemble"
+    assert first[0].module == "v9.contract.tsmom_factory"
+    assert first[0].cli_preset == "core"
+    assert first[1].preset == "hq_cadence_tranche"
+    assert first[2].preset == "hq_dd_plateau"
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -190,7 +193,8 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         }
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
-    first = propose_tasks(set(), 3, task_results=task_results, candidates=candidates)
-    assert first[0].preset == "hq_cadence_tranche"
-    assert first[1].preset == "hq_dd_plateau"
-    assert first[2].preset == "defensive_drawdown"
+    first = propose_tasks(set(), 4, task_results=task_results, candidates=candidates)
+    assert first[0].preset == "tsmom_trend_ensemble"
+    assert first[1].preset == "hq_cadence_tranche"
+    assert first[2].preset == "hq_dd_plateau"
+    assert first[3].preset == "defensive_drawdown"

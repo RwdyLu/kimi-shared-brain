@@ -12,9 +12,14 @@ import pandas as pd
 from v9.research.candidate_dedupe import dedupe_candidates
 
 
-FOCUS_PRESETS = ("hq_cadence_tranche", "hq_dd_plateau")
+DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
+MODULE_BY_PRESET = {"tsmom_trend_ensemble": "v9.contract.tsmom_factory"}
+CLI_PRESET_BY_PRESET = {"tsmom_trend_ensemble": "core"}
+
+FOCUS_PRESETS = ("tsmom_trend_ensemble", "hq_cadence_tranche", "hq_dd_plateau")
 
 PRESETS = (
+    "tsmom_trend_ensemble",
     "hq_cadence_tranche",
     "hq_dd_plateau",
     "hq_dd_long",
@@ -70,14 +75,16 @@ class PlannedTask:
     bootstrap_iterations: int = 100
     prior_trials: int = 0
     timeout_sec: int = 3 * 60 * 60
+    module: str = DEFAULT_TRAIN_MODULE
+    cli_preset: str | None = None
 
     def command(self) -> tuple[str, ...]:
         return (
             "python3",
             "-m",
-            "v9.contract.xsec_ohlcv_factory",
+            self.module,
             "--preset",
-            self.preset,
+            self.cli_preset or self.preset,
             "--train-start",
             self.train_start,
             "--train-end",
@@ -298,7 +305,10 @@ def proposed_search_space(
         for preset in preset_order:
             fingerprint = task_fingerprint(preset, train_start, train_end, embargo_start, bootstrap_iterations)
             short = fingerprint[:12]
-            name = f"xsec_ohlcv_cont_{window_label}_{preset}_{short}"
+            module = MODULE_BY_PRESET.get(preset, DEFAULT_TRAIN_MODULE)
+            cli_preset = CLI_PRESET_BY_PRESET.get(preset)
+            family = "tsmom" if module == "v9.contract.tsmom_factory" else "xsec_ohlcv"
+            name = f"{family}_cont_{window_label}_{preset}_{short}"
             output_json = f"artifacts/v9/contract_lab/{name}.json"
             output_md = f"artifacts/v9/contract_lab/{name}.md"
             tasks.append(
@@ -313,6 +323,8 @@ def proposed_search_space(
                     output_md=output_md,
                     bootstrap_iterations=bootstrap_iterations,
                     prior_trials=max(0, int(prior_trials)),
+                    module=module,
+                    cli_preset=cli_preset,
                 )
             )
     return tasks

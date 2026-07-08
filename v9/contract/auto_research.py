@@ -23,7 +23,7 @@ from v9.research.task_planner import (
 )
 
 
-TRAIN_ONLY_MODULE = "v9.contract.xsec_ohlcv_factory"
+TRAIN_ONLY_MODULES = ("v9.contract.xsec_ohlcv_factory", "v9.contract.tsmom_factory")
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 FORBIDDEN_COMMAND_FRAGMENTS = (
@@ -113,8 +113,9 @@ def utc_ts(value: str) -> pd.Timestamp:
 
 
 def validate_train_only_task(task: ResearchTask) -> None:
-    if len(task.command) < 3 or task.command[:3] != ("python3", "-m", TRAIN_ONLY_MODULE):
-        raise ValueError(f"unsafe research task command for {task.name}: only {TRAIN_ONLY_MODULE} is allowed")
+    if len(task.command) < 3 or task.command[:2] != ("python3", "-m") or task.command[2] not in TRAIN_ONLY_MODULES:
+        allowed = ", ".join(TRAIN_ONLY_MODULES)
+        raise ValueError(f"unsafe research task command for {task.name}: only {allowed} are allowed")
 
     command_text = " ".join(task.command).lower()
     for fragment in FORBIDDEN_COMMAND_FRAGMENTS:

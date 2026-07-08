@@ -151,6 +151,32 @@ def test_auto_research_rejects_train_window_on_or_after_embargo(tmp_path, monkey
         raise AssertionError("leaky train window should be rejected")
 
 
+def test_auto_research_accepts_train_only_tsmom_module(tmp_path) -> None:
+    out_json = tmp_path / "tsmom.json"
+    task = ResearchTask(
+        name="tsmom",
+        command=(
+            "python3",
+            "-m",
+            "v9.contract.tsmom_factory",
+            "--preset",
+            "core",
+            "--train-end",
+            "2024-06-30",
+            "--embargo-start",
+            "2024-07-01",
+            "--out-json",
+            str(out_json),
+            "--out-md",
+            str(tmp_path / "tsmom.md"),
+        ),
+        output_json=str(out_json),
+        output_md=str(tmp_path / "tsmom.md"),
+        timeout_sec=1,
+    )
+    auto_research.validate_train_only_task(task)
+
+
 def test_trial_metadata_carries_data_fingerprint() -> None:
     metadata = auto_research.trial_metadata(
         {
