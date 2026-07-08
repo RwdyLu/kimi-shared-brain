@@ -1,0 +1,15 @@
+decision=promising_train_only_robustness_manual_review_required
+robustness_passed=True
+safety=holdout:False paper:False live:False
+target_config_source=artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_bear_short_medium_160c91601782.json
+target_config={"asset_vol_target_ann": 0.35, "bear_mode": "short_weak", "bear_short_scale": 0.5, "cooldown_h": 0, "drawdown_stop": 0.0, "market_filter_h": 336, "market_off_scale": 0.0, "no_trade_band": 0.1, "portfolio_vol_target_ann": 0.12, "short_vote_threshold": 0.375, "vote_threshold": 0.5}
+target_lookbacks_h=[336, 720, 1440, 2160]
+summary=artifacts:5 found:4 passed:3 pass_frac:0.750 drop_one:3 cost40_positive:3
+pass_window_minima=val_sharpe20:1.323 val_sharpe40:0.988 val_dd20_max:0.159 val_ret40_min:0.387
+checks=target_config_seen_in_at_least_3_windows:True,target_config_passed_at_least_3_windows:True,target_config_pass_fraction_ge_75pct:True,all_pass_windows_drop_one_stable:True,all_pass_windows_validation_40bps_positive:True,min_validation_sharpe20_ge_1_0:True,max_validation_drawdown20_le_20pct:True,train_only_safety_flags_clear:True
+windows:
+- tsmom_cont_full_202312_tsmom_bear_short_medium_7a6cc7e68581.json found:True pass:False passes:0/8 sel20:2.186 val20:1.445 val40:1.120 dd20:0.143 ret40:0.433 drop_one:False
+- tsmom_cont_full_202403_tsmom_bear_short_medium_a2c6b45ef66f.json found:True pass:True passes:3/8 sel20:2.060 val20:1.856 val40:1.549 dd20:0.120 ret40:0.693 drop_one:True
+- tsmom_cont_full_202405_tsmom_bear_short_medium_72fedfd6c415.json found:True pass:True passes:2/8 sel20:1.981 val20:1.446 val40:1.115 dd20:0.159 ret40:0.459 drop_one:True
+- tsmom_cont_full_202406_tsmom_bear_short_medium_160c91601782.json found:True pass:True passes:3/8 sel20:1.862 val20:1.323 val40:0.988 dd20:0.159 ret40:0.387 drop_one:True
+- tsmom_cont_full_202406_tsmom_bear_short_medium_neighbor_af292589c23e.json found:False pass:False passes:0/16 sel20:NA val20:NA val40:NA dd20:NA ret40:NA drop_one:False
