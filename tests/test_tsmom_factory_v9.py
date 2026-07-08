@@ -17,6 +17,7 @@ from v9.contract.tsmom_factory import (  # noqa: E402
     drop_one_lookback_summary,
     market_regime_series,
     run_grid,
+    short_weights_from_votes,
     simulate,
     target_weights_from_votes,
     vote_fraction_matrix,
@@ -51,6 +52,15 @@ def test_target_weights_are_long_flat_and_normalized() -> None:
     assert weights["CCC"] == 0.0
     assert weights["AAA"] > weights["BBB"] > 0.0
     assert sum(weights.values()) == 1.0
+
+
+def test_short_weights_are_negative_and_normalized() -> None:
+    votes = pd.Series({"AAA": 0.0, "BBB": 0.25, "CCC": 0.75})
+    scales = pd.Series({"AAA": 1.0, "BBB": 0.5, "CCC": 1.0})
+    weights = short_weights_from_votes(votes, scales, threshold=0.375)
+    assert weights["CCC"] == 0.0
+    assert weights["AAA"] < weights["BBB"] < 0.0
+    assert abs(sum(abs(v) for v in weights.values()) - 1.0) < 1e-12
 
 
 def test_no_trade_band_can_suppress_rebalance() -> None:
@@ -129,6 +139,42 @@ def test_defensive_regime_preset_uses_small_fixed_grid() -> None:
     assert len(cfg.preset_configs) == 16
     assert any(row.market_filter_h > 0 and row.market_off_scale == 0.50 for row in cfg.preset_configs)
     assert any(row.drawdown_stop > 0 and row.cooldown_h > 0 for row in cfg.preset_configs)
+
+
+def test_bear_short_regime_preset_uses_fixed_short_grid() -> None:
+    cfg = config_for_preset(
+        preset="bear_short_regime",
+        cache_dir="data/binance_public_cache",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        bootstrap_iterations=100,
+        out_json="out.json",
+        out_md="out.md",
+    )
+    assert cfg.preset_configs is not None
+    assert len(cfg.preset_configs) == 12
+    assert all(row.bear_mode == "short_weak" for row in cfg.preset_configs)
+    assert any(row.bear_short_scale == 1.0 for row in cfg.preset_configs)
+    assert any(row.drawdown_stop > 0 and row.cooldown_h > 0 for row in cfg.preset_configs)
+
+
+def test_bear_short_mode_can_profit_from_declining_market() -> None:
+    data = close_matrix(240)
+    for col in ["AAA", "BBB", "CCC", "DDD"]:
+        data[col] = [200.0 - idx * 0.5 for idx in range(len(data))]
+    cfg = TsmomConfig(
+        asset_vol_target_ann=0.40,
+        portfolio_vol_target_ann=0.50,
+        no_trade_band=0.0,
+        market_filter_h=24,
+        bear_mode="short_weak",
+        bear_short_scale=1.0,
+        short_vote_threshold=0.50,
+    )
+    result = simulate(data, cfg, (12, 24), cost_bps=0.0, bootstrap_iterations=0)
+    assert result["total_return"] > 0.0
+    assert result["avg_gross_exposure"] > 0.0
 
 
 def test_drop_one_lookback_summary_reports_each_drop() -> None:

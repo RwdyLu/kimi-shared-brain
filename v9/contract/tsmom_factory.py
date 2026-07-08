@@ -42,6 +42,9 @@ class TsmomConfig:
     market_off_scale: float = 0.0
     drawdown_stop: float = 0.0
     cooldown_h: int = 0
+    bear_mode: str = "flat"
+    bear_short_scale: float = 0.0
+    short_vote_threshold: float = 0.375
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,11 @@ def config_for_preset(
             preset_configs=defensive_regime_configs(),
             **base,
         )
+    if preset == "bear_short_regime":
+        return RunConfig(
+            preset_configs=bear_short_regime_configs(),
+            **base,
+        )
     raise ValueError(f"unknown preset: {preset}")
 
 
@@ -120,6 +128,23 @@ def defensive_regime_configs() -> tuple[TsmomConfig, ...]:
         TsmomConfig(0.35, 0.08, 0.10, drawdown_stop=0.20, cooldown_h=480),
         TsmomConfig(0.35, 0.12, 0.25, vote_threshold=0.625),
         TsmomConfig(0.25, 0.08, 0.10, vote_threshold=0.625),
+    )
+
+
+def bear_short_regime_configs() -> tuple[TsmomConfig, ...]:
+    return (
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=1.00),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=1440, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=1440, bear_mode="short_weak", bear_short_scale=1.00),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=2160, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=2160, bear_mode="short_weak", bear_short_scale=1.00),
+        TsmomConfig(0.35, 0.08, 0.10, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.08, 0.10, market_filter_h=1440, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.625, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, vote_threshold=0.625, market_filter_h=1440, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=720, drawdown_stop=0.20, cooldown_h=480, bear_mode="short_weak", bear_short_scale=0.50),
+        TsmomConfig(0.35, 0.12, 0.10, market_filter_h=1440, drawdown_stop=0.20, cooldown_h=480, bear_mode="short_weak", bear_short_scale=0.50),
     )
 
 
@@ -157,6 +182,18 @@ def target_weights_from_votes(vote_row: pd.Series, asset_scale_row: pd.Series, t
     if gross <= 0.0 or not math.isfinite(gross):
         return {sym: 0.0 for sym in vote_row.index}
     return {sym: raw[sym] / gross for sym in vote_row.index}
+
+
+def short_weights_from_votes(vote_row: pd.Series, asset_scale_row: pd.Series, threshold: float = 0.375) -> dict[str, float]:
+    raw = {}
+    for sym in vote_row.index:
+        vote = float(vote_row[sym])
+        scale = float(asset_scale_row.get(sym, 1.0))
+        raw[sym] = (1.0 - vote) * max(0.0, min(1.0, scale)) if vote <= threshold else 0.0
+    gross = sum(raw.values())
+    if gross <= 0.0 or not math.isfinite(gross):
+        return {sym: 0.0 for sym in vote_row.index}
+    return {sym: -raw[sym] / gross for sym in vote_row.index}
 
 
 def market_regime_series(closes: pd.DataFrame, market_filter_h: int) -> pd.Series:
@@ -290,9 +327,17 @@ def simulate(
             if risk_off:
                 base = {sym: 0.0 for sym in symbols}
             else:
-                base = target_weights_from_votes(votes.iloc[idx], asset_scales.iloc[idx], threshold=cfg.vote_threshold)
-                if not allow_market:
-                    base = {sym: weight * max(0.0, min(1.0, cfg.market_off_scale)) for sym, weight in base.items()}
+                if not allow_market and cfg.bear_mode == "short_weak":
+                    base = short_weights_from_votes(
+                        votes.iloc[idx],
+                        asset_scales.iloc[idx],
+                        threshold=cfg.short_vote_threshold,
+                    )
+                    base = {sym: weight * max(0.0, min(1.0, cfg.bear_short_scale)) for sym, weight in base.items()}
+                else:
+                    base = target_weights_from_votes(votes.iloc[idx], asset_scales.iloc[idx], threshold=cfg.vote_threshold)
+                    if not allow_market:
+                        base = {sym: weight * max(0.0, min(1.0, cfg.market_off_scale)) for sym, weight in base.items()}
             scale = portfolio_exposure_scale(past_returns, cfg.portfolio_vol_target_ann)
             target = {sym: base[sym] * scale for sym in symbols}
             turnover = sum(abs(target[sym] - weights[sym]) for sym in symbols)
@@ -709,6 +754,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         label = (
             "AVT{asset_vol_target_ann}_PVT{portfolio_vol_target_ann}_B{no_trade_band}"
             "_VT{vote_threshold}_MF{market_filter_h}_MO{market_off_scale}_DD{drawdown_stop}_CD{cooldown_h}"
+            "_BM{bear_mode}_BS{bear_short_scale}_ST{short_vote_threshold}"
         ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | `{}/{}` | {:.3f} | `{}` |".format(
@@ -731,7 +777,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Train-only OHLCV time-series momentum ensemble factory")
-    ap.add_argument("--preset", choices=("core", "defensive_regime"), default="core")
+    ap.add_argument("--preset", choices=("core", "defensive_regime", "bear_short_regime"), default="core")
     ap.add_argument("--cache-dir", default="data/binance_public_cache")
     ap.add_argument("--train-start", default="2017-08-01")
     ap.add_argument("--train-end", default="2024-06-30 23:59:59")
