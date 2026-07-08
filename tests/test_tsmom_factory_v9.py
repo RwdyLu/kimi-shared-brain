@@ -176,6 +176,60 @@ def test_bear_short_medium_preset_uses_shorter_lookbacks() -> None:
     assert all(row.bear_mode == "short_weak" for row in cfg.preset_configs)
 
 
+def test_bear_short_medium_neighbor_preset_expands_winner_neighborhood() -> None:
+    cfg = config_for_preset(
+        preset="bear_short_medium_neighbor",
+        cache_dir="data/binance_public_cache",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        bootstrap_iterations=100,
+        out_json="out.json",
+        out_md="out.md",
+    )
+    assert cfg.lookbacks_h == (240, 336, 720, 1440)
+    assert cfg.preset_configs is not None
+    assert len(cfg.preset_configs) == 16
+    assert {row.market_filter_h for row in cfg.preset_configs}.issuperset({240, 336, 504, 720})
+    assert any(row.short_vote_threshold == 0.25 for row in cfg.preset_configs)
+    assert any(row.short_vote_threshold == 0.50 for row in cfg.preset_configs)
+
+
+def test_bear_short_medium_risk_preset_searches_lower_risk_variants() -> None:
+    cfg = config_for_preset(
+        preset="bear_short_medium_risk",
+        cache_dir="data/binance_public_cache",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        bootstrap_iterations=100,
+        out_json="out.json",
+        out_md="out.md",
+    )
+    assert cfg.lookbacks_h == (336, 720, 1440, 2160)
+    assert cfg.preset_configs is not None
+    assert len(cfg.preset_configs) == 12
+    assert any(row.portfolio_vol_target_ann == 0.06 for row in cfg.preset_configs)
+    assert any(row.drawdown_stop > 0.0 and row.cooldown_h > 0 for row in cfg.preset_configs)
+
+
+def test_bear_short_fast_preset_searches_faster_interval_judgment() -> None:
+    cfg = config_for_preset(
+        preset="bear_short_fast",
+        cache_dir="data/binance_public_cache",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        bootstrap_iterations=100,
+        out_json="out.json",
+        out_md="out.md",
+    )
+    assert cfg.lookbacks_h == (168, 336, 720, 1440)
+    assert cfg.preset_configs is not None
+    assert len(cfg.preset_configs) == 12
+    assert all(row.bear_mode == "short_weak" for row in cfg.preset_configs)
+
+
 def test_bear_short_mode_can_profit_from_declining_market() -> None:
     data = close_matrix(240)
     for col in ["AAA", "BBB", "CCC", "DDD"]:

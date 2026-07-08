@@ -15,12 +15,18 @@ from v9.research.candidate_dedupe import dedupe_candidates
 DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
 MODULE_BY_PRESET = {
     "tsmom_bear_short_medium": "v9.contract.tsmom_factory",
+    "tsmom_bear_short_medium_neighbor": "v9.contract.tsmom_factory",
+    "tsmom_bear_short_medium_risk": "v9.contract.tsmom_factory",
+    "tsmom_bear_short_fast": "v9.contract.tsmom_factory",
     "tsmom_bear_short_regime": "v9.contract.tsmom_factory",
     "tsmom_defensive_regime": "v9.contract.tsmom_factory",
     "tsmom_trend_ensemble": "v9.contract.tsmom_factory",
 }
 CLI_PRESET_BY_PRESET = {
     "tsmom_bear_short_medium": "bear_short_medium",
+    "tsmom_bear_short_medium_neighbor": "bear_short_medium_neighbor",
+    "tsmom_bear_short_medium_risk": "bear_short_medium_risk",
+    "tsmom_bear_short_fast": "bear_short_fast",
     "tsmom_bear_short_regime": "bear_short_regime",
     "tsmom_defensive_regime": "defensive_regime",
     "tsmom_trend_ensemble": "core",
@@ -28,6 +34,9 @@ CLI_PRESET_BY_PRESET = {
 
 FOCUS_PRESETS = (
     "tsmom_bear_short_medium",
+    "tsmom_bear_short_medium_neighbor",
+    "tsmom_bear_short_medium_risk",
+    "tsmom_bear_short_fast",
     "tsmom_bear_short_regime",
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
@@ -37,6 +46,9 @@ FOCUS_PRESETS = (
 
 PRESETS = (
     "tsmom_bear_short_medium",
+    "tsmom_bear_short_medium_neighbor",
+    "tsmom_bear_short_medium_risk",
+    "tsmom_bear_short_fast",
     "tsmom_bear_short_regime",
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
@@ -58,12 +70,33 @@ TRAIN_WINDOWS = (
     ("2017-08-01", "2024-06-30 23:59:59", "full_202406"),
     ("2017-08-01", "2024-03-31 23:59:59", "full_202403"),
     ("2017-08-01", "2023-12-31 23:59:59", "full_202312"),
+    ("2017-08-01", "2024-05-31 23:59:59", "full_202405"),
+    ("2017-08-01", "2024-04-30 23:59:59", "full_202404"),
+    ("2017-08-01", "2024-02-29 23:59:59", "full_202402"),
+    ("2017-08-01", "2024-01-31 23:59:59", "full_202401"),
+    ("2017-08-01", "2023-09-30 23:59:59", "full_202309"),
+    ("2017-08-01", "2023-06-30 23:59:59", "full_202306"),
+    ("2017-08-01", "2022-12-31 23:59:59", "full_202212"),
     ("2018-01-01", "2024-06-30 23:59:59", "from2018_202406"),
     ("2018-01-01", "2024-03-31 23:59:59", "from2018_202403"),
     ("2018-01-01", "2023-12-31 23:59:59", "from2018_202312"),
+    ("2018-01-01", "2024-05-31 23:59:59", "from2018_202405"),
+    ("2018-01-01", "2024-04-30 23:59:59", "from2018_202404"),
+    ("2018-01-01", "2024-02-29 23:59:59", "from2018_202402"),
+    ("2018-01-01", "2024-01-31 23:59:59", "from2018_202401"),
+    ("2018-01-01", "2023-09-30 23:59:59", "from2018_202309"),
+    ("2018-01-01", "2023-06-30 23:59:59", "from2018_202306"),
+    ("2018-01-01", "2022-12-31 23:59:59", "from2018_202212"),
     ("2019-01-01", "2024-06-30 23:59:59", "from2019_202406"),
     ("2019-01-01", "2024-03-31 23:59:59", "from2019_202403"),
     ("2019-01-01", "2023-12-31 23:59:59", "from2019_202312"),
+    ("2019-01-01", "2024-05-31 23:59:59", "from2019_202405"),
+    ("2019-01-01", "2024-04-30 23:59:59", "from2019_202404"),
+    ("2019-01-01", "2024-02-29 23:59:59", "from2019_202402"),
+    ("2019-01-01", "2024-01-31 23:59:59", "from2019_202401"),
+    ("2019-01-01", "2023-09-30 23:59:59", "from2019_202309"),
+    ("2019-01-01", "2023-06-30 23:59:59", "from2019_202306"),
+    ("2019-01-01", "2022-12-31 23:59:59", "from2019_202212"),
 )
 
 LEGACY_TASK_PRESETS = {
@@ -82,6 +115,9 @@ DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
 EVALUATION_VERSION_BY_PRESET = {
     "tsmom_bear_short_medium": "selection_validation_v1_tsmom_bear_short_medium",
+    "tsmom_bear_short_medium_neighbor": "selection_validation_v1_tsmom_bear_short_medium_neighbor",
+    "tsmom_bear_short_medium_risk": "selection_validation_v1_tsmom_bear_short_medium_risk",
+    "tsmom_bear_short_fast": "selection_validation_v1_tsmom_bear_short_fast",
     "tsmom_bear_short_regime": "selection_validation_v1_tsmom_bear_short_regime",
     "tsmom_defensive_regime": "selection_validation_v2_tsmom_defensive_active_years",
     "tsmom_trend_ensemble": "selection_validation_v4_tsmom_active_years",

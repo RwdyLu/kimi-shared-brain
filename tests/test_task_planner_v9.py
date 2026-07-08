@@ -42,7 +42,20 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         assert "--embargo-start 2024-07-01" in cmd
         assert task.train_end < "2024-07"
     presets = {task.preset for task in proposed_search_space()}
-    assert {"tsmom_bear_short_medium", "tsmom_bear_short_regime", "tsmom_defensive_regime", "tsmom_trend_ensemble", "hq_cadence_tranche", "hq_dd_long", "hq_dd_plateau", "hq_fast_rebal", "hq_breadth_wide"}.issubset(presets)
+    assert {
+        "tsmom_bear_short_medium",
+        "tsmom_bear_short_medium_neighbor",
+        "tsmom_bear_short_medium_risk",
+        "tsmom_bear_short_fast",
+        "tsmom_bear_short_regime",
+        "tsmom_defensive_regime",
+        "tsmom_trend_ensemble",
+        "hq_cadence_tranche",
+        "hq_dd_long",
+        "hq_dd_plateau",
+        "hq_fast_rebal",
+        "hq_breadth_wide",
+    }.issubset(presets)
 
 
 def test_explored_jsonl_round_trip(tmp_path) -> None:
@@ -154,18 +167,24 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
 
 
 def test_focus_train_only_presets_take_priority() -> None:
-    first = propose_tasks(set(), 6)
+    first = propose_tasks(set(), 9)
     assert first[0].preset == "tsmom_bear_short_medium"
     assert first[0].module == "v9.contract.tsmom_factory"
     assert first[0].cli_preset == "bear_short_medium"
-    assert first[1].preset == "tsmom_bear_short_regime"
-    assert first[1].cli_preset == "bear_short_regime"
-    assert first[2].preset == "tsmom_defensive_regime"
-    assert first[2].cli_preset == "defensive_regime"
-    assert first[3].preset == "tsmom_trend_ensemble"
-    assert first[3].cli_preset == "core"
-    assert first[4].preset == "hq_cadence_tranche"
-    assert first[5].preset == "hq_dd_plateau"
+    assert first[1].preset == "tsmom_bear_short_medium_neighbor"
+    assert first[1].cli_preset == "bear_short_medium_neighbor"
+    assert first[2].preset == "tsmom_bear_short_medium_risk"
+    assert first[2].cli_preset == "bear_short_medium_risk"
+    assert first[3].preset == "tsmom_bear_short_fast"
+    assert first[3].cli_preset == "bear_short_fast"
+    assert first[4].preset == "tsmom_bear_short_regime"
+    assert first[4].cli_preset == "bear_short_regime"
+    assert first[5].preset == "tsmom_defensive_regime"
+    assert first[5].cli_preset == "defensive_regime"
+    assert first[6].preset == "tsmom_trend_ensemble"
+    assert first[6].cli_preset == "core"
+    assert first[7].preset == "hq_cadence_tranche"
+    assert first[8].preset == "hq_dd_plateau"
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -199,11 +218,14 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         }
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
-    first = propose_tasks(set(), 7, task_results=task_results, candidates=candidates)
+    first = propose_tasks(set(), 10, task_results=task_results, candidates=candidates)
     assert first[0].preset == "tsmom_bear_short_medium"
-    assert first[1].preset == "tsmom_bear_short_regime"
-    assert first[2].preset == "tsmom_defensive_regime"
-    assert first[3].preset == "tsmom_trend_ensemble"
-    assert first[4].preset == "hq_cadence_tranche"
-    assert first[5].preset == "hq_dd_plateau"
-    assert first[6].preset == "defensive_drawdown"
+    assert first[1].preset == "tsmom_bear_short_medium_neighbor"
+    assert first[2].preset == "tsmom_bear_short_medium_risk"
+    assert first[3].preset == "tsmom_bear_short_fast"
+    assert first[4].preset == "tsmom_bear_short_regime"
+    assert first[5].preset == "tsmom_defensive_regime"
+    assert first[6].preset == "tsmom_trend_ensemble"
+    assert first[7].preset == "hq_cadence_tranche"
+    assert first[8].preset == "hq_dd_plateau"
+    assert first[9].preset == "defensive_drawdown"
