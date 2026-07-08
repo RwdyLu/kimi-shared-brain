@@ -1,0 +1,10 @@
+decision=train_only_manual_review_required
+passes=3/8
+safety=holdout:False paper:False live:False
+data_fingerprint=958ac849fb867a34913b4e3bcd20e8e8dc973fa1
+effective_trials=11534 prior_trials=11526
+top_config={"asset_vol_target_ann": 0.35, "bear_mode": "short_weak", "bear_short_scale": 0.5, "cooldown_h": 0, "drawdown_stop": 0.0, "market_filter_h": 336, "market_off_scale": 0.0, "no_trade_band": 0.1, "portfolio_vol_target_ann": 0.12, "short_vote_threshold": 0.375, "vote_threshold": 0.5}
+selection=sharpe20:1.862 sharpe40:1.522 dd20:0.201 dd40:0.228 return20:1.694 boot:0.798 confirm:NA active_years:2/2 symbols:8/8 turnover:0.099
+validation=sharpe20:1.323 sharpe40:0.988 dd20:0.159 dd40:0.186 return20:0.579 active_years:2/2 symbols:7/8
+drop_one=passed:True threshold:1.191 rows:336h:1.248:True,720h:1.293:True,1440h:1.469:True,2160h:1.435:True
+all_pass_count=3
