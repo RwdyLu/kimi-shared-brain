@@ -130,6 +130,12 @@ def config_for_preset(
             preset_configs=bear_short_fast_configs(),
             **base,
         )
+    if preset == "bear_short_cost_guard":
+        return RunConfig(
+            lookbacks_h=(336, 720, 1440, 2160),
+            preset_configs=bear_short_cost_guard_configs(),
+            **base,
+        )
     raise ValueError(f"unknown preset: {preset}")
 
 
@@ -237,6 +243,27 @@ def bear_short_fast_configs() -> tuple[TsmomConfig, ...]:
         TsmomConfig(0.35, 0.12, 0.10, market_filter_h=240, bear_mode="short_weak", bear_short_scale=0.33),
         TsmomConfig(0.35, 0.10, 0.10, market_filter_h=240, bear_mode="short_weak", bear_short_scale=0.50, short_vote_threshold=0.25),
         TsmomConfig(0.35, 0.10, 0.10, market_filter_h=240, bear_mode="short_weak", bear_short_scale=0.50, short_vote_threshold=0.50),
+    )
+
+
+def bear_short_cost_guard_configs() -> tuple[TsmomConfig, ...]:
+    return (
+        TsmomConfig(0.25, 0.06, 0.20, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.35, 0.06, 0.20, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.35, 0.08, 0.20, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.06, 0.30, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.08, 0.30, market_filter_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.06, 0.20, market_filter_h=720, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=720, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.06, 0.20, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.06, 0.30, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.08, 0.30, market_filter_h=336, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.06, 0.20, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=720, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=336, drawdown_stop=0.15, cooldown_h=336, bear_mode="flat", bear_short_scale=0.0),
+        TsmomConfig(0.25, 0.08, 0.20, market_filter_h=336, drawdown_stop=0.15, cooldown_h=336, bear_mode="short_weak", bear_short_scale=0.15, short_vote_threshold=0.25),
     )
 
 
@@ -879,6 +906,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "bear_short_medium_neighbor",
             "bear_short_medium_risk",
             "bear_short_fast",
+            "bear_short_cost_guard",
         ),
         default="core",
     )
