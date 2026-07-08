@@ -1,0 +1,129 @@
+{
+  "checks": {
+    "holdout_20bps_drawdown_le_25pct": true,
+    "holdout_20bps_return_gt_0": false,
+    "holdout_20bps_sharpe_ge_0_7": false,
+    "holdout_40bps_return_gt_0": false,
+    "holdout_40bps_sharpe_gt_0": false
+  },
+  "costs": {
+    "20bps": {
+      "avg_gross_exposure": 0.18097083346713824,
+      "bootstrap_30d_sharpe_p5": -1.8682922886299473,
+      "daily_turnover": 0.05184182985010529,
+      "max_drawdown": 0.2308056707348495,
+      "positive_symbol_count": 3,
+      "rebalance_event_count": 65,
+      "sharpe": -0.3140895109751909,
+      "symbol_count": 5,
+      "symbol_pnl": {
+        "ADAUSDT": 354.06978073244306,
+        "BTCUSDT": 707.502584701457,
+        "ETHUSDT": 126.63323064789114,
+        "SOLUSDT": -270.2049866496756,
+        "XRPUSDT": -1259.8065834942443
+      },
+      "top_positive_symbol_share": 0.5954378493372753,
+      "total_return": -0.11212886025527102
+    },
+    "40bps": {
+      "avg_gross_exposure": 0.15985329088329234,
+      "bootstrap_30d_sharpe_p5": -2.0522793035643687,
+      "daily_turnover": 0.05590681684100987,
+      "max_drawdown": 0.2031568108356139,
+      "positive_symbol_count": 3,
+      "rebalance_event_count": 71,
+      "sharpe": -0.3236774129765806,
+      "symbol_count": 5,
+      "symbol_pnl": {
+        "ADAUSDT": 260.94647937090474,
+        "BTCUSDT": 1283.1332105436265,
+        "ETHUSDT": 263.91435992172666,
+        "SOLUSDT": -102.91600017133797,
+        "XRPUSDT": -1239.1713640574524
+      },
+      "top_positive_symbol_share": 0.7096999078397599,
+      "total_return": -0.1012615766725724
+    },
+    "60bps": {
+      "avg_gross_exposure": 0.17834296057315605,
+      "bootstrap_30d_sharpe_p5": -2.2541620691560253,
+      "daily_turnover": 0.051853160192996996,
+      "max_drawdown": 0.2765397843508831,
+      "positive_symbol_count": 3,
+      "rebalance_event_count": 66,
+      "sharpe": -0.6457007882925663,
+      "symbol_count": 5,
+      "symbol_pnl": {
+        "ADAUSDT": 433.01452112027727,
+        "BTCUSDT": 863.3349895851444,
+        "ETHUSDT": 91.62877703348427,
+        "SOLUSDT": -236.48776315136635,
+        "XRPUSDT": -1218.8985373117994
+      },
+      "top_positive_symbol_share": 0.6220090020223337,
+      "total_return": -0.1963941991942546
+    },
+    "80bps": {
+      "avg_gross_exposure": 0.1615869304169642,
+      "bootstrap_30d_sharpe_p5": -2.37671965002177,
+      "daily_turnover": 0.05364666194597516,
+      "max_drawdown": 0.2753792733188082,
+      "positive_symbol_count": 3,
+      "rebalance_event_count": 69,
+      "sharpe": -0.7615359226109949,
+      "symbol_count": 5,
+      "symbol_pnl": {
+        "ADAUSDT": 237.83889709806428,
+        "BTCUSDT": 1427.4166321106443,
+        "ETHUSDT": 168.0521596034317,
+        "SOLUSDT": -103.21723674033557,
+        "XRPUSDT": -1257.9569134328503
+      },
+      "top_positive_symbol_share": 0.7786017812621044,
+      "total_return": -0.20806144173842855
+    }
+  },
+  "decision": "holdout_failed_do_not_paper_trade",
+  "holdout_authorized": false,
+  "holdout_data": {
+    "first_dt": "2024-07-01T00:00:00+00:00",
+    "last_dt": "2026-05-31T23:00:00+00:00",
+    "rows": 16800,
+    "symbols": [
+      "ADAUSDT",
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ]
+  },
+  "holdout_requested": {
+    "end": "2026-05-31 23:59:59",
+    "start": "2024-07-01"
+  },
+  "kind": "tsmom_holdout_audit_v1",
+  "live_trading_authorized": false,
+  "note": "Read-only holdout audit. It does not authorize paper trading or live trading.",
+  "paper_trading_authorized": false,
+  "source_artifact": "artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_core_slow_cost_guard_b793a1b0bf81.json",
+  "target_config": {
+    "asset_vol_target_ann": 0.25,
+    "bear_mode": "short_weak",
+    "bear_short_scale": 0.1,
+    "cooldown_h": 0,
+    "drawdown_stop": 0.0,
+    "market_filter_h": 720,
+    "market_off_scale": 0.0,
+    "no_trade_band": 0.3,
+    "portfolio_vol_target_ann": 0.06,
+    "short_vote_threshold": 0.25,
+    "vote_threshold": 0.5
+  },
+  "target_lookbacks_h": [
+    720,
+    1440,
+    2160,
+    4320
+  ]
+}
