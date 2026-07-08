@@ -362,6 +362,10 @@ def simulate(
     ew_sharpe = sharpe(ew_daily_returns, 365.0)
     ew_dd = max_drawdown_from_returns(equal_weight)
     bootstrap_p5 = block_bootstrap_p5(daily_returns, iterations=bootstrap_iterations, seed=bootstrap_seed_value)
+    active_yearly_bucket_count = sum(1 for row in by_year.values() if int(row["periods"]) > 0)
+    positive_active_yearly_bucket_count = sum(
+        1 for row in by_year.values() if int(row["periods"]) > 0 and float(row["net_return"]) > 0.0
+    )
     yearly_positive = sum(1 for row in by_year.values() if row["net_return"] > 0)
     return {
         "config": asdict(cfg),
@@ -381,6 +385,8 @@ def simulate(
         "market_filter_off_count": int(market_filter_off_count),
         "yearly": by_year,
         "yearly_positive_count": yearly_positive,
+        "active_yearly_bucket_count": int(active_yearly_bucket_count),
+        "positive_active_yearly_bucket_count": int(positive_active_yearly_bucket_count),
         "symbol_pnl": symbol_pnl,
         "symbol_count": int(len(symbols)),
         "positive_symbol_count": int(positive_symbol_count),
@@ -411,10 +417,14 @@ def validation_sharpe_threshold(effective_trials: int, base: float = 0.70, slope
 
 def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_min: float = 0.25) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
+    active_buckets = int(cost20.get("active_yearly_bucket_count") or 0)
+    positive_active_buckets = int(cost20.get("positive_active_yearly_bucket_count") or 0)
+    required_positive_active = max(2, math.ceil(active_buckets * 0.75)) if active_buckets >= 2 else 2
     return {
         "sharpe20_ge_1_0": float(cost20["sharpe"]) >= 1.0,
         "max_dd20_le_30pct": float(cost20["max_drawdown"]) <= 0.30,
-        "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
+        "active_yearly_buckets_ge_2": active_buckets >= 2,
+        "positive_active_yearly_buckets_ge_75pct": positive_active_buckets >= required_positive_active,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
         "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
         "sharpe40_ge_0_5": float(cost40["sharpe"]) >= 0.5,
@@ -427,11 +437,15 @@ def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_
 
 
 def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_min: float = 0.70) -> dict[str, bool]:
+    active_buckets = int(cost20.get("active_yearly_bucket_count") or 0)
+    positive_active_buckets = int(cost20.get("positive_active_yearly_bucket_count") or 0)
+    required_positive_active = max(1, math.ceil(active_buckets * 0.50)) if active_buckets >= 1 else 1
     return {
         "validation_sharpe20_ge_adjusted_min": float(cost20["sharpe"]) >= sharpe20_min,
         "validation_max_dd20_le_35pct": float(cost20["max_drawdown"]) <= 0.35,
         "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
+        "validation_positive_active_yearly_buckets_ge_50pct": positive_active_buckets >= required_positive_active,
         "validation_breadth_positive_symbols_ge_min": int(cost20["positive_symbol_count"]) >= breadth_min(int(cost20["symbol_count"])),
     }
 

@@ -68,8 +68,8 @@ DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
 EVALUATION_VERSION_BY_PRESET = {
-    "tsmom_defensive_regime": "selection_validation_v1_tsmom_defensive_regime",
-    "tsmom_trend_ensemble": "selection_validation_v3_tsmom_split60",
+    "tsmom_defensive_regime": "selection_validation_v2_tsmom_defensive_active_years",
+    "tsmom_trend_ensemble": "selection_validation_v4_tsmom_active_years",
 }
 
 

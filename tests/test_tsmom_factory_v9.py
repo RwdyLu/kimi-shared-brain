@@ -60,6 +60,34 @@ def test_no_trade_band_can_suppress_rebalance() -> None:
     assert result["avg_gross_exposure"] == 0.0
 
 
+def test_advance_checks_use_only_active_yearly_buckets() -> None:
+    cfg = TsmomConfig(asset_vol_target_ann=0.40, portfolio_vol_target_ann=0.15, no_trade_band=0.05)
+    result20 = simulate(close_matrix(240), cfg, (12, 24), cost_bps=20.0, bootstrap_iterations=0)
+    result40 = simulate(close_matrix(240), cfg, (12, 24), cost_bps=40.0, bootstrap_iterations=0)
+    result20["sharpe"] = 1.5
+    result20["max_drawdown"] = 0.10
+    result20["yearly"]["2021"]["periods"] = 100
+    result20["yearly"]["2021"]["net_return"] = 0.10
+    result20["yearly"]["2022"]["periods"] = 100
+    result20["yearly"]["2022"]["net_return"] = 0.10
+    result20["yearly"]["2023"]["periods"] = 0
+    result20["yearly"]["2024H1"]["periods"] = 0
+    result20["yearly"]["2024H1"]["net_return"] = 0.0
+    result20["active_yearly_bucket_count"] = 2
+    result20["positive_active_yearly_bucket_count"] = 2
+    result20["bootstrap_30d_sharpe_p5"] = 1.0
+    result20["positive_symbol_count"] = result20["symbol_count"]
+    result20["top_positive_symbol_share"] = 0.50
+    result20["equal_weight_benchmark"]["sharpe_excess"] = 0.10
+    result20["equal_weight_benchmark"]["drawdown_ratio"] = 0.50
+    result20["daily_turnover"] = 0.10
+    result40["sharpe"] = 1.0
+    checks = __import__("v9.contract.tsmom_factory", fromlist=["advance_checks"]).advance_checks(result20, result40, bootstrap_p5_min=0.25)
+    assert "positive_3_of_4_years" not in checks
+    assert checks["active_yearly_buckets_ge_2"] is True
+    assert checks["positive_active_yearly_buckets_ge_75pct"] is True
+
+
 def test_market_regime_filter_turns_off_declining_market() -> None:
     data = close_matrix(120)
     data["AAA"] = list(reversed(data["AAA"].tolist()))
