@@ -86,8 +86,8 @@ def test_triage_shortlists_plateau_and_excludes_data_drift(tmp_path, monkeypatch
         [
             row(center, boot=0.9, q25=0.8),
             row({**center, "lookback_h": 504}, boot=0.7, q25=0.3),
-            row({**center, "market_filter_h": 1344}, boot=0.7, q25=0.2),
-            row({**center, "rebalance_h": 120}, boot=0.6, q25=0.2),
+            row({**center, "lookback_h": 672}, boot=0.7, q25=0.2),
+            row({**center, "vol_target_ann": 0.06}, boot=0.6, q25=0.2),
         ],
     )
     write_artifact(drift_artifact, [row(center)])
@@ -153,3 +153,90 @@ def test_triage_rejects_isolated_center_when_neighbors_fail(tmp_path, monkeypatc
     assert report["summary"]["shortlist_count"] == 0
     assert report["ranked_candidates"][0]["decision"] == "reject_isolated_or_fragile"
     assert report["ranked_candidates"][0]["neighbor_stability"]["passing_neighbor_count"] == 0
+
+
+def test_triage_family_status_blocks_rejected_shortlist_family(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "artifacts/v9/contract_lab/plateau.json"
+    center = {"lookback_h": 336, "market_filter_h": 1008, "rebalance_h": 240, "vol_target_ann": 0.08}
+    write_artifact(
+        artifact,
+        [
+            row(center, boot=0.9, q25=0.8),
+            row({**center, "lookback_h": 504}, boot=0.7, q25=0.3),
+            row({**center, "lookback_h": 672}, boot=0.7, q25=0.2),
+            row({**center, "vol_target_ann": 0.06}, boot=0.6, q25=0.2),
+        ],
+    )
+    state = tmp_path / "state.json"
+    write_state(
+        state,
+        [
+            {
+                "task": "plateau",
+                "status": "manual_review_required",
+                "output_json": str(artifact),
+            }
+        ],
+    )
+    key = triage_mod.family_key(
+        str(artifact),
+        "xsec_ohlcv_factory_v1_train_only_grid",
+        {"k": 3, "score_mode": "risk_adj_mom", "skip_h": 0, "n_tranches": 1, **center},
+    )
+    family_status = tmp_path / "artifacts/v9/reviews/FAMILY_STATUS.json"
+    family_status.parent.mkdir(parents=True, exist_ok=True)
+    family_status.write_text(
+        json.dumps(
+            {
+                "kind": "v9_train_only_family_status_v1",
+                "families": {
+                    key: {
+                        "status": "family_rejected_train_stress",
+                        "tags": ["cost_sensitive", "needs_turnover_reduction"],
+                    }
+                },
+            }
+        )
+    )
+
+    report = triage_mod.build_triage(state, tmp_path, min_neighbor_count=3, family_status_path=family_status)
+
+    assert report["summary"]["shortlist_count"] == 0
+    assert report["summary"]["family_status_entries"] == 1
+    assert report["summary"]["family_status_rejections"] >= 1
+    rejected = [row for row in report["ranked_candidates"] if row.get("decision") == "reject_family_status"]
+    assert rejected
+    assert rejected[0]["rejected_by_family_status"] is True
+
+
+def test_triage_max_per_family_keeps_only_top_family_member(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "artifacts/v9/contract_lab/plateau.json"
+    center = {"lookback_h": 336, "market_filter_h": 1008, "rebalance_h": 240, "vol_target_ann": 0.08}
+    write_artifact(
+        artifact,
+        [
+            row(center, boot=0.9, q25=0.8),
+            row({**center, "lookback_h": 504}, boot=0.7, q25=0.3),
+            row({**center, "lookback_h": 672}, boot=0.7, q25=0.2),
+            row({**center, "vol_target_ann": 0.06}, boot=0.6, q25=0.2),
+        ],
+    )
+    state = tmp_path / "state.json"
+    write_state(
+        state,
+        [
+            {
+                "task": "plateau",
+                "status": "manual_review_required",
+                "output_json": str(artifact),
+            }
+        ],
+    )
+
+    report = triage_mod.build_triage(state, tmp_path, min_neighbor_count=1, max_per_family=1)
+
+    assert report["summary"]["shortlist_count"] == 1
+    assert report["summary"]["family_cap_rejections"] >= 1
+    assert report["summary"]["shortlist_family_count"] == 1

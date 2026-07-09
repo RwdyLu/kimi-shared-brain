@@ -49,6 +49,25 @@ def config_key(config: dict[str, Any]) -> str:
     )
 
 
+def artifact_family_prefix(artifact: str) -> str:
+    return Path(artifact).stem
+
+
+def family_key(source_artifact: str, kind: str | None, config: dict[str, Any]) -> str:
+    return json.dumps(
+        {
+            "artifact": artifact_family_prefix(source_artifact),
+            "kind": kind,
+            "k": int(config["k"]),
+            "market_filter_h": int(config["market_filter_h"]),
+            "rebalance_h": int(config["rebalance_h"]),
+            "score_mode": str(config["score_mode"]),
+            "n_tranches": int(config.get("n_tranches", 1)),
+        },
+        sort_keys=True,
+    )
+
+
 def selected_configs(
     artifact_path: Path,
     artifact_label: str,
@@ -221,6 +240,7 @@ def build_stress(
     cost20_min_loso_sharpe: float = 0.0,
 ) -> dict[str, Any]:
     artifact = read_json(artifact_path)
+    artifact_kind = str(artifact.get("kind") or "")
     run_config = artifact.get("config") or {}
     symbols = tuple(run_config.get("symbols") or artifact.get("symbols") or (artifact.get("data") or {}).get("symbols") or [])
     if not symbols:
@@ -252,6 +272,7 @@ def build_stress(
         rows.append(
             {
                 "config": raw,
+                "family_key": family_key(str(artifact_path), artifact_kind, raw),
                 "phase_stress": phase,
                 "cost_stress": costs,
                 "verdict": verdict,
@@ -268,6 +289,7 @@ def build_stress(
         "kind": "v9_train_only_plateau_stress_v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_artifact": str(artifact_path),
+        "source_kind": artifact_kind,
         "source_triage": str(triage_path) if triage_path else None,
         "holdout_accessed": False,
         "holdout_authorized": False,
@@ -300,6 +322,74 @@ def build_stress(
         },
         "candidates": rows,
         "note": "Train-only phase and cost stress. This report does not authorize holdout, paper, live, or production trading.",
+    }
+
+
+def family_status_from_report(report: dict[str, Any]) -> dict[str, Any]:
+    families: dict[str, dict[str, Any]] = {}
+    family_decision = str((report.get("summary") or {}).get("family_decision") or "")
+    source_artifact = str(report.get("source_artifact") or "")
+    source_kind = str(report.get("source_kind") or "xsec_ohlcv_factory_v1_train_only_grid")
+    for row in report.get("candidates", []):
+        key = str(row.get("family_key") or "")
+        if not key and source_artifact and row.get("config"):
+            key = family_key(source_artifact, source_kind, row.get("config") or {})
+        if not key:
+            continue
+        verdict = row.get("verdict") or {}
+        failed = list(verdict.get("failed_checks") or [])
+        current = families.setdefault(
+            key,
+            {
+                "status": family_decision,
+                "tags": [],
+                "source_report": report.get("source_report"),
+                "source_artifact": report.get("source_artifact"),
+                "updated_at": report.get("created_at"),
+                "candidate_count": 0,
+                "failed_checks": {},
+                "example_configs": [],
+            },
+        )
+        current["candidate_count"] += 1
+        if row.get("config") and len(current["example_configs"]) < 5:
+            current["example_configs"].append(row.get("config"))
+        for name in failed:
+            current["failed_checks"][name] = int(current["failed_checks"].get(name, 0)) + 1
+        if any(name.startswith("cost_") for name in failed):
+            current["tags"].append("cost_sensitive")
+        if "phase_range_to_median_le_max" in failed:
+            current["tags"].append("phase_sensitive")
+    for status in families.values():
+        tags = set(status.get("tags") or [])
+        if status.get("status") == "family_rejected_train_stress" or "cost_sensitive" in tags:
+            tags.add("needs_turnover_reduction")
+        status["tags"] = sorted(tags)
+        status["failed_checks"] = dict(sorted((status.get("failed_checks") or {}).items()))
+    return {
+        "kind": "v9_train_only_family_status_v1",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source_report": report.get("source_report"),
+        "families": families,
+    }
+
+
+def merge_family_status(path: Path, update: dict[str, Any]) -> dict[str, Any]:
+    if path.exists():
+        existing = read_json(path)
+    else:
+        existing = {
+            "kind": "v9_train_only_family_status_v1",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "families": {},
+        }
+    families = dict(existing.get("families") or {})
+    families.update(update.get("families") or {})
+    return {
+        "kind": "v9_train_only_family_status_v1",
+        "created_at": existing.get("created_at") or update.get("created_at"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "families": families,
     }
 
 
@@ -389,6 +479,7 @@ def main() -> None:
     parser.add_argument("--triage")
     parser.add_argument("--out-json", required=True)
     parser.add_argument("--out-md", required=True)
+    parser.add_argument("--family-status-out", default="")
     parser.add_argument("--limit", type=int, default=4)
     parser.add_argument("--phase-step-h", type=int, default=24)
     parser.add_argument("--base-cost-bps", type=float, default=40.0)
@@ -423,8 +514,15 @@ def main() -> None:
     out_md = resolve_path(args.out_md, base)
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_md.parent.mkdir(parents=True, exist_ok=True)
+    report["source_report"] = str(out_json)
     out_json.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     out_md.write_text(format_markdown(report))
+    if args.family_status_out:
+        status_path = resolve_path(args.family_status_out, base)
+        update = family_status_from_report(report)
+        merged = merge_family_status(status_path, update)
+        status_path.parent.mkdir(parents=True, exist_ok=True)
+        status_path.write_text(json.dumps(merged, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

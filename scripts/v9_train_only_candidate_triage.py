@@ -16,6 +16,11 @@ sys.path.insert(0, str(ROOT))
 
 AXIS_KEYS = ("k", "lookback_h", "market_filter_h", "rebalance_h", "vol_target_ann", "skip_h", "n_tranches")
 EXACT_KEYS = ("score_mode",)
+BLOCKING_FAMILY_STATUSES = {
+    "family_rejected_train_stress",
+    "cost_sensitive",
+    "needs_turnover_reduction",
+}
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -87,6 +92,50 @@ def config_signature(kind: str | None, symbols: list[Any] | None, config: dict[s
         },
         sort_keys=True,
     )
+
+
+def artifact_family_prefix(artifact: str) -> str:
+    return Path(artifact).stem
+
+
+def family_key(artifact: str, kind: str | None, config: dict[str, Any]) -> str:
+    cfg = canonical_config(config)
+    return json.dumps(
+        {
+            "artifact": artifact_family_prefix(artifact),
+            "kind": kind,
+            "k": cfg.get("k"),
+            "market_filter_h": cfg.get("market_filter_h"),
+            "rebalance_h": cfg.get("rebalance_h"),
+            "score_mode": cfg.get("score_mode"),
+            "n_tranches": cfg.get("n_tranches", 1),
+        },
+        sort_keys=True,
+    )
+
+
+def family_key_from_stress_candidate(source_artifact: str, kind: str | None, row: dict[str, Any]) -> str:
+    return family_key(source_artifact, kind, row.get("config") or {})
+
+
+def load_family_status(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None or not path.exists():
+        return {}
+    payload = read_json(path)
+    raw_families = payload.get("families") if isinstance(payload, dict) else None
+    if isinstance(raw_families, dict):
+        return {str(key): dict(value) for key, value in raw_families.items() if isinstance(value, dict)}
+    return {}
+
+
+def status_blocks_family(status: dict[str, Any] | None) -> bool:
+    if not status:
+        return False
+    values = {str(status.get("status") or ""), str(status.get("decision") or "")}
+    tags = status.get("tags") or []
+    if isinstance(tags, list):
+        values.update(str(tag) for tag in tags)
+    return bool(values & BLOCKING_FAMILY_STATUSES)
 
 
 def axis_values(rows: list[dict[str, Any]]) -> dict[str, list[Any]]:
@@ -320,6 +369,7 @@ def triage_artifact(
                 "summary": payload.get("summary") or {},
                 "config": canonical_config(center.get("config")),
                 "config_signature": config_signature(payload.get("kind"), payload.get("symbols"), center.get("config") or {}),
+                "family_key": family_key(artifact["artifact"], payload.get("kind"), center.get("config") or {}),
                 "metrics": metrics,
                 "neighbor_stability": {
                     "neighbor_count": len(neighbors),
@@ -340,6 +390,49 @@ def triage_artifact(
     return out
 
 
+def apply_family_status(rows: list[dict[str, Any]], statuses: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for row in rows:
+        enriched = dict(row)
+        status = statuses.get(str(row.get("family_key")))
+        if status:
+            enriched["family_status"] = status
+            if status_blocks_family(status) and row.get("decision") == "shortlist_plateau_candidate":
+                enriched["decision"] = "reject_family_status"
+                enriched["rejected_by_family_status"] = True
+        out.append(enriched)
+    return out
+
+
+def apply_family_cap(rows: list[dict[str, Any]], max_per_family: int) -> list[dict[str, Any]]:
+    if max_per_family <= 0:
+        return rows
+    counts: dict[str, int] = {}
+    out = []
+    for row in rows:
+        enriched = dict(row)
+        key = str(row.get("family_key") or "")
+        if row.get("decision") == "shortlist_plateau_candidate" and key:
+            counts[key] = counts.get(key, 0) + 1
+            enriched["family_rank"] = counts[key]
+            if counts[key] > max_per_family:
+                enriched["decision"] = "reject_family_cap"
+                enriched["rejected_by_family_cap"] = True
+        out.append(enriched)
+    return out
+
+
+def sort_ranked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        rows,
+        key=lambda row: (
+            0 if row.get("decision") == "shortlist_plateau_candidate" else 1,
+            -float(row.get("score") or -999.0),
+            str(row.get("artifact")),
+        ),
+    )
+
+
 def dedupe_ranked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_signature: dict[str, dict[str, Any]] = {}
     passthrough = []
@@ -351,14 +444,7 @@ def dedupe_ranked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         current = by_signature.get(str(signature))
         if current is None or float(row.get("score") or -999.0) > float(current.get("score") or -999.0):
             by_signature[str(signature)] = row
-    return sorted(
-        [*by_signature.values(), *passthrough],
-        key=lambda row: (
-            0 if row.get("decision") == "shortlist_plateau_candidate" else 1,
-            -float(row.get("score") or -999.0),
-            str(row.get("artifact")),
-        ),
-    )
+    return sort_ranked([*by_signature.values(), *passthrough])
 
 
 def build_triage(
@@ -374,9 +460,12 @@ def build_triage(
     min_walk_forward_q25: float = 0.0,
     min_loso_sharpe: float = 0.0,
     max_drawdown: float = 0.30,
+    family_status_path: Path | None = None,
+    max_per_family: int = 0,
     limit: int = 50,
 ) -> dict[str, Any]:
     state = read_json(state_path)
+    family_status = load_family_status(family_status_path)
     artifacts, excluded_data_drift = artifact_status_rows(state, base, include_data_drift)
     rows: list[dict[str, Any]] = []
     for artifact in artifacts:
@@ -394,6 +483,9 @@ def build_triage(
             )
         )
     ranked = dedupe_ranked(rows)
+    ranked = apply_family_status(ranked, family_status)
+    ranked = apply_family_cap(ranked, max_per_family)
+    ranked = sort_ranked(ranked)
     shortlist = [row for row in ranked if row.get("decision") == "shortlist_plateau_candidate"]
     return {
         "kind": "v9_train_only_candidate_triage_v1",
@@ -413,6 +505,8 @@ def build_triage(
             "min_walk_forward_q25": min_walk_forward_q25,
             "min_loso_sharpe": min_loso_sharpe,
             "max_drawdown": max_drawdown,
+            "family_status_path": str(family_status_path) if family_status_path else None,
+            "max_per_family": max_per_family,
         },
         "summary": {
             "state_candidates": len(state.get("candidates_found", [])),
@@ -421,6 +515,10 @@ def build_triage(
             "ranked_centers": len(ranked),
             "shortlist_count": len(shortlist),
             "decision_counts": decision_counts(ranked),
+            "family_status_entries": len(family_status),
+            "family_status_rejections": sum(1 for row in ranked if row.get("rejected_by_family_status")),
+            "family_cap_rejections": sum(1 for row in ranked if row.get("rejected_by_family_cap")),
+            "shortlist_family_count": len({row.get("family_key") for row in shortlist}),
         },
         "recommendation": {
             "next_step": "Human-review shortlist_plateau_candidate rows before any holdout authorization.",
@@ -470,6 +568,10 @@ def format_markdown(report: dict[str, Any]) -> str:
         f"- excluded_data_drift_candidates: `{summary['excluded_data_drift_candidates']}`",
         f"- ranked_centers: `{summary['ranked_centers']}`",
         f"- shortlist_count: `{summary['shortlist_count']}`",
+        f"- shortlist_family_count: `{summary.get('shortlist_family_count', 0)}`",
+        f"- family_status_entries: `{summary.get('family_status_entries', 0)}`",
+        f"- family_status_rejections: `{summary.get('family_status_rejections', 0)}`",
+        f"- family_cap_rejections: `{summary.get('family_cap_rejections', 0)}`",
         f"- decision_counts: `{json.dumps(summary['decision_counts'], sort_keys=True)}`",
         "",
         "## Thresholds",
@@ -480,11 +582,13 @@ def format_markdown(report: dict[str, Any]) -> str:
         f"- walk_forward_q25 >= `{fmt(thresholds['min_walk_forward_q25'])}`",
         f"- leave_one_symbol_min_sharpe >= `{fmt(thresholds['min_loso_sharpe'])}`",
         f"- max_drawdown <= `{fmt(thresholds['max_drawdown'])}`",
+        f"- max_per_family: `{thresholds.get('max_per_family', 0)}`",
+        f"- family_status_path: `{thresholds.get('family_status_path')}`",
         "",
         "## Ranked Candidates",
         "",
-        "| rank | decision | score | neighbor pass | sharpe40 | boot40 | wf q25 | loso sharpe | config | artifact |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| rank | decision | score | family rank | neighbor pass | sharpe40 | boot40 | wf q25 | loso sharpe | config | artifact |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for idx, row in enumerate(report.get("ranked_candidates", []), 1):
         metrics = row.get("metrics") or {}
@@ -496,6 +600,7 @@ def format_markdown(report: dict[str, Any]) -> str:
                     str(idx),
                     str(row.get("decision")),
                     fmt(row.get("score")),
+                    fmt(row.get("family_rank"), 0),
                     f"{stability.get('passing_neighbor_count', 0)}/{stability.get('neighbor_count', 0)} ({fmt(stability.get('neighbor_pass_fraction'))})",
                     fmt(metrics.get("sharpe40")),
                     fmt(metrics.get("bootstrap_p5_40")),
@@ -533,6 +638,8 @@ def main() -> None:
     parser.add_argument("--min-walk-forward-q25", type=float, default=0.0)
     parser.add_argument("--min-loso-sharpe", type=float, default=0.0)
     parser.add_argument("--max-drawdown", type=float, default=0.30)
+    parser.add_argument("--family-status", default="")
+    parser.add_argument("--max-per-family", type=int, default=0)
     parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()
 
@@ -549,6 +656,8 @@ def main() -> None:
         min_walk_forward_q25=args.min_walk_forward_q25,
         min_loso_sharpe=args.min_loso_sharpe,
         max_drawdown=args.max_drawdown,
+        family_status_path=resolve_path(args.family_status, base) if args.family_status else None,
+        max_per_family=args.max_per_family,
         limit=args.limit,
     )
     out_json = resolve_path(args.out_json, base)

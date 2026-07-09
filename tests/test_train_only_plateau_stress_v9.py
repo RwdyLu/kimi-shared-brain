@@ -131,3 +131,32 @@ def test_plateau_stress_builds_train_only_report_from_triage(tmp_path, monkeypat
     assert candidate["verdict"]["decision"] == "train_only_plateau_stress_pass"
     assert "holdout_accessed: `False`" in markdown
     assert "does not authorize holdout" in markdown
+
+
+def test_family_status_from_rejected_stress_marks_cost_sensitive() -> None:
+    key = stress_mod.family_key(
+        "artifacts/v9/contract_lab/example.json",
+        "xsec_ohlcv_factory_v1_train_only_grid",
+        config(),
+    )
+    report = {
+        "created_at": "2026-07-09T00:00:00+00:00",
+        "source_report": "artifacts/v9/reviews/stress.json",
+        "source_artifact": "artifacts/v9/contract_lab/example.json",
+        "summary": {"family_decision": "family_rejected_train_stress"},
+        "candidates": [
+            {
+                "family_key": key,
+                "config": config(),
+                "verdict": {"failed_checks": ["cost_1p5_wf_q25_ge_min"]},
+            }
+        ],
+    }
+
+    status = stress_mod.family_status_from_report(report)
+
+    family = status["families"][key]
+    assert family["status"] == "family_rejected_train_stress"
+    assert family["failed_checks"]["cost_1p5_wf_q25_ge_min"] == 1
+    assert "cost_sensitive" in family["tags"]
+    assert "needs_turnover_reduction" in family["tags"]
