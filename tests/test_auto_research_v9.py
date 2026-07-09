@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -353,6 +354,51 @@ def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
     }
 
     assert auto_research.xsec_rescue_task_from_result(planned, result) is None
+
+
+def test_tsmom_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) -> None:
+    rescue_configs = tmp_path / "tsmom_rescue_configs.json"
+    rescue_configs.write_text(json.dumps([{"asset_vol_target_ann": 0.35, "portfolio_vol_target_ann": 0.12, "no_trade_band": 0.1}]))
+    planned = PlannedTask(
+        name="tsmom_cont_full_202406_tsmom_bear_short_regime_abc123",
+        preset="tsmom_bear_short_regime",
+        cli_preset="bear_short_regime",
+        module="v9.contract.tsmom_factory",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        prior_trials=26000,
+    )
+    result = {
+        "task": planned.name,
+        "status": "completed_no_candidate",
+        "output_json": planned.output_json,
+        "rescue_config_json": str(rescue_configs),
+        "rescue_config_count": 1,
+        "effective_trials_after_rescue": 26001,
+    }
+
+    bundle = auto_research.tsmom_rescue_task_from_result(planned, result)
+
+    assert bundle is not None
+    assert bundle.task.output_json.startswith("artifacts/v9/contract_lab/tsmom_rescue_full_202406")
+    assert "--config-list-json" in bundle.task.command
+    assert "--prior-trials" in bundle.task.command
+    assert "26001" in bundle.task.command
+    assert bundle.planned_record["rescue_family"] == "tsmom_near_miss"
+    auto_research.validate_train_only_task(bundle.task)
+    command = " ".join(bundle.task.command)
+    assert "v9.contract.tsmom_factory" in command
+    assert "holdout" not in command
+    assert "paper" not in command
+    assert "live" not in command
+
+    recursive = dict(result)
+    recursive["output_json"] = "artifacts/v9/contract_lab/tsmom_rescue_full_202406_tsmom_bear_short_regime.json"
+    assert auto_research.tsmom_rescue_task_from_result(planned, recursive) is None
 
 
 def test_backfill_internal_candidate_marker_prefers_non_duplicate(tmp_path) -> None:

@@ -15,6 +15,11 @@ import pandas as pd
 from .report import write_json
 from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows, summarize
 from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
+from v9.research.tsmom_rescue import (
+    build_tsmom_rescue_plan,
+    tsmom_rescue_artifact_paths,
+    write_tsmom_rescue_artifacts,
+)
 from v9.research.xsec_rescue import build_rescue_plan, rescue_artifact_paths, write_rescue_artifacts
 from v9.research.task_planner import (
     CLI_PRESET_BY_PRESET,
@@ -35,6 +40,7 @@ TRAIN_ONLY_MODULES = ("v9.contract.xsec_ohlcv_factory", "v9.contract.tsmom_facto
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 MAX_AUTO_RESCUE_CONFIGS = 150
+MAX_AUTO_TSMOM_RESCUE_CONFIGS = 75
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
     "paper",
@@ -131,6 +137,14 @@ def rescue_task_name(parent_name: str, plan_hash: str) -> str:
     return f"{base}_{plan_hash[:8]}"
 
 
+def tsmom_rescue_task_name(parent_name: str, plan_hash: str) -> str:
+    if parent_name.startswith("tsmom_cont_"):
+        base = "tsmom_rescue_" + parent_name[len("tsmom_cont_") :]
+    else:
+        base = f"tsmom_rescue_{parent_name}"
+    return f"{base}_{plan_hash[:8]}"
+
+
 def is_rescue_output(output_json: str | None) -> bool:
     if not output_json:
         return False
@@ -203,6 +217,86 @@ def xsec_rescue_task_from_result(
     planned_record.update(
         {
             "is_rescue": True,
+            "fingerprint": fingerprint,
+            "parent_fingerprint": planned_task.fingerprint,
+            "rescue_config_json": str(config_path),
+            "rescue_config_count": config_count,
+            "rescue_plan_hash": plan_hash,
+            "output_json": output_json,
+            "output_md": output_md,
+            "prior_trials": effective_trials,
+        }
+    )
+    return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=planned_record, config_count=config_count)
+
+
+def tsmom_rescue_task_from_result(
+    planned_task: PlannedTask,
+    result: dict[str, Any],
+    max_rescue_configs: int = MAX_AUTO_TSMOM_RESCUE_CONFIGS,
+) -> RescueTaskBundle | None:
+    if planned_task.module != "v9.contract.tsmom_factory":
+        return None
+    if is_rescue_output(result.get("output_json")):
+        return None
+    config_count = int(result.get("rescue_config_count") or 0)
+    config_json = result.get("rescue_config_json")
+    if config_count <= 0 or not config_json:
+        return None
+    if config_count > max_rescue_configs:
+        return None
+    config_path = Path(str(config_json))
+    if not config_path.exists():
+        return None
+    plan_hash = file_sha1(config_path)[:12]
+    name = tsmom_rescue_task_name(planned_task.name, plan_hash)
+    output_json = f"artifacts/v9/contract_lab/{name}.json"
+    output_md = f"artifacts/v9/contract_lab/{name}.md"
+    effective_trials = int(result.get("effective_trials_after_rescue") or result.get("effective_trials") or result.get("prior_trials") or planned_task.prior_trials or 0)
+    task = ResearchTask(
+        name=name,
+        command=(
+            "python3",
+            "-m",
+            "v9.contract.tsmom_factory",
+            "--preset",
+            planned_task.cli_preset or planned_task.preset,
+            "--train-start",
+            planned_task.train_start,
+            "--train-end",
+            planned_task.train_end,
+            "--embargo-start",
+            planned_task.embargo_start,
+            "--bootstrap-iterations",
+            str(planned_task.bootstrap_iterations),
+            "--prior-trials",
+            str(effective_trials),
+            "--config-list-json",
+            str(config_path),
+            "--out-json",
+            output_json,
+            "--out-md",
+            output_md,
+        ),
+        output_json=output_json,
+        output_md=output_md,
+        timeout_sec=max(planned_task.timeout_sec, int(planned_task.timeout_sec * max(1.0, config_count / 24.0))),
+    )
+    fingerprint = hashlib.sha1(
+        json.dumps(
+            {
+                "parent_fingerprint": planned_task.fingerprint,
+                "plan_hash": plan_hash,
+                "version": "tsmom_rescue_v1",
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    planned_record = planned_task.record()
+    planned_record.update(
+        {
+            "is_rescue": True,
+            "rescue_family": "tsmom_near_miss",
             "fingerprint": fingerprint,
             "parent_fingerprint": planned_task.fingerprint,
             "rescue_config_json": str(config_path),
@@ -365,6 +459,26 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
         return write_rescue_artifacts(plan, plan_path, config_path)
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"rescue_error": str(exc)}
+
+
+def maybe_write_tsmom_rescue_artifacts(output_json: str) -> dict[str, Any]:
+    out_path = Path(output_json)
+    if "tsmom" not in out_path.name or not out_path.exists():
+        return {}
+    if is_rescue_output(output_json):
+        return {}
+    try:
+        payload = read_json(out_path) or {}
+        if payload.get("kind") != "tsmom_factory_v1_train_only_grid":
+            return {}
+        rows = list(payload.get("rows", []))
+        meta = dict(payload.get("selection_validation", {}) or {})
+        meta["summary"] = dict(payload.get("summary", {}) or {})
+        plan = build_tsmom_rescue_plan(rows, meta=meta, source_artifact=str(out_path))
+        plan_path, config_path = tsmom_rescue_artifact_paths(output_json)
+        return write_tsmom_rescue_artifacts(plan, plan_path, config_path)
+    except Exception as exc:  # pragma: no cover - defensive; runner should continue.
+        return {"tsmom_rescue_error": str(exc)}
 
 
 def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
@@ -604,6 +718,7 @@ def run_task(
     if existing and not force:
         review_metadata = maybe_write_xsec_diagnostic_review(task.output_json)
         rescue_metadata = maybe_write_xsec_rescue_artifacts(task.output_json)
+        tsmom_rescue_metadata = maybe_write_tsmom_rescue_artifacts(task.output_json)
         return {
             "task": task.name,
             "status": task_result_status(existing),
@@ -614,6 +729,7 @@ def run_task(
             **trial_metadata(existing),
             **review_metadata,
             **rescue_metadata,
+            **tsmom_rescue_metadata,
         }
 
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -641,6 +757,7 @@ def run_task(
     payload = read_json(out_path)
     review_metadata = maybe_write_xsec_diagnostic_review(task.output_json) if returncode == 0 else {}
     rescue_metadata = maybe_write_xsec_rescue_artifacts(task.output_json) if returncode == 0 else {}
+    tsmom_rescue_metadata = maybe_write_tsmom_rescue_artifacts(task.output_json) if returncode == 0 else {}
     return {
         "task": task.name,
         "status": task_result_status(payload) if returncode == 0 else "failed",
@@ -653,6 +770,7 @@ def run_task(
         **trial_metadata(payload),
         **review_metadata,
         **rescue_metadata,
+        **tsmom_rescue_metadata,
     }
 
 
@@ -1024,6 +1142,8 @@ def run_continuous_research(
                 consecutive_failures = 0
 
             rescue_bundle = xsec_rescue_task_from_result(planned_task, result)
+            if rescue_bundle is None:
+                rescue_bundle = tsmom_rescue_task_from_result(planned_task, result)
             if rescue_bundle and rescue_bundle.fingerprint not in explored:
                 pending_rescue_bundles.append(rescue_bundle)
 
