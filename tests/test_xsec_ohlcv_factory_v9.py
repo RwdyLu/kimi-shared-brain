@@ -146,6 +146,19 @@ def test_tranche_one_matches_default_single_phase() -> None:
     assert simulate(data, base, cost_bps=20.0, bootstrap_iterations=10) == simulate(data, explicit, cost_bps=20.0, bootstrap_iterations=10)
 
 
+def test_phase_offset_shifts_single_tranche_rebalance_start() -> None:
+    data = close_matrix(240)
+    cfg = OhlcvConfig(lookback_h=12, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+
+    default_result = simulate(data, cfg, cost_bps=20.0, bootstrap_iterations=10)
+    offset_result = simulate(data, cfg, cost_bps=20.0, bootstrap_iterations=10, phase_offset_h=4)
+
+    assert default_result["rebalance_offsets_h"] == [0]
+    assert default_result["phase_offset_h"] == 0
+    assert offset_result["rebalance_offsets_h"] == [4]
+    assert offset_result["phase_offset_h"] == 4
+
+
 def test_tranched_rebalancing_uses_staggered_offsets() -> None:
     data = close_matrix(240)
     single = OhlcvConfig(lookback_h=12, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)

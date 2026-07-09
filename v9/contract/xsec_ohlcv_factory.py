@@ -453,16 +453,23 @@ def simulate(
     bootstrap_seed_value: int = 20260707,
     bootstrap_confirm_iterations: int = 0,
     bootstrap_confirm_seed_value: int | None = None,
+    phase_offset_h: int = 0,
 ) -> dict[str, Any]:
     symbols = [c for c in closes.columns if c != "dt"]
     if cfg.n_tranches < 1:
         raise ValueError("n_tranches must be >= 1")
+    if phase_offset_h < 0:
+        raise ValueError("phase_offset_h must be >= 0")
     scores = score_matrix(closes, cfg)
     allowed = market_filter(closes, cfg)
     returns = closes[symbols].pct_change().shift(-1)
     weights = {sym: 0.0 for sym in symbols}
     tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
-    tranche_offsets = [(idx * cfg.rebalance_h) // cfg.n_tranches for idx in range(cfg.n_tranches)]
+    base_phase = int(phase_offset_h) % int(cfg.rebalance_h)
+    tranche_offsets = [
+        int((base_phase + (idx * cfg.rebalance_h) // cfg.n_tranches) % cfg.rebalance_h)
+        for idx in range(cfg.n_tranches)
+    ]
     rows = []
     rebalances = []
     symbol_returns = {sym: 0.0 for sym in symbols}
@@ -579,6 +586,7 @@ def simulate(
         "bootstrap_30d_sharpe_p5": bootstrap_p5,
         "bootstrap_seed": int(bootstrap_seed_value),
         "bootstrap_iterations": int(bootstrap_iterations),
+        "phase_offset_h": int(base_phase),
         "equal_weight_benchmark": {
             "sharpe": ew_sharpe,
             "max_drawdown": ew_dd,
