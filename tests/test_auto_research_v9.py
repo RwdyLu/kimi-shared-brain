@@ -410,6 +410,49 @@ def test_data_drift_marks_candidate_for_manual_review() -> None:
     assert record["data_fingerprint"] == "new"
 
 
+def test_data_drift_ignores_different_data_scope_for_same_window() -> None:
+    window = {
+        "train_start": "2017-08-01",
+        "train_end": "2024-06-30 23:59:59",
+        "embargo_start": "2024-07-01",
+    }
+    previous = {
+        "planned_task": {
+            **window,
+            "module": "v9.contract.xsec_ohlcv_factory",
+            "preset": "hq_dd_plateau",
+            "cli_preset": "hq_dd_plateau",
+        },
+        "data_fingerprint": "xsec",
+    }
+    current = {
+        "planned_task": {
+            **window,
+            "module": "v9.contract.tsmom_factory",
+            "preset": "tsmom_core_slow_cost_guard",
+            "cli_preset": "core_slow_cost_guard",
+        },
+        "data_fingerprint": "tsmom",
+    }
+
+    assert auto_research.has_data_drift([previous], current) is False
+
+
+def test_data_drift_still_detects_same_data_scope_for_same_window() -> None:
+    planned = {
+        "train_start": "2017-08-01",
+        "train_end": "2024-06-30 23:59:59",
+        "embargo_start": "2024-07-01",
+        "module": "v9.contract.xsec_ohlcv_factory",
+        "preset": "hq_dd_plateau",
+        "cli_preset": "hq_dd_plateau",
+    }
+    previous = {"planned_task": planned, "data_fingerprint": "old"}
+    current = {"planned_task": planned, "data_fingerprint": "new"}
+
+    assert auto_research.has_data_drift([previous], current) is True
+
+
 def test_data_drift_survives_restart_via_explored_log(tmp_path) -> None:
     explored = tmp_path / "explored.jsonl"
     window = {
@@ -429,6 +472,33 @@ def test_data_drift_survives_restart_via_explored_log(tmp_path) -> None:
     same = {"planned_task": window, "data_fingerprint": "old"}
     assert auto_research.has_data_drift(history, current) is True
     assert auto_research.has_data_drift(history, same) is False
+
+
+def test_drift_history_infers_scope_from_explored_task_name(tmp_path) -> None:
+    explored = tmp_path / "explored.jsonl"
+    window = {
+        "train_start": "2017-08-01",
+        "train_end": "2024-06-30 23:59:59",
+        "embargo_start": "2024-07-01",
+    }
+    append_explored_record(
+        explored,
+        {
+            **window,
+            "fingerprint": "t1",
+            "task": "tsmom_cont_full_202406_tsmom_core_slow_cost_guard_abc123",
+            "data_fingerprint": "old",
+        },
+    )
+
+    history = auto_research.drift_history_from_explored(explored)
+
+    assert history[0]["planned_task"] == {
+        **window,
+        "module": "v9.contract.tsmom_factory",
+        "preset": "tsmom_core_slow_cost_guard",
+        "cli_preset": "core_slow_cost_guard",
+    }
 
 
 def test_continuous_research_honors_stop_file(tmp_path) -> None:

@@ -17,7 +17,12 @@ from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows
 from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
 from v9.research.xsec_rescue import build_rescue_plan, rescue_artifact_paths, write_rescue_artifacts
 from v9.research.task_planner import (
+    CLI_PRESET_BY_PRESET,
+    DEFAULT_TRAIN_MODULE,
+    LEGACY_TASK_PRESETS,
+    MODULE_BY_PRESET,
     PlannedTask,
+    PRESETS,
     append_explored_record,
     cumulative_trials,
     legacy_fingerprints_from_results,
@@ -308,6 +313,8 @@ def trial_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
             metadata[key] = int(selection_validation.get(key) or 0)
     if data.get("fingerprint"):
         metadata["data_fingerprint"] = str(data["fingerprint"])
+    if data.get("symbols"):
+        metadata["data_symbols"] = sorted(str(symbol) for symbol in data.get("symbols") or [])
     return metadata
 
 
@@ -373,14 +380,45 @@ def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
     return total
 
 
-def planned_window_key(result: dict[str, Any]) -> tuple[str, str, str] | None:
+def infer_planned_scope_from_task(task_name: str) -> dict[str, Any] | None:
+    if task_name in LEGACY_TASK_PRESETS:
+        preset = LEGACY_TASK_PRESETS[task_name]
+        return {"module": DEFAULT_TRAIN_MODULE, "preset": preset, "cli_preset": preset}
+    for preset in sorted(PRESETS, key=len, reverse=True):
+        if preset in task_name:
+            module = MODULE_BY_PRESET.get(preset, DEFAULT_TRAIN_MODULE)
+            return {"module": module, "preset": preset, "cli_preset": CLI_PRESET_BY_PRESET.get(preset, preset)}
+    return None
+
+
+def planned_data_scope(result: dict[str, Any]) -> tuple[str, str, str] | None:
+    planned = result.get("planned_task") or {}
+    module = planned.get("module") or result.get("module")
+    preset = planned.get("preset") or result.get("preset")
+    cli_preset = planned.get("cli_preset") or result.get("cli_preset")
+    if not module or not preset:
+        inferred = infer_planned_scope_from_task(str(result.get("task") or ""))
+        if inferred:
+            module = module or inferred["module"]
+            preset = preset or inferred["preset"]
+            cli_preset = cli_preset or inferred["cli_preset"]
+    if not module or not preset:
+        return None
+    return (str(module), str(preset), str(cli_preset or preset))
+
+
+def planned_window_key(result: dict[str, Any]) -> tuple[str, str, str, str, str, str] | tuple[str, str, str] | None:
     planned = result.get("planned_task") or {}
     if not planned:
         return None
     keys = ("train_start", "train_end", "embargo_start")
     if not all(planned.get(key) for key in keys):
         return None
-    return tuple(str(planned[key]) for key in keys)
+    window = tuple(str(planned[key]) for key in keys)
+    scope = planned_data_scope(result)
+    if scope is None:
+        return window
+    return (*window, *scope)
 
 
 def has_data_drift(task_results: list[dict[str, Any]], result: dict[str, Any]) -> bool:
@@ -411,10 +449,15 @@ def drift_history_from_explored(path: Path) -> list[dict[str, Any]]:
             continue
         if not row.get("data_fingerprint") or not all(row.get(key) for key in keys):
             continue
+        planned = {key: str(row[key]) for key in keys}
+        scope = planned_data_scope(row)
+        if scope:
+            planned.update({"module": scope[0], "preset": scope[1], "cli_preset": scope[2]})
         rows.append(
             {
-                "planned_task": {key: str(row[key]) for key in keys},
+                "planned_task": planned,
                 "data_fingerprint": str(row["data_fingerprint"]),
+                "task": str(row.get("task") or ""),
             }
         )
     return rows
@@ -431,6 +474,8 @@ def candidate_record(task: ResearchTask, result: dict[str, Any], status: str = "
         record["fingerprint"] = result["fingerprint"]
     if result.get("data_fingerprint"):
         record["data_fingerprint"] = result["data_fingerprint"]
+    if result.get("data_symbols"):
+        record["data_symbols"] = result["data_symbols"]
     return record
 
 
@@ -933,6 +978,9 @@ def run_continuous_research(
                     "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
                     "fingerprint": planned_task.fingerprint,
                     "task": task.name,
+                    "module": planned_task.module,
+                    "preset": planned_task.preset,
+                    "cli_preset": planned_task.cli_preset,
                     "status": result["status"],
                     "output_json": result["output_json"],
                     "output_md": result["output_md"],
@@ -944,6 +992,7 @@ def run_continuous_research(
                     "prior_trials": result.get("prior_trials", 0),
                     "effective_trials": result.get("effective_trials", 0),
                     "data_fingerprint": result.get("data_fingerprint", ""),
+                    "data_symbols": result.get("data_symbols", []),
                 },
             )
             if result.get("data_fingerprint"):
@@ -953,6 +1002,9 @@ def run_continuous_research(
                             "train_start": planned_task.train_start,
                             "train_end": planned_task.train_end,
                             "embargo_start": planned_task.embargo_start,
+                            "module": planned_task.module,
+                            "preset": planned_task.preset,
+                            "cli_preset": planned_task.cli_preset or planned_task.preset,
                         },
                         "data_fingerprint": str(result["data_fingerprint"]),
                     }
@@ -1118,6 +1170,9 @@ def run_continuous_research(
                     "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
                     "fingerprint": rescue_bundle.fingerprint,
                     "task": rescue_task.name,
+                    "module": rescue_bundle.planned_record.get("module", ""),
+                    "preset": rescue_bundle.planned_record.get("preset", ""),
+                    "cli_preset": rescue_bundle.planned_record.get("cli_preset"),
                     "status": rescue_result["status"],
                     "output_json": rescue_result["output_json"],
                     "output_md": rescue_result["output_md"],
@@ -1129,6 +1184,7 @@ def run_continuous_research(
                     "prior_trials": rescue_result.get("prior_trials", 0),
                     "effective_trials": rescue_result.get("effective_trials", 0),
                     "data_fingerprint": rescue_result.get("data_fingerprint", ""),
+                    "data_symbols": rescue_result.get("data_symbols", []),
                     "is_rescue": True,
                     "parent_fingerprint": rescue_bundle.planned_record["parent_fingerprint"],
                     "rescue_config_count": rescue_bundle.config_count,
