@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import math
 import random
@@ -28,8 +29,26 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import lunar_genome_crypto_lab_v7_robust as v7  # noqa: E402
-import lunar_genome_symbol_local_search_v8_cvar_tailrisk as v8  # noqa: E402
 import lunar_genome_symbol_validate_v7 as sv  # noqa: E402
+
+
+_V8_MODULE: Any | None = None
+
+
+def load_v8_module() -> Any:
+    """Load the legacy evaluator only for CLI paths that re-evaluate genomes."""
+    global _V8_MODULE
+    if _V8_MODULE is not None:
+        return _V8_MODULE
+    try:
+        _V8_MODULE = importlib.import_module("lunar_genome_symbol_local_search_v8_cvar_tailrisk")
+    except ModuleNotFoundError as exc:
+        if exc.name == "lunar_genome_symbol_local_search_v8_cvar_tailrisk":
+            raise SystemExit(
+                "missing legacy evaluator: scripts/lunar_genome_symbol_local_search_v8_cvar_tailrisk.py"
+            ) from exc
+        raise
+    return _V8_MODULE
 
 
 def parse_args() -> argparse.Namespace:
@@ -349,6 +368,7 @@ def compute_candidate_regime_report(
 
 
 def evaluate_rows(rows: list[dict[str, Any]], args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    v8 = load_v8_module()
     rng = random.Random(args.seed)
     scenario_cache: dict[str, list[dict[str, Any]]] = {}
     scenario_manifest: dict[str, list[dict[str, Any]]] = {}
