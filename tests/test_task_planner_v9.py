@@ -172,34 +172,31 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
 
 
 def test_focus_train_only_presets_take_priority() -> None:
-    first = propose_tasks(set(), 14)
-    assert first[0].preset == "tsmom_bear_short_medium"
-    assert first[0].module == "v9.contract.tsmom_factory"
-    assert first[0].cli_preset == "bear_short_medium"
-    assert first[1].preset == "tsmom_bear_short_medium_neighbor"
-    assert first[1].cli_preset == "bear_short_medium_neighbor"
-    assert first[2].preset == "tsmom_bear_short_medium_risk"
-    assert first[2].cli_preset == "bear_short_medium_risk"
-    assert first[3].preset == "tsmom_bear_short_cost_guard"
-    assert first[3].cli_preset == "bear_short_cost_guard"
-    assert first[4].preset == "tsmom_slow_cost_guard"
-    assert first[4].cli_preset == "slow_cost_guard"
-    assert first[5].preset == "tsmom_ultra_slow_cost_guard"
-    assert first[5].cli_preset == "ultra_slow_cost_guard"
-    assert first[6].preset == "tsmom_core_cost_guard"
-    assert first[6].cli_preset == "core_cost_guard"
-    assert first[7].preset == "tsmom_core_slow_cost_guard"
-    assert first[7].cli_preset == "core_slow_cost_guard"
-    assert first[8].preset == "tsmom_bear_short_fast"
-    assert first[8].cli_preset == "bear_short_fast"
-    assert first[9].preset == "tsmom_bear_short_regime"
-    assert first[9].cli_preset == "bear_short_regime"
-    assert first[10].preset == "tsmom_defensive_regime"
-    assert first[10].cli_preset == "defensive_regime"
-    assert first[11].preset == "tsmom_trend_ensemble"
-    assert first[11].cli_preset == "core"
-    assert first[12].preset == "hq_cadence_tranche"
-    assert first[13].preset == "hq_dd_plateau"
+    first = propose_tasks(set(), 16)
+    assert [task.preset for task in first[:12]] == [
+        "hq_dd_plateau",
+        "hq_dd_long",
+        "defensive_drawdown",
+        "hq_cadence_tranche",
+        "hq_breadth_wide",
+        "hq_fast_rebal",
+        "defensive_neighbor",
+        "defensive_breadth",
+        "defensive",
+        "slow",
+        "core",
+        "fast",
+    ]
+    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:12])
+    assert first[12].preset == "tsmom_bear_short_medium"
+    assert first[12].module == "v9.contract.tsmom_factory"
+    assert first[12].cli_preset == "bear_short_medium"
+    assert first[13].preset == "tsmom_bear_short_medium_neighbor"
+    assert first[13].cli_preset == "bear_short_medium_neighbor"
+    assert first[14].preset == "tsmom_bear_short_medium_risk"
+    assert first[14].cli_preset == "bear_short_medium_risk"
+    assert first[15].preset == "tsmom_bear_short_cost_guard"
+    assert first[15].cli_preset == "bear_short_cost_guard"
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -233,19 +230,22 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         }
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
-    first = propose_tasks(set(), 15, task_results=task_results, candidates=candidates)
-    assert first[0].preset == "tsmom_bear_short_medium"
-    assert first[1].preset == "tsmom_bear_short_medium_neighbor"
-    assert first[2].preset == "tsmom_bear_short_medium_risk"
-    assert first[3].preset == "tsmom_bear_short_cost_guard"
-    assert first[4].preset == "tsmom_slow_cost_guard"
-    assert first[5].preset == "tsmom_ultra_slow_cost_guard"
-    assert first[6].preset == "tsmom_core_cost_guard"
-    assert first[7].preset == "tsmom_core_slow_cost_guard"
-    assert first[8].preset == "tsmom_bear_short_fast"
-    assert first[9].preset == "tsmom_bear_short_regime"
-    assert first[10].preset == "tsmom_defensive_regime"
-    assert first[11].preset == "tsmom_trend_ensemble"
-    assert first[12].preset == "hq_cadence_tranche"
-    assert first[13].preset == "hq_dd_plateau"
-    assert first[14].preset == "defensive_drawdown"
+    first = propose_tasks(set(), 16, task_results=task_results, candidates=candidates)
+    assert [task.preset for task in first[:12]] == [
+        "hq_dd_plateau",
+        "hq_dd_long",
+        "defensive_drawdown",
+        "hq_cadence_tranche",
+        "hq_breadth_wide",
+        "hq_fast_rebal",
+        "defensive_neighbor",
+        "defensive_breadth",
+        "defensive",
+        "slow",
+        "core",
+        "fast",
+    ]
+    assert first[12].preset == "tsmom_bear_short_medium"
+    assert first[13].preset == "tsmom_bear_short_medium_neighbor"
+    assert first[14].preset == "tsmom_bear_short_medium_risk"
+    assert first[15].preset == "tsmom_bear_short_cost_guard"

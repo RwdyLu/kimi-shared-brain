@@ -43,6 +43,18 @@ CLI_PRESET_BY_PRESET = {
 }
 
 FOCUS_PRESETS = (
+    "hq_dd_plateau",
+    "hq_dd_long",
+    "defensive_drawdown",
+    "hq_cadence_tranche",
+    "hq_breadth_wide",
+    "hq_fast_rebal",
+    "defensive_neighbor",
+    "defensive_breadth",
+    "defensive",
+    "slow",
+    "core",
+    "fast",
     "tsmom_bear_short_medium",
     "tsmom_bear_short_medium_neighbor",
     "tsmom_bear_short_medium_risk",
@@ -55,8 +67,6 @@ FOCUS_PRESETS = (
     "tsmom_bear_short_regime",
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
-    "hq_cadence_tranche",
-    "hq_dd_plateau",
 )
 
 PRESETS = (
