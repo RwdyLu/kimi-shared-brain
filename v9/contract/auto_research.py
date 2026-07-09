@@ -14,6 +14,8 @@ import pandas as pd
 
 from .report import write_json
 from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows, summarize
+from scripts.v9_tsmom_family_review import build_review as build_tsmom_family_review
+from scripts.v9_tsmom_family_review import format_markdown as format_tsmom_family_review_markdown
 from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
 from v9.research.tsmom_rescue import (
     build_tsmom_rescue_plan,
@@ -481,6 +483,57 @@ def maybe_write_tsmom_rescue_artifacts(output_json: str) -> dict[str, Any]:
         return {"tsmom_rescue_error": str(exc)}
 
 
+def is_tsmom_candidate_record(record: dict[str, Any]) -> bool:
+    text = f"{record.get('task', '')} {record.get('output_json', '')}".lower()
+    return "tsmom" in text
+
+
+def tsmom_family_review_paths(primary_task: str) -> tuple[Path, Path]:
+    stem = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in primary_task)
+    review_dir = Path("artifacts/v9/reviews")
+    return (
+        review_dir / f"{stem}_tsmom_family_review.json",
+        review_dir / f"{stem}_tsmom_family_review.md",
+    )
+
+
+def primary_task_for_candidate(state_path: Path, record: dict[str, Any]) -> str:
+    state = read_json(state_path) or {}
+    record_task = str(record.get("task") or "")
+    record_output = str(record.get("output_json") or "")
+    for row in state.get("candidates_found", []):
+        if record_output and str(row.get("output_json") or "") != record_output:
+            continue
+        if record_task and str(row.get("task") or "") != record_task:
+            continue
+        return str(row.get("duplicate_of") or row.get("task") or record_task)
+    return record_task
+
+
+def maybe_write_tsmom_family_review_for_candidate(state_path: Path, record: dict[str, Any]) -> dict[str, Any]:
+    if not is_tsmom_candidate_record(record) or not state_path.exists():
+        return {}
+    try:
+        primary_task = primary_task_for_candidate(state_path, record)
+        if not primary_task:
+            return {}
+        review = build_tsmom_family_review(state_path, primary_task, Path("."))
+        json_path, md_path = tsmom_family_review_paths(primary_task)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(review, json_path)
+        md_path.write_text(format_tsmom_family_review_markdown(review))
+        return {
+            "tsmom_family_review_json": str(json_path),
+            "tsmom_family_review_md": str(md_path),
+            "tsmom_family_review_primary_task": primary_task,
+            "tsmom_family_review_decision": review.get("decision"),
+            "tsmom_family_review_candidate_record_count": review.get("candidate_record_count"),
+            "tsmom_family_review_quarantined_data_drift_count": review.get("quarantined_data_drift_count"),
+        }
+    except Exception as exc:  # pragma: no cover - defensive; runner should continue.
+        return {"tsmom_family_review_error": str(exc)}
+
+
 def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
     total = 0
     for result in task_results:
@@ -833,6 +886,16 @@ def run_auto_research(
             record = candidate_record(task, result)
             candidates_found.append(record)
             write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+            write_state(
+                state_path,
+                started_at,
+                "running",
+                f"candidate_recorded:{task.name}",
+                task_results,
+                current_task=task.name,
+                candidates_found=candidates_found,
+            )
+            result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
         write_state(
             state_path,
             started_at,
@@ -1134,6 +1197,20 @@ def run_continuous_research(
                     record = candidate_record(task, result, status=candidate_status)
                     candidates_found.append(record)
                     write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    write_state(
+                        state_path,
+                        started_at,
+                        "running",
+                        f"candidate_recorded:{task.name}",
+                        task_results,
+                        current_task=task.name,
+                        candidates_found=candidates_found,
+                        tasks=tasks,
+                        mode="continuous",
+                        cycle_index=cycle_index,
+                        deadline_at=deadline_at,
+                    )
+                    result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
                     if candidate_status == "quarantined_data_drift":
                         write_latest_summary(latest_summary_path, "running", f"data_drift_detected:{task.name}")
             if result["status"] == "failed":
@@ -1282,6 +1359,11 @@ def run_continuous_research(
             rescue_result["fingerprint"] = rescue_bundle.fingerprint
             rescue_result["planned_task"] = rescue_bundle.planned_record
             rescue_result["is_rescue"] = True
+            rescue_candidate_status = (
+                "quarantined_data_drift"
+                if has_data_drift(drift_history + task_results, rescue_result)
+                else "manual_review_required"
+            )
             task_results.append(rescue_result)
             explored.add(rescue_bundle.fingerprint)
             append_explored_record(
@@ -1310,12 +1392,41 @@ def run_continuous_research(
                     "rescue_config_count": rescue_bundle.config_count,
                 },
             )
+            if rescue_result.get("data_fingerprint"):
+                drift_history.append(
+                    {
+                        "planned_task": {
+                            "train_start": rescue_bundle.planned_record["train_start"],
+                            "train_end": rescue_bundle.planned_record["train_end"],
+                            "embargo_start": rescue_bundle.planned_record["embargo_start"],
+                            "module": rescue_bundle.planned_record.get("module", ""),
+                            "preset": rescue_bundle.planned_record.get("preset", ""),
+                            "cli_preset": rescue_bundle.planned_record.get("cli_preset")
+                            or rescue_bundle.planned_record.get("preset", ""),
+                        },
+                        "data_fingerprint": str(rescue_result["data_fingerprint"]),
+                    }
+                )
             if rescue_result["status"] == "accepted_train_only_candidate_found":
                 known_outputs = {str(row.get("output_json")) for row in candidates_found}
                 if rescue_result["output_json"] not in known_outputs:
-                    record = candidate_record(rescue_task, rescue_result)
+                    record = candidate_record(rescue_task, rescue_result, status=rescue_candidate_status)
                     candidates_found.append(record)
                     write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    write_state(
+                        state_path,
+                        started_at,
+                        "running",
+                        f"candidate_recorded:{rescue_task.name}",
+                        task_results,
+                        current_task=rescue_task.name,
+                        candidates_found=candidates_found,
+                        tasks=tasks,
+                        mode="continuous",
+                        cycle_index=cycle_index,
+                        deadline_at=deadline_at,
+                    )
+                    rescue_result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
             write_state(
                 state_path,
                 started_at,

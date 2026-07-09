@@ -621,6 +621,97 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
     assert "paper_trading_authorized=False" in marker
 
 
+def test_continuous_research_writes_tsmom_family_review_after_candidate(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    planned = PlannedTask(
+        name="tsmom_cont_full_202406_tsmom_bear_short_regime_abc123",
+        preset="tsmom_bear_short_regime",
+        cli_preset="bear_short_regime",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "artifacts/v9/contract_lab/tsmom.json"),
+        output_md=str(tmp_path / "artifacts/v9/contract_lab/tsmom.md"),
+        timeout_sec=1,
+        module="v9.contract.tsmom_factory",
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned])
+    control = tmp_path / "control"
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        write_json(
+            {
+                "kind": "tsmom_factory_v1_train_only_grid",
+                "summary": {
+                    "accepted_train_only": True,
+                    "holdout_authorized": False,
+                    "paper_trading_authorized": False,
+                    "live_trading_authorized": False,
+                    "pass_count": 1,
+                    "rows": 1,
+                },
+                "data": {
+                    "fingerprint": "train-fp",
+                    "first_dt": "2020-01-01T00:00:00+00:00",
+                    "last_dt": "2024-06-30T23:00:00+00:00",
+                    "rows": 100,
+                    "symbols": ["BTCUSDT", "ETHUSDT"],
+                },
+                "selection_validation": {"n_configs_tested": 1, "effective_trials": 1},
+                "rows": [
+                    {
+                        "advance_passed": True,
+                        "config": {"asset_vol_target_ann": 0.35, "portfolio_vol_target_ann": 0.12},
+                        "cost20": {"sharpe": 1.4, "total_return": 0.2, "max_drawdown": 0.12},
+                        "validation": {"cost20": {"sharpe": 1.1, "total_return": 0.1, "max_drawdown": 0.11}},
+                        "advance_checks": {"validation_sharpe20_ge_adjusted_min": True},
+                    }
+                ],
+            },
+            Path(task.output_json),
+        )
+        control.mkdir(parents=True, exist_ok=True)
+        (control / "STOP").write_text("stop after tsmom candidate")
+        return {
+            "task": task.name,
+            "status": "accepted_train_only_candidate_found",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+            "n_configs_tested": 1,
+            "data_fingerprint": "train-fp",
+            "data_symbols": ["BTCUSDT", "ETHUSDT"],
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        control,
+        planner_batch_size=1,
+        cycle_sleep_sec=0,
+    )
+
+    result = payload["task_results"][0]
+    review_json = tmp_path / result["tsmom_family_review_json"]
+    review_md = tmp_path / result["tsmom_family_review_md"]
+    review = json.loads(review_json.read_text())
+    assert review_json.exists()
+    assert review_md.exists()
+    assert result["tsmom_family_review_primary_task"] == planned.name
+    assert result["tsmom_family_review_decision"] == "train_only_family_candidate_but_needs_drift_review"
+    assert review["candidate_record_count"] == 1
+    assert review["quarantined_data_drift_count"] == 0
+    assert review["holdout_authorized"] is False
+    assert review["paper_trading_authorized"] is False
+    assert review["live_trading_authorized"] is False
+
+
 def test_continuous_research_runs_auto_xsec_rescue_after_primary_batch(tmp_path, monkeypatch) -> None:
     rescue_configs = tmp_path / "rescue_configs.json"
     rescue_configs.write_text("[]")
