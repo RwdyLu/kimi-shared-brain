@@ -105,11 +105,28 @@ def preregistered_holdout_command(task: str, artifact: str) -> dict[str, Any]:
                 "holdout_40bps_return_gt_0"
             ),
         }
+    if "xsec_ohlcv" in task:
+        stem = Path(artifact).stem
+        return {
+            "status": "available_but_not_authorized",
+            "do_not_run_until": "holdout_authorized=true",
+            "command": (
+                "python3 scripts/v9_xsec_ohlcv_holdout_audit.py "
+                f"{artifact} --split holdout "
+                f"--out-json artifacts/v9/holdout/{stem}_holdout_audit.json "
+                f"--out-text artifacts/v9/holdout/{stem}_holdout_audit.txt"
+            ),
+            "decision_rule": (
+                "holdout_20bps_sharpe_ge_0_7 and holdout_20bps_return_gt_0 and "
+                "holdout_20bps_drawdown_le_25pct and holdout_40bps_sharpe_gt_0 and "
+                "holdout_40bps_return_gt_0 and holdout_top_symbol_share_le_65pct"
+            ),
+        }
     return {
-        "status": "missing_generic_xsec_holdout_entrypoint",
+        "status": "missing_generic_holdout_entrypoint",
         "do_not_run_until": "holdout_authorized=true",
         "command": None,
-        "decision_rule": "Define and review a generic XSEC holdout audit entrypoint before authorization.",
+        "decision_rule": "Define and review a generic holdout audit entrypoint before authorization.",
     }
 
 

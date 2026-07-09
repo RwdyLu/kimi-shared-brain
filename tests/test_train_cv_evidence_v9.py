@@ -124,7 +124,7 @@ def test_build_evidence_is_train_only_and_dedupes_candidates(tmp_path, monkeypat
     assert candidate["pre_registered_holdout"]["do_not_run_until"] == "holdout_authorized=true"
 
 
-def test_xsec_evidence_requires_generic_holdout_entrypoint(tmp_path, monkeypatch) -> None:
+def test_xsec_evidence_preregisters_holdout_command_without_authorizing(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     artifact = tmp_path / "artifacts/v9/contract_lab/xsec.json"
     write_artifact(
@@ -152,6 +152,9 @@ def test_xsec_evidence_requires_generic_holdout_entrypoint(tmp_path, monkeypatch
     report = evidence_mod.build_evidence(state, base=tmp_path)
     markdown = evidence_mod.format_markdown(report)
 
-    assert report["candidates"][0]["pre_registered_holdout"]["status"] == "missing_generic_xsec_holdout_entrypoint"
+    holdout = report["candidates"][0]["pre_registered_holdout"]
+    assert holdout["status"] == "available_but_not_authorized"
+    assert "scripts/v9_xsec_ohlcv_holdout_audit.py" in holdout["command"]
+    assert "--split holdout" in holdout["command"]
     assert "holdout_authorized=False" in markdown
     assert "holdout_accessed: `False`" in markdown
