@@ -173,31 +173,32 @@ def test_candidate_quality_zero_drawdown_is_not_missing(tmp_path) -> None:
 
 def test_focus_train_only_presets_take_priority() -> None:
     first = propose_tasks(set(), 16)
-    assert [task.preset for task in first[:15]] == [
+    assert [task.preset for task in first[:12]] == [
         "tsmom_defensive_regime",
         "tsmom_bear_short_regime",
         "tsmom_trend_ensemble",
+        "tsmom_bear_short_medium",
+        "tsmom_bear_short_medium_neighbor",
+        "tsmom_bear_short_medium_risk",
+        "tsmom_bear_short_cost_guard",
+        "tsmom_slow_cost_guard",
+        "tsmom_ultra_slow_cost_guard",
+        "tsmom_core_cost_guard",
+        "tsmom_core_slow_cost_guard",
+        "tsmom_bear_short_fast",
+    ]
+    assert [task.preset for task in first[12:16]] == [
         "hq_dd_plateau",
         "hq_dd_long",
         "defensive_drawdown",
         "hq_cadence_tranche",
-        "hq_breadth_wide",
-        "hq_fast_rebal",
-        "defensive_neighbor",
-        "defensive_breadth",
-        "defensive",
-        "slow",
-        "core",
-        "fast",
     ]
-    assert all(task.module == "v9.contract.tsmom_factory" for task in first[:3])
+    assert all(task.module == "v9.contract.tsmom_factory" for task in first[:12])
     assert first[0].cli_preset == "defensive_regime"
     assert first[1].cli_preset == "bear_short_regime"
     assert first[2].cli_preset == "core"
-    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[3:15])
-    assert first[15].preset == "tsmom_bear_short_medium"
-    assert first[15].module == "v9.contract.tsmom_factory"
-    assert first[15].cli_preset == "bear_short_medium"
+    assert first[3].cli_preset == "bear_short_medium"
+    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[12:16])
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -232,21 +233,23 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
     ]
     candidates = [{"task": "winner", "output_json": str(out), "output_md": str(tmp_path / "accepted.md")}]
     first = propose_tasks(set(), 16, task_results=task_results, candidates=candidates)
-    assert [task.preset for task in first[:15]] == [
+    assert [task.preset for task in first[:12]] == [
         "tsmom_defensive_regime",
         "tsmom_bear_short_regime",
         "tsmom_trend_ensemble",
+        "tsmom_bear_short_medium",
+        "tsmom_bear_short_medium_neighbor",
+        "tsmom_bear_short_medium_risk",
+        "tsmom_bear_short_cost_guard",
+        "tsmom_slow_cost_guard",
+        "tsmom_ultra_slow_cost_guard",
+        "tsmom_core_cost_guard",
+        "tsmom_core_slow_cost_guard",
+        "tsmom_bear_short_fast",
+    ]
+    assert [task.preset for task in first[12:16]] == [
         "hq_dd_plateau",
         "hq_dd_long",
         "defensive_drawdown",
         "hq_cadence_tranche",
-        "hq_breadth_wide",
-        "hq_fast_rebal",
-        "defensive_neighbor",
-        "defensive_breadth",
-        "defensive",
-        "slow",
-        "core",
-        "fast",
     ]
-    assert first[15].preset == "tsmom_bear_short_medium"
