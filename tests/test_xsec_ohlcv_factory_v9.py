@@ -17,6 +17,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     bootstrap_threshold,
     config_for_preset,
     data_fingerprint,
+    leave_one_symbol_summary,
     long_only_weights,
     market_filter,
     plateau_stability_summary,
@@ -28,6 +29,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     simulate,
     split_selection_validation,
     validation_sharpe_threshold,
+    walk_forward_summary,
 )
 
 
@@ -83,6 +85,10 @@ def test_simulate_reports_gate_inputs() -> None:
     assert "bootstrap_p5_ge_adjusted_min" in checks
     assert result20["daily_turnover"] >= 0
     assert result20["rebalance_offsets_h"] == [0]
+    assert result20["avg_long_exposure"] >= 0
+    assert result20["avg_short_exposure"] == 0
+    assert result20["legs"]["avg_long_exposure"] == result20["avg_long_exposure"]
+    assert result20["legs"]["short_gross_return"] == 0
 
 
 def test_tranche_one_matches_default_single_phase() -> None:
@@ -134,6 +140,33 @@ def test_split_selection_validation_keeps_validation_after_purge() -> None:
     assert meta["validation_usable"] is True
 
 
+def test_walk_forward_summary_reports_cross_sectional_fold_metrics() -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    summary = walk_forward_summary(
+        close_matrix(900),
+        cfg,
+        cost_bps=0.0,
+        folds=3,
+        min_q25_sharpe=-99.0,
+        min_sign_consistency=0.0,
+    )
+    assert summary["enabled"] is True
+    assert summary["fold_count"] == 3
+    assert summary["passed"] is True
+    assert {row["fold"] for row in summary["folds"]} == {0, 1, 2}
+    assert "median_long_gross_sharpe" in summary
+    assert "median_short_gross_sharpe" in summary
+
+
+def test_leave_one_symbol_summary_reports_each_symbol_drop() -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    summary = leave_one_symbol_summary(close_matrix(600), cfg, cost_bps=0.0, min_sharpe=-99.0)
+    assert summary["enabled"] is True
+    assert len(summary["rows"]) == 4
+    assert {row["dropped_symbol"] for row in summary["rows"]} == {"AAA", "BBB", "CCC", "DDD"}
+    assert summary["worst_drop"]["dropped_symbol"] in {"AAA", "BBB", "CCC", "DDD"}
+
+
 def test_trial_adjusted_thresholds_tighten_with_prior_trials() -> None:
     assert bootstrap_threshold(16 + 500) > bootstrap_threshold(16)
     assert validation_sharpe_threshold(10) == 0.70
@@ -180,6 +213,10 @@ def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
     payload = run_grid(cfg)
     assert payload["data"]["fingerprint"] == data_fingerprint(closes)
     assert payload["data"]["rows"] == len(closes)
+    assert payload["selection_validation"]["walk_forward_required"] is True
+    assert payload["selection_validation"]["leave_one_symbol_required"] is True
+    assert "walk_forward" in payload["top"][0]
+    assert "leave_one_symbol" in payload["top"][0]
     assert not progress_meta_path_for(cfg.out_json).exists()
 
 
