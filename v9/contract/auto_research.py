@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
@@ -28,6 +29,7 @@ from v9.research.task_planner import (
 TRAIN_ONLY_MODULES = ("v9.contract.xsec_ohlcv_factory", "v9.contract.tsmom_factory")
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
+MAX_AUTO_RESCUE_CONFIGS = 150
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
     "paper",
@@ -48,6 +50,14 @@ class ResearchTask:
     output_json: str
     output_md: str
     timeout_sec: int
+
+
+@dataclass(frozen=True)
+class RescueTaskBundle:
+    task: ResearchTask
+    fingerprint: str
+    planned_record: dict[str, Any]
+    config_count: int
 
 
 def xsec_ohlcv_task(
@@ -98,6 +108,107 @@ def research_task_from_planned(task: PlannedTask) -> ResearchTask:
         output_md=task.output_md,
         timeout_sec=task.timeout_sec,
     )
+
+
+def file_sha1(path: Path) -> str:
+    h = hashlib.sha1()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def rescue_task_name(parent_name: str, plan_hash: str) -> str:
+    if parent_name.startswith("xsec_ohlcv_cont_"):
+        base = "xsec_ohlcv_rescue_" + parent_name[len("xsec_ohlcv_cont_") :]
+    else:
+        base = f"xsec_ohlcv_rescue_{parent_name}"
+    return f"{base}_{plan_hash[:8]}"
+
+
+def is_rescue_output(output_json: str | None) -> bool:
+    if not output_json:
+        return False
+    return "_rescue_" in Path(str(output_json)).stem
+
+
+def xsec_rescue_task_from_result(
+    planned_task: PlannedTask,
+    result: dict[str, Any],
+    max_rescue_configs: int = MAX_AUTO_RESCUE_CONFIGS,
+) -> RescueTaskBundle | None:
+    if planned_task.module != "v9.contract.xsec_ohlcv_factory":
+        return None
+    if is_rescue_output(result.get("output_json")):
+        return None
+    config_count = int(result.get("rescue_config_count") or 0)
+    config_json = result.get("rescue_config_json")
+    if config_count <= 0 or not config_json:
+        return None
+    if config_count > max_rescue_configs:
+        return None
+    config_path = Path(str(config_json))
+    if not config_path.exists():
+        return None
+    plan_hash = file_sha1(config_path)[:12]
+    name = rescue_task_name(planned_task.name, plan_hash)
+    output_json = f"artifacts/v9/contract_lab/{name}.json"
+    output_md = f"artifacts/v9/contract_lab/{name}.md"
+    effective_trials = int(result.get("effective_trials") or result.get("prior_trials") or planned_task.prior_trials or 0)
+    task = ResearchTask(
+        name=name,
+        command=(
+            "python3",
+            "-m",
+            "v9.contract.xsec_ohlcv_factory",
+            "--preset",
+            planned_task.cli_preset or planned_task.preset,
+            "--train-start",
+            planned_task.train_start,
+            "--train-end",
+            planned_task.train_end,
+            "--embargo-start",
+            planned_task.embargo_start,
+            "--bootstrap-iterations",
+            str(planned_task.bootstrap_iterations),
+            "--prior-trials",
+            str(effective_trials),
+            "--config-list-json",
+            str(config_path),
+            "--out-json",
+            output_json,
+            "--out-md",
+            output_md,
+        ),
+        output_json=output_json,
+        output_md=output_md,
+        timeout_sec=max(planned_task.timeout_sec, int(planned_task.timeout_sec * max(1.0, config_count / 81.0))),
+    )
+    fingerprint = hashlib.sha1(
+        json.dumps(
+            {
+                "parent_fingerprint": planned_task.fingerprint,
+                "plan_hash": plan_hash,
+                "version": "xsec_rescue_v1",
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    planned_record = planned_task.record()
+    planned_record.update(
+        {
+            "is_rescue": True,
+            "fingerprint": fingerprint,
+            "parent_fingerprint": planned_task.fingerprint,
+            "rescue_config_json": str(config_path),
+            "rescue_config_count": config_count,
+            "rescue_plan_hash": plan_hash,
+            "output_json": output_json,
+            "output_md": output_md,
+            "prior_trials": effective_trials,
+        }
+    )
+    return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=planned_record, config_count=config_count)
 
 
 def command_option(command: tuple[str, ...], option: str, default: str) -> str:
@@ -234,6 +345,8 @@ def maybe_write_xsec_diagnostic_review(output_json: str) -> dict[str, Any]:
 def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
     out_path = Path(output_json)
     if "xsec_ohlcv" not in out_path.name or not out_path.exists():
+        return {}
+    if is_rescue_output(output_json):
         return {}
     try:
         payload = read_json(out_path) or {}
@@ -713,6 +826,7 @@ def run_continuous_research(
             continue
         validate_train_only_tasks(tasks)
         idle_backoff_sec = max(0.0, idle_backoff_initial_sec)
+        pending_rescue_bundles: list[RescueTaskBundle] = []
 
         write_state(
             state_path,
@@ -818,6 +932,10 @@ def run_continuous_research(
             else:
                 consecutive_failures = 0
 
+            rescue_bundle = xsec_rescue_task_from_result(planned_task, result)
+            if rescue_bundle and rescue_bundle.fingerprint not in explored:
+                pending_rescue_bundles.append(rescue_bundle)
+
             if consecutive_failures >= max_consecutive_failures:
                 reason = "failure_fuse"
                 payload = write_state(
@@ -888,6 +1006,112 @@ def run_continuous_research(
                 )
                 write_latest_summary(latest_summary_path, "paused", reason)
                 return payload
+
+        for rescue_bundle in pending_rescue_bundles:
+            if stop_file_requested(control_dir):
+                reason = "manual_stop_file"
+                payload = write_state(
+                    state_path,
+                    started_at,
+                    "paused",
+                    reason,
+                    task_results,
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    stop_reason=reason,
+                    deadline_at=deadline_at,
+                )
+                write_latest_summary(latest_summary_path, "paused", reason)
+                return payload
+            rescue_task = rescue_bundle.task
+            validate_train_only_task(rescue_task)
+            reason = f"continuous_train_only_rescue:{rescue_task.name}"
+            write_latest_summary(latest_summary_path, "running", reason)
+            write_state(
+                state_path,
+                started_at,
+                "running",
+                reason,
+                task_results,
+                current_task=rescue_task.name,
+                candidates_found=candidates_found,
+                tasks=tasks,
+                mode="continuous",
+                cycle_index=cycle_index,
+                deadline_at=deadline_at,
+            )
+
+            def rescue_heartbeat(elapsed: float, task_name: str = rescue_task.name) -> None:
+                write_state(
+                    state_path,
+                    started_at,
+                    "running",
+                    reason,
+                    task_results,
+                    current_task=task_name,
+                    active_task={
+                        "name": task_name,
+                        "status": "running",
+                        "elapsed_sec": round(elapsed, 3),
+                        "fingerprint": rescue_bundle.fingerprint,
+                        "is_rescue": True,
+                        "rescue_config_count": rescue_bundle.config_count,
+                        **progress_metadata_for_output(rescue_task.output_json),
+                    },
+                    candidates_found=candidates_found,
+                    tasks=tasks,
+                    mode="continuous",
+                    cycle_index=cycle_index,
+                    deadline_at=deadline_at,
+                )
+
+            rescue_result = run_task(rescue_task, force=force, log_dir=log_dir, heartbeat=rescue_heartbeat)
+            rescue_result["fingerprint"] = rescue_bundle.fingerprint
+            rescue_result["planned_task"] = rescue_bundle.planned_record
+            rescue_result["is_rescue"] = True
+            task_results.append(rescue_result)
+            explored.add(rescue_bundle.fingerprint)
+            append_explored_record(
+                explored_path,
+                {
+                    "created_at": pd.Timestamp.now(tz="UTC").isoformat(),
+                    "fingerprint": rescue_bundle.fingerprint,
+                    "task": rescue_task.name,
+                    "status": rescue_result["status"],
+                    "output_json": rescue_result["output_json"],
+                    "output_md": rescue_result["output_md"],
+                    "returncode": rescue_result["returncode"],
+                    "train_start": rescue_bundle.planned_record["train_start"],
+                    "train_end": rescue_bundle.planned_record["train_end"],
+                    "embargo_start": rescue_bundle.planned_record["embargo_start"],
+                    "n_configs_tested": rescue_result.get("n_configs_tested", 0),
+                    "prior_trials": rescue_result.get("prior_trials", 0),
+                    "effective_trials": rescue_result.get("effective_trials", 0),
+                    "data_fingerprint": rescue_result.get("data_fingerprint", ""),
+                    "is_rescue": True,
+                    "parent_fingerprint": rescue_bundle.planned_record["parent_fingerprint"],
+                    "rescue_config_count": rescue_bundle.config_count,
+                },
+            )
+            if rescue_result["status"] == "accepted_train_only_candidate_found":
+                known_outputs = {str(row.get("output_json")) for row in candidates_found}
+                if rescue_result["output_json"] not in known_outputs:
+                    candidates_found.append(candidate_record(rescue_task, rescue_result))
+            write_state(
+                state_path,
+                started_at,
+                "running",
+                f"rescue_task_completed:{rescue_task.name}",
+                task_results,
+                current_task=None,
+                candidates_found=candidates_found,
+                tasks=tasks,
+                mode="continuous",
+                cycle_index=cycle_index,
+                deadline_at=deadline_at,
+            )
 
         cycle_index += 1
         if max_cycles > 0 and cycle_index >= max_cycles:

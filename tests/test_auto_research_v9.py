@@ -286,6 +286,70 @@ def test_run_task_writes_xsec_diagnostic_review_for_existing_final_artifact(tmp_
     assert (tmp_path / result["rescue_config_json"]).exists()
 
 
+def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) -> None:
+    config_json = tmp_path / "rescue_configs.json"
+    config_json.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "parent.json"),
+        output_md=str(tmp_path / "parent.md"),
+        prior_trials=20000,
+        timeout_sec=99,
+    )
+    result = {
+        "output_json": planned.output_json,
+        "rescue_config_json": str(config_json),
+        "rescue_config_count": 12,
+        "effective_trials": 20081,
+    }
+
+    bundle = auto_research.xsec_rescue_task_from_result(planned, result)
+
+    assert bundle is not None
+    assert bundle.config_count == 12
+    assert bundle.planned_record["is_rescue"] is True
+    assert bundle.planned_record["parent_fingerprint"] == "abc123"
+    assert bundle.task.output_json.startswith("artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406")
+    assert "--config-list-json" in bundle.task.command
+    assert "--prior-trials" in bundle.task.command
+    assert "20081" in bundle.task.command
+    auto_research.validate_train_only_task(bundle.task)
+    command = " ".join(bundle.task.command)
+    assert "paper" not in command
+    assert "live" not in command
+
+    recursive = dict(result)
+    recursive["output_json"] = "artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406_hq_dd_plateau.json"
+    assert auto_research.xsec_rescue_task_from_result(planned, recursive) is None
+
+
+def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
+    config_json = tmp_path / "rescue_configs.json"
+    config_json.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "parent.json"),
+        output_md=str(tmp_path / "parent.md"),
+    )
+    result = {
+        "output_json": planned.output_json,
+        "rescue_config_json": str(config_json),
+        "rescue_config_count": auto_research.MAX_AUTO_RESCUE_CONFIGS + 1,
+    }
+
+    assert auto_research.xsec_rescue_task_from_result(planned, result) is None
+
+
 def test_data_drift_marks_candidate_for_manual_review() -> None:
     planned = {
         "train_start": "2017-08-01",
@@ -403,6 +467,75 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
     assert payload["mode"] == "continuous"
     assert payload["task_results"][0]["fingerprint"] == "abc123"
     assert "abc123" in (tmp_path / "explored.jsonl").read_text()
+
+
+def test_continuous_research_runs_auto_xsec_rescue_after_primary_batch(tmp_path, monkeypatch) -> None:
+    rescue_configs = tmp_path / "rescue_configs.json"
+    rescue_configs.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        timeout_sec=1,
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned])
+    calls = []
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        calls.append(task.name)
+        if "rescue" in task.name:
+            return {
+                "task": task.name,
+                "status": "completed_no_candidate",
+                "skipped_existing": False,
+                "output_json": task.output_json,
+                "output_md": task.output_md,
+                "returncode": 0,
+                "n_configs_tested": 1,
+                "prior_trials": 81,
+                "effective_trials": 82,
+            }
+        return {
+            "task": task.name,
+            "status": "completed_no_candidate",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+            "n_configs_tested": 81,
+            "prior_trials": 0,
+            "effective_trials": 81,
+            "rescue_config_json": str(rescue_configs),
+            "rescue_config_count": 1,
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        tmp_path / "control",
+        planner_batch_size=1,
+        max_cycles=1,
+        cycle_sleep_sec=0,
+    )
+
+    assert payload["status"] == "paused"
+    assert payload["reason"] == "budget_exhausted:max_cycles"
+    assert calls[0] == planned.name
+    assert "rescue" in calls[1]
+    assert payload["task_results"][1]["is_rescue"] is True
+    assert payload["task_results"][1]["planned_task"]["parent_fingerprint"] == "abc123"
+    explored = (tmp_path / "explored.jsonl").read_text()
+    assert "abc123" in explored
+    assert '"is_rescue": true' in explored
 
 
 def test_continuous_research_idles_when_search_space_is_exhausted_until_stop(tmp_path, monkeypatch) -> None:
