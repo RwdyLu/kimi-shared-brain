@@ -15,12 +15,14 @@ from v9.contract.tsmom_factory import (  # noqa: E402
     config_for_preset,
     data_fingerprint,
     drop_one_lookback_summary,
+    leave_one_symbol_summary,
     market_regime_series,
     run_grid,
     short_weights_from_votes,
     simulate,
     target_weights_from_votes,
     vote_fraction_matrix,
+    walk_forward_summary,
 )
 
 
@@ -68,6 +70,29 @@ def test_no_trade_band_can_suppress_rebalance() -> None:
     result = simulate(close_matrix(180), cfg, (12, 24), cost_bps=20.0, bootstrap_iterations=0)
     assert result["rebalance_event_count"] == 0
     assert result["avg_gross_exposure"] == 0.0
+    assert result["avg_long_exposure"] == 0.0
+    assert result["avg_short_exposure"] == 0.0
+    assert result["legs"]["long_gross_return"] == 0.0
+    assert result["legs"]["short_gross_return"] == 0.0
+
+
+def test_simulate_reports_long_and_short_leg_exposure() -> None:
+    data = close_matrix(240)
+    for col in ["AAA", "BBB", "CCC", "DDD"]:
+        data[col] = [200.0 - idx * 0.5 for idx in range(len(data))]
+    cfg = TsmomConfig(
+        asset_vol_target_ann=0.40,
+        portfolio_vol_target_ann=0.50,
+        no_trade_band=0.0,
+        market_filter_h=24,
+        bear_mode="short_weak",
+        bear_short_scale=1.0,
+        short_vote_threshold=0.50,
+    )
+    result = simulate(data, cfg, (12, 24), cost_bps=0.0, bootstrap_iterations=0)
+    assert result["avg_short_exposure"] > 0.0
+    assert result["legs"]["avg_short_exposure"] == result["avg_short_exposure"]
+    assert result["legs"]["short_gross_return"] > 0.0
 
 
 def test_advance_checks_use_only_active_yearly_buckets() -> None:
@@ -354,6 +379,34 @@ def test_drop_one_lookback_summary_reports_each_drop() -> None:
     assert {row["dropped_lookback_h"] for row in summary["rows"]} == {12, 24, 48, 72}
 
 
+def test_walk_forward_summary_reports_fold_and_leg_metrics() -> None:
+    cfg = TsmomConfig(asset_vol_target_ann=0.40, portfolio_vol_target_ann=0.15, no_trade_band=0.05)
+    summary = walk_forward_summary(
+        close_matrix(720),
+        cfg,
+        (12, 24, 48),
+        cost_bps=0.0,
+        folds=3,
+        min_q25_sharpe=-99.0,
+        min_sign_consistency=0.0,
+    )
+    assert summary["enabled"] is True
+    assert summary["fold_count"] == 3
+    assert summary["passed"] is True
+    assert {row["fold"] for row in summary["folds"]} == {0, 1, 2}
+    assert "median_long_gross_sharpe" in summary
+    assert "median_short_gross_sharpe" in summary
+
+
+def test_leave_one_symbol_summary_reports_each_symbol_drop() -> None:
+    cfg = TsmomConfig(asset_vol_target_ann=0.40, portfolio_vol_target_ann=0.15, no_trade_band=0.05)
+    summary = leave_one_symbol_summary(close_matrix(360), cfg, (12, 24), cost_bps=0.0, min_sharpe=-99.0)
+    assert summary["enabled"] is True
+    assert len(summary["rows"]) == 4
+    assert {row["dropped_symbol"] for row in summary["rows"]} == {"AAA", "BBB", "CCC", "DDD"}
+    assert summary["worst_drop"]["dropped_symbol"] in {"AAA", "BBB", "CCC", "DDD"}
+
+
 def test_run_grid_payload_is_train_only_and_uses_eight_configs(monkeypatch, tmp_path) -> None:
     closes = close_matrix(720)
 
@@ -375,7 +428,11 @@ def test_run_grid_payload_is_train_only_and_uses_eight_configs(monkeypatch, tmp_
     assert payload["kind"] == "tsmom_factory_v1_train_only_grid"
     assert payload["data"]["fingerprint"] == data_fingerprint(closes)
     assert payload["selection_validation"]["n_configs_tested"] == 8
+    assert payload["selection_validation"]["walk_forward_required"] is True
+    assert payload["selection_validation"]["leave_one_symbol_required"] is True
     assert payload["summary"]["rows"] == 8
+    assert "walk_forward" in payload["top"][0]
+    assert "leave_one_symbol" in payload["top"][0]
     assert payload["summary"]["holdout_authorized"] is False
     assert payload["summary"]["paper_trading_authorized"] is False
     assert payload["summary"]["live_trading_authorized"] is False

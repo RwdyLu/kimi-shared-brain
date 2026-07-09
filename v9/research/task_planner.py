@@ -134,16 +134,16 @@ DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v2_seeded_confirm"
 EVALUATION_VERSION_BY_PRESET = {
-    "tsmom_bear_short_medium": "selection_validation_v1_tsmom_bear_short_medium",
-    "tsmom_bear_short_medium_neighbor": "selection_validation_v1_tsmom_bear_short_medium_neighbor",
-    "tsmom_bear_short_medium_risk": "selection_validation_v1_tsmom_bear_short_medium_risk",
-    "tsmom_bear_short_fast": "selection_validation_v1_tsmom_bear_short_fast",
-    "tsmom_bear_short_cost_guard": "selection_validation_v1_tsmom_bear_short_cost_guard",
-    "tsmom_slow_cost_guard": "selection_validation_v1_tsmom_slow_cost_guard",
-    "tsmom_ultra_slow_cost_guard": "selection_validation_v1_tsmom_ultra_slow_cost_guard",
-    "tsmom_core_cost_guard": "selection_validation_v1_tsmom_core_cost_guard",
-    "tsmom_core_slow_cost_guard": "selection_validation_v1_tsmom_core_slow_cost_guard",
-    "tsmom_bear_short_regime": "selection_validation_v1_tsmom_bear_short_regime",
+    "tsmom_bear_short_medium": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_bear_short_medium_neighbor": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_bear_short_medium_risk": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_bear_short_fast": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_bear_short_cost_guard": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_slow_cost_guard": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_ultra_slow_cost_guard": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_core_cost_guard": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_core_slow_cost_guard": "selection_validation_v2_tsmom_walkforward_symbol_leg",
+    "tsmom_bear_short_regime": "selection_validation_v2_tsmom_walkforward_symbol_leg",
     "tsmom_defensive_regime": "selection_validation_v2_tsmom_defensive_active_years",
     "tsmom_trend_ensemble": "selection_validation_v4_tsmom_active_years",
 }
@@ -300,11 +300,13 @@ def candidate_quality(output_json: str | None) -> float:
     selection = row.get("selection", {}) or {}
     c20 = selection.get("cost20") or row.get("cost20", {})
     c40 = selection.get("cost40") or row.get("cost40", {})
+    walk_forward = row.get("walk_forward", {}) or {}
     boot = float(c20.get("bootstrap_30d_sharpe_p5", 0.0) or 0.0)
     sh40 = float(c40.get("sharpe", 0.0) or 0.0)
+    wf_q25 = float(walk_forward.get("q25_sharpe", 0.0) or 0.0)
     dd_raw = c20.get("max_drawdown")
     dd20 = float(dd_raw) if dd_raw is not None else 1.0
-    return max(0.0, boot) + 0.25 * max(0.0, sh40) - 0.5 * max(0.0, dd20)
+    return max(0.0, boot) + 0.40 * max(0.0, wf_q25) + 0.25 * max(0.0, sh40) - 0.5 * max(0.0, dd20)
 
 
 def preset_stats(

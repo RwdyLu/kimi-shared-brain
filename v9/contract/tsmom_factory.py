@@ -78,7 +78,7 @@ class RunConfig:
     out_md: str = "artifacts/v9/contract_lab/tsmom_factory_v1.md"
 
 
-ROW_CACHE_VERSION = "tsmom_factory_v1_train_only"
+ROW_CACHE_VERSION = "tsmom_factory_v2_walkforward_symbol_leg"
 
 
 def config_for_preset(
@@ -576,20 +576,32 @@ def simulate(
             cost = 0.0
         row_rets = returns.iloc[idx].fillna(0.0)
         gross = 0.0
+        long_gross = 0.0
+        short_gross = 0.0
         for sym in symbols:
             value = weights[sym] * float(row_rets[sym])
             gross += value
             symbol_returns[sym] += value
+            if weights[sym] >= 0.0:
+                long_gross += value
+            else:
+                short_gross += value
         net = gross - cost
         equity *= 1.0 + net
         peak_equity = max(peak_equity, equity)
+        long_exposure = sum(max(v, 0.0) for v in weights.values())
+        short_exposure = sum(abs(min(v, 0.0)) for v in weights.values())
         rows.append(
             {
                 "dt": ts,
                 "net_return": net,
                 "gross_return": gross,
+                "long_gross_return": long_gross,
+                "short_gross_return": short_gross,
                 "cost": cost,
                 "gross_exposure": sum(abs(v) for v in weights.values()),
+                "long_exposure": long_exposure,
+                "short_exposure": short_exposure,
                 "market_allowed": bool(market_allowed.iloc[idx]),
                 "risk_off": bool(idx < risk_off_until),
             }
@@ -600,7 +612,11 @@ def simulate(
     reb = pd.DataFrame(rebalances).set_index("dt") if rebalances else pd.DataFrame(columns=["turnover", "cost", "gross_exposure"])
     period_returns = (1.0 + ret["net_return"]).resample("1D").prod() - 1.0
     daily_returns = period_returns
+    long_daily_returns = (1.0 + ret["long_gross_return"]).resample("1D").prod() - 1.0
+    short_daily_returns = (1.0 + ret["short_gross_return"]).resample("1D").prod() - 1.0
     total_return = float((1.0 + ret["net_return"]).prod() - 1.0)
+    long_gross_return = float((1.0 + ret["long_gross_return"]).prod() - 1.0)
+    short_gross_return = float((1.0 + ret["short_gross_return"]).prod() - 1.0)
     dd = max_drawdown_from_returns(ret["net_return"])
     period_sharpe = sharpe(period_returns, 365.0)
     by_year = {}
@@ -636,6 +652,8 @@ def simulate(
         "max_drawdown": dd,
         "daily_turnover": float(reb["turnover"].resample("1D").sum().mean()) if len(reb) else 0.0,
         "avg_gross_exposure": float(ret["gross_exposure"].mean()) if len(ret) else 0.0,
+        "avg_long_exposure": float(ret["long_exposure"].mean()) if len(ret) else 0.0,
+        "avg_short_exposure": float(ret["short_exposure"].mean()) if len(ret) else 0.0,
         "avg_portfolio_exposure_scale": float(exposure_scale_sum / exposure_scale_count) if exposure_scale_count else 1.0,
         "rebalance_event_count": int(len(reb)),
         "risk_off_event_count": int(risk_off_event_count),
@@ -650,6 +668,14 @@ def simulate(
         "symbol_count": int(len(symbols)),
         "positive_symbol_count": int(positive_symbol_count),
         "top_positive_symbol_share": float(top_symbol_share),
+        "legs": {
+            "long_gross_return": long_gross_return,
+            "long_gross_sharpe": sharpe(long_daily_returns, 365.0),
+            "short_gross_return": short_gross_return,
+            "short_gross_sharpe": sharpe(short_daily_returns, 365.0),
+            "avg_long_exposure": float(ret["long_exposure"].mean()) if len(ret) else 0.0,
+            "avg_short_exposure": float(ret["short_exposure"].mean()) if len(ret) else 0.0,
+        },
         "bootstrap_30d_sharpe_p5": bootstrap_p5,
         "bootstrap_seed": int(bootstrap_seed_value),
         "bootstrap_iterations": int(bootstrap_iterations),
@@ -706,6 +732,141 @@ def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_m
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
         "validation_positive_active_yearly_buckets_ge_50pct": positive_active_buckets >= required_positive_active,
         "validation_breadth_positive_symbols_ge_min": int(cost20["positive_symbol_count"]) >= breadth_min(int(cost20["symbol_count"])),
+    }
+
+
+def walk_forward_summary(
+    closes: pd.DataFrame,
+    cfg: TsmomConfig,
+    lookbacks_h: tuple[int, ...],
+    cost_bps: float = 40.0,
+    folds: int = 6,
+    min_q25_sharpe: float = 0.30,
+    min_sign_consistency: float = 0.70,
+) -> dict[str, Any]:
+    min_rows = max(max(lookbacks_h) + 48, 240)
+    usable_folds = max(1, min(int(folds), len(closes) // min_rows))
+    rows = []
+    if usable_folds < 2:
+        return {
+            "enabled": True,
+            "passed": False,
+            "cost_bps": float(cost_bps),
+            "folds": [],
+            "reason": "insufficient_rows_for_walk_forward",
+        }
+    for fold in range(usable_folds):
+        lo = int(fold * len(closes) / usable_folds)
+        hi = int((fold + 1) * len(closes) / usable_folds)
+        frame = closes.iloc[lo:hi].copy().reset_index(drop=True)
+        if len(frame) < min_rows:
+            continue
+        result = simulate(frame, cfg, lookbacks_h, cost_bps, bootstrap_iterations=0)
+        legs = result.get("legs", {}) or {}
+        rows.append(
+            {
+                "fold": int(fold),
+                "start": frame["dt"].iloc[0].isoformat(),
+                "end": frame["dt"].iloc[-1].isoformat(),
+                "rows": int(len(frame)),
+                "sharpe": float(result["sharpe"]),
+                "total_return": float(result["total_return"]),
+                "max_drawdown": float(result["max_drawdown"]),
+                "daily_turnover": float(result["daily_turnover"]),
+                "long_gross_sharpe": float(legs.get("long_gross_sharpe", 0.0) or 0.0),
+                "short_gross_sharpe": float(legs.get("short_gross_sharpe", 0.0) or 0.0),
+                "long_gross_return": float(legs.get("long_gross_return", 0.0) or 0.0),
+                "short_gross_return": float(legs.get("short_gross_return", 0.0) or 0.0),
+                "avg_long_exposure": float(legs.get("avg_long_exposure", 0.0) or 0.0),
+                "avg_short_exposure": float(legs.get("avg_short_exposure", 0.0) or 0.0),
+            }
+        )
+    if not rows:
+        return {
+            "enabled": True,
+            "passed": False,
+            "cost_bps": float(cost_bps),
+            "folds": [],
+            "reason": "no_usable_folds",
+        }
+    sharpes = [row["sharpe"] for row in rows]
+    q25 = float(np.percentile(sharpes, 25))
+    sign_consistency = float(sum(1 for value in sharpes if value > 0.0) / len(sharpes))
+    positive_return_fraction = float(sum(1 for row in rows if row["total_return"] > 0.0) / len(rows))
+    long_active = [row for row in rows if row["avg_long_exposure"] > 0.01]
+    short_active = [row for row in rows if row["avg_short_exposure"] > 0.01]
+    median_long_sharpe = float(np.median([row["long_gross_sharpe"] for row in long_active])) if long_active else 0.0
+    median_short_sharpe = float(np.median([row["short_gross_sharpe"] for row in short_active])) if short_active else 0.0
+    checks = {
+        "wf_q25_sharpe_ge_min": q25 >= min_q25_sharpe,
+        "wf_sign_consistency_ge_min": sign_consistency >= min_sign_consistency,
+        "wf_positive_return_fraction_ge_min": positive_return_fraction >= min_sign_consistency,
+        "wf_median_long_leg_sharpe_ge_0": median_long_sharpe >= 0.0,
+        "wf_median_short_leg_sharpe_ge_0": median_short_sharpe >= 0.0,
+    }
+    return {
+        "enabled": True,
+        "passed": all(checks.values()),
+        "cost_bps": float(cost_bps),
+        "fold_count": int(len(rows)),
+        "min_q25_sharpe": float(min_q25_sharpe),
+        "min_sign_consistency": float(min_sign_consistency),
+        "q25_sharpe": q25,
+        "sign_consistency": sign_consistency,
+        "positive_return_fraction": positive_return_fraction,
+        "median_long_gross_sharpe": median_long_sharpe,
+        "median_short_gross_sharpe": median_short_sharpe,
+        "checks": checks,
+        "folds": rows,
+        "note": "Train-only purged-style fold robustness; it does not authorize holdout, paper trading, or live trading.",
+    }
+
+
+def leave_one_symbol_summary(
+    closes: pd.DataFrame,
+    cfg: TsmomConfig,
+    lookbacks_h: tuple[int, ...],
+    cost_bps: float = 40.0,
+    min_sharpe: float = 0.20,
+) -> dict[str, Any]:
+    symbols = [c for c in closes.columns if c != "dt"]
+    if len(symbols) < 3:
+        return {
+            "enabled": True,
+            "passed": False,
+            "cost_bps": float(cost_bps),
+            "rows": [],
+            "reason": "requires_at_least_three_symbols",
+        }
+    rows = []
+    for dropped in symbols:
+        frame = closes.drop(columns=[dropped]).copy().reset_index(drop=True)
+        result = simulate(frame, cfg, lookbacks_h, cost_bps, bootstrap_iterations=0)
+        rows.append(
+            {
+                "dropped_symbol": dropped,
+                "remaining_symbols": [sym for sym in symbols if sym != dropped],
+                "sharpe": float(result["sharpe"]),
+                "total_return": float(result["total_return"]),
+                "max_drawdown": float(result["max_drawdown"]),
+                "daily_turnover": float(result["daily_turnover"]),
+            }
+        )
+    min_row = min(rows, key=lambda row: (row["sharpe"], row["total_return"])) if rows else None
+    checks = {
+        "loo_min_sharpe_ge_min": bool(rows) and min(row["sharpe"] for row in rows) >= min_sharpe,
+        "loo_all_returns_gt_0": bool(rows) and all(row["total_return"] > 0.0 for row in rows),
+    }
+    return {
+        "enabled": True,
+        "passed": all(checks.values()),
+        "cost_bps": float(cost_bps),
+        "min_sharpe": float(min(row["sharpe"] for row in rows)) if rows else 0.0,
+        "min_return": float(min(row["total_return"] for row in rows)) if rows else 0.0,
+        "worst_drop": min_row,
+        "checks": checks,
+        "rows": rows,
+        "note": "Train-only leave-one-symbol robustness; it does not authorize holdout, paper trading, or live trading.",
     }
 
 
@@ -813,6 +974,17 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         )
         selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
         selection_passed = all(selection_checks.values())
+        if selection_passed:
+            walk_forward = walk_forward_summary(selection_closes, g, cfg.lookbacks_h, cost_bps=40.0)
+            selection_checks["walk_forward_robust"] = bool(walk_forward["passed"])
+            selection_passed = all(selection_checks.values())
+        else:
+            walk_forward = {
+                "enabled": True,
+                "passed": False,
+                "folds": [],
+                "note": "Skipped because base selection checks did not pass.",
+            }
         should_validate = bool(split_meta["validation_usable"] and selection_passed)
         if should_validate:
             val20 = simulate(
@@ -832,12 +1004,30 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 bootstrap_seed_value=bootstrap_seed(g, cfg.lookbacks_h, 40.0, "validation", cfg.train_start, cfg.train_end),
             )
             drop_one = drop_one_lookback_summary(validation_closes, g, cfg.lookbacks_h, float(val20["sharpe"]))
+            leave_one_symbol = leave_one_symbol_summary(validation_closes, g, cfg.lookbacks_h, cost_bps=40.0)
             val_checks = validation_checks(val20, val40, sharpe20_min=validation_sharpe20_min)
             val_checks["drop_one_lookback_stable"] = bool(drop_one["passed"])
+            val_checks["leave_one_symbol_robust"] = bool(leave_one_symbol["passed"])
+            val20_legs = val20.get("legs", {}) or {}
+            val40_legs = val40.get("legs", {}) or {}
+            val_checks["validation_long_leg_gross_return_gt_minus_5pct"] = (
+                float(val20_legs.get("avg_long_exposure", 0.0) or 0.0) <= 0.01
+                or float(val20_legs.get("long_gross_return", 0.0) or 0.0) > -0.05
+            )
+            val_checks["validation_short_leg_gross_return_gt_minus_5pct"] = (
+                float(val40_legs.get("avg_short_exposure", 0.0) or 0.0) <= 0.01
+                or float(val40_legs.get("short_gross_return", 0.0) or 0.0) > -0.05
+            )
         else:
             val20 = {}
             val40 = {}
             drop_one = {"enabled": True, "passed": False, "rows": [], "note": "Skipped because selection did not pass or validation data was insufficient."}
+            leave_one_symbol = {
+                "enabled": True,
+                "passed": False,
+                "rows": [],
+                "note": "Skipped because selection did not pass or validation data was insufficient.",
+            }
             val_checks = {
                 "validation_usable": bool(split_meta["validation_usable"]),
                 "selection_passed_before_validation": bool(selection_passed),
@@ -851,7 +1041,9 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "cost40": cost40,
             "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
             "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
+            "walk_forward": walk_forward,
             "drop_one_lookback": drop_one,
+            "leave_one_symbol": leave_one_symbol,
             "advance_checks": checks,
             "advance_passed": all(checks.values()),
         }
@@ -860,6 +1052,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     rows.sort(
         key=lambda row: (
             bool(row["advance_passed"]),
+            float((row.get("walk_forward") or {}).get("q25_sharpe", -999.0) or -999.0),
             float(((row.get("validation") or {}).get("cost20") or {}).get("sharpe", -999.0) or -999.0),
             float(row["cost20"]["sharpe"]),
             -float(row["cost20"]["max_drawdown"]),
@@ -876,7 +1069,10 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "selection_bootstrap_p5_min": bootstrap_p5_min,
         "validation_sharpe20_min": validation_sharpe20_min,
         "lookbacks_h": [int(v) for v in cfg.lookbacks_h],
+        "walk_forward_required": True,
+        "walk_forward_cost_bps": 40.0,
         "drop_one_lookback_required": True,
+        "leave_one_symbol_required": True,
         "breadth_min_symbols": breadth_min(len(cfg.symbols)),
         "note": "All selection and validation data remains before embargo_start.",
     }
@@ -956,25 +1152,28 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
             "",
             "## Top Rows",
             "",
-            "| cfg | pass | sel 20bps sh | val 20bps sh | val ret | val DD | sel boot p5 | symbols+ | turnover | drop-one |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| cfg | pass | sel 20bps sh | wf q25 40bps | val 20bps sh | val ret | val DD | sel boot p5 | symbols+ | turnover | drop-one | loo min sh |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in payload["top"]:
         cfg = row["config"]
         c20 = row["cost20"]
         v20 = row.get("validation", {}).get("cost20", {}) or {}
+        walk_forward = row.get("walk_forward", {}) or {}
         drop_one = row.get("drop_one_lookback", {}) or {}
+        leave_one_symbol = row.get("leave_one_symbol", {}) or {}
         label = (
             "AVT{asset_vol_target_ann}_PVT{portfolio_vol_target_ann}_B{no_trade_band}"
             "_VT{vote_threshold}_MF{market_filter_h}_MO{market_off_scale}_DD{drawdown_stop}_CD{cooldown_h}"
             "_BM{bear_mode}_BS{bear_short_scale}_ST{short_vote_threshold}"
         ).format(**cfg)
         lines.append(
-            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | `{}/{}` | {:.3f} | `{}` |".format(
+            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | `{}/{}` | {:.3f} | `{}` | {:.3f} |".format(
                 label,
                 row["advance_passed"],
                 c20["sharpe"],
+                float(walk_forward.get("q25_sharpe", 0.0) or 0.0),
                 float(v20.get("sharpe", 0.0) or 0.0),
                 float(v20.get("total_return", 0.0) or 0.0),
                 float(v20.get("max_drawdown", 0.0) or 0.0),
@@ -983,6 +1182,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
                 c20["symbol_count"],
                 c20["daily_turnover"],
                 bool(drop_one.get("passed", False)),
+                float(leave_one_symbol.get("min_sharpe", 0.0) or 0.0),
             )
         )
     path.parent.mkdir(parents=True, exist_ok=True)
