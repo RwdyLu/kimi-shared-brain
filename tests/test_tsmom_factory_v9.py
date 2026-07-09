@@ -16,6 +16,7 @@ from v9.contract.tsmom_factory import (  # noqa: E402
     data_fingerprint,
     drop_one_lookback_summary,
     leave_one_symbol_summary,
+    load_explicit_configs,
     market_regime_series,
     run_grid,
     short_weights_from_votes,
@@ -36,6 +37,49 @@ def close_matrix(periods: int = 360) -> pd.DataFrame:
             "CCC": [100 + (idx % 24) * 0.02 for idx in range(periods)],
             "DDD": [80 + idx * 0.2 for idx in range(periods)],
         }
+    )
+
+
+def test_load_explicit_configs_accepts_revalidation_configs(tmp_path) -> None:
+    path = tmp_path / "configs.json"
+    path.write_text(
+        """
+        {
+          "configs": [
+            {
+              "asset_vol_target_ann": 0.25,
+              "portfolio_vol_target_ann": 0.06,
+              "no_trade_band": 0.3,
+              "vote_threshold": 0.5,
+              "market_filter_h": 720,
+              "market_off_scale": 0.0,
+              "drawdown_stop": 0.0,
+              "cooldown_h": 0,
+              "bear_mode": "flat",
+              "bear_short_scale": 0.0,
+              "short_vote_threshold": 0.375
+            }
+          ]
+        }
+        """
+    )
+
+    configs = load_explicit_configs(path)
+
+    assert configs == (
+        TsmomConfig(
+            asset_vol_target_ann=0.25,
+            portfolio_vol_target_ann=0.06,
+            no_trade_band=0.3,
+            vote_threshold=0.5,
+            market_filter_h=720,
+            market_off_scale=0.0,
+            drawdown_stop=0.0,
+            cooldown_h=0,
+            bear_mode="flat",
+            bear_short_scale=0.0,
+            short_vote_threshold=0.375,
+        ),
     )
 
 

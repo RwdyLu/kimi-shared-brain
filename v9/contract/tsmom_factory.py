@@ -74,6 +74,7 @@ class RunConfig:
     cache_dir: str = "data/binance_public_cache"
     bootstrap_iterations: int = 500
     prior_trials: int = 0
+    explicit_configs: tuple[TsmomConfig, ...] = ()
     out_json: str = "artifacts/v9/contract_lab/tsmom_factory_v1.json"
     out_md: str = "artifacts/v9/contract_lab/tsmom_factory_v1.md"
 
@@ -171,6 +172,36 @@ def config_for_preset(
             **base,
         )
     raise ValueError(f"unknown preset: {preset}")
+
+
+def tsmom_config_from_dict(raw: dict[str, Any]) -> TsmomConfig:
+    return TsmomConfig(
+        asset_vol_target_ann=float(raw["asset_vol_target_ann"]),
+        portfolio_vol_target_ann=float(raw["portfolio_vol_target_ann"]),
+        no_trade_band=float(raw["no_trade_band"]),
+        vote_threshold=float(raw.get("vote_threshold", 0.50)),
+        market_filter_h=int(raw.get("market_filter_h", 0)),
+        market_off_scale=float(raw.get("market_off_scale", 0.0)),
+        drawdown_stop=float(raw.get("drawdown_stop", 0.0)),
+        cooldown_h=int(raw.get("cooldown_h", 0)),
+        bear_mode=str(raw.get("bear_mode", "flat")),
+        bear_short_scale=float(raw.get("bear_short_scale", 0.0)),
+        short_vote_threshold=float(raw.get("short_vote_threshold", 0.375)),
+    )
+
+
+def load_explicit_configs(path: Path) -> tuple[TsmomConfig, ...]:
+    payload = json.loads(path.read_text())
+    if isinstance(payload, dict):
+        raw_configs = payload.get("configs") or payload.get("revalidation_configs") or []
+    else:
+        raw_configs = payload
+    if not isinstance(raw_configs, list):
+        raise ValueError("config list JSON must contain a list or a dict with configs")
+    configs = tuple(tsmom_config_from_dict(dict(row)) for row in raw_configs)
+    if not configs:
+        raise ValueError("config list JSON contains no configs")
+    return configs
 
 
 def defensive_regime_configs() -> tuple[TsmomConfig, ...]:
@@ -932,7 +963,9 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     embargo = utc_ts(cfg.embargo_start)
     closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
     closes_fingerprint = data_fingerprint(closes)
-    if cfg.preset_configs:
+    if cfg.explicit_configs:
+        grid = list(dict.fromkeys(cfg.explicit_configs))
+    elif cfg.preset_configs:
         grid = list(cfg.preset_configs)
     else:
         grid = [
@@ -1073,6 +1106,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "walk_forward_cost_bps": 40.0,
         "drop_one_lookback_required": True,
         "leave_one_symbol_required": True,
+        "explicit_config_list": bool(cfg.explicit_configs),
         "breadth_min_symbols": breadth_min(len(cfg.symbols)),
         "note": "All selection and validation data remains before embargo_start.",
     }
@@ -1215,6 +1249,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--embargo-start", default="2024-07-01")
     ap.add_argument("--bootstrap-iterations", type=int, default=500)
     ap.add_argument("--prior-trials", type=int, default=0)
+    ap.add_argument("--config-list-json", default="", help="Optional train-only list of explicit TsmomConfig rows to evaluate")
     ap.add_argument("--out-json", default="artifacts/v9/contract_lab/tsmom_factory_v1.json")
     ap.add_argument("--out-md", default="artifacts/v9/contract_lab/tsmom_factory_v1.md")
     return ap
@@ -1233,6 +1268,29 @@ def main() -> None:
         out_md=args.out_md,
         prior_trials=args.prior_trials,
     )
+    if args.config_list_json:
+        cfg = RunConfig(
+            symbols=cfg.symbols,
+            lookbacks_h=cfg.lookbacks_h,
+            asset_vol_targets_ann=cfg.asset_vol_targets_ann,
+            portfolio_vol_targets_ann=cfg.portfolio_vol_targets_ann,
+            no_trade_bands=cfg.no_trade_bands,
+            vote_thresholds=cfg.vote_thresholds,
+            market_filters_h=cfg.market_filters_h,
+            drawdown_stops=cfg.drawdown_stops,
+            cooldowns_h=cfg.cooldowns_h,
+            preset_configs=cfg.preset_configs,
+            costs_bps=cfg.costs_bps,
+            train_start=cfg.train_start,
+            train_end=cfg.train_end,
+            embargo_start=cfg.embargo_start,
+            cache_dir=cfg.cache_dir,
+            bootstrap_iterations=cfg.bootstrap_iterations,
+            prior_trials=cfg.prior_trials,
+            explicit_configs=load_explicit_configs(Path(args.config_list_json)),
+            out_json=cfg.out_json,
+            out_md=cfg.out_md,
+        )
     started = time.time()
     payload = run_grid(cfg)
     print(
