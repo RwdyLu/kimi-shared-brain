@@ -434,6 +434,17 @@ def candidate_record(task: ResearchTask, result: dict[str, Any], status: str = "
     return record
 
 
+def write_internal_candidate_marker(path: Path, record: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "FOUND_INTERNAL_CANDIDATE "
+        f"{pd.Timestamp.now(tz='UTC').isoformat()} "
+        f"task={record['task']} status={record['status']} "
+        f"output_json={record['output_json']} output_md={record['output_md']} "
+        "holdout_authorized=False paper_trading_authorized=False live_trading_authorized=False\n"
+    )
+
+
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{pd.Timestamp.now(tz='UTC').isoformat()} status={status} reason={reason}\n")
@@ -633,7 +644,9 @@ def run_auto_research(
         result = run_task(task, force=force, log_dir=log_dir, heartbeat=heartbeat)
         task_results.append(result)
         if result["status"] == "accepted_train_only_candidate_found":
-            candidates_found.append(candidate_record(task, result))
+            record = candidate_record(task, result)
+            candidates_found.append(record)
+            write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
         write_state(
             state_path,
             started_at,
@@ -924,7 +937,9 @@ def run_continuous_research(
             if result["status"] == "accepted_train_only_candidate_found":
                 known_outputs = {str(row.get("output_json")) for row in candidates_found}
                 if result["output_json"] not in known_outputs:
-                    candidates_found.append(candidate_record(task, result, status=candidate_status))
+                    record = candidate_record(task, result, status=candidate_status)
+                    candidates_found.append(record)
+                    write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
                     if candidate_status == "manual_review_required_data_drift":
                         write_latest_summary(latest_summary_path, "running", f"data_drift_detected:{task.name}")
             if result["status"] == "failed":
@@ -1098,7 +1113,9 @@ def run_continuous_research(
             if rescue_result["status"] == "accepted_train_only_candidate_found":
                 known_outputs = {str(row.get("output_json")) for row in candidates_found}
                 if rescue_result["output_json"] not in known_outputs:
-                    candidates_found.append(candidate_record(rescue_task, rescue_result))
+                    record = candidate_record(rescue_task, rescue_result)
+                    candidates_found.append(record)
+                    write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
             write_state(
                 state_path,
                 started_at,

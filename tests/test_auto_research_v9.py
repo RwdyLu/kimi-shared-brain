@@ -65,6 +65,11 @@ def test_auto_research_skips_existing_candidate_and_never_authorizes_trading(tmp
     assert payload["task_results"][0]["skipped_existing"] is True
     assert payload["candidates_found"][0]["task"] == "fake"
     assert "manual_review_required" in latest.read_text()
+    marker = (tmp_path / "FOUND_INTERNAL_CANDIDATE.txt").read_text()
+    assert marker.startswith("FOUND_INTERNAL_CANDIDATE ")
+    assert "task=fake" in marker
+    assert "paper_trading_authorized=False" in marker
+    assert "live_trading_authorized=False" in marker
 
 
 def test_auto_research_can_continue_collecting_after_candidate(tmp_path, monkeypatch) -> None:
@@ -467,6 +472,9 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
     assert payload["mode"] == "continuous"
     assert payload["task_results"][0]["fingerprint"] == "abc123"
     assert "abc123" in (tmp_path / "explored.jsonl").read_text()
+    marker = (tmp_path / "FOUND_INTERNAL_CANDIDATE.txt").read_text()
+    assert "task=planned" in marker
+    assert "paper_trading_authorized=False" in marker
 
 
 def test_continuous_research_runs_auto_xsec_rescue_after_primary_batch(tmp_path, monkeypatch) -> None:
