@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -116,3 +117,39 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
     metadata = write_rescue_artifacts(plan, tmp_path / "plan.json", tmp_path / "configs.json")
     assert metadata["rescue_config_count"] == 10
     assert json.loads((tmp_path / "configs.json").read_text()) == plan["configs"]
+
+
+def test_rescue_plan_script_runs_from_repo_root(tmp_path) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "summary": {"accepted_train_only": False},
+                "selection_validation": {"effective_trials": 100},
+                "rows": [row(diagnostic_q25=0.70)],
+            }
+        )
+    )
+    plan_path = tmp_path / "plan.json"
+    config_path = tmp_path / "configs.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/v9_xsec_rescue_plan.py"),
+            str(artifact),
+            "--out-plan",
+            str(plan_path),
+            "--out-configs",
+            str(config_path),
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    metadata = json.loads(completed.stdout)
+    assert metadata["rescue_seed_count"] == 1
+    assert plan_path.exists()
+    assert config_path.exists()
