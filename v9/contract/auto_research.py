@@ -1084,7 +1084,7 @@ def run_continuous_research(
             result["fingerprint"] = planned_task.fingerprint
             result["planned_task"] = planned_task.record()
             candidate_status = (
-                "manual_review_required_data_drift"
+                "quarantined_data_drift"
                 if has_data_drift(drift_history + task_results, result)
                 else "manual_review_required"
             )
@@ -1134,7 +1134,7 @@ def run_continuous_research(
                     record = candidate_record(task, result, status=candidate_status)
                     candidates_found.append(record)
                     write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
-                    if candidate_status == "manual_review_required_data_drift":
+                    if candidate_status == "quarantined_data_drift":
                         write_latest_summary(latest_summary_path, "running", f"data_drift_detected:{task.name}")
             if result["status"] == "failed":
                 consecutive_failures += 1

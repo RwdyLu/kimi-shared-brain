@@ -111,15 +111,25 @@ def test_tsmom_family_review_groups_duplicates_and_keeps_safety_false(tmp_path) 
     review = review_mod.build_review(state_path, primary, tmp_path)
     text = review_mod.format_markdown(review)
 
-    assert review["decision"] == "train_only_family_promising_manual_review_required"
-    assert review["candidate_record_count"] == 2
-    assert review["accepted_artifact_count"] == 2
+    assert review["decision"] == "train_only_family_candidate_but_needs_drift_review"
+    assert review["canonical_data_fingerprint"] == "fp1"
+    assert review["candidate_record_count"] == 1
+    assert review["raw_candidate_record_count"] == 2
+    assert review["accepted_artifact_count"] == 1
+    assert review["raw_accepted_artifact_count"] == 2
+    assert review["quarantined_data_drift_count"] == 1
     assert len(review["distinct_data_fingerprints"]) == 2
+    assert review["active_data_fingerprints"] == ["fp1"]
     assert "family_contains_data_drift_duplicates" in review["warnings"]
+    quarantined = [row for row in review["artifacts"] if row["task"] == "tsmom_dup"][0]
+    assert quarantined["status"] == "quarantined_data_drift"
+    assert quarantined["raw_status"] == "manual_review_required_data_drift"
+    assert "status_data_drift" in quarantined["quarantine_reasons"]
     assert review["holdout_authorized"] is False
     assert review["paper_trading_authorized"] is False
     assert review["live_trading_authorized"] is False
     assert "does not authorize holdout" in text
+    assert "quarantined_data_drift_count: `1`" in text
 
 
 def test_tsmom_family_review_marks_single_fingerprint_warning(tmp_path) -> None:
@@ -140,3 +150,35 @@ def test_tsmom_family_review_marks_single_fingerprint_warning(tmp_path) -> None:
 
     assert review["decision"] == "train_only_family_candidate_but_needs_drift_review"
     assert "accepted_family_seen_on_single_data_fingerprint" in review["warnings"]
+
+
+def test_tsmom_family_review_quarantines_fingerprint_mismatch_even_without_drift_status(tmp_path) -> None:
+    primary = "tsmom_primary"
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "candidates_found": [
+                    {"task": primary, "status": "manual_review_required", "output_json": "artifacts/a.json"},
+                    {
+                        "task": "tsmom_dup",
+                        "duplicate_of": primary,
+                        "status": "manual_review_required",
+                        "output_json": "artifacts/b.json",
+                    },
+                ]
+            }
+        )
+    )
+    write_artifact(tmp_path, "artifacts/a.json", artifact_payload(fingerprint="canonical"))
+    write_artifact(tmp_path, "artifacts/b.json", artifact_payload(fingerprint="mismatch"))
+
+    review = review_mod.build_review(state_path, primary, tmp_path)
+
+    assert review["candidate_record_count"] == 1
+    assert review["raw_candidate_record_count"] == 2
+    assert review["quarantined_data_drift_count"] == 1
+    assert review["status_counts"]["quarantined_data_drift"] == 1
+    drift = [row for row in review["artifacts"] if row["task"] == "tsmom_dup"][0]
+    assert drift["quarantined"] is True
+    assert drift["quarantine_reasons"] == ["fingerprint_mismatch"]

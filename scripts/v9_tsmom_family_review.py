@@ -12,6 +12,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+DATA_DRIFT_STATUS_FRAGMENTS = ("data_drift", "quarantined")
+
 
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
@@ -30,6 +32,16 @@ def safe_float(value: Any, default: float | None = None) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def is_data_drift_status(status: Any) -> bool:
+    text = str(status or "").lower()
+    return any(fragment in text for fragment in DATA_DRIFT_STATUS_FRAGMENTS)
+
+
+def artifact_data_fingerprint(record: dict[str, Any]) -> str | None:
+    value = (record.get("data") or {}).get("fingerprint")
+    return str(value) if value else None
 
 
 def best_passed_row(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -126,30 +138,80 @@ def compact_artifact(record: dict[str, Any], repo_root: Path) -> dict[str, Any]:
     return out
 
 
+def canonical_data_fingerprint(records: list[dict[str, Any]]) -> str | None:
+    for record in records:
+        if is_data_drift_status(record.get("status")):
+            continue
+        if not (record.get("summary") or {}).get("accepted_train_only"):
+            continue
+        fingerprint = artifact_data_fingerprint(record)
+        if fingerprint:
+            return fingerprint
+    for record in records:
+        if not (record.get("summary") or {}).get("accepted_train_only"):
+            continue
+        fingerprint = artifact_data_fingerprint(record)
+        if fingerprint:
+            return fingerprint
+    return None
+
+
+def apply_data_fingerprint_quarantine(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
+    canonical = canonical_data_fingerprint(records)
+    out = []
+    for record in records:
+        row = dict(record)
+        raw_status = row.get("status")
+        fingerprint = artifact_data_fingerprint(row)
+        reasons = []
+        if is_data_drift_status(raw_status):
+            reasons.append("status_data_drift")
+        if canonical and fingerprint and fingerprint != canonical:
+            reasons.append("fingerprint_mismatch")
+        row["raw_status"] = raw_status
+        row["canonical_data_fingerprint"] = canonical
+        row["quarantined"] = bool(reasons)
+        if reasons:
+            row["status"] = "quarantined_data_drift"
+            row["quarantine_reasons"] = reasons
+        else:
+            row["quarantine_reasons"] = []
+        out.append(row)
+    return out, canonical
+
+
 def decision(records: list[dict[str, Any]]) -> tuple[str, list[str]]:
-    accepted = [row for row in records if (row.get("summary") or {}).get("accepted_train_only")]
-    clean = [row for row in accepted if row.get("status") == "manual_review_required"]
-    fingerprints = {str((row.get("data") or {}).get("fingerprint")) for row in accepted if (row.get("data") or {}).get("fingerprint")}
+    raw_accepted = [row for row in records if (row.get("summary") or {}).get("accepted_train_only")]
+    accepted = [row for row in raw_accepted if not row.get("quarantined")]
+    fingerprints = {artifact_data_fingerprint(row) for row in accepted if artifact_data_fingerprint(row)}
+    raw_fingerprints = {artifact_data_fingerprint(row) for row in raw_accepted if artifact_data_fingerprint(row)}
     warnings = []
-    if any(str(row.get("status", "")).endswith("data_drift") for row in records):
+    if len(raw_fingerprints) > 1 or any(row.get("quarantined") for row in records):
         warnings.append("family_contains_data_drift_duplicates")
     if len(fingerprints) < 2:
         warnings.append("accepted_family_seen_on_single_data_fingerprint")
-    if len(accepted) >= 2 and clean:
+    if len(accepted) >= 2:
         return "train_only_family_promising_manual_review_required", warnings
     if accepted:
         return "train_only_family_candidate_but_needs_drift_review", warnings
+    if raw_accepted:
+        return "train_only_family_quarantined_data_drift", warnings
     return "train_only_family_not_accepted", warnings
 
 
 def build_review(state_path: Path, primary_task: str, repo_root: Path) -> dict[str, Any]:
     state = read_json(state_path)
     candidates = family_candidates(state, primary_task)
-    artifacts = [compact_artifact(row, repo_root) for row in candidates]
+    compacted = [compact_artifact(row, repo_root) for row in candidates]
+    artifacts, canonical_fingerprint = apply_data_fingerprint_quarantine(compacted)
+    active_artifacts = [row for row in artifacts if not row.get("quarantined")]
     status_counts: dict[str, int] = {}
-    for row in candidates:
+    raw_status_counts: dict[str, int] = {}
+    for row in artifacts:
         status = str(row.get("status") or "unknown")
         status_counts[status] = status_counts.get(status, 0) + 1
+        raw_status = str(row.get("raw_status") or "unknown")
+        raw_status_counts[raw_status] = raw_status_counts.get(raw_status, 0) + 1
     family_decision, warnings = decision(artifacts)
     return {
         "kind": "v9_tsmom_family_review_v1",
@@ -158,13 +220,29 @@ def build_review(state_path: Path, primary_task: str, repo_root: Path) -> dict[s
         "source_state": str(state_path),
         "decision": family_decision,
         "warnings": warnings,
-        "candidate_record_count": len(candidates),
+        "canonical_data_fingerprint": canonical_fingerprint,
+        "candidate_record_count": len(active_artifacts),
+        "raw_candidate_record_count": len(candidates),
+        "quarantined_data_drift_count": sum(1 for row in artifacts if row.get("quarantined")),
         "status_counts": dict(sorted(status_counts.items())),
-        "accepted_artifact_count": sum(1 for row in artifacts if (row.get("summary") or {}).get("accepted_train_only")),
+        "raw_status_counts": dict(sorted(raw_status_counts.items())),
+        "accepted_artifact_count": sum(
+            1 for row in active_artifacts if (row.get("summary") or {}).get("accepted_train_only")
+        ),
+        "raw_accepted_artifact_count": sum(
+            1 for row in artifacts if (row.get("summary") or {}).get("accepted_train_only")
+        ),
         "distinct_data_fingerprints": sorted(
             {
                 str((row.get("data") or {}).get("fingerprint"))
                 for row in artifacts
+                if (row.get("data") or {}).get("fingerprint")
+            }
+        ),
+        "active_data_fingerprints": sorted(
+            {
+                str((row.get("data") or {}).get("fingerprint"))
+                for row in active_artifacts
                 if (row.get("data") or {}).get("fingerprint")
             }
         ),
@@ -195,9 +273,15 @@ def format_markdown(review: dict[str, Any]) -> str:
         "## Summary",
         "",
         f"- candidate_record_count: `{review['candidate_record_count']}`",
+        f"- raw_candidate_record_count: `{review['raw_candidate_record_count']}`",
         f"- accepted_artifact_count: `{review['accepted_artifact_count']}`",
+        f"- raw_accepted_artifact_count: `{review['raw_accepted_artifact_count']}`",
+        f"- quarantined_data_drift_count: `{review['quarantined_data_drift_count']}`",
+        f"- canonical_data_fingerprint: `{review.get('canonical_data_fingerprint')}`",
         f"- distinct_data_fingerprints: `{len(review['distinct_data_fingerprints'])}`",
+        f"- active_data_fingerprints: `{len(review['active_data_fingerprints'])}`",
         f"- status_counts: `{json.dumps(review['status_counts'], sort_keys=True)}`",
+        f"- raw_status_counts: `{json.dumps(review['raw_status_counts'], sort_keys=True)}`",
         f"- warnings: `{','.join(review['warnings']) or 'none'}`",
         "",
         "## Artifacts",
@@ -213,8 +297,15 @@ def format_markdown(review: dict[str, Any]) -> str:
         lines.extend(
             [
                 f"### {artifact.get('task')}",
-                f"- status: `{artifact.get('status')}` duplicate_of: `{artifact.get('duplicate_of')}`",
-                f"- accepted_train_only: `{summary.get('accepted_train_only')}` pass_count: `{summary.get('pass_count')}` rows: `{summary.get('rows')}`",
+                "- status: "
+                f"`{artifact.get('status')}` raw_status: `{artifact.get('raw_status')}` "
+                f"duplicate_of: `{artifact.get('duplicate_of')}`",
+                "- quarantined: "
+                f"`{artifact.get('quarantined')}` "
+                f"reasons: `{','.join(artifact.get('quarantine_reasons') or []) or 'none'}`",
+                "- accepted_train_only: "
+                f"`{summary.get('accepted_train_only')}` pass_count: `{summary.get('pass_count')}` "
+                f"rows: `{summary.get('rows')}`",
                 f"- data: `{data.get('first_dt')}` to `{data.get('last_dt')}` fingerprint `{data.get('fingerprint')}`",
                 "- best_passed: "
                 f"sel_sh20 `{fmt(sel.get('sharpe20'))}` sel_dd `{fmt(sel.get('max_drawdown20'))}` "

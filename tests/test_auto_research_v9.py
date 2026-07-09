@@ -451,8 +451,8 @@ def test_data_drift_marks_candidate_for_manual_review() -> None:
         timeout_sec=1,
     )
     assert auto_research.has_data_drift([previous], current) is True
-    record = auto_research.candidate_record(task, current, status="manual_review_required_data_drift")
-    assert record["status"] == "manual_review_required_data_drift"
+    record = auto_research.candidate_record(task, current, status="quarantined_data_drift")
+    assert record["status"] == "quarantined_data_drift"
     assert record["data_fingerprint"] == "new"
 
 

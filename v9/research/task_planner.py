@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from v9.research.candidate_dedupe import dedupe_candidates
+from v9.research.candidate_dedupe import candidate_is_quarantined, dedupe_candidates
 
 
 DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
@@ -339,6 +339,8 @@ def preset_stats(
             output_to_preset[str(output_json)] = preset
 
     for candidate in dedupe_candidates(candidates or []):
+        if candidate_is_quarantined(candidate):
+            continue
         if candidate.get("duplicate_of"):
             continue
         output_json = candidate.get("output_json")

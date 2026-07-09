@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any
 
 
+QUARANTINE_STATUS_FRAGMENTS = ("data_drift", "quarantined")
+
+
 def read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -45,6 +48,11 @@ def candidate_signature(payload: dict[str, Any]) -> str | None:
     )
 
 
+def candidate_is_quarantined(candidate: dict[str, Any]) -> bool:
+    status = str(candidate.get("status") or "").lower()
+    return any(fragment in status for fragment in QUARANTINE_STATUS_FRAGMENTS)
+
+
 def dedupe_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: dict[str, str] = {}
     out: list[dict[str, Any]] = []
@@ -57,15 +65,17 @@ def dedupe_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
             signature = candidate_signature(payload) if payload else None
         if signature:
             enriched["signature"] = signature
+        if candidate_is_quarantined(enriched):
+            enriched["quarantined"] = True
         if signature and signature in seen:
             enriched["duplicate_of"] = seen[signature]
-        elif signature:
+        elif signature and not candidate_is_quarantined(enriched):
             seen[signature] = str(candidate.get("task"))
         out.append(enriched)
     return out
 
 
 def distinct_candidate_count(candidates: list[dict[str, Any]]) -> int:
-    signatures = {row.get("signature") for row in dedupe_candidates(candidates)}
+    signatures = {row.get("signature") for row in dedupe_candidates(candidates) if not candidate_is_quarantined(row)}
     signatures.discard(None)
     return len(signatures)
