@@ -232,8 +232,25 @@ def test_run_task_writes_xsec_diagnostic_review_for_existing_final_artifact(tmp_
                 {
                     "advance_passed": False,
                     "advance_checks": {"positive_3_of_4_years": False},
-                    "config": {"lookback_h": 336},
-                    "cost20": {"sharpe": 2.1},
+                    "config": {
+                        "lookback_h": 504,
+                        "skip_h": 0,
+                        "rebalance_h": 168,
+                        "k": 3,
+                        "score_mode": "risk_adj_mom",
+                        "market_filter_h": 1008,
+                        "vol_target_ann": 0.06,
+                        "n_tranches": 1,
+                    },
+                    "cost20": {
+                        "sharpe": 2.1,
+                        "yearly": {
+                            "2021": {"net_return": 0.1},
+                            "2022": {"net_return": -0.02},
+                            "2023": {"net_return": 0.1},
+                            "2024H1": {"net_return": 0.1},
+                        },
+                    },
                     "validation": {"cost20": {"sharpe": 2.3}},
                     "walk_forward": {"enabled": True, "passed": False, "folds": []},
                     "diagnostic_walk_forward": {
@@ -242,6 +259,8 @@ def test_run_task_writes_xsec_diagnostic_review_for_existing_final_artifact(tmp_
                         "triggered": True,
                         "q25_sharpe": 0.5,
                         "sign_consistency": 0.833,
+                        "validation_sharpe20": 2.3,
+                        "validation_sharpe20_min": 1.2,
                     },
                 }
             ],
@@ -260,6 +279,11 @@ def test_run_task_writes_xsec_diagnostic_review_for_existing_final_artifact(tmp_
     assert review_json.exists()
     assert review_text.exists()
     assert "diagnostic_triggered=1" in review_text.read_text()
+    assert result["rescue_plan_json"].endswith("_rescue_plan.json")
+    assert result["rescue_config_json"].endswith("_rescue_configs.json")
+    assert result["rescue_config_count"] > 0
+    assert (tmp_path / result["rescue_plan_json"]).exists()
+    assert (tmp_path / result["rescue_config_json"]).exists()
 
 
 def test_data_drift_marks_candidate_for_manual_review() -> None:

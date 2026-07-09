@@ -14,6 +14,7 @@ import pandas as pd
 from .report import write_json
 from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows, summarize
 from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
+from v9.research.xsec_rescue import build_rescue_plan, rescue_artifact_paths, write_rescue_artifacts
 from v9.research.task_planner import (
     PlannedTask,
     append_explored_record,
@@ -230,6 +231,22 @@ def maybe_write_xsec_diagnostic_review(output_json: str) -> dict[str, Any]:
         return {"diagnostic_review_error": str(exc)}
 
 
+def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
+    out_path = Path(output_json)
+    if "xsec_ohlcv" not in out_path.name or not out_path.exists():
+        return {}
+    try:
+        payload = read_json(out_path) or {}
+        rows = list(payload.get("rows", []))
+        meta = dict(payload.get("selection_validation", {}) or {})
+        meta["summary"] = dict(payload.get("summary", {}) or {})
+        plan = build_rescue_plan(rows, meta=meta, source_artifact=str(out_path))
+        plan_path, config_path = rescue_artifact_paths(output_json)
+        return write_rescue_artifacts(plan, plan_path, config_path)
+    except Exception as exc:  # pragma: no cover - defensive; runner should continue.
+        return {"rescue_error": str(exc)}
+
+
 def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
     total = 0
     for result in task_results:
@@ -394,6 +411,7 @@ def run_task(
     existing = read_json(out_path)
     if existing and not force:
         review_metadata = maybe_write_xsec_diagnostic_review(task.output_json)
+        rescue_metadata = maybe_write_xsec_rescue_artifacts(task.output_json)
         return {
             "task": task.name,
             "status": task_result_status(existing),
@@ -403,6 +421,7 @@ def run_task(
             "returncode": 0,
             **trial_metadata(existing),
             **review_metadata,
+            **rescue_metadata,
         }
 
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -429,6 +448,7 @@ def run_task(
             time.sleep(1.0)
     payload = read_json(out_path)
     review_metadata = maybe_write_xsec_diagnostic_review(task.output_json) if returncode == 0 else {}
+    rescue_metadata = maybe_write_xsec_rescue_artifacts(task.output_json) if returncode == 0 else {}
     return {
         "task": task.name,
         "status": task_result_status(payload) if returncode == 0 else "failed",
@@ -440,6 +460,7 @@ def run_task(
         "elapsed_sec": round(time.time() - started, 3),
         **trial_metadata(payload),
         **review_metadata,
+        **rescue_metadata,
     }
 
 

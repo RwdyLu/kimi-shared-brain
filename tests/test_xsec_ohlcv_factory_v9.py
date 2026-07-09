@@ -18,6 +18,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     config_for_preset,
     data_fingerprint,
     leave_one_symbol_summary,
+    load_explicit_configs,
     long_only_weights,
     market_filter,
     plateau_stability_summary,
@@ -56,6 +57,43 @@ def test_long_only_weights_are_cash_or_gross_one() -> None:
     assert weights["CCC"] == 0.0
     assert sum(abs(v) for v in weights.values()) == 1.0
     assert long_only_weights(row, cfg, allow_exposure=False) == {"AAA": 0.0, "BBB": 0.0, "CCC": 0.0}
+
+
+def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
+    path = tmp_path / "configs.json"
+    path.write_text(
+        """
+        {
+          "configs": [
+            {
+              "lookback_h": 504,
+              "skip_h": 0,
+              "rebalance_h": 168,
+              "k": 3,
+              "score_mode": "risk_adj_mom",
+              "market_filter_h": 1008,
+              "vol_target_ann": 0.06,
+              "n_tranches": 3
+            }
+          ]
+        }
+        """
+    )
+
+    configs = load_explicit_configs(path)
+
+    assert configs == (
+        OhlcvConfig(
+            lookback_h=504,
+            skip_h=0,
+            rebalance_h=168,
+            k=3,
+            score_mode="risk_adj_mom",
+            market_filter_h=1008,
+            vol_target_ann=0.06,
+            n_tranches=3,
+        ),
+    )
 
 
 def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:

@@ -59,6 +59,7 @@ class RunConfig:
     cache_dir: str = "data/binance_public_cache"
     bootstrap_iterations: int = 500
     prior_trials: int = 0
+    explicit_configs: tuple[OhlcvConfig, ...] = ()
     out_json: str = "artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.json"
     out_md: str = "artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.md"
 
@@ -220,6 +221,33 @@ def config_for_preset(
             **base,
         )
     raise ValueError(f"unknown preset: {preset}")
+
+
+def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
+    return OhlcvConfig(
+        lookback_h=int(raw["lookback_h"]),
+        skip_h=int(raw.get("skip_h", 0)),
+        rebalance_h=int(raw["rebalance_h"]),
+        k=int(raw["k"]),
+        score_mode=str(raw["score_mode"]),
+        market_filter_h=int(raw["market_filter_h"]),
+        vol_target_ann=float(raw["vol_target_ann"]),
+        n_tranches=int(raw.get("n_tranches", 1)),
+    )
+
+
+def load_explicit_configs(path: Path) -> tuple[OhlcvConfig, ...]:
+    payload = json.loads(path.read_text())
+    if isinstance(payload, dict):
+        raw_configs = payload.get("configs") or payload.get("rescue_configs") or []
+    else:
+        raw_configs = payload
+    if not isinstance(raw_configs, list):
+        raise ValueError("config list JSON must contain a list or a dict with configs")
+    configs = tuple(ohlcv_config_from_dict(dict(row)) for row in raw_configs)
+    if not configs:
+        raise ValueError("config list JSON contains no configs")
+    return configs
 
 
 def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
@@ -882,19 +910,22 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     embargo = utc_ts(cfg.embargo_start)
     closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
     closes_fingerprint = data_fingerprint(closes)
-    grid = [
-        OhlcvConfig(l, s, r, k, mode, mf, vt, nt)
-        for l, s, r, k, mode, mf, vt, nt in itertools.product(
-            cfg.lookbacks_h,
-            cfg.skips_h,
-            cfg.rebalances_h,
-            cfg.ks,
-            cfg.score_modes,
-            cfg.market_filters_h,
-            cfg.vol_targets_ann,
-            cfg.n_tranches,
-        )
-    ]
+    if cfg.explicit_configs:
+        grid = list(dict.fromkeys(cfg.explicit_configs))
+    else:
+        grid = [
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt)
+            for l, s, r, k, mode, mf, vt, nt in itertools.product(
+                cfg.lookbacks_h,
+                cfg.skips_h,
+                cfg.rebalances_h,
+                cfg.ks,
+                cfg.score_modes,
+                cfg.market_filters_h,
+                cfg.vol_targets_ann,
+                cfg.n_tranches,
+            )
+        ]
     n_trials = len(grid)
     prior_trials = max(0, int(cfg.prior_trials))
     effective_trials = n_trials + prior_trials
@@ -1098,6 +1129,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "validation_sharpe20_min": validation_sharpe20_min,
         "validate_all_rows": bool(cfg.validate_all_rows),
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
+        "explicit_config_list": bool(cfg.explicit_configs),
         "walk_forward_required": True,
         "walk_forward_cost_bps": 40.0,
         "diagnostic_walk_forward_for_validate_all_rows": True,
@@ -1237,6 +1269,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--embargo-start", default="2024-07-01")
     ap.add_argument("--bootstrap-iterations", type=int, default=500)
     ap.add_argument("--prior-trials", type=int, default=0)
+    ap.add_argument("--config-list-json", default="", help="Optional train-only list of explicit OhlcvConfig rows to evaluate")
     ap.add_argument("--out-json", default="artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.json")
     ap.add_argument("--out-md", default="artifacts/v9/contract_lab/xsec_ohlcv_factory_v1.md")
     return ap
@@ -1255,6 +1288,34 @@ def main() -> None:
         out_md=args.out_md,
         prior_trials=args.prior_trials,
     )
+    if args.config_list_json:
+        cfg = RunConfig(
+            symbols=cfg.symbols,
+            lookbacks_h=cfg.lookbacks_h,
+            skips_h=cfg.skips_h,
+            rebalances_h=cfg.rebalances_h,
+            ks=cfg.ks,
+            score_modes=cfg.score_modes,
+            market_filters_h=cfg.market_filters_h,
+            vol_targets_ann=cfg.vol_targets_ann,
+            n_tranches=cfg.n_tranches,
+            costs_bps=cfg.costs_bps,
+            stress_costs_bps=cfg.stress_costs_bps,
+            validate_all_rows=cfg.validate_all_rows,
+            plateau_center_config=None,
+            plateau_validation_sharpe_min=cfg.plateau_validation_sharpe_min,
+            plateau_neighbor_pass_fraction_min=cfg.plateau_neighbor_pass_fraction_min,
+            plateau_center_max_ratio=cfg.plateau_center_max_ratio,
+            train_start=cfg.train_start,
+            train_end=cfg.train_end,
+            embargo_start=cfg.embargo_start,
+            cache_dir=cfg.cache_dir,
+            bootstrap_iterations=cfg.bootstrap_iterations,
+            prior_trials=cfg.prior_trials,
+            explicit_configs=load_explicit_configs(Path(args.config_list_json)),
+            out_json=cfg.out_json,
+            out_md=cfg.out_md,
+        )
     started = time.time()
     payload = run_grid(cfg)
     print(
