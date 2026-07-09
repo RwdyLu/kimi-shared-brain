@@ -214,6 +214,54 @@ def test_progress_metadata_reports_progress_rows(tmp_path) -> None:
     assert metadata["progress_cache_version"] == "v1"
 
 
+def test_run_task_writes_xsec_diagnostic_review_for_existing_final_artifact(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    out_json = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc.json"
+    out_md = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc.md"
+    out_json.parent.mkdir(parents=True)
+    write_json(
+        {
+            "kind": "xsec_ohlcv_factory_v1_train_only_grid",
+            "summary": {
+                "accepted_train_only": False,
+                "holdout_authorized": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            },
+            "rows": [
+                {
+                    "advance_passed": False,
+                    "advance_checks": {"positive_3_of_4_years": False},
+                    "config": {"lookback_h": 336},
+                    "cost20": {"sharpe": 2.1},
+                    "validation": {"cost20": {"sharpe": 2.3}},
+                    "walk_forward": {"enabled": True, "passed": False, "folds": []},
+                    "diagnostic_walk_forward": {
+                        "enabled": True,
+                        "diagnostic_only": True,
+                        "triggered": True,
+                        "q25_sharpe": 0.5,
+                        "sign_consistency": 0.833,
+                    },
+                }
+            ],
+        },
+        out_json,
+    )
+    task = safe_existing_task("xsec", out_json, out_md)
+
+    result = auto_research.run_task(task, force=False, log_dir=tmp_path / "logs")
+
+    assert result["skipped_existing"] is True
+    assert result["diagnostic_review_json"].endswith("_diagnostic_walkforward_report.json")
+    assert result["diagnostic_review_text"].endswith("_diagnostic_walkforward_report.txt")
+    review_json = tmp_path / result["diagnostic_review_json"]
+    review_text = tmp_path / result["diagnostic_review_text"]
+    assert review_json.exists()
+    assert review_text.exists()
+    assert "diagnostic_triggered=1" in review_text.read_text()
+
+
 def test_data_drift_marks_candidate_for_manual_review() -> None:
     planned = {
         "train_start": "2017-08-01",
