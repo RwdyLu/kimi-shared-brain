@@ -142,7 +142,7 @@ LEGACY_TASK_PRESETS = {
 DEFAULT_TRAIN_START = "2017-08-01"
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
-EVALUATION_VERSION = "selection_validation_v3_xsec_walkforward_symbol_leg"
+EVALUATION_VERSION = "selection_validation_v4_xsec_diagnostic_walkforward"
 EVALUATION_VERSION_BY_PRESET = {
     "tsmom_bear_short_medium": "selection_validation_v2_tsmom_walkforward_symbol_leg",
     "tsmom_bear_short_medium_neighbor": "selection_validation_v2_tsmom_walkforward_symbol_leg",

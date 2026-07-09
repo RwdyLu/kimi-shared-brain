@@ -216,8 +216,96 @@ def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
     assert payload["selection_validation"]["walk_forward_required"] is True
     assert payload["selection_validation"]["leave_one_symbol_required"] is True
     assert "walk_forward" in payload["top"][0]
+    assert "diagnostic_walk_forward" in payload["top"][0]
     assert "leave_one_symbol" in payload["top"][0]
     assert not progress_meta_path_for(cfg.out_json).exists()
+
+
+def test_validate_all_rows_can_run_diagnostic_walk_forward_without_passing(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", lambda *args: close_matrix(1200))
+
+    def fake_simulate(
+        closes,
+        cfg,
+        cost_bps,
+        bootstrap_iterations=500,
+        bootstrap_seed_value=20260707,
+        bootstrap_confirm_iterations=0,
+        bootstrap_confirm_seed_value=None,
+    ):
+        return {
+            "config": {
+                "lookback_h": cfg.lookback_h,
+                "skip_h": cfg.skip_h,
+                "rebalance_h": cfg.rebalance_h,
+                "k": cfg.k,
+                "score_mode": cfg.score_mode,
+                "market_filter_h": cfg.market_filter_h,
+                "vol_target_ann": cfg.vol_target_ann,
+                "n_tranches": cfg.n_tranches,
+            },
+            "cost_bps": float(cost_bps),
+            "total_return": 0.20,
+            "net_pnl": 2000.0,
+            "sharpe": 1.6,
+            "max_drawdown": 0.10,
+            "daily_turnover": 0.01,
+            "avg_gross_exposure": 1.0,
+            "avg_long_exposure": 1.0,
+            "avg_short_exposure": 0.0,
+            "avg_rebalance_scale": 1.0,
+            "yearly": {
+                "2021": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+                "2022": {"periods": 10, "net_return": -0.01, "sharpe": -0.2},
+                "2023": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
+                "2024H1": {"periods": 10, "net_return": -0.01, "sharpe": -0.2},
+            },
+            "yearly_positive_count": 2,
+            "symbol_pnl": {"AAA": 1000.0, "BBB": 900.0, "CCC": 200.0, "DDD": 100.0},
+            "top_positive_symbol_share": 0.45,
+            "bootstrap_30d_sharpe_p5": 0.80,
+            "bootstrap_seed": int(bootstrap_seed_value),
+            "bootstrap_iterations": int(bootstrap_iterations),
+            "legs": {
+                "long_gross_return": 0.20,
+                "long_gross_sharpe": 1.6,
+                "short_gross_return": 0.0,
+                "short_gross_sharpe": 0.0,
+                "avg_long_exposure": 1.0,
+                "avg_short_exposure": 0.0,
+            },
+            "equal_weight_benchmark": {
+                "sharpe": 0.8,
+                "max_drawdown": 0.20,
+                "sharpe_excess": 0.80,
+                "drawdown_ratio": 0.50,
+            },
+        }
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        validate_all_rows=True,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+    payload = run_grid(cfg)
+    row = payload["rows"][0]
+    assert row["selection"]["checks"]["positive_3_of_4_years"] is False
+    assert row["validation"]["checks"]["validation_sharpe20_ge_adjusted_min"] is True
+    assert row["diagnostic_walk_forward"]["diagnostic_only"] is True
+    assert row["diagnostic_walk_forward"]["triggered"] is True
+    assert row["diagnostic_walk_forward"]["q25_sharpe"] == 1.6
+    assert row["advance_passed"] is False
+    assert payload["summary"]["pass_count"] == 0
 
 
 def tiny_grid_config(tmp_path) -> RunConfig:

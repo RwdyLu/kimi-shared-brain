@@ -20,7 +20,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v3_walkforward_symbol_leg"
+ROW_CACHE_VERSION = "selection_validation_v4_diagnostic_walkforward"
 
 
 @dataclass(frozen=True)
@@ -962,6 +962,13 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 "folds": [],
                 "note": "Skipped because base selection checks did not pass.",
             }
+        diagnostic_walk_forward = {
+            "enabled": bool(cfg.validate_all_rows),
+            "diagnostic_only": True,
+            "triggered": False,
+            "rows": [],
+            "note": "Diagnostic walk-forward only runs for validate_all_rows rows that fail selection but pass validation Sharpe.",
+        }
         should_validate = bool(split_meta["validation_usable"] and (selection_passed or cfg.validate_all_rows))
         if should_validate:
             val20 = simulate(
@@ -994,6 +1001,13 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                     "rows": [],
                     "note": "Skipped because selection did not pass.",
                 }
+                if cfg.validate_all_rows and float(val20.get("sharpe", 0.0) or 0.0) >= validation_sharpe20_min:
+                    diagnostic_walk_forward = walk_forward_summary(selection_closes, g, cost_bps=40.0)
+                    diagnostic_walk_forward["diagnostic_only"] = True
+                    diagnostic_walk_forward["triggered"] = True
+                    diagnostic_walk_forward["trigger_reason"] = "selection_failed_but_validation_sharpe20_ge_adjusted_min"
+                    diagnostic_walk_forward["validation_sharpe20"] = float(val20.get("sharpe", 0.0) or 0.0)
+                    diagnostic_walk_forward["validation_sharpe20_min"] = float(validation_sharpe20_min)
         else:
             val20 = {}
             val40 = {}
@@ -1040,6 +1054,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
             "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
             "walk_forward": walk_forward,
+            "diagnostic_walk_forward": diagnostic_walk_forward,
             "leave_one_symbol": leave_one_symbol,
             "cost_stress": cost_stress,
             "advance_checks": checks,
@@ -1085,6 +1100,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
         "walk_forward_required": True,
         "walk_forward_cost_bps": 40.0,
+        "diagnostic_walk_forward_for_validate_all_rows": True,
         "leave_one_symbol_required": True,
         "note": "All selection and validation data remains before embargo_start.",
     }
@@ -1161,8 +1177,8 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
             "",
             "## Top Rows",
             "",
-            "| cfg | pass | sel 20bps sh | wf q25 40bps | val 20bps sh | val ret | val DD | sel boot p5 | EW excess | DD ratio | top sym | loo min sh |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| cfg | pass | sel 20bps sh | wf q25 40bps | diag wf q25 | val 20bps sh | val ret | val DD | sel boot p5 | EW excess | DD ratio | top sym | loo min sh |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in payload["top"]:
@@ -1170,15 +1186,17 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         c20 = row["cost20"]
         v20 = row.get("validation", {}).get("cost20", {}) or {}
         walk_forward = row.get("walk_forward", {}) or {}
+        diagnostic_walk_forward = row.get("diagnostic_walk_forward", {}) or {}
         leave_one_symbol = row.get("leave_one_symbol", {}) or {}
         bench = c20["equal_weight_benchmark"]
         label = "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_MF{market_filter_h}_VT{vol_target_ann}_NT{n_tranches}".format(**cfg)
         lines.append(
-            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
+            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
                 label,
                 row["advance_passed"],
                 c20["sharpe"],
                 float(walk_forward.get("q25_sharpe", 0.0) or 0.0),
+                float(diagnostic_walk_forward.get("q25_sharpe", 0.0) or 0.0),
                 float(v20.get("sharpe", 0.0) or 0.0),
                 float(v20.get("total_return", 0.0) or 0.0),
                 float(v20.get("max_drawdown", 0.0) or 0.0),
