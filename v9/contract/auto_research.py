@@ -445,6 +445,29 @@ def write_internal_candidate_marker(path: Path, record: dict[str, Any]) -> None:
     )
 
 
+def marker_needs_backfill(path: Path) -> bool:
+    if not path.exists():
+        return True
+    text = path.read_text().strip()
+    return not text.startswith("FOUND_INTERNAL_CANDIDATE")
+
+
+def latest_marker_candidate(candidates_found: list[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates = dedupe_candidates(candidates_found)
+    for record in reversed(candidates):
+        if not record.get("duplicate_of"):
+            return record
+    return candidates[-1] if candidates else None
+
+
+def backfill_internal_candidate_marker(path: Path, candidates_found: list[dict[str, Any]]) -> None:
+    if not marker_needs_backfill(path):
+        return
+    record = latest_marker_candidate(candidates_found)
+    if record:
+        write_internal_candidate_marker(path, record)
+
+
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{pd.Timestamp.now(tz='UTC').isoformat()} status={status} reason={reason}\n")
@@ -739,6 +762,7 @@ def run_continuous_research(
     previous = read_json(state_path) or {}
     task_results = list(previous.get("task_results", []))
     candidates_found = list(previous.get("candidates_found", []))
+    backfill_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", candidates_found)
     explored = load_explored_fingerprints(explored_path)
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))

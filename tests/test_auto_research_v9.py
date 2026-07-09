@@ -355,6 +355,34 @@ def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
     assert auto_research.xsec_rescue_task_from_result(planned, result) is None
 
 
+def test_backfill_internal_candidate_marker_prefers_non_duplicate(tmp_path) -> None:
+    marker = tmp_path / "FOUND_INTERNAL_CANDIDATE.txt"
+    marker.write_text("none old\n")
+    candidates = [
+        {
+            "task": "duplicate",
+            "output_json": "duplicate.json",
+            "output_md": "duplicate.md",
+            "status": "manual_review_required",
+            "duplicate_of": "parent",
+        },
+        {
+            "task": "primary",
+            "output_json": "primary.json",
+            "output_md": "primary.md",
+            "status": "manual_review_required",
+        },
+    ]
+
+    auto_research.backfill_internal_candidate_marker(marker, candidates)
+
+    text = marker.read_text()
+    assert text.startswith("FOUND_INTERNAL_CANDIDATE ")
+    assert "task=primary" in text
+    assert "paper_trading_authorized=False" in text
+    assert "live_trading_authorized=False" in text
+
+
 def test_data_drift_marks_candidate_for_manual_review() -> None:
     planned = {
         "train_start": "2017-08-01",
