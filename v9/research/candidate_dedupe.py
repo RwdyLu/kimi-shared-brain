@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-QUARANTINE_STATUS_FRAGMENTS = ("data_drift", "quarantined")
+QUARANTINE_STATUS_FRAGMENTS = ("data_drift", "quarantined", "rejected")
 
 
 def read_json(path: Path) -> dict[str, Any] | None:

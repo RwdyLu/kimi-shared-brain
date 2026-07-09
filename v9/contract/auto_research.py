@@ -17,6 +17,7 @@ from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows
 from scripts.v9_tsmom_family_review import build_review as build_tsmom_family_review
 from scripts.v9_tsmom_family_review import format_markdown as format_tsmom_family_review_markdown
 from v9.research.candidate_dedupe import dedupe_candidates, distinct_candidate_count
+from v9.research.multiplicity import multiplicity_evidence
 from v9.research.tsmom_rescue import (
     build_tsmom_rescue_plan,
     tsmom_rescue_artifact_paths,
@@ -532,6 +533,27 @@ def maybe_write_tsmom_family_review_for_candidate(state_path: Path, record: dict
         }
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"tsmom_family_review_error": str(exc)}
+
+
+def candidate_multiplicity_metadata(result: dict[str, Any], total_candidates: int) -> dict[str, Any]:
+    output_json = result.get("output_json")
+    if not output_json:
+        return {}
+    payload = read_json(Path(str(output_json)))
+    evidence = multiplicity_evidence(payload, total_trials=max(1, int(total_candidates)))
+    return {
+        "multiplicity_decision": evidence.get("decision"),
+        "multiplicity_evidence": evidence,
+    }
+
+
+def status_after_multiplicity(base_status: str, metadata: dict[str, Any]) -> str:
+    if base_status != "manual_review_required":
+        return base_status
+    evidence = metadata.get("multiplicity_evidence") or {}
+    if evidence.get("evaluated") and evidence.get("decision") != "multiplicity_survivor":
+        return str(evidence.get("decision") or "rejected_multiplicity")
+    return base_status
 
 
 def cumulative_trials_from_results(task_results: list[dict[str, Any]]) -> int:
@@ -1151,6 +1173,9 @@ def run_continuous_research(
                 if has_data_drift(drift_history + task_results, result)
                 else "manual_review_required"
             )
+            multiplicity_metadata = candidate_multiplicity_metadata(result, len(candidates_found) + 1)
+            result.update(multiplicity_metadata)
+            candidate_status = status_after_multiplicity(candidate_status, multiplicity_metadata)
             task_results.append(result)
             explored.add(planned_task.fingerprint)
             append_explored_record(
@@ -1196,7 +1221,8 @@ def run_continuous_research(
                 if result["output_json"] not in known_outputs:
                     record = candidate_record(task, result, status=candidate_status)
                     candidates_found.append(record)
-                    write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    if candidate_status == "manual_review_required":
+                        write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
                     write_state(
                         state_path,
                         started_at,
@@ -1210,9 +1236,12 @@ def run_continuous_research(
                         cycle_index=cycle_index,
                         deadline_at=deadline_at,
                     )
-                    result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
+                    if not str(candidate_status).startswith("rejected"):
+                        result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
                     if candidate_status == "quarantined_data_drift":
                         write_latest_summary(latest_summary_path, "running", f"data_drift_detected:{task.name}")
+                    if str(candidate_status).startswith("rejected"):
+                        write_latest_summary(latest_summary_path, "running", f"multiplicity_rejected:{task.name}")
             if result["status"] == "failed":
                 consecutive_failures += 1
             else:
@@ -1364,6 +1393,12 @@ def run_continuous_research(
                 if has_data_drift(drift_history + task_results, rescue_result)
                 else "manual_review_required"
             )
+            rescue_multiplicity_metadata = candidate_multiplicity_metadata(rescue_result, len(candidates_found) + 1)
+            rescue_result.update(rescue_multiplicity_metadata)
+            rescue_candidate_status = status_after_multiplicity(
+                rescue_candidate_status,
+                rescue_multiplicity_metadata,
+            )
             task_results.append(rescue_result)
             explored.add(rescue_bundle.fingerprint)
             append_explored_record(
@@ -1412,7 +1447,8 @@ def run_continuous_research(
                 if rescue_result["output_json"] not in known_outputs:
                     record = candidate_record(rescue_task, rescue_result, status=rescue_candidate_status)
                     candidates_found.append(record)
-                    write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    if rescue_candidate_status == "manual_review_required":
+                        write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
                     write_state(
                         state_path,
                         started_at,
@@ -1426,7 +1462,14 @@ def run_continuous_research(
                         cycle_index=cycle_index,
                         deadline_at=deadline_at,
                     )
-                    rescue_result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
+                    if not str(rescue_candidate_status).startswith("rejected"):
+                        rescue_result.update(maybe_write_tsmom_family_review_for_candidate(state_path, record))
+                    if str(rescue_candidate_status).startswith("rejected"):
+                        write_latest_summary(
+                            latest_summary_path,
+                            "running",
+                            f"multiplicity_rejected:{rescue_task.name}",
+                        )
             write_state(
                 state_path,
                 started_at,

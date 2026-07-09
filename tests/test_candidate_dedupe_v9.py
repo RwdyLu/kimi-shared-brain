@@ -53,6 +53,18 @@ def test_quarantined_candidates_do_not_count_as_distinct(tmp_path, monkeypatch) 
     assert distinct_candidate_count(candidates) == 0
 
 
+def test_rejected_multiplicity_candidates_do_not_count_as_distinct(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "candidate.json"
+    artifact.write_text(json.dumps(accepted_payload({"lookback_h": 504})))
+    candidates = [{"task": "weak", "output_json": str(artifact), "status": "rejected_multiplicity"}]
+
+    enriched = dedupe_candidates(candidates)
+
+    assert enriched[0]["quarantined"] is True
+    assert distinct_candidate_count(candidates) == 0
+
+
 def test_clean_candidate_after_quarantined_candidate_can_be_primary(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     artifact = tmp_path / "candidate.json"

@@ -34,6 +34,31 @@ def safe_existing_task(name: str, out_json: Path, out_md: Path) -> ResearchTask:
     )
 
 
+def strong_train_only_row(config: dict | None = None) -> dict:
+    return {
+        "advance_passed": True,
+        "config": config or {"lookback_h": 1},
+        "cost40": {
+            "sharpe": 2.4,
+            "bootstrap_30d_sharpe_p5": 2.0,
+            "max_drawdown": 0.10,
+            "active_yearly_bucket_count": 3,
+            "positive_active_yearly_bucket_count": 3,
+            "rebalance_event_count": 120,
+        },
+        "validation": {
+            "cost40": {
+                "sharpe": 2.3,
+                "bootstrap_30d_sharpe_p5": 1.9,
+                "max_drawdown": 0.11,
+                "active_yearly_bucket_count": 3,
+                "positive_active_yearly_bucket_count": 3,
+                "rebalance_event_count": 120,
+            }
+        },
+    }
+
+
 def test_default_tasks_are_train_only_and_use_unique_outputs() -> None:
     names = [task.name for task in auto_research.DEFAULT_TASKS]
     output_jsons = [task.output_json for task in auto_research.DEFAULT_TASKS]
@@ -585,7 +610,7 @@ def test_continuous_research_records_planned_task_and_continues_until_manual_sto
                 "kind": "xsec_ohlcv_factory_v1_train_only_grid",
                 "symbols": ["AAA", "BBB"],
                 "summary": {"accepted_train_only": True},
-                "rows": [{"advance_passed": True, "config": {"lookback_h": 1}}],
+                "rows": [strong_train_only_row({"lookback_h": 1})],
             },
             Path(task.output_json),
         )
@@ -661,10 +686,11 @@ def test_continuous_research_writes_tsmom_family_review_after_candidate(tmp_path
                 "selection_validation": {"n_configs_tested": 1, "effective_trials": 1},
                 "rows": [
                     {
+                        **strong_train_only_row(
+                            {"asset_vol_target_ann": 0.35, "portfolio_vol_target_ann": 0.12}
+                        ),
                         "advance_passed": True,
-                        "config": {"asset_vol_target_ann": 0.35, "portfolio_vol_target_ann": 0.12},
                         "cost20": {"sharpe": 1.4, "total_return": 0.2, "max_drawdown": 0.12},
-                        "validation": {"cost20": {"sharpe": 1.1, "total_return": 0.1, "max_drawdown": 0.11}},
                         "advance_checks": {"validation_sharpe20_ge_adjusted_min": True},
                     }
                 ],
@@ -710,6 +736,83 @@ def test_continuous_research_writes_tsmom_family_review_after_candidate(tmp_path
     assert review["holdout_authorized"] is False
     assert review["paper_trading_authorized"] is False
     assert review["live_trading_authorized"] is False
+
+
+def test_continuous_research_rejects_candidate_that_fails_multiplicity_gate(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    planned = PlannedTask(
+        name="weak_tsmom",
+        preset="tsmom_bear_short_regime",
+        cli_preset="bear_short_regime",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="weak123",
+        output_json=str(tmp_path / "artifacts/v9/contract_lab/weak_tsmom.json"),
+        output_md=str(tmp_path / "artifacts/v9/contract_lab/weak_tsmom.md"),
+        timeout_sec=1,
+        module="v9.contract.tsmom_factory",
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned])
+    control = tmp_path / "control"
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        write_json(
+            {
+                "kind": "tsmom_factory_v1_train_only_grid",
+                "summary": {
+                    "accepted_train_only": True,
+                    "holdout_authorized": False,
+                    "paper_trading_authorized": False,
+                    "live_trading_authorized": False,
+                },
+                "rows": [
+                    {
+                        "advance_passed": True,
+                        "config": {"asset_vol_target_ann": 0.35},
+                        "validation": {
+                            "cost40": {
+                                "sharpe": 1.2,
+                                "bootstrap_30d_sharpe_p5": -1.0,
+                                "max_drawdown": 0.20,
+                                "active_yearly_bucket_count": 3,
+                                "positive_active_yearly_bucket_count": 2,
+                                "rebalance_event_count": 120,
+                            }
+                        },
+                    }
+                ],
+            },
+            Path(task.output_json),
+        )
+        control.mkdir(parents=True, exist_ok=True)
+        (control / "STOP").write_text("stop after rejected candidate")
+        return {
+            "task": task.name,
+            "status": "accepted_train_only_candidate_found",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+            "data_fingerprint": "train-fp",
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        control,
+        planner_batch_size=1,
+        cycle_sleep_sec=0,
+    )
+
+    assert payload["candidates_found"][0]["status"] == "rejected_multiplicity"
+    assert payload["distinct_candidates"] == 0
+    assert payload["task_results"][0]["multiplicity_decision"] == "rejected_multiplicity"
+    assert not (tmp_path / "FOUND_INTERNAL_CANDIDATE.txt").exists()
 
 
 def test_continuous_research_runs_auto_xsec_rescue_after_primary_batch(tmp_path, monkeypatch) -> None:
