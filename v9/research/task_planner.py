@@ -43,6 +43,9 @@ CLI_PRESET_BY_PRESET = {
 }
 
 FOCUS_PRESETS = (
+    "tsmom_defensive_regime",
+    "tsmom_bear_short_regime",
+    "tsmom_trend_ensemble",
     "hq_dd_plateau",
     "hq_dd_long",
     "defensive_drawdown",
@@ -64,9 +67,6 @@ FOCUS_PRESETS = (
     "tsmom_core_cost_guard",
     "tsmom_core_slow_cost_guard",
     "tsmom_bear_short_fast",
-    "tsmom_bear_short_regime",
-    "tsmom_defensive_regime",
-    "tsmom_trend_ensemble",
 )
 
 PRESETS = (
