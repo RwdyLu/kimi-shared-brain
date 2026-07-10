@@ -93,3 +93,55 @@ def test_blocked_gate_state_never_authorizes_paper(tmp_path, monkeypatch) -> Non
     assert state["status"] == "blocked"
     assert state["paper_trading_authorized"] is False
     assert state["live_trading_authorized"] is False
+
+
+def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    state = {
+        "status": "paper_running",
+        "source_gate": "gate.json",
+        "paper_trading_authorized": True,
+        "candidate": {"artifact": "candidate.json"},
+        "checks": {"paper_drawdown_le_max": True},
+        "shadow": {
+            "latest_dt": "2026-07-10T00:00:00+00:00",
+            "latest_rebalance_dt": "2026-07-10T00:00:00+00:00",
+            "latest_weights": {"BTCUSDT": 0.25},
+            "latest_gross_exposure": 0.25,
+            "costs": {"40bps": {"max_drawdown": 0.01, "rebalance_event_count": 1}},
+        },
+    }
+
+    first = shadow_mod.append_ledger(state, ledger, recorded_at="2026-07-10T00:00:00+00:00")
+    state["shadow"]["latest_weights"] = {"BTCUSDT": 0.50}
+    second = shadow_mod.append_ledger(state, ledger, recorded_at="2026-07-10T01:00:00+00:00")
+    chain = shadow_mod.verify_ledger_chain(ledger)
+
+    assert first["seq"] == 1
+    assert second["seq"] == 2
+    assert second["prev_hash"] == first["hash"]
+    assert chain["valid"] is True
+    assert chain["row_count"] == 2
+    assert chain["max_gap_sec"] == 3600.0
+
+
+def test_verify_ledger_chain_rejects_tampering(tmp_path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    state = {
+        "status": "paper_running",
+        "paper_trading_authorized": True,
+        "candidate": {"artifact": "candidate.json"},
+        "shadow": {
+            "latest_dt": "2026-07-10T00:00:00+00:00",
+            "latest_weights": {"BTCUSDT": 0.25},
+            "costs": {"40bps": {"max_drawdown": 0.01}},
+        },
+    }
+    shadow_mod.append_ledger(state, ledger, recorded_at="2026-07-10T00:00:00+00:00")
+    text = ledger.read_text().replace("0.25", "0.75")
+    ledger.write_text(text)
+
+    chain = shadow_mod.verify_ledger_chain(ledger)
+
+    assert chain["valid"] is False
+    assert chain["errors"]

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -29,6 +30,135 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def canonical_json(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def record_hash(record: dict[str, Any], prev_hash: str) -> str:
+    unsigned = {key: value for key, value in record.items() if key != "hash"}
+    raw = f"{prev_hash}\n{canonical_json(unsigned)}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def read_ledger_records(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records = []
+    for line_no, line in enumerate(path.read_text().splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid ledger JSON on line {line_no}: {exc}") from exc
+        records.append(row)
+    return records
+
+
+def ledger_metrics_40bps(state: dict[str, Any]) -> dict[str, Any]:
+    metrics = (((state.get("shadow") or {}).get("costs") or {}).get("40bps") or {})
+    keep = (
+        "sharpe",
+        "daily_sharpe",
+        "total_return",
+        "max_drawdown",
+        "rebalance_event_count",
+        "daily_turnover",
+        "avg_gross_exposure",
+        "realized_daily_vol_ann",
+    )
+    return {key: metrics.get(key) for key in keep if key in metrics}
+
+
+def ledger_record(
+    *,
+    state: dict[str, Any],
+    seq: int,
+    prev_hash: str,
+    recorded_at: str,
+) -> dict[str, Any]:
+    shadow = state.get("shadow") or {}
+    candidate = state.get("candidate") or {}
+    record = {
+        "kind": "xsec_paper_ledger_record_v1",
+        "seq": int(seq),
+        "recorded_at": recorded_at,
+        "prev_hash": prev_hash,
+        "status": state.get("status"),
+        "source_gate": state.get("source_gate"),
+        "candidate_artifact": candidate.get("artifact"),
+        "latest_dt": shadow.get("latest_dt"),
+        "latest_rebalance_dt": shadow.get("latest_rebalance_dt"),
+        "latest_weights": shadow.get("latest_weights") or {},
+        "latest_gross_exposure": shadow.get("latest_gross_exposure"),
+        "metrics_40bps": ledger_metrics_40bps(state),
+        "checks": state.get("checks") or {},
+        "paper_trading_authorized": bool(state.get("paper_trading_authorized")),
+        "live_trading_authorized": False,
+    }
+    record["hash"] = record_hash(record, prev_hash)
+    return record
+
+
+def append_ledger(state: dict[str, Any], path: Path, recorded_at: str | None = None) -> dict[str, Any]:
+    if not state.get("paper_trading_authorized"):
+        return {}
+    records = read_ledger_records(path)
+    prev_hash = str(records[-1].get("hash") or "") if records else "GENESIS"
+    record = ledger_record(
+        state=state,
+        seq=len(records) + 1,
+        prev_hash=prev_hash,
+        recorded_at=recorded_at or now_utc(),
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    return record
+
+
+def verify_ledger_chain(path: Path) -> dict[str, Any]:
+    try:
+        records = read_ledger_records(path)
+    except ValueError as exc:
+        return {"valid": False, "row_count": 0, "errors": [str(exc)]}
+    errors = []
+    prev_hash = "GENESIS"
+    prev_recorded_at: pd.Timestamp | None = None
+    max_gap_sec = 0.0
+    first_recorded_at = None
+    last_recorded_at = None
+    for expected_seq, record in enumerate(records, start=1):
+        if int(record.get("seq") or 0) != expected_seq:
+            errors.append(f"line {expected_seq}: expected seq {expected_seq}, got {record.get('seq')}")
+        if str(record.get("prev_hash") or "") != prev_hash:
+            errors.append(f"line {expected_seq}: prev_hash mismatch")
+        if str(record.get("hash") or "") != record_hash(record, prev_hash):
+            errors.append(f"line {expected_seq}: hash mismatch")
+        try:
+            recorded_at = to_utc_timestamp(str(record.get("recorded_at")))
+        except Exception:
+            errors.append(f"line {expected_seq}: invalid recorded_at")
+            recorded_at = None
+        if recorded_at is not None:
+            iso = recorded_at.isoformat()
+            first_recorded_at = first_recorded_at or iso
+            last_recorded_at = iso
+            if prev_recorded_at is not None:
+                max_gap_sec = max(max_gap_sec, (recorded_at - prev_recorded_at).total_seconds())
+            prev_recorded_at = recorded_at
+        prev_hash = str(record.get("hash") or "")
+    return {
+        "valid": not errors,
+        "row_count": len(records),
+        "first_recorded_at": first_recorded_at,
+        "last_recorded_at": last_recorded_at,
+        "max_gap_sec": max_gap_sec,
+        "last_hash": prev_hash if records else None,
+        "errors": errors,
+    }
 
 
 def resolve_evaluation_end(value: str) -> str:
@@ -89,7 +219,8 @@ def format_signals_csv(rows: list[dict[str, Any]]) -> str:
     lines = ["date,pair,symbol,target_weight,enter_long,exit_long"]
     for row in rows:
         lines.append(
-            f"{row['date']},{row['pair']},{row['symbol']},{row['target_weight']:.10f},{row['enter_long']},{row['exit_long']}"
+            f"{row['date']},{row['pair']},{row['symbol']},"
+            f"{row['target_weight']:.10f},{row['enter_long']},{row['exit_long']}"
         )
     return "\n".join(lines) + "\n"
 
@@ -191,6 +322,29 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         evaluation_end=resolve_evaluation_end(args.evaluation_end),
         costs_bps=costs,
     )
+    ledger_record_written = append_ledger(state, Path(args.ledger_jsonl))
+    if ledger_record_written:
+        state["paper_ledger"] = {
+            "path": args.ledger_jsonl,
+            "seq": ledger_record_written["seq"],
+            "hash": ledger_record_written["hash"],
+        }
+        if not args.skip_cost_evidence:
+            try:
+                from scripts.v9_xsec_cost_evidence import append_cost_evidence  # noqa: PLC0415
+
+                state["cost_evidence"] = append_cost_evidence(
+                    state=state,
+                    ledger_path=Path(args.ledger_jsonl),
+                    out_csv=Path(args.cost_evidence_csv),
+                    recorded_at=str(ledger_record_written["recorded_at"]),
+                )
+            except Exception as exc:  # pragma: no cover - public data should not stop shadow.
+                state["cost_evidence"] = {
+                    "rows_written": 0,
+                    "path": args.cost_evidence_csv,
+                    "error": str(exc),
+                }
     write_json(state, Path(args.out_json))
     write_text(format_text(state), Path(args.out_text))
     write_text(format_signals_csv(state.get("signals") or []), Path(args.signals_csv))
@@ -214,6 +368,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-json", default="state/xsec_paper_shadow_state.json")
     parser.add_argument("--out-text", default="state/xsec_paper_shadow_state.txt")
     parser.add_argument("--signals-csv", default="artifacts/v9/paper/xsec_paper_shadow_signals.csv")
+    parser.add_argument("--ledger-jsonl", default="state/xsec_paper_ledger.jsonl")
+    parser.add_argument("--cost-evidence-csv", default="artifacts/v9/paper/xsec_cost_evidence.csv")
+    parser.add_argument("--skip-cost-evidence", action="store_true")
     parser.add_argument("--marker-dir", default="state")
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--sleep-sec", type=float, default=3600.0)
