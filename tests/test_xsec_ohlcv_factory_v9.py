@@ -15,6 +15,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     advance_checks,
     bootstrap_seed,
     bootstrap_threshold,
+    build_arg_parser,
     config_for_preset,
     data_fingerprint,
     leave_one_symbol_summary,
@@ -94,6 +95,12 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
             n_tranches=3,
         ),
     )
+
+
+def test_cli_accepts_breakout_presets() -> None:
+    parser = build_arg_parser()
+    assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
+    assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
 
 def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:

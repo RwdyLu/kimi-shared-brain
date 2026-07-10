@@ -1299,6 +1299,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_neighbor",
             "defensive_breadth",
             "defensive_drawdown",
+            "breakout_fast",
+            "breakout_slow",
             "hq_dd_long",
             "hq_dd_plateau",
             "hq_cadence_tranche",
