@@ -11,6 +11,7 @@ This runbook rebuilds the v9 train-only research runner on a new machine. It doe
 - Outputs: `artifacts/v9/contract_lab/`, `logs/v9_auto_research/`, `state/v9_auto_research_state.json`
 - XSEC paper evidence: `state/xsec_paper_ledger.jsonl`, `artifacts/v9/paper/xsec_cost_evidence.csv`
 - Data freshness watchdog: `artifacts/v9/watchdog/data_freshness_status.json`
+- Train-only family registry: `artifacts/v9/registry/family_registry.json`
 - Live-canary review gate: `state/xsec_live_canary_readiness_gate_state.json`
 
 ## New Machine Setup
@@ -54,6 +55,32 @@ python3 -m v9.contract.auto_research \
 `--planner-preset-mode xsec_first` spends new cycles on XSEC first because the current validated paper candidate came from XSEC. Set `PLANNER_PRESET_MODE=balanced` before `start_train_only.sh` to restore the older mixed schedule.
 
 The runner still stops for a manual stop file, low disk, repeated task failure, or an explicit operator budget such as `--max-cycles` or `--max-hours`.
+
+## Run Train-Only Family Pipeline
+
+The search can rediscover the same coarse strategy family under slightly different train windows. Run the registry pipeline to measure novelty and queue genuinely new families for later holdout review:
+
+```bash
+python3 scripts/v9_train_only_pipeline.py
+```
+
+Outputs:
+
+```text
+artifacts/v9/registry/family_registry.json
+artifacts/v9/registry/holdout_queue.jsonl
+artifacts/v9/registry/family_assignments_latest.jsonl
+artifacts/v9/registry/train_only_pipeline_latest.json
+artifacts/v9/registry/train_only_pipeline_latest.md
+```
+
+Safe hourly cron example:
+
+```bash
+0 * * * * cd /root/.openclaw/workspace/kimi-shared-brain && python3 scripts/v9_train_only_pipeline.py >> logs/v9_train_only_pipeline.log 2>&1
+```
+
+By default this pipeline does not spend holdout and does not authorize paper or live trading. If an operator explicitly decides to spend holdout on the current queue, use `--holdout-authorized --max-holdouts N`.
 
 To stop gracefully after the current task:
 
