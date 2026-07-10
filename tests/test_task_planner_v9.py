@@ -190,10 +190,10 @@ def test_focus_train_only_presets_take_priority() -> None:
         "tsmom_bear_short_fast",
     ]
     assert [task.preset for task in first[12:16]] == [
-        "hq_dd_plateau",
-        "hq_dd_long",
         "breakout_fast",
         "breakout_slow",
+        "hq_dd_plateau",
+        "hq_dd_long",
     ]
     assert all(task.module == "v9.contract.tsmom_factory" for task in first[:12])
     assert first[0].cli_preset == "defensive_regime"
@@ -206,10 +206,10 @@ def test_focus_train_only_presets_take_priority() -> None:
 def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> None:
     first = propose_tasks(set(), 18, preset_mode="xsec_first")
     assert [task.preset for task in first[:14]] == [
-        "hq_dd_plateau",
-        "hq_dd_long",
         "breakout_fast",
         "breakout_slow",
+        "hq_dd_plateau",
+        "hq_dd_long",
         "defensive_drawdown",
         "hq_cadence_tranche",
         "hq_breadth_wide",
@@ -278,8 +278,8 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         "tsmom_bear_short_fast",
     ]
     assert [task.preset for task in first[12:16]] == [
-        "hq_dd_plateau",
-        "hq_dd_long",
         "breakout_fast",
         "breakout_slow",
+        "hq_dd_plateau",
+        "hq_dd_long",
     ]
