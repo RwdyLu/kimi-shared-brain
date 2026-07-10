@@ -125,6 +125,61 @@ def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
     assert chain["max_gap_sec"] == 3600.0
 
 
+def test_skip_ledger_marker_preserves_hash_chain_but_is_not_normal_record(tmp_path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    state = {
+        "status": "paper_running",
+        "paper_trading_authorized": True,
+        "candidate": {"artifact": "candidate.json"},
+        "shadow": {
+            "latest_dt": "2026-07-10T00:00:00+00:00",
+            "latest_weights": {"BTCUSDT": 0.25},
+            "costs": {"40bps": {"max_drawdown": 0.01}},
+        },
+    }
+    first = shadow_mod.append_ledger(state, ledger, recorded_at="2026-07-10T00:00:00+00:00")
+    skipped = shadow_mod.append_skip_ledger_marker(
+        path=ledger,
+        reason="SKIPPED_STALE_DATA",
+        recorded_at="2026-07-10T00:30:00+00:00",
+        latest_dt="2026-07-10T00:00:00+00:00",
+        candidate_artifact="candidate.json",
+        data_freshness={"data_fresh": False},
+    )
+
+    chain = shadow_mod.verify_ledger_chain(ledger)
+
+    assert skipped["kind"] == "xsec_paper_ledger_skip_v1"
+    assert skipped["prev_hash"] == first["hash"]
+    assert shadow_mod.latest_normal_ledger_record(ledger)["hash"] == first["hash"]
+    assert chain["valid"] is True
+
+
+def test_latest_dt_duplicate_detects_only_normal_records(tmp_path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    shadow_mod.append_skip_ledger_marker(
+        path=ledger,
+        reason="SKIPPED_STALE_DATA",
+        latest_dt="2026-07-10T00:00:00+00:00",
+    )
+    assert shadow_mod.latest_dt_is_duplicate(ledger, "2026-07-10T00:00:00+00:00") is False
+
+    shadow_mod.append_ledger(
+        {
+            "status": "paper_running",
+            "paper_trading_authorized": True,
+            "candidate": {"artifact": "candidate.json"},
+            "shadow": {
+                "latest_dt": "2026-07-10T00:00:00+00:00",
+                "latest_weights": {"BTCUSDT": 0.25},
+                "costs": {"40bps": {"max_drawdown": 0.01}},
+            },
+        },
+        ledger,
+    )
+    assert shadow_mod.latest_dt_is_duplicate(ledger, "2026-07-10T00:00:00+00:00") is True
+
+
 def test_verify_ledger_chain_rejects_tampering(tmp_path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     state = {

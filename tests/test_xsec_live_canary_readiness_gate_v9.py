@@ -31,6 +31,7 @@ def write_ready_inputs(tmp_path: Path) -> dict[str, Path]:
     shadow_state = tmp_path / "shadow.json"
     ledger = tmp_path / "ledger.jsonl"
     cost_csv = tmp_path / "cost.csv"
+    data_status = tmp_path / "data_freshness.json"
     approval = tmp_path / "approval.json"
     artifact = "candidate.json"
     write_json(
@@ -74,11 +75,21 @@ def write_ready_inputs(tmp_path: Path) -> dict[str, Path]:
         "2026-07-11T00:00:00+00:00,2026-07-11T00:00:00+00:00,BTCUSDT,99,101,100,2,100000,0.1,0,0.1,2\n"
         "2026-07-12T00:00:00+00:00,2026-07-12T00:00:00+00:00,BTCUSDT,99,101,100,3,100000,0.2,0.1,0.1,3\n"
     )
+    write_json(
+        data_status,
+        {
+            "data_fresh": True,
+            "updated_at": live_mod.now_utc(),
+            "checks": {"cache_age_le_max": True},
+            "duplicate_latest_dt_records": 0,
+        },
+    )
     return {
         "paper_gate": paper_gate,
         "shadow_state": shadow_state,
         "ledger": ledger,
         "cost_csv": cost_csv,
+        "data_status": data_status,
         "approval": approval,
     }
 
@@ -89,6 +100,7 @@ def build_report(paths: dict[str, Path]) -> dict:
         shadow_state_path=paths["shadow_state"],
         ledger_path=paths["ledger"],
         cost_evidence_csv=paths["cost_csv"],
+        data_freshness_status_path=paths["data_status"],
         approval_path=paths["approval"],
         min_wall_clock_weeks=0,
         min_rebalance_events=2,
@@ -97,6 +109,8 @@ def build_report(paths: dict[str, Path]) -> dict:
         assumed_cost_bps=40.0,
         cost_percentile=0.90,
         min_abs_weight_delta=1e-9,
+        max_data_freshness_status_age_hours=2.0,
+        max_duplicate_latest_dt_records=0,
     )
 
 
@@ -138,3 +152,20 @@ def test_live_canary_gate_blocks_tampered_ledger(tmp_path) -> None:
 
     assert report["decision"] == "live_canary_blocked"
     assert report["checks"]["ledger_chain_valid"] is False
+
+
+def test_live_canary_gate_blocks_stale_data_freshness_status(tmp_path) -> None:
+    paths = write_ready_inputs(tmp_path)
+    write_json(
+        paths["data_status"],
+        {
+            "data_fresh": False,
+            "updated_at": live_mod.now_utc(),
+            "checks": {"cache_age_le_max": False},
+        },
+    )
+
+    report = build_report(paths)
+
+    assert report["decision"] == "live_canary_blocked"
+    assert report["checks"]["data_fresh"] is False

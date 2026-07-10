@@ -10,6 +10,7 @@ This runbook rebuilds the v9 train-only research runner on a new machine. It doe
 - Runner: `python3 -m v9.contract.auto_research --mode continuous --continue-after-candidate`
 - Outputs: `artifacts/v9/contract_lab/`, `logs/v9_auto_research/`, `state/v9_auto_research_state.json`
 - XSEC paper evidence: `state/xsec_paper_ledger.jsonl`, `artifacts/v9/paper/xsec_cost_evidence.csv`
+- Data freshness watchdog: `artifacts/v9/watchdog/data_freshness_status.json`
 - Live-canary review gate: `state/xsec_live_canary_readiness_gate_state.json`
 
 ## New Machine Setup
@@ -103,16 +104,22 @@ Important outputs:
 state/xsec_paper_shadow_state.json
 state/xsec_paper_ledger.jsonl
 artifacts/v9/paper/xsec_cost_evidence.csv
+artifacts/v9/watchdog/data_freshness_status.json
+artifacts/v9/watchdog/data_freshness_history.jsonl
 state/xsec_live_canary_readiness_gate_state.json
 artifacts/v9/paper/xsec_live_canary_review.txt
 ```
 
+The paper shadow checks data freshness before crediting each loop as evidence. If the cache is stale, partially updated, or the latest data timestamp is unchanged from the last normal ledger record, the runner appends a skip marker such as `SKIPPED_STALE_DATA` or `SKIPPED_DUPLICATE_LATEST_DT` instead of a normal paper ledger record. Skip markers preserve the hash chain but do not count as rebalance evidence.
+
 The live-canary gate requires wall-clock paper evidence, not just backtest timestamps:
 
 - valid hash-chained ledger
+- fresh data watchdog status
 - at least 12 weeks of ledger wall-clock age
 - no ledger gap above 48 hours
-- at least 9 target-weight rebalance events
+- at least 9 target-weight rebalance events counted from normal records with distinct `latest_dt`
+- duplicate `latest_dt` normal records below the configured grandfather threshold
 - paper drawdown under the configured max
 - observed spread cost percentile under the assumed 40 bps cost
 - matching manual approval file at `state/LIVE_CANARY_APPROVAL.json`

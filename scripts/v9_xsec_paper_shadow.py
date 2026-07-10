@@ -119,6 +119,50 @@ def append_ledger(state: dict[str, Any], path: Path, recorded_at: str | None = N
     return record
 
 
+def append_skip_ledger_marker(
+    *,
+    path: Path,
+    reason: str,
+    recorded_at: str | None = None,
+    latest_dt: str | None = None,
+    candidate_artifact: str | None = None,
+    data_freshness: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    records = read_ledger_records(path)
+    prev_hash = str(records[-1].get("hash") or "") if records else "GENESIS"
+    record = {
+        "kind": "xsec_paper_ledger_skip_v1",
+        "seq": len(records) + 1,
+        "recorded_at": recorded_at or now_utc(),
+        "prev_hash": prev_hash,
+        "status": reason,
+        "latest_dt": latest_dt,
+        "candidate_artifact": candidate_artifact,
+        "data_freshness": data_freshness or {},
+        "paper_trading_authorized": True,
+        "live_trading_authorized": False,
+    }
+    record["hash"] = record_hash(record, prev_hash)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    return record
+
+
+def latest_normal_ledger_record(path: Path) -> dict[str, Any] | None:
+    for record in reversed(read_ledger_records(path)):
+        if record.get("kind") == "xsec_paper_ledger_record_v1":
+            return record
+    return None
+
+
+def latest_dt_is_duplicate(path: Path, latest_dt: str | None) -> bool:
+    if not latest_dt:
+        return False
+    previous = latest_normal_ledger_record(path)
+    return bool(previous and previous.get("latest_dt") == latest_dt)
+
+
 def verify_ledger_chain(path: Path) -> dict[str, Any]:
     try:
         records = read_ledger_records(path)
@@ -292,6 +336,7 @@ def build_shadow_state(
 
 def format_text(state: dict[str, Any]) -> str:
     metrics = (((state.get("shadow") or {}).get("costs") or {}).get("40bps") or {})
+    freshness = state.get("data_freshness") or {}
     lines = [
         f"status={state.get('status')}",
         f"safety=paper:{state.get('paper_trading_authorized')} live:{state.get('live_trading_authorized')}",
@@ -303,6 +348,7 @@ def format_text(state: dict[str, Any]) -> str:
         f"rebalances:{fmt(metrics.get('rebalance_event_count'), 0)}",
         f"latest_dt={(state.get('shadow') or {}).get('latest_dt')}",
         f"latest_weights={json.dumps((state.get('shadow') or {}).get('latest_weights') or {}, sort_keys=True)}",
+        f"data_fresh={freshness.get('data_fresh')}",
         "checks=" + ",".join(f"{key}:{value}" for key, value in (state.get("checks") or {}).items()),
     ]
     return "\n".join(lines)
@@ -316,18 +362,94 @@ def fmt(value: Any, digits: int = 3) -> str:
 
 def run_once(args: argparse.Namespace) -> dict[str, Any]:
     costs = tuple(float(item.strip()) for item in args.costs_bps.split(",") if item.strip())
+    ledger_path = Path(args.ledger_jsonl)
+    data_freshness = None
+    if not args.skip_data_freshness:
+        from scripts.v9_xsec_data_freshness_watchdog import (  # noqa: PLC0415
+            append_history,
+            build_status,
+            parse_symbols,
+            write_json as write_watchdog_json,
+        )
+
+        freshness_status_path = Path(args.data_freshness_status_json)
+        data_freshness = build_status(
+            cache_dir=Path(args.cache_dir),
+            symbols=parse_symbols(args.data_freshness_symbols),
+            timeframe=args.data_freshness_timeframe,
+            ledger_path=ledger_path,
+            previous_status_path=freshness_status_path,
+            max_cache_age_hours=args.max_cache_age_hours,
+            min_symbol_coverage=args.min_symbol_coverage,
+            max_unchanged_runs=args.max_unchanged_runs,
+        )
+        append_history(data_freshness, Path(args.data_freshness_history_jsonl))
+        write_watchdog_json(data_freshness, freshness_status_path)
+        if not data_freshness.get("data_fresh"):
+            gate = read_json(Path(args.gate_state))
+            state = {
+                "kind": "xsec_paper_shadow_state_v1",
+                "updated_at": now_utc(),
+                "status": "paper_skipped_stale_data",
+                "reason": "data_freshness_failed",
+                "paper_trading_authorized": bool(gate.get("paper_trading_authorized")),
+                "live_trading_authorized": False,
+                "source_gate": args.gate_state,
+                "data_freshness": data_freshness,
+                "signals": [],
+                "note": "Paper shadow skipped normal ledger/cost evidence because data freshness failed.",
+            }
+            if state["paper_trading_authorized"]:
+                skipped = append_skip_ledger_marker(
+                    path=ledger_path,
+                    reason="SKIPPED_STALE_DATA",
+                    data_freshness=data_freshness,
+                    latest_dt=data_freshness.get("max_latest_dt"),
+                    candidate_artifact=((gate.get("candidate") or {}).get("artifact")),
+                )
+                state["paper_ledger"] = {
+                    "path": args.ledger_jsonl,
+                    "seq": skipped["seq"],
+                    "hash": skipped["hash"],
+                    "kind": skipped["kind"],
+                }
+            write_json(state, Path(args.out_json))
+            write_text(format_text(state), Path(args.out_text))
+            write_text(format_signals_csv([]), Path(args.signals_csv))
+            return state
     state = build_shadow_state(
         gate_state_path=Path(args.gate_state),
         cache_dir=Path(args.cache_dir),
         evaluation_end=resolve_evaluation_end(args.evaluation_end),
         costs_bps=costs,
     )
-    ledger_record_written = append_ledger(state, Path(args.ledger_jsonl))
+    if data_freshness is not None:
+        state["data_freshness"] = data_freshness
+    latest_dt = (state.get("shadow") or {}).get("latest_dt")
+    if latest_dt_is_duplicate(ledger_path, str(latest_dt) if latest_dt else None):
+        skipped = append_skip_ledger_marker(
+            path=ledger_path,
+            reason="SKIPPED_DUPLICATE_LATEST_DT",
+            data_freshness=data_freshness,
+            latest_dt=str(latest_dt),
+            candidate_artifact=((state.get("candidate") or {}).get("artifact")),
+        )
+        state["paper_ledger"] = {
+            "path": args.ledger_jsonl,
+            "seq": skipped["seq"],
+            "hash": skipped["hash"],
+            "kind": skipped["kind"],
+        }
+        state["ledger_skip_reason"] = "duplicate_latest_dt"
+        ledger_record_written = {}
+    else:
+        ledger_record_written = append_ledger(state, ledger_path)
     if ledger_record_written:
         state["paper_ledger"] = {
             "path": args.ledger_jsonl,
             "seq": ledger_record_written["seq"],
             "hash": ledger_record_written["hash"],
+            "kind": ledger_record_written["kind"],
         }
         if not args.skip_cost_evidence:
             try:
@@ -371,6 +493,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ledger-jsonl", default="state/xsec_paper_ledger.jsonl")
     parser.add_argument("--cost-evidence-csv", default="artifacts/v9/paper/xsec_cost_evidence.csv")
     parser.add_argument("--skip-cost-evidence", action="store_true")
+    parser.add_argument("--skip-data-freshness", action="store_true")
+    parser.add_argument("--data-freshness-status-json", default="artifacts/v9/watchdog/data_freshness_status.json")
+    parser.add_argument("--data-freshness-history-jsonl", default="artifacts/v9/watchdog/data_freshness_history.jsonl")
+    parser.add_argument("--data-freshness-symbols", default=",".join(DEFAULT_SYMBOLS))
+    parser.add_argument("--data-freshness-timeframe", default="1h")
+    parser.add_argument("--max-cache-age-hours", type=float, default=6.0)
+    parser.add_argument("--min-symbol-coverage", type=float, default=0.90)
+    parser.add_argument("--max-unchanged-runs", type=int, default=4)
     parser.add_argument("--marker-dir", default="state")
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--sleep-sec", type=float, default=3600.0)

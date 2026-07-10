@@ -41,6 +41,13 @@ def payload_sha256(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def approval_subject(payload: dict[str, Any]) -> dict[str, Any]:
+    subject = json.loads(canonical_json(payload))
+    evidence = subject.get("evidence") or {}
+    evidence.pop("data_freshness_status_age_hours", None)
+    return subject
+
+
 def number_or(value: Any, default: float) -> float:
     if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)):
         return float(value)
@@ -55,10 +62,41 @@ def ledger_wall_clock_age_days(chain: dict[str, Any]) -> float:
     return max(0.0, (to_utc_timestamp(str(last)) - to_utc_timestamp(str(first))).total_seconds() / 86400.0)
 
 
+def normal_ledger_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [record for record in records if record.get("kind") == "xsec_paper_ledger_record_v1"]
+
+
+def normal_ledger_wall_clock_age_days(records: list[dict[str, Any]]) -> float:
+    normal = normal_ledger_records(records)
+    if len(normal) < 2:
+        return 0.0
+    first = normal[0].get("recorded_at")
+    last = normal[-1].get("recorded_at")
+    if not first or not last:
+        return 0.0
+    return max(0.0, (to_utc_timestamp(str(last)) - to_utc_timestamp(str(first))).total_seconds() / 86400.0)
+
+
+def count_duplicate_latest_dt_records(records: list[dict[str, Any]]) -> int:
+    count = 0
+    previous = None
+    for record in normal_ledger_records(records):
+        latest_dt = record.get("latest_dt")
+        if latest_dt and latest_dt == previous:
+            count += 1
+        if latest_dt:
+            previous = latest_dt
+    return count
+
+
 def count_weight_change_events(records: list[dict[str, Any]], min_abs_delta: float = 1e-9) -> int:
     count = 0
     previous: dict[str, float] | None = None
-    for record in records:
+    previous_latest_dt = None
+    for record in normal_ledger_records(records):
+        latest_dt = record.get("latest_dt")
+        if latest_dt and latest_dt == previous_latest_dt:
+            continue
         current = {
             str(symbol): float(weight)
             for symbol, weight in (record.get("latest_weights") or {}).items()
@@ -68,7 +106,21 @@ def count_weight_change_events(records: list[dict[str, Any]], min_abs_delta: flo
             if any(abs(current.get(symbol, 0.0) - previous.get(symbol, 0.0)) > min_abs_delta for symbol in symbols):
                 count += 1
         previous = current
+        previous_latest_dt = latest_dt
     return count
+
+
+def latest_normal_candidate_artifact(records: list[dict[str, Any]]) -> str | None:
+    normal = normal_ledger_records(records)
+    return str(normal[-1].get("candidate_artifact")) if normal and normal[-1].get("candidate_artifact") else None
+
+
+def data_freshness_status_age_hours(status: dict[str, Any], now: str | None = None) -> float:
+    updated_at = status.get("updated_at")
+    if not updated_at:
+        return float("inf")
+    current = to_utc_timestamp(now or now_utc())
+    return max(0.0, (current - to_utc_timestamp(str(updated_at))).total_seconds() / 3600.0)
 
 
 def latest_paper_drawdown(shadow_state: dict[str, Any]) -> float:
@@ -120,6 +172,7 @@ def build_unsigned_report(
     shadow_state: dict[str, Any],
     ledger_path: Path,
     cost_evidence_csv: Path,
+    data_freshness_status: dict[str, Any],
     min_wall_clock_weeks: int,
     min_rebalance_events: int,
     max_ledger_gap_hours: float,
@@ -127,16 +180,20 @@ def build_unsigned_report(
     assumed_cost_bps: float,
     cost_percentile: float,
     min_abs_weight_delta: float,
+    max_data_freshness_status_age_hours: float,
+    max_duplicate_latest_dt_records: int,
 ) -> dict[str, Any]:
     chain = verify_ledger_chain(ledger_path)
     records = read_ledger_records(ledger_path) if chain.get("valid") else []
-    wall_clock_days = ledger_wall_clock_age_days(chain)
+    wall_clock_days = normal_ledger_wall_clock_age_days(records)
     rebalances = count_weight_change_events(records, min_abs_delta=min_abs_weight_delta)
+    duplicate_latest_dt_records = count_duplicate_latest_dt_records(records)
     cost_values = read_cost_values(cost_evidence_csv, min_abs_weight_delta=min_abs_weight_delta)
     observed_cost_pctl = percentile(cost_values, cost_percentile)
     paper_dd = latest_paper_drawdown(shadow_state)
     candidate_artifact = ((paper_gate_state.get("candidate") or {}).get("artifact"))
-    latest_ledger_artifact = records[-1].get("candidate_artifact") if records else None
+    latest_ledger_artifact = latest_normal_candidate_artifact(records)
+    data_freshness_age_hours = data_freshness_status_age_hours(data_freshness_status)
     checks = {
         "paper_gate_authorized": bool(paper_gate_state.get("paper_trading_authorized")),
         "paper_shadow_complete_review_required": shadow_state.get("status")
@@ -144,12 +201,16 @@ def build_unsigned_report(
         "ledger_chain_valid": bool(chain.get("valid")),
         "ledger_wall_clock_age_ge_min_weeks": wall_clock_days >= float(min_wall_clock_weeks * 7),
         "ledger_max_gap_le_limit": float(chain.get("max_gap_sec") or 0.0) <= float(max_ledger_gap_hours * 3600.0),
+        "ledger_duplicate_latest_dt_le_limit": duplicate_latest_dt_records <= int(max_duplicate_latest_dt_records),
         "ledger_rebalance_events_ge_min": rebalances >= int(min_rebalance_events),
         "paper_drawdown_le_max": paper_dd <= float(max_paper_drawdown),
         "observed_cost_samples_present": len(cost_values) > 0,
         "observed_cost_pctl_le_assumed": observed_cost_pctl is not None
         and observed_cost_pctl <= float(assumed_cost_bps),
         "candidate_artifact_matches": bool(candidate_artifact) and candidate_artifact == latest_ledger_artifact,
+        "data_freshness_status_present": bool(data_freshness_status),
+        "data_freshness_status_fresh": data_freshness_age_hours <= float(max_data_freshness_status_age_hours),
+        "data_fresh": bool(data_freshness_status.get("data_fresh")),
         "live_still_not_authorized": not bool(shadow_state.get("live_trading_authorized")),
     }
     return {
@@ -159,6 +220,7 @@ def build_unsigned_report(
             "shadow_state": shadow_state.get("source_gate"),
             "ledger_jsonl": str(ledger_path),
             "cost_evidence_csv": str(cost_evidence_csv),
+            "data_freshness_status": data_freshness_status.get("updated_at"),
         },
         "candidate_artifact": candidate_artifact,
         "thresholds": {
@@ -169,14 +231,19 @@ def build_unsigned_report(
             "assumed_cost_bps": assumed_cost_bps,
             "cost_percentile": cost_percentile,
             "min_abs_weight_delta": min_abs_weight_delta,
+            "max_data_freshness_status_age_hours": max_data_freshness_status_age_hours,
+            "max_duplicate_latest_dt_records": max_duplicate_latest_dt_records,
         },
         "evidence": {
             "ledger": chain,
             "ledger_wall_clock_days": wall_clock_days,
             "ledger_rebalance_events": rebalances,
+            "ledger_duplicate_latest_dt_records": duplicate_latest_dt_records,
             "paper_drawdown_40bps": paper_dd,
             "observed_cost_sample_count": len(cost_values),
             "observed_cost_percentile_bps": observed_cost_pctl,
+            "data_freshness_status_age_hours": data_freshness_age_hours,
+            "data_freshness": data_freshness_status,
         },
         "checks_without_manual_approval": checks,
     }
@@ -188,6 +255,7 @@ def build_report(
     shadow_state_path: Path,
     ledger_path: Path,
     cost_evidence_csv: Path,
+    data_freshness_status_path: Path,
     approval_path: Path,
     min_wall_clock_weeks: int,
     min_rebalance_events: int,
@@ -196,14 +264,18 @@ def build_report(
     assumed_cost_bps: float,
     cost_percentile: float,
     min_abs_weight_delta: float,
+    max_data_freshness_status_age_hours: float,
+    max_duplicate_latest_dt_records: int,
 ) -> dict[str, Any]:
     paper_gate_state = read_json(paper_gate_state_path)
     shadow_state = read_json(shadow_state_path)
+    data_freshness_status = read_json(data_freshness_status_path)
     unsigned = build_unsigned_report(
         paper_gate_state=paper_gate_state,
         shadow_state=shadow_state,
         ledger_path=ledger_path,
         cost_evidence_csv=cost_evidence_csv,
+        data_freshness_status=data_freshness_status,
         min_wall_clock_weeks=min_wall_clock_weeks,
         min_rebalance_events=min_rebalance_events,
         max_ledger_gap_hours=max_ledger_gap_hours,
@@ -211,8 +283,10 @@ def build_report(
         assumed_cost_bps=assumed_cost_bps,
         cost_percentile=cost_percentile,
         min_abs_weight_delta=min_abs_weight_delta,
+        max_data_freshness_status_age_hours=max_data_freshness_status_age_hours,
+        max_duplicate_latest_dt_records=max_duplicate_latest_dt_records,
     )
-    unsigned_hash = payload_sha256(unsigned)
+    unsigned_hash = payload_sha256(approval_subject(unsigned))
     approval = approval_matches(approval_path, unsigned_hash, unsigned.get("candidate_artifact"))
     checks = dict(unsigned["checks_without_manual_approval"])
     checks["manual_approval_present"] = (
@@ -256,7 +330,8 @@ def format_text(report: dict[str, Any]) -> str:
         f"rebalances:{fmt(evidence.get('ledger_rebalance_events'), 0)} "
         f"paper_dd:{fmt(evidence.get('paper_drawdown_40bps'))} "
         f"cost_samples:{fmt(evidence.get('observed_cost_sample_count'), 0)} "
-        f"cost_pctl_bps:{fmt(evidence.get('observed_cost_percentile_bps'))}",
+        f"cost_pctl_bps:{fmt(evidence.get('observed_cost_percentile_bps'))} "
+        f"data_fresh:{(evidence.get('data_freshness') or {}).get('data_fresh')}",
         "checks=" + ",".join(f"{key}:{value}" for key, value in report.get("checks", {}).items()),
     ]
     return "\n".join(lines)
@@ -289,6 +364,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--shadow-state", default="state/xsec_paper_shadow_state.json")
     parser.add_argument("--ledger-jsonl", default="state/xsec_paper_ledger.jsonl")
     parser.add_argument("--cost-evidence-csv", default="artifacts/v9/paper/xsec_cost_evidence.csv")
+    parser.add_argument("--data-freshness-status", default="artifacts/v9/watchdog/data_freshness_status.json")
     parser.add_argument("--approval", default="state/LIVE_CANARY_APPROVAL.json")
     parser.add_argument("--min-wall-clock-weeks", type=int, default=12)
     parser.add_argument("--min-rebalance-events", type=int, default=9)
@@ -297,6 +373,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--assumed-cost-bps", type=float, default=40.0)
     parser.add_argument("--cost-percentile", type=float, default=0.90)
     parser.add_argument("--min-abs-weight-delta", type=float, default=1e-9)
+    parser.add_argument("--max-data-freshness-status-age-hours", type=float, default=2.0)
+    parser.add_argument("--max-duplicate-latest-dt-records", type=int, default=2)
     parser.add_argument("--out-json", default="state/xsec_live_canary_readiness_gate_state.json")
     parser.add_argument("--out-text", default="artifacts/v9/paper/xsec_live_canary_review.txt")
     parser.add_argument("--marker-dir", default="state")
@@ -311,6 +389,7 @@ def main() -> None:
         shadow_state_path=Path(args.shadow_state),
         ledger_path=Path(args.ledger_jsonl),
         cost_evidence_csv=Path(args.cost_evidence_csv),
+        data_freshness_status_path=Path(args.data_freshness_status),
         approval_path=Path(args.approval),
         min_wall_clock_weeks=args.min_wall_clock_weeks,
         min_rebalance_events=args.min_rebalance_events,
@@ -319,6 +398,8 @@ def main() -> None:
         assumed_cost_bps=args.assumed_cost_bps,
         cost_percentile=args.cost_percentile,
         min_abs_weight_delta=args.min_abs_weight_delta,
+        max_data_freshness_status_age_hours=args.max_data_freshness_status_age_hours,
+        max_duplicate_latest_dt_records=args.max_duplicate_latest_dt_records,
     )
     write_json(report, Path(args.out_json))
     write_text(format_text(report), Path(args.out_text))
