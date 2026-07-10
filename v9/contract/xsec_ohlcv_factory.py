@@ -164,6 +164,30 @@ def config_for_preset(
             vol_targets_ann=(0.06, 0.08, 0.10, 0.12),
             **base,
         )
+    if preset == "breakout_fast":
+        return RunConfig(
+            lookbacks_h=(168, 240, 336),
+            skips_h=(0, 24),
+            rebalances_h=(24, 48, 72),
+            ks=(2, 3),
+            score_modes=("breakout", "vol_breakout"),
+            market_filters_h=(336, 720),
+            vol_targets_ann=(0.08, 0.10, 0.12),
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
+    if preset == "breakout_slow":
+        return RunConfig(
+            lookbacks_h=(504, 720, 1008),
+            skips_h=(0, 24),
+            rebalances_h=(120, 168, 240),
+            ks=(2, 3),
+            score_modes=("breakout", "vol_breakout"),
+            market_filters_h=(720, 1008, 1440),
+            vol_targets_ann=(0.05, 0.06, 0.08),
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_dd_plateau":
         return RunConfig(
             lookbacks_h=(336, 504, 672),
@@ -255,12 +279,24 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
     mom = prices.shift(cfg.skip_h) / prices.shift(cfg.skip_h + cfg.lookback_h) - 1.0
     if cfg.score_mode == "mom":
         return mom
+    ratios = prices / prices.shift(1)
+    log_ret = ratios.apply(lambda col: np.log(col.where(col > 0.0)))
+    min_periods = min(cfg.lookback_h, max(2, cfg.lookback_h // 4))
     if cfg.score_mode == "risk_adj_mom":
-        ratios = prices / prices.shift(1)
-        log_ret = ratios.apply(lambda col: np.log(col.where(col > 0.0)))
         min_periods = min(cfg.lookback_h, max(2, cfg.lookback_h // 4))
         vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
         return mom / vol.replace(0.0, pd.NA)
+    if cfg.score_mode in {"breakout", "vol_breakout"}:
+        prior_high = prices.shift(cfg.skip_h + 1).rolling(cfg.lookback_h, min_periods=min_periods).max()
+        breakout = prices.shift(cfg.skip_h) / prior_high - 1.0
+        positive_breakout = breakout.where(breakout > 0.0, -0.5)
+        if cfg.score_mode == "breakout":
+            return positive_breakout
+        short_h = max(24, min(168, cfg.lookback_h // 4))
+        short_vol = log_ret.rolling(short_h, min_periods=max(2, short_h // 4)).std().shift(cfg.skip_h)
+        long_vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
+        vol_expansion = short_vol / long_vol.replace(0.0, pd.NA) - 1.0
+        return positive_breakout + 0.25 * vol_expansion
     raise ValueError(f"unknown score mode: {cfg.score_mode}")
 
 

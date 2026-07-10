@@ -103,6 +103,13 @@ def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     risk_cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=2, k=2, score_mode="risk_adj_mom", market_filter_h=0, vol_target_ann=0.0)
     risk_adj = score_matrix(close_matrix(), risk_cfg)
     assert set(risk_adj.columns) == {"AAA", "BBB", "CCC", "DDD"}
+    breakout_cfg = OhlcvConfig(lookback_h=12, skip_h=0, rebalance_h=2, k=2, score_mode="breakout", market_filter_h=0, vol_target_ann=0.0)
+    breakout = score_matrix(close_matrix(120), breakout_cfg)
+    assert breakout["AAA"].dropna().iloc[-1] > breakout["CCC"].dropna().iloc[-1]
+    vol_breakout_cfg = OhlcvConfig(lookback_h=48, skip_h=0, rebalance_h=2, k=2, score_mode="vol_breakout", market_filter_h=0, vol_target_ann=0.0)
+    vol_breakout = score_matrix(close_matrix(240), vol_breakout_cfg)
+    assert set(vol_breakout.columns) == {"AAA", "BBB", "CCC", "DDD"}
+    assert vol_breakout.dropna(how="all").shape[0] > 0
 
 
 def test_market_filter_turns_off_when_market_momentum_is_negative() -> None:
