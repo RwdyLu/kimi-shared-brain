@@ -96,6 +96,32 @@ PRESETS = (
     "fast",
 )
 
+PLANNER_PRESET_MODES = ("balanced", "xsec_first")
+
+
+def preset_module(preset: str) -> str:
+    return MODULE_BY_PRESET.get(preset, DEFAULT_TRAIN_MODULE)
+
+
+def preset_family(preset: str) -> str:
+    return "tsmom" if preset_module(preset) == "v9.contract.tsmom_factory" else "xsec_ohlcv"
+
+
+XSEC_FIRST_FOCUS_PRESETS = (
+    *(preset for preset in FOCUS_PRESETS if preset_family(preset) == "xsec_ohlcv"),
+    *(preset for preset in FOCUS_PRESETS if preset_family(preset) == "tsmom"),
+)
+
+
+def focus_presets_for_mode(preset_mode: str = "balanced") -> tuple[str, ...]:
+    if preset_mode == "balanced":
+        return FOCUS_PRESETS
+    if preset_mode == "xsec_first":
+        return XSEC_FIRST_FOCUS_PRESETS
+    modes = ", ".join(PLANNER_PRESET_MODES)
+    raise ValueError(f"unknown planner preset mode: {preset_mode!r}; expected one of {modes}")
+
+
 TRAIN_WINDOWS = (
     ("2017-08-01", "2024-06-30 23:59:59", "full_202406"),
     ("2017-08-01", "2024-03-31 23:59:59", "full_202403"),
@@ -381,6 +407,7 @@ def ordered_presets_by_quality(
     task_results: list[dict[str, Any]] | None = None,
     candidates: list[dict[str, Any]] | None = None,
     exploration_c: float = 0.5,
+    preset_mode: str = "balanced",
 ) -> list[str]:
     stats = preset_stats(task_results, candidates)
     total_tasks = sum(int(stats[preset]["attempts"]) for preset in PRESETS)
@@ -392,7 +419,7 @@ def ordered_presets_by_quality(
         ),
         reverse=True,
     )
-    focused = [preset for preset in FOCUS_PRESETS if preset in scored]
+    focused = [preset for preset in focus_presets_for_mode(preset_mode) if preset in scored]
     return focused + [preset for preset in scored if preset not in focused]
 
 
@@ -450,10 +477,13 @@ def propose_tasks(
     task_results: list[dict[str, Any]] | None = None,
     candidates: list[dict[str, Any]] | None = None,
     prior_trials: int = 0,
+    preset_mode: str = "balanced",
 ) -> list[PlannedTask]:
     if count <= 0:
         return []
-    preset_order = tuple(ordered_presets_by_quality(task_results, candidates))
+    preset_order = tuple(
+        ordered_presets_by_quality(task_results, candidates, preset_mode=preset_mode)
+    )
     proposals = []
     for preset in preset_order:
         for task in proposed_search_space(

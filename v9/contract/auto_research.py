@@ -29,6 +29,7 @@ from v9.research.task_planner import (
     DEFAULT_TRAIN_MODULE,
     LEGACY_TASK_PRESETS,
     MODULE_BY_PRESET,
+    PLANNER_PRESET_MODES,
     PlannedTask,
     PRESETS,
     append_explored_record,
@@ -1002,6 +1003,7 @@ def run_continuous_research(
     idle_poll_sec: float = 30.0,
     max_consecutive_failures: int = 3,
     min_free_disk_gb: float = 2.0,
+    planner_preset_mode: str = "balanced",
 ) -> dict[str, Any]:
     started_at = pd.Timestamp.now(tz="UTC").isoformat()
     control_dir.mkdir(parents=True, exist_ok=True)
@@ -1079,6 +1081,7 @@ def run_continuous_research(
             task_results=task_results,
             candidates=candidates_found,
             prior_trials=prior_trials,
+            preset_mode=planner_preset_mode,
         )
         tasks = tuple(research_task_from_planned(task) for task in planned)
         if not tasks:
@@ -1525,6 +1528,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--idle-poll-sec", type=float, default=30.0)
     ap.add_argument("--max-consecutive-failures", type=int, default=3)
     ap.add_argument("--min-free-disk-gb", type=float, default=2.0)
+    ap.add_argument(
+        "--planner-preset-mode",
+        choices=PLANNER_PRESET_MODES,
+        default="balanced",
+        help=(
+            "balanced keeps the historical TSMOM-first schedule; "
+            "xsec_first spends new cycles on XSEC first"
+        ),
+    )
     return ap
 
 
@@ -1549,6 +1561,7 @@ def main() -> None:
             idle_poll_sec=args.idle_poll_sec,
             max_consecutive_failures=args.max_consecutive_failures,
             min_free_disk_gb=args.min_free_disk_gb,
+            planner_preset_mode=args.planner_preset_mode,
         )
     else:
         payload = run_auto_research(

@@ -201,6 +201,32 @@ def test_focus_train_only_presets_take_priority() -> None:
     assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[12:16])
 
 
+def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> None:
+    first = propose_tasks(set(), 16, preset_mode="xsec_first")
+    assert [task.preset for task in first[:12]] == [
+        "hq_dd_plateau",
+        "hq_dd_long",
+        "defensive_drawdown",
+        "hq_cadence_tranche",
+        "hq_breadth_wide",
+        "hq_fast_rebal",
+        "defensive_neighbor",
+        "defensive_breadth",
+        "defensive",
+        "slow",
+        "core",
+        "fast",
+    ]
+    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:12])
+    assert [task.preset for task in first[12:16]] == [
+        "tsmom_defensive_regime",
+        "tsmom_bear_short_regime",
+        "tsmom_trend_ensemble",
+        "tsmom_bear_short_medium",
+    ]
+    assert all(task.module == "v9.contract.tsmom_factory" for task in first[12:16])
+
+
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
     out = tmp_path / "accepted.json"
     write_json(
