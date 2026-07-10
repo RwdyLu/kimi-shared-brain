@@ -58,6 +58,27 @@ def write_artifact(path: Path) -> None:
     )
 
 
+def test_selected_accepted_row_matches_target_config() -> None:
+    payload = {
+        "rows": [
+            {"advance_passed": True, "config": {"lookback_h": 336, "k": 2}},
+            {"advance_passed": True, "config": {"lookback_h": 504, "k": 3}},
+        ]
+    }
+
+    row = audit_mod.selected_accepted_row(payload, target_config={"lookback_h": 504, "k": 3})
+
+    assert row["config"]["lookback_h"] == 504
+
+
+def test_selected_accepted_row_treats_missing_default_tranches_as_one() -> None:
+    payload = {"rows": [{"advance_passed": True, "config": {"lookback_h": 336, "k": 2}}]}
+
+    row = audit_mod.selected_accepted_row(payload, target_config={"lookback_h": 336, "k": 2, "n_tranches": 1})
+
+    assert row["config"]["lookback_h"] == 336
+
+
 def test_holdout_split_requires_explicit_authorization_before_reading_data(tmp_path, monkeypatch) -> None:
     artifact = tmp_path / "artifact.json"
     write_artifact(artifact)

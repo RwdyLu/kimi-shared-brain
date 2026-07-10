@@ -32,6 +32,26 @@ def top_accepted_row(payload: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("artifact has no accepted train-only row")
 
 
+def canonical_config(value: Any) -> dict[str, Any]:
+    out = dict(value or {})
+    out.setdefault("n_tranches", 1)
+    return out
+
+
+def canonical_json(value: Any) -> str:
+    return json.dumps(canonical_config(value), sort_keys=True)
+
+
+def selected_accepted_row(payload: dict[str, Any], target_config: dict[str, Any] | None = None) -> dict[str, Any]:
+    if target_config is None:
+        return top_accepted_row(payload)
+    target_config_sig = canonical_json(target_config)
+    for row in payload.get("rows", []):
+        if row.get("advance_passed") and canonical_json(row.get("config")) == target_config_sig:
+            return row
+    raise ValueError("artifact has no accepted train-only row matching target config")
+
+
 def split_window(payload: dict[str, Any], split: str, holdout_start: str, holdout_end: str) -> tuple[str, str]:
     cfg = payload.get("config") or {}
     if split == "train":
@@ -97,10 +117,11 @@ def build_report(
     costs_bps: tuple[float, ...],
     bootstrap_iterations: int,
     holdout_authorized: bool = False,
+    target_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     require_holdout_authorized(split, holdout_authorized)
     payload = read_json(artifact)
-    row = top_accepted_row(payload)
+    row = selected_accepted_row(payload, target_config=target_config)
     cfg = ohlcv_config_from_dict(dict(row["config"]))
     start_text, end_text = split_window(payload, split, holdout_start, holdout_end)
     embargo = utc_ts("2100-01-01") if split == "holdout" else utc_ts(str((payload.get("config") or {}).get("embargo_start", "2024-07-01")))

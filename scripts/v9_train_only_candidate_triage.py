@@ -368,6 +368,7 @@ def triage_artifact(
                 "train_window": payload.get("train_window") or {},
                 "summary": payload.get("summary") or {},
                 "config": canonical_config(center.get("config")),
+                "lookbacks_h": center.get("lookbacks_h") or [],
                 "config_signature": config_signature(payload.get("kind"), payload.get("symbols"), center.get("config") or {}),
                 "family_key": family_key(artifact["artifact"], payload.get("kind"), center.get("config") or {}),
                 "metrics": metrics,

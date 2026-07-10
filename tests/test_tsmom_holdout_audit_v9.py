@@ -28,6 +28,60 @@ def test_decision_from_costs_blocks_negative_holdout() -> None:
     assert checks["holdout_40bps_return_gt_0"] is False
 
 
+def test_require_holdout_authorized_blocks_unapproved_access() -> None:
+    try:
+        holdout_mod.require_holdout_authorized(False)
+    except SystemExit as exc:
+        assert "refusing to read holdout data" in str(exc)
+    else:
+        raise AssertionError("unauthorized holdout access should stop")
+
+
+def test_selected_accepted_row_matches_target_config_and_lookbacks() -> None:
+    payload = {
+        "rows": [
+            {
+                "advance_passed": True,
+                "config": {"market_filter_h": 336, "no_trade_band": 0.3},
+                "lookbacks_h": [720, 1440],
+            },
+            {
+                "advance_passed": True,
+                "config": {"market_filter_h": 504, "no_trade_band": 0.2},
+                "lookbacks_h": [336, 720],
+            },
+        ]
+    }
+
+    row = holdout_mod.selected_accepted_row(
+        payload,
+        target_config={"market_filter_h": 504, "no_trade_band": 0.2},
+        target_lookbacks_h=[336, 720],
+    )
+
+    assert row["config"]["market_filter_h"] == 504
+
+
+def test_selected_accepted_row_treats_missing_default_tranches_as_one() -> None:
+    payload = {
+        "rows": [
+            {
+                "advance_passed": True,
+                "config": {"market_filter_h": 336, "no_trade_band": 0.3},
+                "lookbacks_h": [336, 720],
+            }
+        ]
+    }
+
+    row = holdout_mod.selected_accepted_row(
+        payload,
+        target_config={"market_filter_h": 336, "no_trade_band": 0.3, "n_tranches": 1},
+        target_lookbacks_h=[336, 720],
+    )
+
+    assert row["config"]["market_filter_h"] == 336
+
+
 def test_decision_from_costs_allows_only_manual_review_when_holdout_passes() -> None:
     decision, checks = holdout_mod.decision_from_costs(
         {

@@ -27,6 +27,41 @@ def top_accepted_row(payload: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("artifact has no accepted train-only row")
 
 
+def canonical_config(value: Any) -> dict[str, Any]:
+    out = dict(value or {})
+    out.setdefault("n_tranches", 1)
+    return out
+
+
+def canonical_json(value: Any) -> str:
+    return json.dumps(canonical_config(value), sort_keys=True)
+
+
+def selected_accepted_row(
+    payload: dict[str, Any],
+    target_config: dict[str, Any] | None = None,
+    target_lookbacks_h: list[int] | tuple[int, ...] | None = None,
+) -> dict[str, Any]:
+    if target_config is None and target_lookbacks_h is None:
+        return top_accepted_row(payload)
+    target_config_sig = canonical_json(target_config) if target_config is not None else None
+    target_lookbacks = [int(value) for value in target_lookbacks_h] if target_lookbacks_h else None
+    for row in payload.get("rows", []):
+        if not row.get("advance_passed"):
+            continue
+        if target_config_sig is not None and canonical_json(row.get("config")) != target_config_sig:
+            continue
+        if target_lookbacks is not None and [int(value) for value in row.get("lookbacks_h") or []] != target_lookbacks:
+            continue
+        return row
+    raise ValueError("artifact has no accepted train-only row matching target config")
+
+
+def require_holdout_authorized(holdout_authorized: bool) -> None:
+    if not holdout_authorized:
+        raise SystemExit("refusing to read holdout data: pass --holdout-authorized only after explicit approval")
+
+
 def decision_from_costs(costs: dict[str, dict[str, Any]]) -> tuple[str, dict[str, bool]]:
     cost20 = costs.get("20bps", {})
     cost40 = costs.get("40bps", {})
@@ -65,9 +100,13 @@ def build_report(
     holdout_end: str,
     costs_bps: tuple[float, ...],
     bootstrap_iterations: int,
+    holdout_authorized: bool = False,
+    target_config: dict[str, Any] | None = None,
+    target_lookbacks_h: list[int] | tuple[int, ...] | None = None,
 ) -> dict[str, Any]:
+    require_holdout_authorized(holdout_authorized)
     payload = read_json(artifact)
-    row = top_accepted_row(payload)
+    row = selected_accepted_row(payload, target_config=target_config, target_lookbacks_h=target_lookbacks_h)
     cfg = TsmomConfig(**row["config"])
     lookbacks_h = tuple(int(v) for v in row["lookbacks_h"])
     start = utc_ts(holdout_start)
@@ -100,10 +139,10 @@ def build_report(
         },
         "costs": costs,
         "checks": checks,
-        "holdout_authorized": False,
+        "holdout_authorized": bool(holdout_authorized),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
-        "note": "Read-only holdout audit. It does not authorize paper trading or live trading.",
+        "note": "Read-only holdout audit. It requires explicit holdout authorization and does not authorize paper trading or live trading.",
     }
 
 
@@ -149,6 +188,7 @@ def main() -> None:
     parser.add_argument("--holdout-end", default="2026-05-31 23:59:59")
     parser.add_argument("--costs-bps", default="20,40,60,80")
     parser.add_argument("--bootstrap-iterations", type=int, default=100)
+    parser.add_argument("--holdout-authorized", action="store_true")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     parser.add_argument("--out-json")
     parser.add_argument("--out-text")
@@ -161,6 +201,7 @@ def main() -> None:
         holdout_end=args.holdout_end,
         costs_bps=costs,
         bootstrap_iterations=args.bootstrap_iterations,
+        holdout_authorized=args.holdout_authorized,
     )
     text = format_text(report)
     if args.out_json:
