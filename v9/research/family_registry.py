@@ -81,6 +81,20 @@ def bucket_hours(value: Any) -> str:
     return "ultra"
 
 
+def bucket_drawdown_stop(value: Any) -> str:
+    try:
+        stop = float(value or 0.0)
+    except (TypeError, ValueError):
+        return "unknown"
+    if stop <= 0.0:
+        return "none"
+    if stop <= 0.10:
+        return "tight"
+    if stop <= 0.15:
+        return "medium"
+    return "wide"
+
+
 def normalize_symbols(payload: dict[str, Any], row: dict[str, Any]) -> list[str]:
     symbols = (
         payload.get("symbols")
@@ -108,6 +122,8 @@ def normalized_family_payload(payload: dict[str, Any], artifact: str = "") -> di
         "market_filter_bucket": bucket_hours(config.get("market_filter_h")),
         "rebalance_h": int(config.get("rebalance_h") or 0),
         "n_tranches": int(config.get("n_tranches") or 1),
+        "drawdown_stop_bucket": bucket_drawdown_stop(config.get("drawdown_stop")),
+        "cooldown_bucket": bucket_hours(config.get("cooldown_h")),
         "universe_hash": stable_hash(symbols, 12),
     }
 

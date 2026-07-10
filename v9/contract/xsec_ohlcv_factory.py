@@ -33,6 +33,8 @@ class OhlcvConfig:
     market_filter_h: int
     vol_target_ann: float
     n_tranches: int = 1
+    drawdown_stop: float = 0.0
+    cooldown_h: int = 0
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,8 @@ class RunConfig:
     market_filters_h: tuple[int, ...] = (0, 720)
     vol_targets_ann: tuple[float, ...] = (0.16,)
     n_tranches: tuple[int, ...] = (1,)
+    drawdown_stops: tuple[float, ...] = (0.0,)
+    cooldowns_h: tuple[int, ...] = (0,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -173,6 +177,8 @@ def config_for_preset(
             score_modes=("breakout", "vol_breakout"),
             market_filters_h=(336, 720),
             vol_targets_ann=(0.08, 0.10, 0.12),
+            drawdown_stops=(0.10, 0.15),
+            cooldowns_h=(168,),
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
@@ -185,6 +191,8 @@ def config_for_preset(
             score_modes=("breakout", "vol_breakout"),
             market_filters_h=(720, 1008, 1440),
             vol_targets_ann=(0.05, 0.06, 0.08),
+            drawdown_stops=(0.10, 0.15),
+            cooldowns_h=(168,),
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
@@ -257,6 +265,8 @@ def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
         market_filter_h=int(raw["market_filter_h"]),
         vol_target_ann=float(raw["vol_target_ann"]),
         n_tranches=int(raw.get("n_tranches", 1)),
+        drawdown_stop=float(raw.get("drawdown_stop", 0.0)),
+        cooldown_h=int(raw.get("cooldown_h", 0)),
     )
 
 
@@ -512,26 +522,57 @@ def simulate(
     past_returns: list[float] = []
     scale_sum = 0.0
     scale_count = 0
+    equity = 1.0
+    peak_equity = 1.0
+    risk_off_until = -1
+    risk_off_event_count = 0
+    risk_stop_exit_cost = 0.0
+    risk_stop_exit_turnover = 0.0
 
     for idx in range(len(closes) - 1):
         ts = pd.Timestamp(closes["dt"].iloc[idx])
+        current_drawdown = 1.0 - equity / peak_equity if peak_equity > 0.0 else 0.0
+        stop_triggered = (
+            cfg.drawdown_stop > 0.0
+            and idx >= risk_off_until
+            and current_drawdown >= cfg.drawdown_stop
+        )
+        if stop_triggered:
+            risk_off_until = idx + max(1, int(cfg.cooldown_h))
+            risk_off_event_count += 1
+        risk_off = idx < risk_off_until
         old_weights = dict(weights)
         due_rebalance = False
-        for tranche_idx, offset in enumerate(tranche_offsets):
-            if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
-                continue
+        if stop_triggered:
+            tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
             due_rebalance = True
-            target = long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
-            if target is not None:
-                scale = exposure_scale(past_returns, cfg.vol_target_ann)
-                tranche_weights[tranche_idx] = {sym: target[sym] * scale / cfg.n_tranches for sym in symbols}
-                scale_sum += scale
-                scale_count += 1
+        else:
+            for tranche_idx, offset in enumerate(tranche_offsets):
+                if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
+                    continue
+                due_rebalance = True
+                target = {sym: 0.0 for sym in symbols} if risk_off else long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
+                if target is not None:
+                    scale = exposure_scale(past_returns, cfg.vol_target_ann)
+                    tranche_weights[tranche_idx] = {sym: target[sym] * scale / cfg.n_tranches for sym in symbols}
+                    scale_sum += scale
+                    scale_count += 1
         if due_rebalance:
             weights = {sym: sum(tranche[sym] for tranche in tranche_weights) for sym in symbols}
             turnover = sum(abs(weights[sym] - old_weights[sym]) for sym in symbols)
             cost = turnover * cost_bps / 10000.0
-            rebalances.append({"dt": ts, "turnover": turnover, "cost": cost, "gross_exposure": sum(abs(v) for v in weights.values())})
+            if stop_triggered:
+                risk_stop_exit_cost += cost
+                risk_stop_exit_turnover += turnover
+            rebalances.append(
+                {
+                    "dt": ts,
+                    "turnover": turnover,
+                    "cost": cost,
+                    "gross_exposure": sum(abs(v) for v in weights.values()),
+                    "reason": "risk_stop" if stop_triggered else ("risk_off" if risk_off else "rebalance"),
+                }
+            )
         else:
             cost = 0.0
         row_rets = returns.iloc[idx].fillna(0.0)
@@ -547,6 +588,8 @@ def simulate(
             else:
                 short_gross += value
         net = gross - cost
+        equity *= 1.0 + net
+        peak_equity = max(peak_equity, equity)
         long_exposure = sum(max(v, 0.0) for v in weights.values())
         short_exposure = sum(abs(min(v, 0.0)) for v in weights.values())
         rows.append(
@@ -560,6 +603,8 @@ def simulate(
                 "gross_exposure": sum(abs(v) for v in weights.values()),
                 "long_exposure": long_exposure,
                 "short_exposure": short_exposure,
+                "risk_off": bool(risk_off),
+                "stop_triggered": bool(stop_triggered),
             }
         )
         past_returns.append(net)
@@ -607,6 +652,12 @@ def simulate(
         "avg_rebalance_scale": float(scale_sum / scale_count) if scale_count else 1.0,
         "rebalance_event_count": int(len(reb)),
         "rebalance_offsets_h": [int(v) for v in tranche_offsets],
+        "risk_off_event_count": int(risk_off_event_count),
+        "risk_off_hours": int(ret["risk_off"].sum()) if len(ret) else 0,
+        "time_in_risk_off_frac": float(ret["risk_off"].mean()) if len(ret) else 0.0,
+        "risk_off_max_gross_exposure": float(ret.loc[ret["risk_off"], "gross_exposure"].max()) if len(ret) and bool(ret["risk_off"].any()) else 0.0,
+        "risk_stop_exit_cost": float(risk_stop_exit_cost),
+        "risk_stop_exit_turnover": float(risk_stop_exit_turnover),
         "yearly": by_year,
         "yearly_positive_count": yearly_positive,
         "symbol_pnl": symbol_pnl,
@@ -792,6 +843,8 @@ def leave_one_symbol_summary(
             market_filter_h=cfg.market_filter_h,
             vol_target_ann=cfg.vol_target_ann,
             n_tranches=cfg.n_tranches,
+            drawdown_stop=cfg.drawdown_stop,
+            cooldown_h=cfg.cooldown_h,
         )
         result = simulate(frame, test_cfg, cost_bps, bootstrap_iterations=0)
         rows.append(
@@ -958,8 +1011,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
         grid = [
-            OhlcvConfig(l, s, r, k, mode, mf, vt, nt)
-            for l, s, r, k, mode, mf, vt, nt in itertools.product(
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd)
+            for l, s, r, k, mode, mf, vt, nt, dd, cd in itertools.product(
                 cfg.lookbacks_h,
                 cfg.skips_h,
                 cfg.rebalances_h,
@@ -968,6 +1021,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 cfg.market_filters_h,
                 cfg.vol_targets_ann,
                 cfg.n_tranches,
+                cfg.drawdown_stops,
+                cfg.cooldowns_h,
             )
         ]
     n_trials = len(grid)

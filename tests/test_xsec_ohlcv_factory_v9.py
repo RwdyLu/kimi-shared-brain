@@ -48,6 +48,31 @@ def close_matrix(periods: int = 80) -> pd.DataFrame:
     )
 
 
+def crash_matrix(periods: int = 96) -> pd.DataFrame:
+    dt = pd.date_range("2020-01-01", periods=periods, freq="1h", tz="UTC")
+    aaa = []
+    bbb = []
+    for idx in range(periods):
+        if idx < 36:
+            aaa.append(100 + idx * 1.5)
+            bbb.append(100 + idx)
+        elif idx < 48:
+            aaa.append(154 - (idx - 35) * 5.0)
+            bbb.append(135 - (idx - 35) * 4.0)
+        else:
+            aaa.append(94 + (idx - 48) * 0.1)
+            bbb.append(87 + (idx - 48) * 0.1)
+    return pd.DataFrame(
+        {
+            "dt": dt,
+            "AAA": aaa,
+            "BBB": bbb,
+            "CCC": [100 - idx * 0.1 for idx in range(periods)],
+            "DDD": [100] * periods,
+        }
+    )
+
+
 def test_long_only_weights_are_cash_or_gross_one() -> None:
     row = pd.Series({"AAA": 3.0, "BBB": 2.0, "CCC": 1.0})
     cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=2, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
@@ -103,6 +128,22 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
 
+def test_breakout_presets_sweep_stop_enabled_configs() -> None:
+    cfg = config_for_preset(
+        "breakout_fast",
+        cache_dir="cache",
+        train_start="2020-01-01",
+        train_end="2020-12-31",
+        embargo_start="2021-01-01",
+        bootstrap_iterations=10,
+        out_json="out.json",
+        out_md="out.md",
+    )
+
+    assert cfg.drawdown_stops == (0.10, 0.15)
+    assert cfg.cooldowns_h == (168,)
+
+
 def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=2, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
     mom = score_matrix(close_matrix(), cfg)
@@ -141,6 +182,48 @@ def test_simulate_reports_gate_inputs() -> None:
     assert result20["avg_short_exposure"] == 0
     assert result20["legs"]["avg_long_exposure"] == result20["avg_long_exposure"]
     assert result20["legs"]["short_gross_return"] == 0
+
+
+def test_simulate_drawdown_stop_forces_flat_and_charges_exit_cost() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=8,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        drawdown_stop=0.05,
+        cooldown_h=12,
+    )
+
+    result = simulate(crash_matrix(), cfg, cost_bps=20.0, bootstrap_iterations=0)
+
+    assert result["risk_off_event_count"] >= 1
+    assert result["risk_off_hours"] >= 12
+    assert result["risk_off_max_gross_exposure"] == 0.0
+    assert result["risk_stop_exit_turnover"] > 0.0
+    assert result["risk_stop_exit_cost"] > 0.0
+
+
+def test_simulate_drawdown_stop_zero_disables_risk_off() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=8,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        drawdown_stop=0.0,
+        cooldown_h=12,
+    )
+
+    result = simulate(crash_matrix(), cfg, cost_bps=20.0, bootstrap_iterations=0)
+
+    assert result["risk_off_event_count"] == 0
+    assert result["risk_off_hours"] == 0
+    assert result["risk_stop_exit_cost"] == 0.0
 
 
 def test_tranche_one_matches_default_single_phase() -> None:

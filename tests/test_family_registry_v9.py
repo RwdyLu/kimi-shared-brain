@@ -8,7 +8,12 @@ from v9.research.family_registry import (
 )
 
 
-def artifact_payload(lookback_h: int = 336, status: str = "manual_review_required") -> tuple[dict, dict]:
+def artifact_payload(
+    lookback_h: int = 336,
+    status: str = "manual_review_required",
+    drawdown_stop: float = 0.0,
+    cooldown_h: int = 0,
+) -> tuple[dict, dict]:
     payload = {
         "kind": "xsec_ohlcv_factory_v1_train_only_grid",
         "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
@@ -22,6 +27,8 @@ def artifact_payload(lookback_h: int = 336, status: str = "manual_review_require
                     "rebalance_h": 240,
                     "score_mode": "risk_adj_mom",
                     "n_tranches": 1,
+                    "drawdown_stop": drawdown_stop,
+                    "cooldown_h": cooldown_h,
                 },
                 "selection": {"cost40": {"sharpe": 2.0}},
             }
@@ -43,6 +50,15 @@ def test_family_fingerprint_buckets_nearby_lookbacks() -> None:
     assert normalized_family_payload(left)["lookback_bucket"] == "medium"
     assert family_fingerprint(left, "a.json") == family_fingerprint(right, "b.json")
     assert family_fingerprint(left, "a.json") != family_fingerprint(far, "c.json")
+
+
+def test_family_fingerprint_separates_risk_stop_families() -> None:
+    no_stop, _ = artifact_payload(drawdown_stop=0.0, cooldown_h=0)
+    stopped, _ = artifact_payload(drawdown_stop=0.10, cooldown_h=168)
+
+    assert normalized_family_payload(no_stop)["drawdown_stop_bucket"] == "none"
+    assert normalized_family_payload(stopped)["drawdown_stop_bucket"] == "tight"
+    assert family_fingerprint(no_stop, "a.json") != family_fingerprint(stopped, "b.json")
 
 
 def test_registry_queue_allows_only_first_non_rejected_family() -> None:
