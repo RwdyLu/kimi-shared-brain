@@ -18,9 +18,12 @@ from scripts.v9_tsmom_holdout_audit import build_report as build_tsmom_holdout_r
 from scripts.v9_tsmom_holdout_audit import format_text as format_tsmom_holdout_text  # noqa: E402
 from scripts.v9_xsec_ohlcv_holdout_audit import build_report as build_xsec_holdout_report  # noqa: E402
 from scripts.v9_xsec_ohlcv_holdout_audit import format_text as format_xsec_holdout_text  # noqa: E402
+from scripts.v9_xsec_paper_readiness_gate import shadow_oos_report as build_xsec_shadow_oos_report  # noqa: E402
+from v9.contract.simulator import utc_ts  # noqa: E402
+from v9.contract.xsec_momentum import load_close_matrix as load_xsec_close_matrix  # noqa: E402
 
 
-PROTOCOL_VERSION = "v1-frozen-20260710"
+PROTOCOL_VERSION = "v2-active-paper-probe-20260711"
 
 
 def write_json(payload: dict[str, Any], path: Path) -> None:
@@ -102,40 +105,133 @@ def decay_ratio(candidate: dict[str, Any], report: dict[str, Any]) -> float | No
     return holdout / train
 
 
+def resolve_time_text(value: str) -> str:
+    if str(value).strip().lower() == "now":
+        return now_utc()
+    return value
+
+
+def compact_post_holdout_probe(probe: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not probe:
+        return None
+    cost40 = ((probe.get("costs") or {}).get("40bps") or {})
+    keep = (
+        "sharpe",
+        "daily_sharpe",
+        "total_return",
+        "max_drawdown",
+        "rebalance_event_count",
+        "active_rebalance_event_count",
+        "time_in_market_frac",
+        "avg_gross_exposure",
+        "daily_turnover",
+        "realized_daily_vol_ann",
+    )
+    return {
+        "evaluation_start": probe.get("evaluation_start"),
+        "latest_dt": probe.get("latest_dt"),
+        "latest_rebalance_dt": probe.get("latest_rebalance_dt"),
+        "latest_gross_exposure": probe.get("latest_gross_exposure"),
+        "latest_weights": probe.get("latest_weights") or {},
+        "reference_cost_bps": probe.get("reference_cost_bps"),
+        "cost40": {key: cost40.get(key) for key in keep if key in cost40},
+    }
+
+
+def post_holdout_activity_checks(
+    probe: dict[str, Any] | None,
+    *,
+    min_active_rebalances: int,
+    min_time_in_market: float,
+) -> dict[str, bool]:
+    cost40 = ((probe or {}).get("costs") or {}).get("40bps") or {}
+    time_in_market = float(cost40.get("time_in_market_frac") or 0.0)
+    time_in_market_ok = (
+        time_in_market > 0.0
+        if float(min_time_in_market) <= 0.0
+        else time_in_market >= float(min_time_in_market)
+    )
+    return {
+        "post_holdout_probe_present": bool(probe),
+        "post_holdout_active_rebalances_ge_min": int(cost40.get("active_rebalance_event_count") or 0)
+        >= int(min_active_rebalances),
+        "post_holdout_time_in_market_ge_min": time_in_market_ok,
+    }
+
+
+def build_xsec_post_holdout_probe(
+    *,
+    holdout_report: dict[str, Any],
+    cache_dir: Path,
+    warmup_start: str,
+    evaluation_start: str,
+    evaluation_end: str,
+    costs_bps: tuple[float, ...],
+) -> dict[str, Any]:
+    end_text = resolve_time_text(evaluation_end)
+    data = holdout_report.get("data") or {}
+    symbols = tuple(data.get("symbols") or ())
+    if not symbols:
+        raise ValueError("xsec holdout report has no symbols for post-holdout probe")
+    closes = load_xsec_close_matrix(
+        cache_dir,
+        symbols,
+        utc_ts(warmup_start),
+        utc_ts(end_text),
+        utc_ts("2100-01-01"),
+    )
+    return build_xsec_shadow_oos_report(
+        closes=closes,
+        config=dict(holdout_report["target_config"]),
+        evaluation_start=utc_ts(evaluation_start),
+        costs_bps=costs_bps,
+    )
+
+
 def promotion_decision(
     candidate: dict[str, Any],
     report: dict[str, Any],
     *,
     min_decay_ratio: float,
+    post_holdout_probe: dict[str, Any] | None = None,
+    require_post_holdout_activity: bool = False,
+    min_post_holdout_active_rebalances: int = 1,
+    min_post_holdout_time_in_market: float = 0.0,
 ) -> tuple[str, dict[str, Any]]:
     ratio = decay_ratio(candidate, report)
     holdout_sharpe = audit_sharpe(report)
     holdout_return = audit_return(report)
     holdout_drawdown = audit_drawdown(report)
-    checks = {
+    checks: dict[str, bool] = {
         "holdout_decision_promising": str(report.get("decision")) == "holdout_promising_manual_review_required",
         "holdout_sharpe_decay_ge_min": ratio is not None and ratio >= min_decay_ratio,
         "holdout_sharpe_positive": holdout_sharpe is not None and holdout_sharpe > 0.0,
         "holdout_return_positive": holdout_return is not None and holdout_return > 0.0,
         "holdout_drawdown_le_25pct": holdout_drawdown is not None and holdout_drawdown <= 0.25,
     }
-    if all(checks.values()):
-        return "paper_candidate_manual_review_required", {
-            "checks": checks,
-            "train_sharpe": candidate_train_sharpe(candidate),
-            "holdout_sharpe": holdout_sharpe,
-            "holdout_sharpe_decay_ratio": ratio,
-            "holdout_return": holdout_return,
-            "holdout_drawdown": holdout_drawdown,
-        }
-    return "holdout_failed_do_not_paper_trade", {
+    holdout_checks_passed = all(checks.values())
+    if require_post_holdout_activity:
+        checks.update(
+            post_holdout_activity_checks(
+                post_holdout_probe,
+                min_active_rebalances=min_post_holdout_active_rebalances,
+                min_time_in_market=min_post_holdout_time_in_market,
+            )
+        )
+    evidence = {
         "checks": checks,
         "train_sharpe": candidate_train_sharpe(candidate),
         "holdout_sharpe": holdout_sharpe,
         "holdout_sharpe_decay_ratio": ratio,
         "holdout_return": holdout_return,
         "holdout_drawdown": holdout_drawdown,
+        "post_holdout_probe": compact_post_holdout_probe(post_holdout_probe),
     }
+    if all(checks.values()):
+        return "paper_candidate_manual_review_required", evidence
+    if holdout_checks_passed and require_post_holdout_activity:
+        return "holdout_promising_recently_inactive_manual_review_required", evidence
+    return "holdout_failed_do_not_paper_trade", evidence
 
 
 def status_allows_holdout(candidate: dict[str, Any]) -> bool:
@@ -192,6 +288,10 @@ def run_candidate_audit(
     costs_bps: tuple[float, ...],
     bootstrap_iterations: int,
     min_decay_ratio: float,
+    post_holdout_probe_start: str,
+    post_holdout_probe_end: str,
+    min_post_holdout_active_rebalances: int,
+    min_post_holdout_time_in_market: float,
 ) -> dict[str, Any]:
     kind = artifact_kind(candidate)
     artifact = Path(str(candidate.get("artifact") or ""))
@@ -200,6 +300,7 @@ def run_candidate_audit(
     digest = candidate_hash(candidate)
     json_path = reviews_dir / f"{protocol_id}_{stem}_{digest}_holdout.json"
     text_path = reviews_dir / f"{protocol_id}_{stem}_{digest}_holdout.txt"
+    post_holdout_probe = None
     if kind == "tsmom":
         report = build_tsmom_holdout_report(
             artifact=artifact_path,
@@ -226,6 +327,14 @@ def run_candidate_audit(
             target_config=candidate.get("config") or None,
         )
         text = format_xsec_holdout_text(report)
+        post_holdout_probe = build_xsec_post_holdout_probe(
+            holdout_report=report,
+            cache_dir=cache_dir,
+            warmup_start=holdout_start,
+            evaluation_start=post_holdout_probe_start,
+            evaluation_end=post_holdout_probe_end,
+            costs_bps=costs_bps,
+        )
     else:
         return {
             "audit_status": "unsupported_artifact_kind",
@@ -236,7 +345,15 @@ def run_candidate_audit(
 
     write_json(report, json_path)
     write_text(text, text_path)
-    decision, promotion = promotion_decision(candidate, report, min_decay_ratio=min_decay_ratio)
+    decision, promotion = promotion_decision(
+        candidate,
+        report,
+        min_decay_ratio=min_decay_ratio,
+        post_holdout_probe=post_holdout_probe,
+        require_post_holdout_activity=kind == "xsec_ohlcv",
+        min_post_holdout_active_rebalances=min_post_holdout_active_rebalances,
+        min_post_holdout_time_in_market=min_post_holdout_time_in_market,
+    )
     return {
         "audit_status": "completed",
         "artifact": str(candidate.get("artifact")),
@@ -247,6 +364,7 @@ def run_candidate_audit(
         "holdout_report_json": str(json_path),
         "holdout_report_text": str(text_path),
         "holdout_decision": report.get("decision"),
+        "post_holdout_probe": compact_post_holdout_probe(post_holdout_probe),
         "promotion_decision": decision,
         "promotion_evidence": promotion,
         "paper_trading_authorized": False,
@@ -276,7 +394,10 @@ def build_protocol_from_triage(
                 "candidate_source": "train_only_candidate_triage shortlist_plateau_candidate, falling back to manual_review_insufficient_neighbors when no plateau survives",
                 "max_candidates": max_candidates,
                 "min_holdout_sharpe_decay_ratio": min_decay_ratio,
-                "paper_candidate_rule": "holdout promising, positive return, max drawdown <= 25%, and holdout Sharpe decay ratio >= threshold",
+                "paper_candidate_rule": (
+                    "holdout promising, positive return, max drawdown <= 25%, holdout Sharpe decay ratio "
+                    ">= threshold, and XSEC post-holdout paper probe has active exposure"
+                ),
             },
             "triage_summary": triage_report.get("summary") or {},
             "selected_candidates": selected,
@@ -316,7 +437,10 @@ def build_protocol_from_triage(
             "candidate_source": "train_only_candidate_triage shortlist_plateau_candidate, falling back to manual_review_insufficient_neighbors when no plateau survives",
             "max_candidates": max_candidates,
             "min_holdout_sharpe_decay_ratio": min_decay_ratio,
-            "paper_candidate_rule": "holdout promising, positive return, max drawdown <= 25%, and holdout Sharpe decay ratio >= threshold",
+            "paper_candidate_rule": (
+                "holdout promising, positive return, max drawdown <= 25%, holdout Sharpe decay ratio "
+                ">= threshold, and XSEC post-holdout paper probe has active exposure"
+            ),
         },
         "triage_summary": triage_report.get("summary") or {},
         "selected_candidates": selected,
@@ -365,12 +489,13 @@ def format_markdown(report: dict[str, Any]) -> str:
         "",
         "## Results",
         "",
-        "| rank | promotion | holdout | decay | train sharpe | holdout sharpe | return | dd | artifact | report |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| rank | promotion | holdout | decay | train sharpe | holdout sharpe | return | dd | active reb | time in mkt | artifact | report |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     rows = report.get("holdout_results") or []
     for idx, row in enumerate(rows, 1):
         evidence = row.get("promotion_evidence") or {}
+        probe40 = ((evidence.get("post_holdout_probe") or {}).get("cost40") or {})
         lines.append(
             "| "
             + " | ".join(
@@ -383,6 +508,8 @@ def format_markdown(report: dict[str, Any]) -> str:
                     fmt(evidence.get("holdout_sharpe")),
                     fmt(evidence.get("holdout_return")),
                     fmt(evidence.get("holdout_drawdown")),
+                    fmt(probe40.get("active_rebalance_event_count"), 0),
+                    fmt(probe40.get("time_in_market_frac")),
                     f"`{row.get('artifact')}`",
                     f"`{row.get('holdout_report_text') or ''}`",
                 ]
@@ -400,6 +527,8 @@ def format_markdown(report: dict[str, Any]) -> str:
                         "",
                         "",
                         fmt(candidate_train_sharpe(row)),
+                        "",
+                        "",
                         "",
                         "",
                         "",
@@ -450,6 +579,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-decay-ratio", type=float, default=0.50)
     parser.add_argument("--holdout-start", default="2024-07-01")
     parser.add_argument("--holdout-end", default="2026-05-31 23:59:59")
+    parser.add_argument("--post-holdout-probe-start", default="2026-06-01")
+    parser.add_argument("--post-holdout-probe-end", default="now")
+    parser.add_argument("--min-post-holdout-active-rebalances", type=int, default=1)
+    parser.add_argument("--min-post-holdout-time-in-market", type=float, default=0.0)
     parser.add_argument("--costs-bps", default="20,40,60,80")
     parser.add_argument("--bootstrap-iterations", type=int, default=100)
     parser.add_argument("--holdout-authorized", action="store_true")
@@ -491,6 +624,10 @@ def main() -> None:
             costs_bps=costs,
             bootstrap_iterations=args.bootstrap_iterations,
             min_decay_ratio=args.min_decay_ratio,
+            post_holdout_probe_start=args.post_holdout_probe_start,
+            post_holdout_probe_end=args.post_holdout_probe_end,
+            min_post_holdout_active_rebalances=args.min_post_holdout_active_rebalances,
+            min_post_holdout_time_in_market=args.min_post_holdout_time_in_market,
         )
 
     report = build_protocol_from_triage(

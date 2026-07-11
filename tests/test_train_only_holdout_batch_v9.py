@@ -107,6 +107,78 @@ def test_promotion_decision_requires_decay_ratio_and_holdout_quality() -> None:
     assert evidence["checks"]["holdout_sharpe_decay_ge_min"] is False
 
 
+def test_promotion_decision_blocks_inactive_xsec_post_holdout_probe() -> None:
+    report = {
+        "decision": "holdout_promising_manual_review_required",
+        "costs": {
+            "40bps": {"sharpe": 1.2, "total_return": 0.08, "max_drawdown": 0.14},
+            "20bps": {"sharpe": 1.4, "total_return": 0.10, "max_drawdown": 0.12},
+        },
+    }
+    probe = {
+        "evaluation_start": "2026-06-01T00:00:00+00:00",
+        "latest_dt": "2026-07-11T00:00:00+00:00",
+        "costs": {
+            "40bps": {
+                "rebalance_event_count": 5,
+                "active_rebalance_event_count": 0,
+                "time_in_market_frac": 0.0,
+            }
+        },
+    }
+
+    decision, evidence = batch_mod.promotion_decision(
+        candidate(sharpe40=2.0),
+        report,
+        min_decay_ratio=0.5,
+        post_holdout_probe=probe,
+        require_post_holdout_activity=True,
+        min_post_holdout_active_rebalances=1,
+        min_post_holdout_time_in_market=0.0,
+    )
+
+    assert decision == "holdout_promising_recently_inactive_manual_review_required"
+    assert evidence["checks"]["holdout_sharpe_decay_ge_min"] is True
+    assert evidence["checks"]["post_holdout_probe_present"] is True
+    assert evidence["checks"]["post_holdout_active_rebalances_ge_min"] is False
+    assert evidence["checks"]["post_holdout_time_in_market_ge_min"] is False
+    assert evidence["post_holdout_probe"]["cost40"]["active_rebalance_event_count"] == 0
+
+
+def test_promotion_decision_promotes_active_xsec_post_holdout_probe() -> None:
+    report = {
+        "decision": "holdout_promising_manual_review_required",
+        "costs": {
+            "40bps": {"sharpe": 1.2, "total_return": 0.08, "max_drawdown": 0.14},
+            "20bps": {"sharpe": 1.4, "total_return": 0.10, "max_drawdown": 0.12},
+        },
+    }
+    probe = {
+        "evaluation_start": "2026-06-01T00:00:00+00:00",
+        "latest_dt": "2026-07-11T00:00:00+00:00",
+        "costs": {
+            "40bps": {
+                "rebalance_event_count": 5,
+                "active_rebalance_event_count": 2,
+                "time_in_market_frac": 0.15,
+            }
+        },
+    }
+
+    decision, evidence = batch_mod.promotion_decision(
+        candidate(sharpe40=2.0),
+        report,
+        min_decay_ratio=0.5,
+        post_holdout_probe=probe,
+        require_post_holdout_activity=True,
+        min_post_holdout_active_rebalances=1,
+        min_post_holdout_time_in_market=0.01,
+    )
+
+    assert decision == "paper_candidate_manual_review_required"
+    assert all(evidence["checks"].values())
+
+
 def test_artifact_kind_supports_tsmom_and_xsec() -> None:
     assert batch_mod.artifact_kind(candidate("artifacts/v9/contract_lab/tsmom_abc.json")) == "tsmom"
     assert (
