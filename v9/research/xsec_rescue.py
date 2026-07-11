@@ -40,6 +40,14 @@ ACCEPTED_TRAIN_ONLY_GENE_ORDER = (
     "cooldown_h",
     "skip_h",
 )
+ACCEPTED_TRAIN_ONLY_HARDENING_PAIRS = (
+    ("score_mode", "k"),
+    ("rebalance_h", "lookback_h"),
+    ("vol_target_ann", "market_filter_h"),
+    ("market_filter_h", "market_confirm_h"),
+    ("vol_target_ann", "market_drawdown_limit"),
+    ("rebalance_h", "vol_target_ann"),
+)
 SEED_FAMILY_CONFIG_KEYS = (
     "score_mode",
     "lookback_h",
@@ -531,7 +539,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         ordered_genes = [gene for gene in ACCEPTED_TRAIN_ONLY_GENE_ORDER if gene in base and gene in GENE_LADDERS]
     else:
         ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
-    if mutation_bias == "hostile_year_defensive" and limit > 5:
+    if mutation_bias in {"hostile_year_defensive", "multiplicity_hardening"} and limit > 5:
         single_budget = max(1, int(limit / 3))
     else:
         single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
@@ -573,12 +581,20 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         return neighbors
 
     pair_genes = ordered_genes[:7] if mutation_bias == "hostile_year_defensive" else ordered_genes[:5]
+    if mutation_bias == "multiplicity_hardening":
+        pair_genes = ordered_genes[:8]
     pair_radius = min(1, max(1, int(radius)))
     pair_gene_groups: list[tuple[str, str]] = []
     if mutation_bias == "hostile_year_defensive":
         pair_gene_groups.extend(
             (left, right)
             for left, right in HOSTILE_YEAR_DEFENSIVE_PAIRS
+            if left in pair_genes and right in pair_genes
+        )
+    if mutation_bias == "multiplicity_hardening":
+        pair_gene_groups.extend(
+            (left, right)
+            for left, right in ACCEPTED_TRAIN_ONLY_HARDENING_PAIRS
             if left in pair_genes and right in pair_genes
         )
     pair_gene_groups.extend(

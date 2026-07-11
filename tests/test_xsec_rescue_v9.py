@@ -157,6 +157,27 @@ def test_generate_rescue_neighbors_hardens_accepted_train_only_seed_for_multipli
     assert neighbors[1]["changed_gene"] == "score_mode"
 
 
+def test_generate_rescue_neighbors_spends_pair_budget_on_accepted_train_only_hardening() -> None:
+    accepted = row(
+        advance_passed=True,
+        diagnostic_triggered=False,
+        failed_checks=(),
+        bootstrap_p5=0.42,
+        validation_sharpe=1.5,
+    )
+    seed = select_rescue_seeds([accepted], top_k=1)[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=18)
+
+    single_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 1]
+    two_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 2]
+    assert len(neighbors) == 18
+    assert len(two_gene) > len(single_gene)
+    assert two_gene[0]["mutation_bias"] == "multiplicity_hardening"
+    assert two_gene[0]["changed_gene"] == "score_mode+k"
+    assert any(neighbor["changed_gene"] == "rebalance_h+lookback_h" for neighbor in two_gene)
+
+
 def test_select_rescue_seeds_falls_back_to_active_near_miss_without_diagnostic() -> None:
     near_miss = row(
         diagnostic_triggered=False,
