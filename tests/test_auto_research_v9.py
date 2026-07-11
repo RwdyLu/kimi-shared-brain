@@ -346,6 +346,9 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
     assert bundle.config_count == 12
     assert bundle.planned_record["is_rescue"] is True
     assert bundle.planned_record["parent_fingerprint"] == "abc123"
+    assert bundle.planned_record["root_parent_fingerprint"] == "abc123"
+    assert bundle.planned_record["rescue_generation"] == 1
+    assert bundle.planned_record["rescue_task_name"] == bundle.task.name
     assert bundle.task.output_json.startswith("artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406")
     assert "--config-list-json" in bundle.task.command
     assert "--prior-trials" in bundle.task.command
@@ -361,6 +364,91 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
     recursive = dict(result)
     recursive["output_json"] = "artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406_hq_dd_plateau.json"
     assert auto_research.xsec_rescue_task_from_result(planned, recursive) is None
+
+
+def test_xsec_rescue_task_from_result_allows_second_generation_and_caps_depth(tmp_path) -> None:
+    first_configs = tmp_path / "rescue_configs_g1.json"
+    first_configs.write_text("[]")
+    second_configs = tmp_path / "rescue_configs_g2.json"
+    second_configs.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "parent.json"),
+        output_md=str(tmp_path / "parent.md"),
+        prior_trials=20000,
+        timeout_sec=99,
+    )
+    first = auto_research.xsec_rescue_task_from_result(
+        planned,
+        {
+            "output_json": planned.output_json,
+            "rescue_config_json": str(first_configs),
+            "rescue_config_count": 12,
+            "prior_effective_trials": 20081,
+        },
+    )
+    assert first is not None
+
+    second = auto_research.xsec_rescue_task_from_result(
+        first.planned_record,
+        {
+            "output_json": first.task.output_json,
+            "rescue_config_json": str(second_configs),
+            "rescue_config_count": 5,
+            "effective_trials": 20093,
+        },
+    )
+
+    assert second is not None
+    assert second.config_count == 5
+    assert second.planned_record["rescue_generation"] == 2
+    assert second.planned_record["parent_fingerprint"] == first.fingerprint
+    assert second.planned_record["root_parent_fingerprint"] == "abc123"
+    assert "_g2_" in second.task.name
+    assert "--prior-trials" in second.task.command
+    assert "20093" in second.task.command
+    auto_research.validate_train_only_task(second.task)
+
+    third = auto_research.xsec_rescue_task_from_result(
+        second.planned_record,
+        {
+            "output_json": second.task.output_json,
+            "rescue_config_json": str(second_configs),
+            "rescue_config_count": 3,
+            "effective_trials": 20098,
+        },
+    )
+    assert third is None
+
+
+def test_xsec_rescue_generation_from_output_and_artifact_cap(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    gen2 = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406_case_g2_deadbeef.json"
+    gen2.parent.mkdir(parents=True)
+    write_json(
+        {
+            "kind": "xsec_ohlcv_factory_v1_train_only_grid",
+            "summary": {"accepted_train_only": False},
+            "selection_validation": {"effective_trials": 100},
+            "rows": [],
+        },
+        gen2,
+    )
+
+    assert auto_research.rescue_generation_from_output("artifacts/v9/contract_lab/xsec_ohlcv_cont_case.json") == 0
+    assert auto_research.rescue_generation_from_output("artifacts/v9/contract_lab/xsec_ohlcv_rescue_case_deadbeef.json") == 1
+    assert auto_research.rescue_generation_from_output(str(gen2)) == 2
+
+    metadata = auto_research.maybe_write_xsec_rescue_artifacts(str(gen2))
+
+    assert metadata["rescue_generation"] == 2
+    assert metadata["rescue_skipped"] == "max_auto_xsec_rescue_generation"
+    assert metadata["rescue_config_count"] == 0
 
 
 def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
@@ -886,6 +974,92 @@ def test_continuous_research_runs_auto_xsec_rescue_after_primary_batch(tmp_path,
     explored = (tmp_path / "explored.jsonl").read_text()
     assert "abc123" in explored
     assert '"is_rescue": true' in explored
+
+
+def test_continuous_research_runs_capped_second_generation_xsec_rescue(tmp_path, monkeypatch) -> None:
+    rescue_configs_g1 = tmp_path / "rescue_configs_g1.json"
+    rescue_configs_g1.write_text("[]")
+    rescue_configs_g2 = tmp_path / "rescue_configs_g2.json"
+    rescue_configs_g2.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        timeout_sec=1,
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned])
+    calls = []
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        calls.append(task.name)
+        if "_g2_" in task.name:
+            return {
+                "task": task.name,
+                "status": "completed_no_candidate",
+                "skipped_existing": False,
+                "output_json": task.output_json,
+                "output_md": task.output_md,
+                "returncode": 0,
+                "n_configs_tested": 1,
+                "prior_trials": 82,
+                "effective_trials": 83,
+            }
+        if "rescue" in task.name:
+            return {
+                "task": task.name,
+                "status": "completed_no_candidate",
+                "skipped_existing": False,
+                "output_json": task.output_json,
+                "output_md": task.output_md,
+                "returncode": 0,
+                "n_configs_tested": 1,
+                "prior_trials": 81,
+                "effective_trials": 82,
+                "rescue_config_json": str(rescue_configs_g2),
+                "rescue_config_count": 1,
+            }
+        return {
+            "task": task.name,
+            "status": "completed_no_candidate",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+            "n_configs_tested": 81,
+            "prior_trials": 0,
+            "effective_trials": 81,
+            "rescue_config_json": str(rescue_configs_g1),
+            "rescue_config_count": 1,
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+
+    payload = run_continuous_research(
+        tmp_path / "state.json",
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        tmp_path / "control",
+        planner_batch_size=1,
+        max_cycles=1,
+        cycle_sleep_sec=0,
+    )
+
+    assert payload["status"] == "paused"
+    assert calls[0] == planned.name
+    assert "rescue" in calls[1]
+    assert "_g2_" in calls[2]
+    assert payload["task_results"][1]["planned_task"]["rescue_generation"] == 1
+    assert payload["task_results"][2]["planned_task"]["rescue_generation"] == 2
+    assert payload["task_results"][2]["planned_task"]["parent_fingerprint"] == payload["task_results"][1]["fingerprint"]
+    explored = (tmp_path / "explored.jsonl").read_text()
+    assert '"rescue_generation": 1' in explored
+    assert '"rescue_generation": 2' in explored
 
 
 def test_continuous_research_idles_when_search_space_is_exhausted_until_stop(tmp_path, monkeypatch) -> None:

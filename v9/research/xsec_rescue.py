@@ -551,6 +551,8 @@ def build_rescue_plan(
     source_artifact: str | None = None,
     top_k: int = DEFAULT_RESCUE_TOP_K,
     budget_per_seed: int = DEFAULT_RESCUE_BUDGET_PER_SEED,
+    generation: int = 1,
+    excluded_fingerprints: set[str] | frozenset[str] | None = None,
     allow_near_miss: bool = True,
     near_miss_max_failures: int = 3,
     near_miss_min_selection_sharpe20: float = 1.20,
@@ -569,7 +571,8 @@ def build_rescue_plan(
         near_miss_min_time_in_market40=near_miss_min_time_in_market40,
     )
     configs: list[dict[str, Any]] = []
-    seen_configs: set[str] = set()
+    excluded_fingerprints = excluded_fingerprints or frozenset()
+    seen_configs: set[str] = {str(fp) for fp in excluded_fingerprints}
     planned_seeds = []
     for seed in seeds:
         neighbors = generate_rescue_neighbors(seed, budget=budget_per_seed)
@@ -594,12 +597,14 @@ def build_rescue_plan(
         "kind": "xsec_diagnostic_or_nearmiss_rescue_plan_v2",
         "source_artifact": source_artifact,
         "source_meta": meta,
+        "rescue_generation": int(generation),
         "seed_count": len(planned_seeds),
         "diagnostic_seed_count": diagnostic_seed_count,
         "near_miss_seed_count": near_miss_seed_count,
         "seed_family_count": seed_family_count,
         "rescue_config_count": len(configs),
         "budget_per_seed": int(budget_per_seed),
+        "excluded_config_fingerprint_count": len(excluded_fingerprints),
         "rescue_seed_policy": {
             "diagnostic_q25_min": 0.50,
             "diagnostic_sign_min": 0.75,

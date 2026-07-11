@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from v9.research.xsec_rescue import (  # noqa: E402
     build_rescue_plan,
+    config_fingerprint,
     generate_rescue_neighbors,
     rescue_gene_order,
     select_rescue_seeds,
@@ -387,6 +388,18 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
     assert metadata["prior_effective_trials"] == 20000
     assert metadata["effective_trials_after_rescue"] == 20010
     assert json.loads((tmp_path / "configs.json").read_text()) == plan["configs"]
+
+
+def test_build_rescue_plan_excludes_cross_generation_fingerprints() -> None:
+    seed_row = row(diagnostic_q25=0.70)
+    initial = build_rescue_plan([seed_row], top_k=1, budget_per_seed=5)
+    excluded = {config_fingerprint(initial["configs"][0])}
+
+    plan = build_rescue_plan([seed_row], top_k=1, budget_per_seed=5, generation=2, excluded_fingerprints=excluded)
+
+    assert plan["rescue_generation"] == 2
+    assert plan["excluded_config_fingerprint_count"] == 1
+    assert excluded.isdisjoint({config_fingerprint(config) for config in plan["configs"]})
 
 
 def test_default_rescue_plan_stays_within_auto_rescue_cap() -> None:

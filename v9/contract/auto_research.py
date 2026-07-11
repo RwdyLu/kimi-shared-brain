@@ -23,7 +23,7 @@ from v9.research.tsmom_rescue import (
     tsmom_rescue_artifact_paths,
     write_tsmom_rescue_artifacts,
 )
-from v9.research.xsec_rescue import build_rescue_plan, rescue_artifact_paths, write_rescue_artifacts
+from v9.research.xsec_rescue import build_rescue_plan, config_fingerprint, rescue_artifact_paths, write_rescue_artifacts
 from v9.research.task_planner import (
     CLI_PRESET_BY_PRESET,
     DEFAULT_TRAIN_MODULE,
@@ -44,6 +44,7 @@ TRAIN_ONLY_MODULES = ("v9.contract.xsec_ohlcv_factory", "v9.contract.tsmom_facto
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 MAX_AUTO_RESCUE_CONFIGS = 150
+MAX_AUTO_XSEC_RESCUE_GENERATION = 2
 MAX_AUTO_TSMOM_RESCUE_CONFIGS = 75
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
@@ -133,11 +134,15 @@ def file_sha1(path: Path) -> str:
     return h.hexdigest()
 
 
-def rescue_task_name(parent_name: str, plan_hash: str) -> str:
+def rescue_task_name(parent_name: str, plan_hash: str, generation: int = 1) -> str:
     if parent_name.startswith("xsec_ohlcv_cont_"):
         base = "xsec_ohlcv_rescue_" + parent_name[len("xsec_ohlcv_cont_") :]
+    elif parent_name.startswith("xsec_ohlcv_rescue_"):
+        base = parent_name
     else:
         base = f"xsec_ohlcv_rescue_{parent_name}"
+    if int(generation) > 1:
+        return f"{base}_g{int(generation)}_{plan_hash[:8]}"
     return f"{base}_{plan_hash[:8]}"
 
 
@@ -155,14 +160,45 @@ def is_rescue_output(output_json: str | None) -> bool:
     return "_rescue_" in Path(str(output_json)).stem
 
 
+def rescue_generation_from_output(output_json: str | None) -> int:
+    if not is_rescue_output(output_json):
+        return 0
+    stem = Path(str(output_json)).stem
+    for token in stem.split("_"):
+        if token.startswith("g") and token[1:].isdigit():
+            return int(token[1:])
+    return 1
+
+
+def planned_value(planned_task: PlannedTask | dict[str, Any], key: str, default: Any = None) -> Any:
+    if isinstance(planned_task, dict):
+        return planned_task.get(key, default)
+    return getattr(planned_task, key, default)
+
+
+def planned_record(planned_task: PlannedTask | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(planned_task, dict):
+        return dict(planned_task)
+    return planned_task.record()
+
+
+def planned_rescue_generation(planned_task: PlannedTask | dict[str, Any]) -> int:
+    return int(planned_value(planned_task, "rescue_generation", 0) or 0)
+
+
 def xsec_rescue_task_from_result(
-    planned_task: PlannedTask,
+    planned_task: PlannedTask | dict[str, Any],
     result: dict[str, Any],
     max_rescue_configs: int = MAX_AUTO_RESCUE_CONFIGS,
 ) -> RescueTaskBundle | None:
-    if planned_task.module != "v9.contract.xsec_ohlcv_factory":
+    if planned_value(planned_task, "module") != "v9.contract.xsec_ohlcv_factory":
         return None
-    if is_rescue_output(result.get("output_json")):
+    parent_generation = planned_rescue_generation(planned_task)
+    result_is_rescue = is_rescue_output(result.get("output_json"))
+    if result_is_rescue and not bool(planned_value(planned_task, "is_rescue", False)):
+        return None
+    generation = parent_generation + 1
+    if generation > MAX_AUTO_XSEC_RESCUE_GENERATION:
         return None
     config_count = int(result.get("rescue_config_count") or 0)
     config_json = result.get("rescue_config_json")
@@ -174,14 +210,17 @@ def xsec_rescue_task_from_result(
     if not config_path.exists():
         return None
     plan_hash = file_sha1(config_path)[:12]
-    name = rescue_task_name(planned_task.name, plan_hash)
+    parent_name = str(planned_value(planned_task, "rescue_task_name") or planned_value(planned_task, "name") or "")
+    parent_fingerprint = str(planned_value(planned_task, "fingerprint") or "")
+    root_parent_fingerprint = str(planned_value(planned_task, "root_parent_fingerprint") or parent_fingerprint)
+    name = rescue_task_name(parent_name, plan_hash, generation=generation)
     output_json = f"artifacts/v9/contract_lab/{name}.json"
     output_md = f"artifacts/v9/contract_lab/{name}.md"
     prior_effective_trials = int(
         result.get("prior_effective_trials")
         or result.get("effective_trials")
         or result.get("prior_trials")
-        or planned_task.prior_trials
+        or planned_value(planned_task, "prior_trials", 0)
         or 0
     )
     effective_trials_after_rescue = int(result.get("effective_trials_after_rescue") or prior_effective_trials + config_count)
@@ -192,15 +231,15 @@ def xsec_rescue_task_from_result(
             "-m",
             "v9.contract.xsec_ohlcv_factory",
             "--preset",
-            planned_task.cli_preset or planned_task.preset,
+            str(planned_value(planned_task, "cli_preset") or planned_value(planned_task, "preset")),
             "--train-start",
-            planned_task.train_start,
+            str(planned_value(planned_task, "train_start")),
             "--train-end",
-            planned_task.train_end,
+            str(planned_value(planned_task, "train_end")),
             "--embargo-start",
-            planned_task.embargo_start,
+            str(planned_value(planned_task, "embargo_start")),
             "--bootstrap-iterations",
-            str(planned_task.bootstrap_iterations),
+            str(planned_value(planned_task, "bootstrap_iterations", 100)),
             "--prior-trials",
             str(prior_effective_trials),
             "--config-list-json",
@@ -212,24 +251,38 @@ def xsec_rescue_task_from_result(
         ),
         output_json=output_json,
         output_md=output_md,
-        timeout_sec=max(planned_task.timeout_sec, int(planned_task.timeout_sec * max(1.0, config_count / 81.0))),
+        timeout_sec=max(
+            int(planned_value(planned_task, "timeout_sec", 3 * 60 * 60)),
+            int(int(planned_value(planned_task, "timeout_sec", 3 * 60 * 60)) * max(1.0, config_count / 81.0)),
+        ),
     )
-    fingerprint = hashlib.sha1(
-        json.dumps(
+    fingerprint_payload = {
+        "parent_fingerprint": parent_fingerprint,
+        "plan_hash": plan_hash,
+        "version": "xsec_rescue_v1",
+    }
+    if generation > 1:
+        fingerprint_payload.update(
             {
-                "parent_fingerprint": planned_task.fingerprint,
-                "plan_hash": plan_hash,
-                "version": "xsec_rescue_v1",
-            },
-            sort_keys=True,
-        ).encode("utf-8")
+                "rescue_generation": generation,
+                "root_parent_fingerprint": root_parent_fingerprint,
+                "version": "xsec_rescue_v2",
+            }
+        )
+    fingerprint = hashlib.sha1(
+        json.dumps(fingerprint_payload, sort_keys=True).encode("utf-8")
     ).hexdigest()
-    planned_record = planned_task.record()
-    planned_record.update(
+    record = planned_record(planned_task)
+    record.update(
         {
             "is_rescue": True,
+            "name": name,
             "fingerprint": fingerprint,
-            "parent_fingerprint": planned_task.fingerprint,
+            "parent_fingerprint": parent_fingerprint,
+            "root_parent_fingerprint": root_parent_fingerprint,
+            "rescue_generation": generation,
+            "source_task_name": parent_name,
+            "rescue_task_name": name,
             "rescue_config_json": str(config_path),
             "rescue_config_count": config_count,
             "rescue_plan_hash": plan_hash,
@@ -240,7 +293,7 @@ def xsec_rescue_task_from_result(
             "effective_trials_after_rescue": effective_trials_after_rescue,
         }
     )
-    return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=planned_record, config_count=config_count)
+    return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=record, config_count=config_count)
 
 
 def tsmom_rescue_task_from_result(
@@ -460,16 +513,35 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
     out_path = Path(output_json)
     if "xsec_ohlcv" not in out_path.name or not out_path.exists():
         return {}
-    if is_rescue_output(output_json):
-        return {}
+    current_generation = rescue_generation_from_output(output_json)
+    if current_generation >= MAX_AUTO_XSEC_RESCUE_GENERATION:
+        return {
+            "rescue_generation": current_generation,
+            "rescue_skipped": "max_auto_xsec_rescue_generation",
+            "rescue_config_count": 0,
+        }
     try:
         payload = read_json(out_path) or {}
         rows = list(payload.get("rows", []))
         meta = dict(payload.get("selection_validation", {}) or {})
         meta["summary"] = dict(payload.get("summary", {}) or {})
-        plan = build_rescue_plan(rows, meta=meta, source_artifact=str(out_path))
+        excluded_fingerprints = {
+            config_fingerprint(dict(row.get("config") or {}))
+            for row in rows
+            if isinstance(row.get("config"), dict)
+        }
+        plan = build_rescue_plan(
+            rows,
+            meta=meta,
+            source_artifact=str(out_path),
+            generation=current_generation + 1,
+            excluded_fingerprints=excluded_fingerprints,
+        )
         plan_path, config_path = rescue_artifact_paths(output_json)
-        return write_rescue_artifacts(plan, plan_path, config_path)
+        metadata = write_rescue_artifacts(plan, plan_path, config_path)
+        metadata["rescue_generation"] = current_generation + 1
+        metadata["excluded_config_fingerprint_count"] = len(excluded_fingerprints)
+        return metadata
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"rescue_error": str(exc)}
 
@@ -1386,6 +1458,7 @@ def run_continuous_research(
                         "elapsed_sec": round(elapsed, 3),
                         "fingerprint": rescue_bundle.fingerprint,
                         "is_rescue": True,
+                        "rescue_generation": rescue_bundle.planned_record.get("rescue_generation", 1),
                         "rescue_config_count": rescue_bundle.config_count,
                         **progress_metadata_for_output(rescue_task.output_json),
                     },
@@ -1436,6 +1509,8 @@ def run_continuous_research(
                     "data_symbols": rescue_result.get("data_symbols", []),
                     "is_rescue": True,
                     "parent_fingerprint": rescue_bundle.planned_record["parent_fingerprint"],
+                    "root_parent_fingerprint": rescue_bundle.planned_record.get("root_parent_fingerprint", ""),
+                    "rescue_generation": rescue_bundle.planned_record.get("rescue_generation", 1),
                     "rescue_config_count": rescue_bundle.config_count,
                 },
             )
@@ -1482,6 +1557,11 @@ def run_continuous_research(
                             "running",
                             f"multiplicity_rejected:{rescue_task.name}",
                         )
+            next_rescue_bundle = xsec_rescue_task_from_result(rescue_bundle.planned_record, rescue_result)
+            if next_rescue_bundle and next_rescue_bundle.fingerprint not in explored:
+                pending_fingerprints = {bundle.fingerprint for bundle in pending_rescue_bundles}
+                if next_rescue_bundle.fingerprint not in pending_fingerprints:
+                    pending_rescue_bundles.append(next_rescue_bundle)
             write_state(
                 state_path,
                 started_at,
