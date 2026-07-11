@@ -923,12 +923,31 @@ def latest_marker_candidate(candidates_found: list[dict[str, Any]]) -> dict[str,
     return candidates[-1] if candidates else None
 
 
+def latest_manual_review_candidate(candidates_found: list[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates = dedupe_candidates(candidates_found)
+    for record in reversed(candidates):
+        if record.get("duplicate_of"):
+            continue
+        if record.get("status") == "manual_review_required":
+            return record
+    return None
+
+
 def backfill_internal_candidate_marker(path: Path, candidates_found: list[dict[str, Any]]) -> None:
     if not marker_needs_backfill(path):
         return
     record = latest_marker_candidate(candidates_found)
     if record:
         write_internal_candidate_marker(path, record)
+
+
+def sync_internal_candidate_marker(path: Path, candidates_found: list[dict[str, Any]]) -> None:
+    record = latest_manual_review_candidate(candidates_found)
+    if record:
+        write_internal_candidate_marker(path, record)
+        return
+    if path.exists():
+        path.write_text("none\n")
 
 
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
@@ -1322,6 +1341,36 @@ def refresh_recent_multiplicity_metadata(
     return refreshed
 
 
+def sync_candidate_statuses_from_results(
+    candidates_found: list[dict[str, Any]],
+    task_results: list[dict[str, Any]],
+) -> int:
+    result_by_output = {
+        str(result.get("output_json")): result
+        for result in task_results
+        if result.get("output_json")
+    }
+    updated = 0
+    for record in candidates_found:
+        output_json = record.get("output_json")
+        if not output_json:
+            continue
+        result = result_by_output.get(str(output_json))
+        if not result or result.get("status") != "accepted_train_only_candidate_found":
+            continue
+        current_status = str(record.get("status") or "")
+        if "data_drift" in current_status or "quarantined" in current_status:
+            continue
+        refreshed_status = status_after_multiplicity("manual_review_required", result)
+        if refreshed_status == current_status:
+            continue
+        record["status"] = refreshed_status
+        record["candidate_status_refresh_policy"] = "startup_multiplicity_sync_v1"
+        record["candidate_status_refreshed_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        updated += 1
+    return updated
+
+
 def run_continuous_research(
     state_path: Path,
     latest_summary_path: Path,
@@ -1349,12 +1398,13 @@ def run_continuous_research(
     previous = read_json(state_path) or {}
     task_results = list(previous.get("task_results", []))
     candidates_found = list(previous.get("candidates_found", []))
-    backfill_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", candidates_found)
     explored = load_explored_fingerprints(explored_path)
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
     drift_history = drift_history_from_explored(explored_path)
     startup_multiplicity_refresh_count = refresh_recent_multiplicity_metadata(task_results)
+    startup_candidate_status_sync_count = sync_candidate_statuses_from_results(candidates_found, task_results)
+    sync_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", candidates_found)
     startup_rescue_refresh_count = refresh_recent_xsec_rescue_metadata(task_results)
     startup_pending_rescue_bundles = pending_rescue_bundles_from_results(task_results, explored)
 
@@ -1363,6 +1413,7 @@ def run_continuous_research(
         "running",
         "v9_auto_research_train_only:continuous_starting "
         f"refreshed_multiplicity={startup_multiplicity_refresh_count} "
+        f"synced_candidates={startup_candidate_status_sync_count} "
         f"refreshed_xsec_rescue={startup_rescue_refresh_count}",
     )
     consecutive_failures = 0

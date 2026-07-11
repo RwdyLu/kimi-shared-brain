@@ -602,6 +602,47 @@ def test_refresh_recent_multiplicity_metadata_recomputes_stale_candidate_count_t
     assert result["multiplicity_metadata_refresh_policy"] == "startup_recent_effective_trials_v1"
 
 
+def test_sync_candidate_statuses_from_refreshed_multiplicity_results() -> None:
+    candidate = {
+        "task": "candidate",
+        "output_json": "candidate.json",
+        "output_md": "candidate.md",
+        "status": "manual_review_required",
+    }
+    result = {
+        "task": "candidate",
+        "output_json": "candidate.json",
+        "status": "accepted_train_only_candidate_found",
+        "multiplicity_decision": "rejected_multiplicity",
+        "multiplicity_evidence": {"evaluated": True, "decision": "rejected_multiplicity"},
+    }
+
+    updated = auto_research.sync_candidate_statuses_from_results([candidate], [result])
+
+    assert updated == 1
+    assert candidate["status"] == "rejected_multiplicity"
+    assert candidate["candidate_status_refresh_policy"] == "startup_multiplicity_sync_v1"
+
+
+def test_sync_internal_candidate_marker_clears_stale_marker_when_no_manual_candidate(tmp_path) -> None:
+    marker = tmp_path / "FOUND_INTERNAL_CANDIDATE.txt"
+    marker.write_text("FOUND_INTERNAL_CANDIDATE old stale\n")
+
+    auto_research.sync_internal_candidate_marker(
+        marker,
+        [
+            {
+                "task": "candidate",
+                "output_json": "candidate.json",
+                "output_md": "candidate.md",
+                "status": "rejected_multiplicity",
+            }
+        ],
+    )
+
+    assert marker.read_text() == "none\n"
+
+
 def test_refresh_recent_xsec_rescue_metadata_rebuilds_stale_plan_with_current_logic(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     output_json = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123.json"
