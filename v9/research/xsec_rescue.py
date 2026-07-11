@@ -40,6 +40,16 @@ RESCUE_HARD_REJECT_FAILURES = frozenset(
         "validation_sharpe40_gt_0",
     }
 )
+ACTIVITY_FAILURES = frozenset({"active_rebalances40_ge_min", "time_in_market40_ge_min"})
+REGIME_ROBUSTNESS_FAILURES = frozenset(
+    {
+        "positive_3_of_4_years",
+        "bootstrap_p5_ge_adjusted_min",
+        "sharpe40_ge_1",
+        "sharpe20_ge_1_2",
+        "benchmark_sharpe_excess_ge_0_10",
+    }
+)
 
 GENE_LADDERS: dict[str, tuple[Any, ...]] = {
     "lookback_h": LOOKBACK_H,
@@ -338,6 +348,66 @@ def nearby_values(value: Any, ladder: tuple[Any, ...], radius: int = 2) -> list[
     return [candidate for candidate in ladder[lo:hi] if candidate != value]
 
 
+def numeric_value(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def order_numeric_neighbors(value: Any, candidates: list[Any], direction: str, zero_last: bool = False) -> list[Any]:
+    current = numeric_value(value)
+    if current is None:
+        return candidates
+    numeric_candidates = [(candidate, numeric_value(candidate)) for candidate in candidates]
+    if any(number is None for _, number in numeric_candidates):
+        return candidates
+    rows = [(candidate, float(number)) for candidate, number in numeric_candidates if number is not None]
+    zero_rows = [row for row in rows if row[1] == 0.0]
+    nonzero_rows = [row for row in rows if not (zero_last and row[1] == 0.0)]
+    if direction == "higher":
+        primary = sorted((row for row in nonzero_rows if row[1] > current), key=lambda row: row[1] - current)
+        secondary = sorted((row for row in nonzero_rows if row[1] < current), key=lambda row: current - row[1])
+    elif direction == "lower":
+        primary = sorted((row for row in nonzero_rows if row[1] < current), key=lambda row: current - row[1])
+        secondary = sorted((row for row in nonzero_rows if row[1] > current), key=lambda row: row[1] - current)
+    else:
+        return candidates
+    ordered = [candidate for candidate, _ in primary + secondary]
+    if zero_last:
+        ordered.extend(candidate for candidate, _ in zero_rows)
+    return ordered
+
+
+def rescue_mutation_bias(seed: dict[str, Any]) -> str:
+    failures = set(seed.get("rescue_relevant_failures") or seed.get("failed_checks") or [])
+    worst = seed.get("worst_year") or {}
+    if failures.intersection(ACTIVITY_FAILURES):
+        return "activity_unblock"
+    if failures.intersection(REGIME_ROBUSTNESS_FAILURES) and safe_float(worst.get("net_return")) < 0.0:
+        return "hostile_year_defensive"
+    return "balanced_neighbor"
+
+
+def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2) -> list[Any]:
+    base = dict(seed["config"])
+    values = nearby_values(base.get(gene), GENE_LADDERS[gene], radius=radius)
+    bias = rescue_mutation_bias(seed)
+    if bias == "activity_unblock":
+        if gene in {"cooldown_h", "market_confirm_h", "market_filter_h", "lookback_h", "rebalance_h"}:
+            return order_numeric_neighbors(base.get(gene), values, "lower")
+        if gene in {"market_drawdown_limit", "drawdown_stop"}:
+            return order_numeric_neighbors(base.get(gene), values, "higher")
+    if bias == "hostile_year_defensive":
+        if gene in {"market_filter_h", "market_confirm_h", "cooldown_h", "lookback_h", "rebalance_h"}:
+            return order_numeric_neighbors(base.get(gene), values, "higher")
+        if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
+            return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
+        if gene == "n_tranches":
+            return order_numeric_neighbors(base.get(gene), values, "higher")
+    return values
+
+
 def rescue_gene_order(failures: list[str]) -> list[str]:
     failures = [name for name in failures if name not in RESCUE_IGNORED_FAILURES]
     ordered = []
@@ -386,6 +456,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
 
     ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
     single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
+    mutation_bias = rescue_mutation_bias(seed)
 
     def append_neighbor(changes: list[tuple[str, Any]]) -> bool:
         candidate = dict(base)
@@ -402,6 +473,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
                 "parent_config_fingerprint": seed["config_fingerprint"],
                 "changed_gene": "+".join(gene for gene, _ in changes),
                 "changed_genes": [gene for gene, _ in changes],
+                "mutation_bias": mutation_bias,
                 "from": change_rows[0]["from"],
                 "to": change_rows[0]["to"],
                 "changes": change_rows,
@@ -412,7 +484,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         return True
 
     for gene in ordered_genes:
-        for value in nearby_values(base[gene], GENE_LADDERS[gene], radius=radius):
+        for value in prioritized_neighbor_values(seed, gene, radius=radius):
             append_neighbor([(gene, value)])
             if len(neighbors) >= single_budget:
                 break
@@ -425,9 +497,9 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     pair_genes = ordered_genes[:5]
     pair_radius = min(1, max(1, int(radius)))
     for left_pos, left_gene in enumerate(pair_genes):
-        left_values = nearby_values(base[left_gene], GENE_LADDERS[left_gene], radius=pair_radius)
+        left_values = prioritized_neighbor_values(seed, left_gene, radius=pair_radius)
         for right_gene in pair_genes[left_pos + 1 :]:
-            right_values = nearby_values(base[right_gene], GENE_LADDERS[right_gene], radius=pair_radius)
+            right_values = prioritized_neighbor_values(seed, right_gene, radius=pair_radius)
             for left_value in left_values:
                 for right_value in right_values:
                     append_neighbor([(left_gene, left_value), (right_gene, right_value)])

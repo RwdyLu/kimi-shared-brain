@@ -236,6 +236,73 @@ def test_generate_rescue_neighbors_uses_limited_two_gene_repairs() -> None:
     assert all(neighbor["changed_gene"] == "+".join(neighbor["changed_genes"]) for neighbor in neighbors)
 
 
+def test_generate_rescue_neighbors_prefers_defensive_regime_repairs_for_negative_worst_year() -> None:
+    config = {
+        **BASE_CONFIG,
+        "lookback_h": 168,
+        "rebalance_h": 72,
+        "score_mode": "breakout",
+        "market_filter_h": 720,
+        "market_confirm_h": 168,
+        "market_drawdown_limit": 0.25,
+        "drawdown_stop": 0.15,
+        "cooldown_h": 168,
+        "vol_target_ann": 0.08,
+    }
+    seed = select_rescue_seeds(
+        [
+            row(
+                config=config,
+                diagnostic_triggered=False,
+                failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+                selection_sharpe=1.70,
+                bootstrap_p5=0.45,
+            )
+        ]
+    )[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=8)
+
+    assert neighbors[0]["mutation_bias"] == "hostile_year_defensive"
+    assert neighbors[0]["changed_gene"] == "market_filter_h"
+    assert neighbors[0]["to"] == 1008
+    assert neighbors[1]["to"] == 1344
+
+
+def test_generate_rescue_neighbors_prefers_less_restrictive_repairs_when_activity_fails() -> None:
+    config = {
+        **BASE_CONFIG,
+        "lookback_h": 168,
+        "rebalance_h": 72,
+        "score_mode": "breakout",
+        "market_filter_h": 720,
+        "market_confirm_h": 168,
+        "market_drawdown_limit": 0.25,
+        "drawdown_stop": 0.15,
+        "cooldown_h": 168,
+        "vol_target_ann": 0.08,
+    }
+    seed = select_rescue_seeds(
+        [
+            row(
+                config=config,
+                diagnostic_triggered=False,
+                failed_checks=("active_rebalances40_ge_min", "time_in_market40_ge_min"),
+                selection_sharpe=1.70,
+                bootstrap_p5=0.60,
+                active_rebalances=12,
+                time_in_market=0.05,
+            )
+        ]
+    )[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=8)
+
+    assert neighbors[0]["mutation_bias"] == "activity_unblock"
+    assert neighbors[0]["changed_gene"] == "cooldown_h"
+    assert neighbors[0]["to"] == 72
+
+
 def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_path) -> None:
     alternate = dict(BASE_CONFIG)
     alternate["lookback_h"] = 672
