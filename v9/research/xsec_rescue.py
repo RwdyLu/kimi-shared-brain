@@ -26,6 +26,20 @@ HOSTILE_YEAR_DEFENSIVE_PAIRS = (
     ("market_filter_h", "market_drawdown_limit"),
     ("market_confirm_h", "vol_target_ann"),
 )
+ACCEPTED_TRAIN_ONLY_GENE_ORDER = (
+    "score_mode",
+    "k",
+    "rebalance_h",
+    "lookback_h",
+    "vol_target_ann",
+    "market_filter_h",
+    "market_confirm_h",
+    "market_drawdown_limit",
+    "n_tranches",
+    "drawdown_stop",
+    "cooldown_h",
+    "skip_h",
+)
 SEED_FAMILY_CONFIG_KEYS = (
     "score_mode",
     "lookback_h",
@@ -232,6 +246,25 @@ def is_near_miss_seed(
     return True
 
 
+def is_accepted_train_only_seed(row: dict[str, Any]) -> bool:
+    return bool(row.get("advance_passed")) and valid_config(row.get("config") or {})
+
+
+def accepted_train_only_sort_key(row: dict[str, Any]) -> tuple[float, ...]:
+    return (
+        selection_bootstrap_p5(row),
+        validation_sharpe20(row),
+        selection_sharpe20(row),
+        benchmark_sharpe_excess(row),
+        selection_sharpe40(row),
+        float(positive_year_count(row)),
+        worst_year_return(row),
+        active_rebalances40(row),
+        time_in_market40(row),
+        -top_symbol_share(row),
+    )
+
+
 def near_miss_sort_key(row: dict[str, Any]) -> tuple[float, ...]:
     failures = rescue_relevant_failures(row)
     return (
@@ -283,6 +316,7 @@ def select_rescue_seeds(
     top_k: int = DEFAULT_RESCUE_TOP_K,
     diagnostic_q25_min: float = 0.50,
     diagnostic_sign_min: float = 0.75,
+    allow_accepted_train_only: bool = True,
     allow_near_miss: bool = True,
     near_miss_max_failures: int = 3,
     near_miss_min_selection_sharpe20: float = 1.20,
@@ -293,6 +327,13 @@ def select_rescue_seeds(
     limit = max(0, int(top_k))
     if limit <= 0:
         return []
+
+    accepted_rows = [
+        (row, idx)
+        for idx, row in enumerate(rows)
+        if allow_accepted_train_only and is_accepted_train_only_seed(row)
+    ]
+    accepted_rows.sort(key=lambda item: accepted_train_only_sort_key(item[0]), reverse=True)
 
     diagnostic_rows = [
         (row, idx)
@@ -327,6 +368,10 @@ def select_rescue_seeds(
                 seeds.append(seed_record(row, idx, seed_type=seed_type))
                 if len(seeds) >= limit:
                     return
+
+    append_diverse_candidates(accepted_rows, "accepted_train_only")
+    if len(seeds) >= limit:
+        return seeds
 
     append_diverse_candidates(diagnostic_rows, "diagnostic_walkforward")
     if len(seeds) >= limit:
@@ -398,6 +443,8 @@ def order_numeric_neighbors(value: Any, candidates: list[Any], direction: str, z
 
 
 def rescue_mutation_bias(seed: dict[str, Any]) -> str:
+    if seed.get("rescue_seed_type") == "accepted_train_only":
+        return "multiplicity_hardening"
     failures = set(seed.get("rescue_relevant_failures") or seed.get("failed_checks") or [])
     worst = seed.get("worst_year") or {}
     if failures.intersection(ACTIVITY_FAILURES):
@@ -421,6 +468,13 @@ def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2
             return order_numeric_neighbors(base.get(gene), values, "higher")
         if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
             return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
+        if gene == "n_tranches":
+            return order_numeric_neighbors(base.get(gene), values, "higher")
+    if bias == "multiplicity_hardening":
+        if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
+            return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
+        if gene in {"market_filter_h", "market_confirm_h", "rebalance_h", "lookback_h"}:
+            return order_numeric_neighbors(base.get(gene), values, "higher")
         if gene == "n_tranches":
             return order_numeric_neighbors(base.get(gene), values, "higher")
     return values
@@ -473,7 +527,10 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         return neighbors
 
     mutation_bias = rescue_mutation_bias(seed)
-    ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
+    if mutation_bias == "multiplicity_hardening":
+        ordered_genes = [gene for gene in ACCEPTED_TRAIN_ONLY_GENE_ORDER if gene in base and gene in GENE_LADDERS]
+    else:
+        ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
     if mutation_bias == "hostile_year_defensive" and limit > 5:
         single_budget = max(1, int(limit / 3))
     else:
@@ -554,6 +611,7 @@ def build_rescue_plan(
     generation: int = 1,
     excluded_fingerprints: set[str] | frozenset[str] | None = None,
     parent_failure_count_by_config_fingerprint: dict[str, int] | None = None,
+    allow_accepted_train_only: bool = True,
     allow_near_miss: bool = True,
     near_miss_max_failures: int = 3,
     near_miss_min_selection_sharpe20: float = 1.20,
@@ -564,6 +622,7 @@ def build_rescue_plan(
     seeds = select_rescue_seeds(
         rows,
         top_k=top_k,
+        allow_accepted_train_only=allow_accepted_train_only,
         allow_near_miss=allow_near_miss,
         near_miss_max_failures=near_miss_max_failures,
         near_miss_min_selection_sharpe20=near_miss_min_selection_sharpe20,
@@ -601,6 +660,9 @@ def build_rescue_plan(
         planned_seeds.append(seed_out)
     meta = meta or {}
     prior_effective_trials = int(meta.get("effective_trials") or meta.get("prior_trials") or 0)
+    accepted_train_only_seed_count = sum(
+        1 for seed in planned_seeds if seed.get("rescue_seed_type") == "accepted_train_only"
+    )
     diagnostic_seed_count = sum(1 for seed in planned_seeds if seed.get("rescue_seed_type") == "diagnostic_walkforward")
     near_miss_seed_count = sum(1 for seed in planned_seeds if seed.get("rescue_seed_type") == "near_miss_gate")
     seed_family_count = len({tuple((seed.get("rescue_seed_family") or {}).items()) for seed in planned_seeds})
@@ -610,6 +672,7 @@ def build_rescue_plan(
         "source_meta": meta,
         "rescue_generation": generation_int,
         "seed_count": len(planned_seeds),
+        "accepted_train_only_seed_count": accepted_train_only_seed_count,
         "diagnostic_seed_count": diagnostic_seed_count,
         "near_miss_seed_count": near_miss_seed_count,
         "seed_family_count": seed_family_count,
@@ -624,6 +687,7 @@ def build_rescue_plan(
         "rescue_seed_policy": {
             "diagnostic_q25_min": 0.50,
             "diagnostic_sign_min": 0.75,
+            "allow_accepted_train_only": bool(allow_accepted_train_only),
             "allow_near_miss": bool(allow_near_miss),
             "near_miss_max_failures": int(near_miss_max_failures),
             "near_miss_min_selection_sharpe20": float(near_miss_min_selection_sharpe20),
@@ -661,6 +725,9 @@ def write_rescue_artifacts(plan: dict[str, Any], plan_path: Path, config_path: P
         "rescue_config_json": str(config_path),
         "rescue_config_count": int(plan.get("rescue_config_count") or 0),
         "rescue_seed_count": int(plan.get("seed_count") or 0),
+        "accepted_train_only_seed_count": int(plan.get("accepted_train_only_seed_count") or 0),
+        "diagnostic_seed_count": int(plan.get("diagnostic_seed_count") or 0),
+        "near_miss_seed_count": int(plan.get("near_miss_seed_count") or 0),
         "prior_effective_trials": int(plan.get("prior_effective_trials") or 0),
         "effective_trials_after_rescue": int(plan.get("effective_trials_after_rescue") or 0),
     }

@@ -34,6 +34,7 @@ BASE_CONFIG = {
 def row(
     *,
     config: dict | None = None,
+    advance_passed: bool = False,
     diagnostic_q25: float = 0.60,
     diagnostic_sign: float = 0.833,
     diagnostic_triggered: bool = True,
@@ -72,7 +73,7 @@ def row(
     yearly = yearly or {"2021": 0.20, "2022": -0.03, "2023": 0.11, "2024H1": 0.04}
     return {
         "config": dict(config or BASE_CONFIG),
-        "advance_passed": False,
+        "advance_passed": bool(advance_passed),
         "advance_checks": checks,
         "selection": {
             "cost20": {
@@ -114,6 +115,43 @@ def test_select_rescue_seeds_requires_strong_diagnostic_and_full_config() -> Non
     assert seeds[0]["diagnostic_q25_sharpe"] == 0.72
     assert seeds[0]["rescue_seed_type"] == "diagnostic_walkforward"
     assert seeds[0]["worst_year"] == {"bucket": "2022", "net_return": -0.03}
+
+
+def test_select_rescue_seeds_prefers_accepted_train_only_rows_for_multiplicity_hardening() -> None:
+    accepted = row(
+        advance_passed=True,
+        diagnostic_q25=0.10,
+        diagnostic_triggered=False,
+        selection_sharpe=1.45,
+        bootstrap_p5=0.42,
+        failed_checks=(),
+    )
+    diagnostic = row(diagnostic_q25=0.90, validation_sharpe=1.8)
+
+    seeds = select_rescue_seeds([diagnostic, accepted], top_k=2)
+
+    assert [seed["rescue_seed_type"] for seed in seeds] == ["accepted_train_only", "diagnostic_walkforward"]
+    assert seeds[0]["rescue_relevant_failure_count"] == 0
+    assert seeds[0]["selection_bootstrap_p5"] == 0.42
+
+
+def test_generate_rescue_neighbors_hardens_accepted_train_only_seed_for_multiplicity() -> None:
+    accepted = row(
+        advance_passed=True,
+        diagnostic_triggered=False,
+        failed_checks=(),
+        bootstrap_p5=0.42,
+        validation_sharpe=1.5,
+    )
+    seed = select_rescue_seeds([accepted], top_k=1)[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=6)
+
+    assert seed["rescue_seed_type"] == "accepted_train_only"
+    assert len(neighbors) == 6
+    assert neighbors[0]["mutation_bias"] == "multiplicity_hardening"
+    assert neighbors[0]["changed_gene"] == "score_mode"
+    assert neighbors[1]["changed_gene"] == "score_mode"
 
 
 def test_select_rescue_seeds_falls_back_to_active_near_miss_without_diagnostic() -> None:
@@ -385,9 +423,30 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
 
     metadata = write_rescue_artifacts(plan, tmp_path / "plan.json", tmp_path / "configs.json")
     assert metadata["rescue_config_count"] == 10
+    assert metadata["accepted_train_only_seed_count"] == 0
+    assert metadata["diagnostic_seed_count"] == 2
+    assert metadata["near_miss_seed_count"] == 0
     assert metadata["prior_effective_trials"] == 20000
     assert metadata["effective_trials_after_rescue"] == 20010
     assert json.loads((tmp_path / "configs.json").read_text()) == plan["configs"]
+
+
+def test_build_rescue_plan_counts_accepted_train_only_seeds() -> None:
+    accepted = row(advance_passed=True, diagnostic_triggered=False, failed_checks=())
+    near_miss = row(
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+        selection_sharpe=1.55,
+        bootstrap_p5=0.45,
+    )
+
+    plan = build_rescue_plan([near_miss, accepted], top_k=2, budget_per_seed=3)
+
+    assert plan["seed_count"] == 2
+    assert plan["accepted_train_only_seed_count"] == 1
+    assert plan["near_miss_seed_count"] == 1
+    assert plan["rescue_seed_policy"]["allow_accepted_train_only"] is True
+    assert plan["seeds"][0]["rescue_seed_type"] == "accepted_train_only"
 
 
 def test_build_rescue_plan_excludes_cross_generation_fingerprints() -> None:
