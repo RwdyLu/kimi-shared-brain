@@ -15,26 +15,28 @@ plan_mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(plan_mod)
 
 
-def write_artifact(path: Path, *, kind: str, config: dict, row_config: dict) -> None:
+def write_artifact(path: Path, *, kind: str, config: dict, row_config: dict, data: dict | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "kind": kind,
-                "summary": {"accepted_train_only": True, "pass_count": 1, "rows": 1},
-                "symbols": config.get("symbols", []),
-                "config": config,
-                "selection_validation": {"effective_trials": 123, "n_configs_tested": 1},
-                "rows": [{"advance_passed": True, "config": row_config}],
-            }
-        )
-    )
+    payload = {
+        "kind": kind,
+        "summary": {"accepted_train_only": True, "pass_count": 1, "rows": 1},
+        "symbols": config.get("symbols", []),
+        "config": config,
+        "selection_validation": {"effective_trials": 123, "n_configs_tested": 1},
+        "rows": [{"advance_passed": True, "config": row_config}],
+    }
+    if data is not None:
+        payload["data"] = data
+    path.write_text(json.dumps(payload))
 
 
 def test_build_revalidation_plan_groups_xsec_and_tsmom_candidates(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     xsec_artifact = tmp_path / "artifacts/v9/contract_lab/xsec.json"
     tsmom_artifact = tmp_path / "artifacts/v9/contract_lab/tsmom.json"
+    xsec_snapshot = tmp_path / "artifacts/v9/data_snapshots/xsec.parquet"
+    xsec_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    xsec_snapshot.write_text("snapshot")
     write_artifact(
         xsec_artifact,
         kind="xsec_ohlcv_factory_v1_train_only_grid",
@@ -53,6 +55,15 @@ def test_build_revalidation_plan_groups_xsec_and_tsmom_candidates(tmp_path, monk
             "score_mode": "risk_adj_mom",
             "market_filter_h": 1008,
             "vol_target_ann": 0.08,
+        },
+        data={
+            "fingerprint": "snap-xsec",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "snapshot": {
+                "path": str(xsec_snapshot),
+                "fingerprint": "snap-xsec",
+                "source": "unit_test",
+            },
         },
     )
     write_artifact(
@@ -103,11 +114,69 @@ def test_build_revalidation_plan_groups_xsec_and_tsmom_candidates(tmp_path, monk
 
     assert plan["group_count"] == 2
     assert plan["config_count"] == 2
+    assert plan["pinned_group_count"] == 1
     assert plan["holdout_authorized"] is False
     assert plan["paper_trading_authorized"] is False
     assert plan["live_trading_authorized"] is False
     commands = [" ".join(group["command"]) for group in plan["groups"]]
-    assert any("v9.contract.xsec_ohlcv_factory" in command and "--config-list-json" in command for command in commands)
+    assert any(
+        "v9.contract.xsec_ohlcv_factory" in command
+        and "--config-list-json" in command
+        and "--data-snapshot" in command
+        and str(xsec_snapshot) in command
+        for command in commands
+    )
     assert any("v9.contract.tsmom_factory" in command and "core_slow_cost_guard" in command for command in commands)
     for group in plan["groups"]:
         assert Path(group["config_json"]).exists()
+    xsec_group = next(group for group in plan["groups"] if group["module"] == "v9.contract.xsec_ohlcv_factory")
+    assert xsec_group["data_snapshot_path"] == str(xsec_snapshot)
+    assert xsec_group["data_snapshot_fingerprint"] == "snap-xsec"
+
+
+def test_build_revalidation_plan_skips_unpinned_xsec_candidate(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    xsec_artifact = tmp_path / "artifacts/v9/contract_lab/xsec.json"
+    write_artifact(
+        xsec_artifact,
+        kind="xsec_ohlcv_factory_v1_train_only_grid",
+        config={
+            "train_start": "2017-08-01",
+            "train_end": "2024-01-31 23:59:59",
+            "embargo_start": "2024-07-01",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "lookbacks_h": [336],
+        },
+        row_config={
+            "lookback_h": 336,
+            "skip_h": 0,
+            "rebalance_h": 168,
+            "k": 2,
+            "score_mode": "risk_adj_mom",
+            "market_filter_h": 1008,
+            "vol_target_ann": 0.08,
+        },
+    )
+    state = tmp_path / "state.json"
+    state.write_text(
+        json.dumps(
+            {
+                "candidates_found": [
+                    {
+                        "task": "xsec_ohlcv_cont_full_202401_hq_dd_plateau_abc123",
+                        "status": "manual_review_required",
+                        "output_json": str(xsec_artifact),
+                    },
+                ]
+            }
+        )
+    )
+
+    plan = plan_mod.build_revalidation_plan(state, out_dir=tmp_path / "revalidation")
+
+    assert plan["group_count"] == 0
+    assert plan["config_count"] == 0
+    assert plan["pinned_group_count"] == 0
+    assert plan["groups"] == []
+    assert plan["skipped"][0]["reason"] == "missing_data_snapshot"
+    assert plan["skipped"][0]["source_candidates"][0]["task"] == "xsec_ohlcv_cont_full_202401_hq_dd_plateau_abc123"

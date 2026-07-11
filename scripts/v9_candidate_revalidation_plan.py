@@ -19,6 +19,10 @@ from v9.research.task_planner import (  # noqa: E402
     MODULE_BY_PRESET,
     PRESETS,
 )
+from v9.contract.auto_research import maybe_pin_xsec_data_snapshot  # noqa: E402
+
+
+XSEC_MODULE = "v9.contract.xsec_ohlcv_factory"
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -58,6 +62,12 @@ def accepted_configs(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return configs
 
 
+def payload_data_fingerprint(payload: dict[str, Any]) -> str:
+    data = payload.get("data") or {}
+    snapshot = data.get("snapshot") or {}
+    return str(data.get("fingerprint") or snapshot.get("fingerprint") or "")
+
+
 def build_revalidation_plan(
     state_path: Path,
     out_dir: Path = Path("artifacts/v9/revalidation"),
@@ -83,7 +93,7 @@ def build_revalidation_plan(
         if not preset:
             skipped.append({"task": task_name, "reason": "unknown_preset", "output_json": output_json})
             continue
-        module = MODULE_BY_PRESET.get(preset, "v9.contract.xsec_ohlcv_factory")
+        module = MODULE_BY_PRESET.get(preset, XSEC_MODULE)
         cli_preset = CLI_PRESET_BY_PRESET.get(preset, preset)
         configs = accepted_configs(payload)
         if not configs:
@@ -101,6 +111,7 @@ def build_revalidation_plan(
             "symbols": run_cfg.get("symbols") or payload.get("symbols") or [],
             "lookbacks_h": run_cfg.get("lookbacks_h") or [],
             "current_eval_version": current_eval_version(preset),
+            "data_fingerprint": payload_data_fingerprint(payload),
         }
         key = group_fingerprint(key_parts)
         group = groups.setdefault(
@@ -112,8 +123,25 @@ def build_revalidation_plan(
                 "source_candidates": [],
                 "configs": [],
                 "config_fingerprints": set(),
+                "data_snapshot": {},
+                "data_snapshot_errors": [],
             },
         )
+        snapshot_metadata: dict[str, Any] = {}
+        if module == XSEC_MODULE:
+            snapshot_metadata = maybe_pin_xsec_data_snapshot(payload)
+            if snapshot_metadata.get("data_snapshot_path") and snapshot_metadata.get("data_snapshot_fingerprint"):
+                group["data_snapshot"] = snapshot_metadata
+            else:
+                group["data_snapshot_errors"].append(
+                    {
+                        "task": task_name,
+                        "output_json": output_json,
+                        "data_snapshot_error": snapshot_metadata.get("data_snapshot_error") or "missing_data_snapshot",
+                        "data_snapshot_expected_fingerprint": snapshot_metadata.get("data_snapshot_expected_fingerprint"),
+                        "data_snapshot_current_fingerprint": snapshot_metadata.get("data_snapshot_current_fingerprint"),
+                    }
+                )
         group["source_candidates"].append(
             {
                 "task": task_name,
@@ -121,6 +149,10 @@ def build_revalidation_plan(
                 "output_json": output_json,
                 "pass_count": int((payload.get("summary") or {}).get("pass_count") or len(configs)),
                 "artifact_eval_version": (selection_validation.get("cache_version") or selection_validation.get("evaluation_version")),
+                "data_snapshot_path": snapshot_metadata.get("data_snapshot_path"),
+                "data_snapshot_fingerprint": snapshot_metadata.get("data_snapshot_fingerprint"),
+                "data_snapshot_source": snapshot_metadata.get("data_snapshot_source"),
+                "data_snapshot_error": snapshot_metadata.get("data_snapshot_error"),
             }
         )
         for config in configs:
@@ -137,6 +169,28 @@ def build_revalidation_plan(
     for group in sorted(groups.values(), key=lambda row: (row["module"], row["preset"], row["train_end"])):
         configs = group.pop("configs")
         group.pop("config_fingerprints", None)
+        data_snapshot = group.pop("data_snapshot", {}) or {}
+        data_snapshot_errors = group.pop("data_snapshot_errors", []) or []
+        if group["module"] == XSEC_MODULE:
+            if not data_snapshot.get("data_snapshot_path") or not data_snapshot.get("data_snapshot_fingerprint"):
+                skipped.append(
+                    {
+                        "group_id": group["group_id"],
+                        "module": group["module"],
+                        "preset": group["preset"],
+                        "reason": "missing_data_snapshot",
+                        "source_candidates": group["source_candidates"],
+                        "data_snapshot_errors": data_snapshot_errors,
+                    }
+                )
+                continue
+            group.update(
+                {
+                    "data_snapshot_path": str(data_snapshot["data_snapshot_path"]),
+                    "data_snapshot_fingerprint": str(data_snapshot["data_snapshot_fingerprint"]),
+                    "data_snapshot_source": str(data_snapshot.get("data_snapshot_source") or "unknown"),
+                }
+            )
         config_path = out_dir / f"{group['group_id']}_{group['preset']}_configs.json"
         output_stem = f"revalidate_{group['group_id']}_{group['preset']}"
         output_json = f"artifacts/v9/contract_lab/{output_stem}.json"
@@ -146,6 +200,11 @@ def build_revalidation_plan(
             "python3",
             "-m",
             str(group["module"]),
+        ]
+        if group.get("data_snapshot_path"):
+            command.extend(["--data-snapshot", str(group["data_snapshot_path"])])
+        command.extend(
+            [
             "--preset",
             str(group["cli_preset"]),
             "--train-start",
@@ -164,7 +223,8 @@ def build_revalidation_plan(
             output_json,
             "--out-md",
             output_md,
-        ]
+            ]
+        )
         plan_groups.append(
             {
                 **group,
@@ -184,6 +244,7 @@ def build_revalidation_plan(
         "global_prior_trials": max_effective_trials,
         "group_count": len(plan_groups),
         "config_count": sum(group["config_count"] for group in plan_groups),
+        "pinned_group_count": sum(1 for group in plan_groups if group.get("data_snapshot_path")),
         "holdout_authorized": False,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -195,7 +256,7 @@ def build_revalidation_plan(
 def format_text(plan: dict[str, Any]) -> str:
     lines = [
         f"kind={plan['kind']}",
-        f"groups={plan['group_count']} configs={plan['config_count']} global_prior_trials={plan['global_prior_trials']}",
+        f"groups={plan['group_count']} pinned={plan.get('pinned_group_count', 0)} configs={plan['config_count']} global_prior_trials={plan['global_prior_trials']}",
         f"safety=holdout:{plan['holdout_authorized']} paper:{plan['paper_trading_authorized']} live:{plan['live_trading_authorized']}",
     ]
     for group in plan.get("groups", []):
