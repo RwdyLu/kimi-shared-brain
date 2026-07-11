@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -10,6 +11,13 @@ import pandas as pd
 
 from v9.research.candidate_dedupe import dedupe_candidates
 from v9.research.multiplicity import multiplicity_evidence
+
+
+REVIEW_DECISIONS = frozenset({"validate_train_only", "reject"})
+REVIEW_STATUS_BY_DECISION = {
+    "validate_train_only": "validated_train_only",
+    "reject": "rejected_manual_review",
+}
 
 
 def safe_float(value: Any, default: float | None = None) -> float | None:
@@ -24,6 +32,10 @@ def read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text())
+
+
+def canonical_sha1(value: Any) -> str:
+    return hashlib.sha1(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def planned_window_key(row: dict[str, Any]) -> tuple[str, ...] | None:
@@ -204,6 +216,18 @@ def build_manual_review_queue(
             "paper_trading_authorized": False,
             "live_trading_authorized": False,
         }
+        entry["evidence_sha1"] = canonical_sha1(
+            {
+                "identity": entry["identity"],
+                "output_json": entry.get("output_json"),
+                "fingerprint": entry.get("fingerprint"),
+                "data_fingerprint": entry.get("data_fingerprint"),
+                "data_snapshot_fingerprint": entry.get("data_snapshot_fingerprint"),
+                "score": entry.get("score"),
+                "score_components": entry.get("score_components"),
+                "status": entry.get("status"),
+            }
+        )
         if best_record.get("signature"):
             entry["signature"] = best_record["signature"]
         queue.append(entry)
@@ -237,3 +261,204 @@ def write_manual_review_queue(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True))
     return payload
+
+
+def status_counts(candidates: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in candidates:
+        status = str(row.get("status") or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def load_review_decisions(path: Path) -> list[dict[str, Any]]:
+    payload = json.loads(path.read_text())
+    if isinstance(payload, dict):
+        rows = payload.get("decisions") or []
+    else:
+        rows = payload
+    if not isinstance(rows, list):
+        raise ValueError("review decisions must be a list or an object with decisions")
+    return [dict(row) for row in rows]
+
+
+def candidate_ids_for_record(record: dict[str, Any]) -> set[str]:
+    ids = {candidate_identity(record)}
+    for key in ("output_json", "fingerprint", "task"):
+        value = record.get(key)
+        if value:
+            ids.add(str(value))
+    return ids
+
+
+def entry_ids(entry: dict[str, Any]) -> set[str]:
+    ids = {str(entry.get("identity"))}
+    for key in ("output_json", "fingerprint", "task"):
+        value = entry.get(key)
+        if value:
+            ids.add(str(value))
+    return {value for value in ids if value and value != "None"}
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    tmp.replace(path)
+
+
+def apply_review_decisions(state_path: Path, decisions_path: Path, task_results: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    state = read_json(state_path) or {}
+    candidates = list(state.get("candidates_found", []))
+    results = list(task_results if task_results is not None else state.get("task_results", []))
+    queue = build_manual_review_queue(candidates, state_path, results)
+    queue_by_id: dict[str, dict[str, Any]] = {}
+    for entry in queue:
+        for candidate_id in entry_ids(entry):
+            queue_by_id[candidate_id] = entry
+
+    deduped = dedupe_candidates(candidates)
+    record_index_by_id: dict[str, int] = {}
+    for idx, record in enumerate(deduped):
+        for candidate_id in candidate_ids_for_record(record):
+            record_index_by_id.setdefault(candidate_id, idx)
+
+    decisions = load_review_decisions(decisions_path)
+    now = pd.Timestamp.now(tz="UTC").isoformat()
+    applied = 0
+    rows = []
+    before_counts = status_counts(candidates)
+
+    for raw in decisions:
+        candidate_id = str(raw.get("candidate_id") or "")
+        decision = str(raw.get("decision") or "")
+        evidence_sha1 = str(raw.get("evidence_sha1") or "")
+        reviewer = str(raw.get("reviewer") or "")
+        rationale = str(raw.get("rationale") or "").strip()
+        row = {
+            "candidate_id": candidate_id,
+            "decision": decision,
+            "applied": False,
+            "reason": "",
+        }
+        if not candidate_id:
+            row["reason"] = "missing_candidate_id"
+            rows.append(row)
+            continue
+        if decision not in REVIEW_DECISIONS:
+            row["reason"] = "invalid_decision"
+            rows.append(row)
+            continue
+        if not reviewer:
+            row["reason"] = "missing_reviewer"
+            rows.append(row)
+            continue
+        if not rationale:
+            row["reason"] = "missing_rationale"
+            rows.append(row)
+            continue
+
+        record_idx = record_index_by_id.get(candidate_id)
+        if record_idx is None:
+            row["reason"] = "unknown_candidate"
+            rows.append(row)
+            continue
+        record = candidates[record_idx]
+        target_status = REVIEW_STATUS_BY_DECISION[decision]
+        if record.get("status") == target_status and record.get("review_evidence_sha1") == evidence_sha1:
+            row["reason"] = "already_applied"
+            row["applied"] = False
+            rows.append(row)
+            continue
+
+        entry = queue_by_id.get(candidate_id)
+        if not entry:
+            row["reason"] = "not_in_manual_review_queue"
+            row["current_status"] = record.get("status")
+            rows.append(row)
+            continue
+        row["queue_identity"] = entry.get("identity")
+        row["expected_evidence_sha1"] = entry.get("evidence_sha1")
+        if evidence_sha1 != entry.get("evidence_sha1"):
+            row["reason"] = "stale_evidence"
+            rows.append(row)
+            continue
+        if record.get("status") != "manual_review_required":
+            row["reason"] = "not_manual_review_required"
+            row["current_status"] = record.get("status")
+            rows.append(row)
+            continue
+
+        record["status"] = target_status
+        record["review_decision"] = decision
+        record["reviewed_by"] = reviewer
+        record["reviewed_at"] = now
+        record["review_rationale"] = rationale
+        record["review_evidence_sha1"] = evidence_sha1
+        record["decision_policy"] = "human_review_v1"
+        record["holdout_authorized"] = False
+        record["paper_trading_authorized"] = False
+        record["live_trading_authorized"] = False
+        row["applied"] = True
+        row["reason"] = "applied"
+        row["new_status"] = target_status
+        applied += 1
+        rows.append(row)
+
+    if applied:
+        state["candidates_found"] = candidates
+        state["candidates_found_total"] = len(candidates)
+        state["manual_review_decision_updated_at"] = now
+        state["holdout_authorized"] = False
+        state["paper_trading_authorized"] = False
+        state["live_trading_authorized"] = False
+        atomic_write_json(state_path, state)
+
+    return {
+        "kind": "v9_manual_review_decision_report",
+        "generated_at": now,
+        "source_state": str(state_path),
+        "decisions_path": str(decisions_path),
+        "decision_policy": "human_review_v1",
+        "applied_count": applied,
+        "decision_count": len(decisions),
+        "status_counts_before": before_counts,
+        "status_counts_after": status_counts(candidates),
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+        "decisions": rows,
+    }
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Manual review triage and decision applicator")
+    sub = parser.add_subparsers(dest="command", required=True)
+    queue = sub.add_parser("queue", help="write manual review queue")
+    queue.add_argument("--state", default="state/v9_auto_research_state.json")
+    queue.add_argument("--out", default="state/manual_review_queue.json")
+    apply = sub.add_parser("apply-decisions", help="apply human review decisions with evidence hash checks")
+    apply.add_argument("--state", default="state/v9_auto_research_state.json")
+    apply.add_argument("--decisions", default="control/review_decisions.json")
+    apply.add_argument("--out", default="state/review_decision_report.json")
+    return parser
+
+
+def main() -> None:
+    args = build_arg_parser().parse_args()
+    if args.command == "queue":
+        payload = write_manual_review_queue(Path(args.out), state_path=Path(args.state))
+    elif args.command == "apply-decisions":
+        state_path = Path(args.state)
+        payload = apply_review_decisions(state_path, Path(args.decisions))
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        write_manual_review_queue(state_path.parent / "manual_review_queue.json", state_path=state_path)
+    else:  # pragma: no cover
+        raise SystemExit(f"unknown command: {args.command}")
+    print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
