@@ -73,6 +73,28 @@ def crash_matrix(periods: int = 96) -> pd.DataFrame:
     )
 
 
+def regime_rollover_matrix(periods: int = 80) -> pd.DataFrame:
+    dt = pd.date_range("2020-01-01", periods=periods, freq="1h", tz="UTC")
+    values = []
+    for idx in range(periods):
+        if idx < periods - 4:
+            values.append(100.0 + idx)
+        else:
+            values.append(values[-1] - 1.0)
+    return pd.DataFrame({"dt": dt, "AAA": values, "BBB": values, "CCC": values, "DDD": values})
+
+
+def market_drawdown_matrix(periods: int = 60) -> pd.DataFrame:
+    dt = pd.date_range("2020-01-01", periods=periods, freq="1h", tz="UTC")
+    values = []
+    for idx in range(periods):
+        if idx < 36:
+            values.append(100.0 + idx * 2.0)
+        else:
+            values.append(values[-1] - 3.0)
+    return pd.DataFrame({"dt": dt, "AAA": values, "BBB": values, "CCC": values, "DDD": values})
+
+
 def test_long_only_weights_are_cash_or_gross_one() -> None:
     row = pd.Series({"AAA": 3.0, "BBB": 2.0, "CCC": 1.0})
     cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=2, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
@@ -99,7 +121,11 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
               "score_mode": "risk_adj_mom",
               "market_filter_h": 1008,
               "vol_target_ann": 0.06,
-              "n_tranches": 3
+              "n_tranches": 3,
+              "drawdown_stop": 0.10,
+              "cooldown_h": 168,
+              "market_confirm_h": 336,
+              "market_drawdown_limit": 0.25
             }
           ]
         }
@@ -118,6 +144,10 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
             market_filter_h=1008,
             vol_target_ann=0.06,
             n_tranches=3,
+            drawdown_stop=0.10,
+            cooldown_h=168,
+            market_confirm_h=336,
+            market_drawdown_limit=0.25,
         ),
     )
 
@@ -142,6 +172,8 @@ def test_breakout_presets_sweep_stop_enabled_configs() -> None:
 
     assert cfg.drawdown_stops == (0.10, 0.15)
     assert cfg.cooldowns_h == (168,)
+    assert cfg.market_confirm_hs == (168,)
+    assert cfg.market_drawdown_limits == (0.25,)
 
 
 def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
@@ -169,6 +201,42 @@ def test_market_filter_turns_off_when_market_momentum_is_negative() -> None:
     assert not bool(allowed.iloc[-1])
 
 
+def test_market_filter_requires_shorter_confirmation_when_configured() -> None:
+    data = regime_rollover_matrix()
+    base = OhlcvConfig(lookback_h=8, skip_h=0, rebalance_h=4, k=2, score_mode="mom", market_filter_h=20, vol_target_ann=0.0)
+    guarded = OhlcvConfig(
+        lookback_h=8,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=20,
+        vol_target_ann=0.0,
+        market_confirm_h=4,
+    )
+
+    assert bool(market_filter(data, base).iloc[-1])
+    assert not bool(market_filter(data, guarded).iloc[-1])
+
+
+def test_market_filter_blocks_large_market_drawdown() -> None:
+    data = market_drawdown_matrix()
+    base = OhlcvConfig(lookback_h=20, skip_h=0, rebalance_h=4, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    guarded = OhlcvConfig(
+        lookback_h=20,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        market_drawdown_limit=0.20,
+    )
+
+    assert bool(market_filter(data, base).iloc[-1])
+    assert not bool(market_filter(data, guarded).iloc[-1])
+
+
 def test_simulate_reports_gate_inputs() -> None:
     cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=4, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
     result20 = simulate(close_matrix(120), cfg, cost_bps=20.0, bootstrap_iterations=10)
@@ -182,6 +250,28 @@ def test_simulate_reports_gate_inputs() -> None:
     assert result20["avg_short_exposure"] == 0
     assert result20["legs"]["avg_long_exposure"] == result20["avg_long_exposure"]
     assert result20["legs"]["short_gross_return"] == 0
+
+
+def test_simulate_reports_market_regime_diagnostics() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=8,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=20,
+        vol_target_ann=0.0,
+        market_confirm_h=4,
+        market_drawdown_limit=0.25,
+    )
+    result = simulate(regime_rollover_matrix(120), cfg, cost_bps=20.0, bootstrap_iterations=0)
+
+    regime = result["market_regime"]
+    assert regime["primary_filter_h"] == 20
+    assert regime["confirm_h"] == 4
+    assert regime["drawdown_limit"] == 0.25
+    assert 0.0 <= regime["allowed_frac"] <= 1.0
+    assert regime["allowed_frac"] <= regime["primary_allowed_frac"]
 
 
 def test_simulate_drawdown_stop_forces_flat_and_charges_exit_cost() -> None:

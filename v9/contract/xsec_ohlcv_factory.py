@@ -35,6 +35,8 @@ class OhlcvConfig:
     n_tranches: int = 1
     drawdown_stop: float = 0.0
     cooldown_h: int = 0
+    market_confirm_h: int = 0
+    market_drawdown_limit: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,8 @@ class RunConfig:
     n_tranches: tuple[int, ...] = (1,)
     drawdown_stops: tuple[float, ...] = (0.0,)
     cooldowns_h: tuple[int, ...] = (0,)
+    market_confirm_hs: tuple[int, ...] = (0,)
+    market_drawdown_limits: tuple[float, ...] = (0.0,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -179,6 +183,8 @@ def config_for_preset(
             vol_targets_ann=(0.08, 0.10, 0.12),
             drawdown_stops=(0.10, 0.15),
             cooldowns_h=(168,),
+            market_confirm_hs=(168,),
+            market_drawdown_limits=(0.25,),
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
@@ -193,6 +199,8 @@ def config_for_preset(
             vol_targets_ann=(0.05, 0.06, 0.08),
             drawdown_stops=(0.10, 0.15),
             cooldowns_h=(168,),
+            market_confirm_hs=(336,),
+            market_drawdown_limits=(0.25,),
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
@@ -267,6 +275,8 @@ def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
         n_tranches=int(raw.get("n_tranches", 1)),
         drawdown_stop=float(raw.get("drawdown_stop", 0.0)),
         cooldown_h=int(raw.get("cooldown_h", 0)),
+        market_confirm_h=int(raw.get("market_confirm_h", 0)),
+        market_drawdown_limit=float(raw.get("market_drawdown_limit", 0.0)),
     )
 
 
@@ -310,13 +320,46 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
     raise ValueError(f"unknown score mode: {cfg.score_mode}")
 
 
-def market_filter(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.Series:
-    if cfg.market_filter_h <= 0:
-        return pd.Series([True] * len(closes), index=closes.index)
+def market_drawdown_window_h(cfg: OhlcvConfig) -> int:
+    if cfg.market_drawdown_limit <= 0.0:
+        return 0
+    return max(2, int(max(cfg.market_filter_h, cfg.market_confirm_h, cfg.lookback_h)))
+
+
+def market_filter_components(closes: pd.DataFrame, cfg: OhlcvConfig) -> dict[str, pd.Series]:
+    base = pd.Series([True] * len(closes), index=closes.index)
     prices = closes.drop(columns=["dt"])
     market = prices.mean(axis=1)
-    market_mom = market.shift(cfg.skip_h) / market.shift(cfg.skip_h + cfg.market_filter_h) - 1.0
-    return (market_mom > 0.0).fillna(False)
+    shifted_market = market.shift(cfg.skip_h)
+    if cfg.market_filter_h > 0:
+        primary_mom = shifted_market / market.shift(cfg.skip_h + cfg.market_filter_h) - 1.0
+        primary_allowed = (primary_mom > 0.0).fillna(False)
+    else:
+        primary_allowed = base
+    if cfg.market_confirm_h > 0:
+        confirm_mom = shifted_market / market.shift(cfg.skip_h + cfg.market_confirm_h) - 1.0
+        confirm_allowed = (confirm_mom > 0.0).fillna(False)
+    else:
+        confirm_allowed = base
+    dd_window = market_drawdown_window_h(cfg)
+    if dd_window > 0:
+        min_periods = max(2, min(dd_window, dd_window // 4))
+        rolling_peak = shifted_market.rolling(dd_window, min_periods=min_periods).max()
+        market_dd = 1.0 - shifted_market / rolling_peak
+        drawdown_allowed = (market_dd <= cfg.market_drawdown_limit).fillna(False)
+    else:
+        drawdown_allowed = base
+    allowed = (primary_allowed & confirm_allowed & drawdown_allowed).fillna(False)
+    return {
+        "allowed": allowed,
+        "primary_allowed": primary_allowed,
+        "confirm_allowed": confirm_allowed,
+        "drawdown_allowed": drawdown_allowed,
+    }
+
+
+def market_filter(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.Series:
+    return market_filter_components(closes, cfg)["allowed"]
 
 
 def long_only_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bool) -> dict[str, float] | None:
@@ -507,7 +550,8 @@ def simulate(
     if phase_offset_h < 0:
         raise ValueError("phase_offset_h must be >= 0")
     scores = score_matrix(closes, cfg)
-    allowed = market_filter(closes, cfg)
+    regime_components = market_filter_components(closes, cfg)
+    allowed = regime_components["allowed"]
     returns = closes[symbols].pct_change().shift(-1)
     weights = {sym: 0.0 for sym in symbols}
     tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
@@ -611,6 +655,12 @@ def simulate(
 
     ret = pd.DataFrame(rows).set_index("dt")
     reb = pd.DataFrame(rebalances).set_index("dt")
+    regime_len = len(ret)
+
+    def regime_fraction(name: str) -> float:
+        series = regime_components[name].iloc[:regime_len]
+        return float(series.mean()) if len(series) else 0.0
+
     period_returns = (1.0 + ret["net_return"]).resample(f"{cfg.rebalance_h}h").prod() - 1.0
     daily_returns = (1.0 + ret["net_return"]).resample("1D").prod() - 1.0
     long_period_returns = (1.0 + ret["long_gross_return"]).resample(f"{cfg.rebalance_h}h").prod() - 1.0
@@ -658,6 +708,16 @@ def simulate(
         "risk_off_max_gross_exposure": float(ret.loc[ret["risk_off"], "gross_exposure"].max()) if len(ret) and bool(ret["risk_off"].any()) else 0.0,
         "risk_stop_exit_cost": float(risk_stop_exit_cost),
         "risk_stop_exit_turnover": float(risk_stop_exit_turnover),
+        "market_regime": {
+            "primary_filter_h": int(cfg.market_filter_h),
+            "confirm_h": int(cfg.market_confirm_h),
+            "drawdown_window_h": int(market_drawdown_window_h(cfg)),
+            "drawdown_limit": float(cfg.market_drawdown_limit),
+            "allowed_frac": regime_fraction("allowed"),
+            "primary_allowed_frac": regime_fraction("primary_allowed"),
+            "confirm_allowed_frac": regime_fraction("confirm_allowed"),
+            "drawdown_allowed_frac": regime_fraction("drawdown_allowed"),
+        },
         "yearly": by_year,
         "yearly_positive_count": yearly_positive,
         "symbol_pnl": symbol_pnl,
@@ -726,7 +786,13 @@ def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_m
 
 
 def min_rows_for_config(cfg: OhlcvConfig) -> int:
-    return max(cfg.lookback_h + cfg.skip_h + cfg.rebalance_h + 24, cfg.market_filter_h + 24, 240)
+    return max(
+        cfg.lookback_h + cfg.skip_h + cfg.rebalance_h + 24,
+        cfg.market_filter_h + 24,
+        cfg.market_confirm_h + 24,
+        market_drawdown_window_h(cfg) + 24,
+        240,
+    )
 
 
 def walk_forward_summary(
@@ -845,6 +911,8 @@ def leave_one_symbol_summary(
             n_tranches=cfg.n_tranches,
             drawdown_stop=cfg.drawdown_stop,
             cooldown_h=cfg.cooldown_h,
+            market_confirm_h=cfg.market_confirm_h,
+            market_drawdown_limit=cfg.market_drawdown_limit,
         )
         result = simulate(frame, test_cfg, cost_bps, bootstrap_iterations=0)
         rows.append(
@@ -982,11 +1050,17 @@ def split_selection_validation(closes: pd.DataFrame, cfg: OhlcvConfig, selection
         raise ValueError("selection_frac must be between 0.50 and 0.90")
     split_idx = max(1, min(len(closes) - 2, int(len(closes) * selection_frac)))
     split_dt = pd.Timestamp(closes["dt"].iloc[split_idx])
-    purge_h = max(int(cfg.lookback_h + cfg.skip_h), int(cfg.rebalance_h), int(cfg.market_filter_h))
+    purge_h = max(
+        int(cfg.lookback_h + cfg.skip_h),
+        int(cfg.rebalance_h),
+        int(cfg.market_filter_h),
+        int(cfg.market_confirm_h),
+        int(market_drawdown_window_h(cfg)),
+    )
     validation_start = split_dt + pd.Timedelta(hours=purge_h)
     selection = closes.loc[closes["dt"] <= split_dt].copy().reset_index(drop=True)
     validation = closes.loc[closes["dt"] >= validation_start].copy().reset_index(drop=True)
-    min_validation_rows = max(cfg.lookback_h + cfg.skip_h + cfg.rebalance_h + 24, cfg.market_filter_h + 24, 240)
+    min_validation_rows = min_rows_for_config(cfg)
     meta = {
         "selection_start": selection["dt"].iloc[0].isoformat() if len(selection) else None,
         "selection_end": selection["dt"].iloc[-1].isoformat() if len(selection) else None,
@@ -1011,8 +1085,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
         grid = [
-            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd)
-            for l, s, r, k, mode, mf, vt, nt, dd, cd in itertools.product(
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl)
+            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl in itertools.product(
                 cfg.lookbacks_h,
                 cfg.skips_h,
                 cfg.rebalances_h,
@@ -1023,6 +1097,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 cfg.n_tranches,
                 cfg.drawdown_stops,
                 cfg.cooldowns_h,
+                cfg.market_confirm_hs,
+                cfg.market_drawdown_limits,
             )
         ]
     n_trials = len(grid)
@@ -1320,7 +1396,11 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         diagnostic_walk_forward = row.get("diagnostic_walk_forward", {}) or {}
         leave_one_symbol = row.get("leave_one_symbol", {}) or {}
         bench = c20["equal_weight_benchmark"]
-        label = "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_MF{market_filter_h}_VT{vol_target_ann}_NT{n_tranches}".format(**cfg)
+        label = (
+            "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_"
+            "MF{market_filter_h}_MC{market_confirm_h}_MD{market_drawdown_limit}_"
+            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}"
+        ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
                 label,
@@ -1400,6 +1480,10 @@ def main() -> None:
             market_filters_h=cfg.market_filters_h,
             vol_targets_ann=cfg.vol_targets_ann,
             n_tranches=cfg.n_tranches,
+            drawdown_stops=cfg.drawdown_stops,
+            cooldowns_h=cfg.cooldowns_h,
+            market_confirm_hs=cfg.market_confirm_hs,
+            market_drawdown_limits=cfg.market_drawdown_limits,
             costs_bps=cfg.costs_bps,
             stress_costs_bps=cfg.stress_costs_bps,
             validate_all_rows=cfg.validate_all_rows,

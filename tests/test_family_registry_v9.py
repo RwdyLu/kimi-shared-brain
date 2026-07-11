@@ -13,6 +13,8 @@ def artifact_payload(
     status: str = "manual_review_required",
     drawdown_stop: float = 0.0,
     cooldown_h: int = 0,
+    market_confirm_h: int = 0,
+    market_drawdown_limit: float = 0.0,
 ) -> tuple[dict, dict]:
     payload = {
         "kind": "xsec_ohlcv_factory_v1_train_only_grid",
@@ -29,6 +31,8 @@ def artifact_payload(
                     "n_tranches": 1,
                     "drawdown_stop": drawdown_stop,
                     "cooldown_h": cooldown_h,
+                    "market_confirm_h": market_confirm_h,
+                    "market_drawdown_limit": market_drawdown_limit,
                 },
                 "selection": {"cost40": {"sharpe": 2.0}},
             }
@@ -59,6 +63,17 @@ def test_family_fingerprint_separates_risk_stop_families() -> None:
     assert normalized_family_payload(no_stop)["drawdown_stop_bucket"] == "none"
     assert normalized_family_payload(stopped)["drawdown_stop_bucket"] == "tight"
     assert family_fingerprint(no_stop, "a.json") != family_fingerprint(stopped, "b.json")
+
+
+def test_family_fingerprint_separates_regime_guard_families() -> None:
+    base, _ = artifact_payload()
+    guarded, _ = artifact_payload(market_confirm_h=336, market_drawdown_limit=0.25)
+
+    assert normalized_family_payload(base)["market_confirm_bucket"] == "none"
+    assert normalized_family_payload(base)["market_drawdown_limit_bucket"] == "none"
+    assert normalized_family_payload(guarded)["market_confirm_bucket"] == "medium"
+    assert normalized_family_payload(guarded)["market_drawdown_limit_bucket"] == "medium"
+    assert family_fingerprint(base, "a.json") != family_fingerprint(guarded, "b.json")
 
 
 def test_registry_queue_allows_only_first_non_rejected_family() -> None:

@@ -81,6 +81,16 @@ def bucket_hours(value: Any) -> str:
     return "ultra"
 
 
+def bucket_optional_hours(value: Any) -> str:
+    try:
+        hours = float(value or 0.0)
+    except (TypeError, ValueError):
+        return "unknown"
+    if hours <= 0.0:
+        return "none"
+    return bucket_hours(hours)
+
+
 def bucket_drawdown_stop(value: Any) -> str:
     try:
         stop = float(value or 0.0)
@@ -92,6 +102,22 @@ def bucket_drawdown_stop(value: Any) -> str:
         return "tight"
     if stop <= 0.15:
         return "medium"
+    return "wide"
+
+
+def bucket_market_drawdown_limit(value: Any) -> str:
+    try:
+        limit = float(value or 0.0)
+    except (TypeError, ValueError):
+        return "unknown"
+    if limit <= 0.0:
+        return "none"
+    if limit <= 0.20:
+        return "tight"
+    if limit <= 0.25:
+        return "medium"
+    if limit <= 0.35:
+        return "loose"
     return "wide"
 
 
@@ -120,6 +146,8 @@ def normalized_family_payload(payload: dict[str, Any], artifact: str = "") -> di
         "side": str(config.get("side") or ("long_only" if kind == "xsec_ohlcv" else "unknown")),
         "lookback_bucket": bucket_hours(primary_lookback),
         "market_filter_bucket": bucket_hours(config.get("market_filter_h")),
+        "market_confirm_bucket": bucket_optional_hours(config.get("market_confirm_h")),
+        "market_drawdown_limit_bucket": bucket_market_drawdown_limit(config.get("market_drawdown_limit")),
         "rebalance_h": int(config.get("rebalance_h") or 0),
         "n_tranches": int(config.get("n_tranches") or 1),
         "drawdown_stop_bucket": bucket_drawdown_stop(config.get("drawdown_stop")),
