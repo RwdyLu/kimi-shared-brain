@@ -13,7 +13,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from .triage import write_manual_review_queue
+from .triage import write_manual_review_dossier, write_manual_review_queue
 from .report import write_json
 from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows, summarize
 from scripts.v9_tsmom_family_review import build_review as build_tsmom_family_review
@@ -1057,6 +1057,15 @@ def write_manual_review_queue_for_state(
         candidates_found,
         state_path,
         task_results=task_results,
+    )
+    write_manual_review_dossier(
+        state_path.parent / "manual_review_dossier.json",
+        candidates_found,
+        state_path,
+        task_results=task_results,
+        draft_path=state_path.parent / "review_decisions_draft.json",
+        markdown_path=state_path.parent / "manual_review_dossier.md",
+        limit=5,
     )
 
 

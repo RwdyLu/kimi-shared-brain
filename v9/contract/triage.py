@@ -263,6 +263,247 @@ def write_manual_review_queue(
     return payload
 
 
+def lookup_task_results(task_results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for result in task_results:
+        for key in ("task", "output_json"):
+            value = result.get(key)
+            if value:
+                lookup.setdefault(str(value), result)
+    return lookup
+
+
+def parse_date_prefix(value: Any) -> pd.Timestamp | None:
+    if value is None:
+        return None
+    try:
+        return pd.Timestamp(str(value)[:10], tz="UTC")
+    except (TypeError, ValueError):
+        return None
+
+
+def train_window_review(planned: dict[str, Any], holdout_start: str) -> dict[str, Any]:
+    train_end = parse_date_prefix(planned.get("train_end"))
+    embargo_start = parse_date_prefix(planned.get("embargo_start"))
+    holdout_start_ts = parse_date_prefix(holdout_start)
+    if train_end is None or embargo_start is None or holdout_start_ts is None:
+        status = "missing_train_window"
+        disjoint = False
+    elif train_end >= holdout_start_ts or embargo_start > holdout_start_ts:
+        status = "train_holdout_overlap"
+        disjoint = False
+    else:
+        status = "disjoint"
+        disjoint = True
+    return {
+        "train_start": planned.get("train_start"),
+        "train_end": planned.get("train_end"),
+        "embargo_start": planned.get("embargo_start"),
+        "holdout_start": holdout_start,
+        "status": status,
+        "disjoint": disjoint,
+    }
+
+
+def dossier_risk_flags(entry: dict[str, Any], result: dict[str, Any], window: dict[str, Any]) -> tuple[list[str], list[str]]:
+    components = entry.get("score_components") or {}
+    hard = []
+    soft = []
+    if not window.get("disjoint"):
+        hard.append(str(window.get("status") or "missing_train_window"))
+    if components.get("adjusted_p_value") is None:
+        hard.append("missing_adjusted_p_value")
+    elif float(components.get("adjusted_p_value") or 1.0) > 0.05:
+        hard.append("weak_adjusted_p_value")
+    if components.get("multiplicity_decision") != "multiplicity_survivor":
+        hard.append("not_multiplicity_survivor")
+    max_drawdown = safe_float(components.get("max_drawdown"))
+    if max_drawdown is None:
+        soft.append("missing_drawdown")
+    elif max_drawdown > 0.25:
+        hard.append("drawdown_above_25pct")
+    elif max_drawdown > 0.20:
+        soft.append("drawdown_above_20pct")
+    if int(components.get("replication_count") or 0) < 2:
+        soft.append("single_replication")
+    if not entry.get("data_snapshot_fingerprint"):
+        soft.append("missing_data_snapshot")
+    if not components.get("no_drift_history"):
+        soft.append("drift_history_missing_or_unclear")
+    if str(result.get("status") or "") != "accepted_train_only_candidate_found":
+        soft.append("source_result_not_accepted_train_only")
+    return hard, soft
+
+
+def dossier_rationale(entry: dict[str, Any], hard_flags: list[str], soft_flags: list[str]) -> str:
+    components = entry.get("score_components") or {}
+    return (
+        "Reviewed train-only candidate. "
+        f"score={entry.get('score')} "
+        f"adjusted_p={components.get('adjusted_p_value')} "
+        f"replication_count={components.get('replication_count')} "
+        f"max_drawdown={components.get('max_drawdown')} "
+        f"hard_flags={hard_flags} soft_flags={soft_flags}. "
+        "Decision is human review only and does not authorize holdout, paper, or live trading."
+    )
+
+
+def build_manual_review_dossier(
+    candidates_found: list[dict[str, Any]] | None = None,
+    state_path: Path | None = None,
+    task_results: list[dict[str, Any]] | None = None,
+    *,
+    limit: int = 5,
+    holdout_start: str = "2024-07-01",
+) -> dict[str, Any]:
+    state = read_json(state_path) if state_path is not None else None
+    candidates = list(candidates_found if candidates_found is not None else (state or {}).get("candidates_found", []))
+    results = list(task_results if task_results is not None else (state or {}).get("task_results", []))
+    queue = build_manual_review_queue(candidates, state_path, results)
+    results_by_key = lookup_task_results(results)
+    entries = []
+    draft_decisions = []
+    for rank, entry in enumerate(queue[: max(0, limit)], 1):
+        result = results_by_key.get(str(entry.get("task") or "")) or results_by_key.get(str(entry.get("output_json") or "")) or {}
+        planned = result.get("planned_task") or {}
+        window = train_window_review(planned, holdout_start)
+        hard_flags, soft_flags = dossier_risk_flags(entry, result, window)
+        recommended_decision = "reject" if hard_flags else "validate_train_only"
+        rationale_template = dossier_rationale(entry, hard_flags, soft_flags)
+        draft = {
+            "candidate_id": entry.get("identity"),
+            "evidence_sha1": entry.get("evidence_sha1"),
+            "decision": None,
+            "recommended_decision": recommended_decision,
+            "reviewer": "",
+            "rationale": "",
+            "rationale_template": rationale_template,
+            "human_must_fill_reviewer_and_rationale": True,
+        }
+        draft_decisions.append(draft)
+        entries.append(
+            {
+                "rank": rank,
+                "candidate_id": entry.get("identity"),
+                "evidence_sha1": entry.get("evidence_sha1"),
+                "recommended_decision": recommended_decision,
+                "hard_flags": hard_flags,
+                "soft_flags": soft_flags,
+                "human_action_required": True,
+                "draft_is_not_apply_ready": True,
+                "train_window": window,
+                "queue_entry": entry,
+                "draft_decision": draft,
+            }
+        )
+    return {
+        "kind": "v9_manual_review_dossier",
+        "generated_at": pd.Timestamp.now(tz="UTC").isoformat(),
+        "source_state": str(state_path) if state_path else None,
+        "holdout_start": holdout_start,
+        "queue_entry_count": len(queue),
+        "selected_count": len(entries),
+        "human_action_required": True,
+        "draft_is_not_apply_ready": True,
+        "instructions": (
+            "Review entries, then create control/review_decisions.json manually with reviewer and rationale. "
+            "This dossier does not authorize holdout, paper trading, or live trading."
+        ),
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+        "entries": entries,
+        "draft_decisions": draft_decisions,
+    }
+
+
+def format_manual_review_dossier_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# V9 Manual Review Dossier",
+        "",
+        f"generated_at: `{payload.get('generated_at')}`",
+        f"source_state: `{payload.get('source_state')}`",
+        f"queue_entry_count: `{payload.get('queue_entry_count')}`",
+        f"selected_count: `{payload.get('selected_count')}`",
+        f"holdout_authorized: `{payload.get('holdout_authorized')}`",
+        f"paper_trading_authorized: `{payload.get('paper_trading_authorized')}`",
+        f"live_trading_authorized: `{payload.get('live_trading_authorized')}`",
+        "",
+        (
+            "This dossier is not apply-ready. A human must write "
+            "`control/review_decisions.json` with a decision, reviewer, and rationale."
+        ),
+        "",
+        "| rank | recommended | score | adjusted p | dd | rep | train window | hard flags | soft flags | candidate | evidence |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
+    ]
+    for row in payload.get("entries") or []:
+        entry = row.get("queue_entry") or {}
+        comp = entry.get("score_components") or {}
+        window = row.get("train_window") or {}
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(row.get("rank")),
+                    str(row.get("recommended_decision")),
+                    str(entry.get("score")),
+                    str(comp.get("adjusted_p_value")),
+                    str(comp.get("max_drawdown")),
+                    str(comp.get("replication_count")),
+                    str(window.get("status")),
+                    ",".join(row.get("hard_flags") or []) or "none",
+                    ",".join(row.get("soft_flags") or []) or "none",
+                    f"`{row.get('candidate_id')}`",
+                    f"`{row.get('evidence_sha1')}`",
+                ]
+            )
+            + " |"
+        )
+    lines.extend(["", "## Instructions", "", str(payload.get("instructions") or "")])
+    return "\n".join(lines)
+
+
+def write_manual_review_dossier(
+    path: Path,
+    candidates_found: list[dict[str, Any]] | None = None,
+    state_path: Path | None = None,
+    task_results: list[dict[str, Any]] | None = None,
+    *,
+    draft_path: Path | None = None,
+    markdown_path: Path | None = None,
+    limit: int = 5,
+    holdout_start: str = "2024-07-01",
+) -> dict[str, Any]:
+    payload = build_manual_review_dossier(
+        candidates_found,
+        state_path,
+        task_results,
+        limit=limit,
+        holdout_start=holdout_start,
+    )
+    atomic_write_json(path, payload)
+    if draft_path is not None:
+        atomic_write_json(
+            draft_path,
+            {
+                "kind": "v9_review_decisions_draft",
+                "generated_at": payload["generated_at"],
+                "source_dossier": str(path),
+                "human_action_required": True,
+                "draft_is_not_apply_ready": True,
+                "holdout_authorized": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+                "decisions": payload["draft_decisions"],
+            },
+        )
+    if markdown_path is not None:
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(format_manual_review_dossier_markdown(payload) + "\n")
+    return payload
+
+
 def status_counts(candidates: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in candidates:
@@ -437,6 +678,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     queue = sub.add_parser("queue", help="write manual review queue")
     queue.add_argument("--state", default="state/v9_auto_research_state.json")
     queue.add_argument("--out", default="state/manual_review_queue.json")
+    dossier = sub.add_parser("dossier", help="write manual review dossier and non-applicable decision draft")
+    dossier.add_argument("--state", default="state/v9_auto_research_state.json")
+    dossier.add_argument("--out", default="state/manual_review_dossier.json")
+    dossier.add_argument("--draft-out", default="state/review_decisions_draft.json")
+    dossier.add_argument("--md-out", default="state/manual_review_dossier.md")
+    dossier.add_argument("--limit", type=int, default=5)
+    dossier.add_argument("--holdout-start", default="2024-07-01")
     apply = sub.add_parser("apply-decisions", help="apply human review decisions with evidence hash checks")
     apply.add_argument("--state", default="state/v9_auto_research_state.json")
     apply.add_argument("--decisions", default="control/review_decisions.json")
@@ -448,6 +696,15 @@ def main() -> None:
     args = build_arg_parser().parse_args()
     if args.command == "queue":
         payload = write_manual_review_queue(Path(args.out), state_path=Path(args.state))
+    elif args.command == "dossier":
+        payload = write_manual_review_dossier(
+            Path(args.out),
+            state_path=Path(args.state),
+            draft_path=Path(args.draft_out),
+            markdown_path=Path(args.md_out),
+            limit=args.limit,
+            holdout_start=args.holdout_start,
+        )
     elif args.command == "apply-decisions":
         state_path = Path(args.state)
         payload = apply_review_decisions(state_path, Path(args.decisions))
