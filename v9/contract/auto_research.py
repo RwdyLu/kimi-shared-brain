@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from .triage import write_manual_review_queue
 from .report import write_json
 from scripts.v9_xsec_diagnostic_walkforward_report import format_text, load_rows, summarize
 from scripts.v9_tsmom_family_review import build_review as build_tsmom_family_review
@@ -1046,6 +1047,19 @@ def sync_internal_candidate_marker(path: Path, candidates_found: list[dict[str, 
         path.write_text("none\n")
 
 
+def write_manual_review_queue_for_state(
+    state_path: Path,
+    candidates_found: list[dict[str, Any]],
+    task_results: list[dict[str, Any]],
+) -> None:
+    write_manual_review_queue(
+        state_path.parent / "manual_review_queue.json",
+        candidates_found,
+        state_path,
+        task_results=task_results,
+    )
+
+
 def write_latest_summary(path: Path, status: str, reason: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{pd.Timestamp.now(tz='UTC').isoformat()} status={status} reason={reason}\n")
@@ -1252,6 +1266,7 @@ def run_auto_research(
             record = candidate_record(task, result)
             candidates_found.append(record)
             write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+            write_manual_review_queue_for_state(state_path, candidates_found, task_results)
             write_state(
                 state_path,
                 started_at,
@@ -1501,6 +1516,7 @@ def run_continuous_research(
     startup_multiplicity_refresh_count = refresh_recent_multiplicity_metadata(task_results)
     startup_candidate_status_sync_count = sync_candidate_statuses_from_results(candidates_found, task_results)
     sync_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", candidates_found)
+    write_manual_review_queue_for_state(state_path, candidates_found, task_results)
     startup_rescue_refresh_count = refresh_recent_xsec_rescue_metadata(task_results)
     startup_pending_rescue_bundles = pending_rescue_bundles_from_results(task_results, explored)
 
@@ -1730,6 +1746,7 @@ def run_continuous_research(
                     candidates_found.append(record)
                     if candidate_status == "manual_review_required":
                         write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    write_manual_review_queue_for_state(state_path, candidates_found, task_results)
                     write_state(
                         state_path,
                         started_at,
@@ -1962,6 +1979,7 @@ def run_continuous_research(
                     candidates_found.append(record)
                     if rescue_candidate_status == "manual_review_required":
                         write_internal_candidate_marker(state_path.parent / "FOUND_INTERNAL_CANDIDATE.txt", record)
+                    write_manual_review_queue_for_state(state_path, candidates_found, task_results)
                     write_state(
                         state_path,
                         started_at,
