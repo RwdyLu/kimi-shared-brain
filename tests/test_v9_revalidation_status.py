@@ -120,3 +120,6 @@ def test_revalidation_status_reports_progress_without_runner_state(tmp_path) -> 
     assert report["groups"][0]["progress_rows"] == 2
     assert report["groups"][0]["progress_total_rows"] == 4
     assert report["groups"][0]["progress_pct"] == 0.5
+    assert report["groups"][0]["progress_updated_at"]
+    assert report["groups"][0]["progress_age_sec"] >= 0
+    assert report["generated_at"]

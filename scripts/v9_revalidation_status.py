@@ -5,7 +5,9 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +36,7 @@ def read_json(path: Path) -> dict[str, Any]:
 def progress_metadata(output_json: str) -> dict[str, Any]:
     progress_path = Path(output_json).with_suffix(".progress.jsonl")
     progress_meta_path = Path(output_json).with_suffix(".progress.meta.json")
+    now = time.time()
     out: dict[str, Any] = {
         "progress_exists": progress_path.exists(),
         "progress_path": str(progress_path),
@@ -45,6 +48,9 @@ def progress_metadata(output_json: str) -> dict[str, Any]:
     try:
         out["progress_rows"] = sum(1 for _ in progress_path.open())
         out["progress_bytes"] = progress_path.stat().st_size
+        progress_mtime = progress_path.stat().st_mtime
+        out["progress_updated_at"] = datetime.fromtimestamp(progress_mtime, tz=timezone.utc).isoformat()
+        out["progress_age_sec"] = round(max(0.0, now - progress_mtime), 3)
     except OSError:
         return out
     meta = read_json(progress_meta_path)
@@ -56,6 +62,12 @@ def progress_metadata(output_json: str) -> dict[str, Any]:
             out["progress_pct"] = round(min(1.0, int(out["progress_rows"]) / total), 6)
         if meta.get("cache_version"):
             out["progress_cache_version"] = str(meta["cache_version"])
+        try:
+            meta_mtime = progress_meta_path.stat().st_mtime
+            out["progress_meta_updated_at"] = datetime.fromtimestamp(meta_mtime, tz=timezone.utc).isoformat()
+            out["progress_meta_age_sec"] = round(max(0.0, now - meta_mtime), 3)
+        except OSError:
+            pass
     return out
 
 
@@ -166,6 +178,7 @@ def build_report(
     counts = Counter(str(row.get("status")) for row in rows)
     return {
         "kind": "v9_revalidation_status_v1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "plan": str(plan_path),
         "runner_state": str(runner_state_path),
         "selected_group_count": len(rows),
@@ -184,7 +197,10 @@ def format_text(report: dict[str, Any]) -> str:
     for row in report.get("groups") or []:
         progress = ""
         if row.get("progress_exists"):
-            progress = f" progress={row.get('progress_rows')}/{row.get('progress_total_rows', '?')} pct={row.get('progress_pct')}"
+            progress = (
+                f" progress={row.get('progress_rows')}/{row.get('progress_total_rows', '?')}"
+                f" pct={row.get('progress_pct')} age_sec={row.get('progress_age_sec')}"
+            )
         proc = f" pid={row.get('process_pid')}" if row.get("process_running") else ""
         lines.append(
             f"group={row.get('group_id')} preset={row.get('preset')} status={row.get('status')} "
