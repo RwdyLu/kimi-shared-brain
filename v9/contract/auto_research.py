@@ -45,6 +45,8 @@ DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 MAX_AUTO_RESCUE_CONFIGS = 150
 MAX_AUTO_XSEC_RESCUE_GENERATION = 2
+MAX_AUTO_XSEC_RESCUE_GEN2_TOP_K = 5
+MAX_AUTO_XSEC_RESCUE_GEN2_BUDGET_PER_SEED = 12
 MAX_AUTO_TSMOM_RESCUE_CONFIGS = 75
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
@@ -535,6 +537,8 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
             meta=meta,
             source_artifact=str(out_path),
             generation=current_generation + 1,
+            top_k=MAX_AUTO_XSEC_RESCUE_GEN2_TOP_K if current_generation + 1 >= 2 else 8,
+            budget_per_seed=MAX_AUTO_XSEC_RESCUE_GEN2_BUDGET_PER_SEED if current_generation + 1 >= 2 else 18,
             excluded_fingerprints=excluded_fingerprints,
         )
         plan_path, config_path = rescue_artifact_paths(output_json)
@@ -1066,6 +1070,26 @@ def interruptible_idle_sleep(
     return stop_file_requested(control_dir)
 
 
+def pending_xsec_rescue_bundles_from_results(
+    task_results: list[dict[str, Any]],
+    explored: set[str],
+) -> list[RescueTaskBundle]:
+    bundles: list[RescueTaskBundle] = []
+    seen: set[str] = set()
+    for result in task_results:
+        planned = result.get("planned_task")
+        if not isinstance(planned, dict):
+            continue
+        bundle = xsec_rescue_task_from_result(planned, result)
+        if bundle is None:
+            continue
+        if bundle.fingerprint in explored or bundle.fingerprint in seen:
+            continue
+        seen.add(bundle.fingerprint)
+        bundles.append(bundle)
+    return bundles
+
+
 def run_continuous_research(
     state_path: Path,
     latest_summary_path: Path,
@@ -1098,6 +1122,7 @@ def run_continuous_research(
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
     drift_history = drift_history_from_explored(explored_path)
+    startup_pending_rescue_bundles = pending_xsec_rescue_bundles_from_results(task_results, explored)
 
     write_latest_summary(latest_summary_path, "running", "v9_auto_research_train_only:continuous_starting")
     consecutive_failures = 0
@@ -1155,17 +1180,23 @@ def run_continuous_research(
             write_latest_summary(latest_summary_path, "paused", reason)
             return payload
 
+        backfill_batch_size = max(1, int(planner_batch_size))
+        backfilled_rescue_bundles = startup_pending_rescue_bundles[:backfill_batch_size]
+        startup_pending_rescue_bundles = startup_pending_rescue_bundles[backfill_batch_size:]
         prior_trials = max(cumulative_trials(explored_path), cumulative_trials_from_results(task_results))
-        planned = propose_tasks(
-            explored,
-            planner_batch_size,
-            task_results=task_results,
-            candidates=candidates_found,
-            prior_trials=prior_trials,
-            preset_mode=planner_preset_mode,
-        )
+        if backfilled_rescue_bundles:
+            planned = []
+        else:
+            planned = propose_tasks(
+                explored,
+                planner_batch_size,
+                task_results=task_results,
+                candidates=candidates_found,
+                prior_trials=prior_trials,
+                preset_mode=planner_preset_mode,
+            )
         tasks = tuple(research_task_from_planned(task) for task in planned)
-        if not tasks:
+        if not tasks and not backfilled_rescue_bundles:
             reason = "search_space_exhausted_waiting_for_new_plan"
             write_latest_summary(latest_summary_path, "idle", reason)
 
@@ -1193,15 +1224,18 @@ def run_continuous_research(
             if idle_backoff_max_sec > 0:
                 idle_backoff_sec = min(idle_backoff_max_sec, max(1.0, idle_backoff_sec * 2.0))
             continue
-        validate_train_only_tasks(tasks)
+        if tasks:
+            validate_train_only_tasks(tasks)
         idle_backoff_sec = max(0.0, idle_backoff_initial_sec)
-        pending_rescue_bundles: list[RescueTaskBundle] = []
+        pending_rescue_bundles: list[RescueTaskBundle] = list(backfilled_rescue_bundles)
 
         write_state(
             state_path,
             started_at,
             "running",
-            f"continuous_cycle_start:{cycle_index}",
+            f"continuous_rescue_backfill_start:{cycle_index}"
+            if backfilled_rescue_bundles
+            else f"continuous_cycle_start:{cycle_index}",
             task_results,
             candidates_found=candidates_found,
             tasks=tasks,

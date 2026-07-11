@@ -451,6 +451,36 @@ def test_xsec_rescue_generation_from_output_and_artifact_cap(tmp_path, monkeypat
     assert metadata["rescue_config_count"] == 0
 
 
+def test_pending_xsec_rescue_bundles_from_results_recovers_unexplored_rescue(tmp_path) -> None:
+    config_json = tmp_path / "rescue_configs.json"
+    config_json.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "parent.json"),
+        output_md=str(tmp_path / "parent.md"),
+    )
+    result = {
+        "fingerprint": planned.fingerprint,
+        "planned_task": planned.record(),
+        "output_json": planned.output_json,
+        "rescue_config_json": str(config_json),
+        "rescue_config_count": 3,
+        "effective_trials": 84,
+    }
+
+    bundles = auto_research.pending_xsec_rescue_bundles_from_results([result], explored={"abc123"})
+
+    assert len(bundles) == 1
+    assert bundles[0].planned_record["rescue_generation"] == 1
+    assert bundles[0].fingerprint != "abc123"
+    assert auto_research.pending_xsec_rescue_bundles_from_results([result], explored={bundles[0].fingerprint}) == []
+
+
 def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
     config_json = tmp_path / "rescue_configs.json"
     config_json.write_text("[]")
@@ -1060,6 +1090,87 @@ def test_continuous_research_runs_capped_second_generation_xsec_rescue(tmp_path,
     explored = (tmp_path / "explored.jsonl").read_text()
     assert '"rescue_generation": 1' in explored
     assert '"rescue_generation": 2' in explored
+
+
+def test_continuous_research_backfills_pending_xsec_rescue_before_new_task(tmp_path, monkeypatch) -> None:
+    rescue_configs = tmp_path / "rescue_configs.json"
+    rescue_configs.write_text("[]")
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        timeout_sec=1,
+    )
+    state = tmp_path / "state.json"
+    write_json(
+        {
+            "cycle_index": 0,
+            "task_results": [
+                {
+                    "fingerprint": planned.fingerprint,
+                    "planned_task": planned.record(),
+                    "output_json": planned.output_json,
+                    "output_md": planned.output_md,
+                    "status": "completed_no_candidate",
+                    "returncode": 0,
+                    "rescue_config_json": str(rescue_configs),
+                    "rescue_config_count": 1,
+                    "effective_trials": 81,
+                }
+            ],
+            "candidates_found": [],
+        },
+        state,
+    )
+    append_explored_record(
+        tmp_path / "explored.jsonl",
+        {
+            "fingerprint": planned.fingerprint,
+            "task": planned.name,
+            "n_configs_tested": 81,
+        },
+    )
+    monkeypatch.setattr(auto_research, "propose_tasks", lambda explored, count, **kwargs: [planned])
+    calls = []
+
+    def fake_run_task(task: ResearchTask, force: bool, log_dir: Path, heartbeat=None) -> dict:
+        calls.append(task.name)
+        return {
+            "task": task.name,
+            "status": "completed_no_candidate",
+            "skipped_existing": False,
+            "output_json": task.output_json,
+            "output_md": task.output_md,
+            "returncode": 0,
+            "n_configs_tested": 1,
+            "prior_trials": 81,
+            "effective_trials": 82,
+        }
+
+    monkeypatch.setattr(auto_research, "run_task", fake_run_task)
+
+    payload = run_continuous_research(
+        state,
+        tmp_path / "latest.txt",
+        tmp_path / "logs",
+        tmp_path / "explored.jsonl",
+        tmp_path / "control",
+        planner_batch_size=1,
+        max_cycles=1,
+        cycle_sleep_sec=0,
+    )
+
+    assert payload["status"] == "paused"
+    assert len(calls) == 1
+    assert calls[0].startswith("xsec_ohlcv_rescue_")
+    assert calls[0] != planned.name
+    assert payload["task_results"][-1]["is_rescue"] is True
+    assert payload["task_results"][-1]["planned_task"]["rescue_generation"] == 1
 
 
 def test_continuous_research_idles_when_search_space_is_exhausted_until_stop(tmp_path, monkeypatch) -> None:
