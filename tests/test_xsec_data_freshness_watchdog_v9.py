@@ -23,6 +23,7 @@ def test_evaluate_freshness_passes_fresh_complete_cache() -> None:
         max_cache_age_hours=3.0,
         min_symbol_coverage=0.9,
         max_unchanged_runs=4,
+        max_unchanged_age_hours=2.5,
     )
 
     assert status["data_fresh"] is True
@@ -39,6 +40,7 @@ def test_evaluate_freshness_blocks_stale_or_partial_cache() -> None:
         max_cache_age_hours=3.0,
         min_symbol_coverage=0.9,
         max_unchanged_runs=4,
+        max_unchanged_age_hours=2.5,
     )
 
     assert status["data_fresh"] is False
@@ -55,11 +57,35 @@ def test_evaluate_freshness_blocks_after_repeated_unchanged_runs() -> None:
         max_cache_age_hours=3.0,
         min_symbol_coverage=0.9,
         max_unchanged_runs=4,
+        max_unchanged_age_hours=1.0,
     )
 
     assert status["unchanged_run_count"] == 4
     assert status["checks"]["cache_advancing_or_below_limit"] is False
     assert status["data_fresh"] is False
+
+
+def test_evaluate_freshness_allows_unchanged_recent_hourly_cache() -> None:
+    status = watchdog_mod.evaluate_freshness(
+        latest={"BTCUSDT": 1783641600000, "ETHUSDT": 1783641600000},
+        previous_status={"max_latest_ms": 1783641600000, "unchanged_run_count": 3},
+        ledger_records=[],
+        now="2026-07-10T01:30:00+00:00",
+        max_cache_age_hours=6.0,
+        min_symbol_coverage=0.9,
+        max_unchanged_runs=4,
+        max_unchanged_age_hours=2.5,
+    )
+
+    assert status["unchanged_run_count"] == 4
+    assert status["checks"]["cache_advancing_or_below_limit"] is True
+    assert status["data_fresh"] is True
+
+
+def test_default_max_unchanged_age_hours_scales_with_timeframe() -> None:
+    assert watchdog_mod.default_max_unchanged_age_hours("1h", 6.0) == 2.5
+    assert watchdog_mod.default_max_unchanged_age_hours("15m", 6.0) == 1.0
+    assert watchdog_mod.default_max_unchanged_age_hours("1d", 48.0) == 48.0
 
 
 def test_duplicate_latest_dt_count_ignores_skip_records() -> None:

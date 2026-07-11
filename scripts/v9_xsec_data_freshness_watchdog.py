@@ -40,6 +40,29 @@ def parse_symbols(raw: str) -> tuple[str, ...]:
     return tuple(symbols or DEFAULT_SYMBOLS)
 
 
+def timeframe_hours(timeframe: str) -> float:
+    raw = str(timeframe).strip().lower()
+    if not raw:
+        return 1.0
+    unit = raw[-1]
+    try:
+        value = float(raw[:-1])
+    except ValueError:
+        return 1.0
+    if unit == "m":
+        return value / 60.0
+    if unit == "h":
+        return value
+    if unit == "d":
+        return value * 24.0
+    return 1.0
+
+
+def default_max_unchanged_age_hours(timeframe: str, max_cache_age_hours: float) -> float:
+    cadence_grace = max(1.0, timeframe_hours(timeframe) * 2.5)
+    return min(float(max_cache_age_hours), cadence_grace)
+
+
 def normalize_open_time_ms(series: pd.Series) -> pd.Series:
     values = pd.to_numeric(series, errors="coerce")
     clean = values.dropna()
@@ -114,6 +137,7 @@ def evaluate_freshness(
     max_cache_age_hours: float,
     min_symbol_coverage: float,
     max_unchanged_runs: int,
+    max_unchanged_age_hours: float,
 ) -> dict[str, Any]:
     now_ts = to_utc_timestamp(now)
     available = {symbol: value for symbol, value in latest.items() if value is not None}
@@ -134,11 +158,12 @@ def evaluate_freshness(
     previous_unchanged = int(previous_status.get("unchanged_run_count") or 0)
     unchanged_count = previous_unchanged + 1 if previous_max == max_latest_ms else 0
     duplicate_latest_dt_records = count_duplicate_latest_dt_records(ledger_records)
+    recently_updated_enough = math.isfinite(age_hours) and age_hours <= float(max_unchanged_age_hours)
     checks = {
         "cache_has_data": bool(available),
         "cache_age_le_max": math.isfinite(age_hours) and age_hours <= float(max_cache_age_hours),
         "symbol_coverage_ge_min": coverage_fraction >= float(min_symbol_coverage),
-        "cache_advancing_or_below_limit": unchanged_count < int(max_unchanged_runs),
+        "cache_advancing_or_below_limit": unchanged_count < int(max_unchanged_runs) or recently_updated_enough,
     }
     data_fresh = all(checks.values())
     return {
@@ -153,6 +178,7 @@ def evaluate_freshness(
         "symbol_count": len(latest),
         "coverage_fraction": coverage_fraction,
         "unchanged_run_count": unchanged_count,
+        "max_unchanged_age_hours": float(max_unchanged_age_hours),
         "duplicate_latest_dt_records": duplicate_latest_dt_records,
         "latest_by_symbol": {
             symbol: (
@@ -194,8 +220,14 @@ def build_status(
     max_cache_age_hours: float,
     min_symbol_coverage: float,
     max_unchanged_runs: int,
+    max_unchanged_age_hours: float | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
+    unchanged_age_limit = (
+        default_max_unchanged_age_hours(timeframe, max_cache_age_hours)
+        if max_unchanged_age_hours is None
+        else float(max_unchanged_age_hours)
+    )
     return evaluate_freshness(
         latest=latest_by_symbol(cache_dir, symbols, timeframe),
         previous_status=load_previous_status(previous_status_path),
@@ -204,6 +236,7 @@ def build_status(
         max_cache_age_hours=max_cache_age_hours,
         min_symbol_coverage=min_symbol_coverage,
         max_unchanged_runs=max_unchanged_runs,
+        max_unchanged_age_hours=unchanged_age_limit,
     )
 
 
@@ -221,6 +254,7 @@ def format_text(status: dict[str, Any]) -> str:
             f"cache_age_hours={status.get('cache_age_hours'):.3f}",
             f"coverage={status.get('coverage_count')}/{status.get('symbol_count')}",
             f"unchanged_run_count={status.get('unchanged_run_count')}",
+            f"max_unchanged_age_hours={status.get('max_unchanged_age_hours')}",
             f"duplicate_latest_dt_records={status.get('duplicate_latest_dt_records')}",
             "checks=" + ",".join(f"{key}:{value}" for key, value in checks.items()),
         ]
@@ -238,6 +272,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-cache-age-hours", type=float, default=6.0)
     parser.add_argument("--min-symbol-coverage", type=float, default=0.90)
     parser.add_argument("--max-unchanged-runs", type=int, default=4)
+    parser.add_argument("--max-unchanged-age-hours", type=float)
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -254,6 +289,7 @@ def main() -> None:
         max_cache_age_hours=args.max_cache_age_hours,
         min_symbol_coverage=args.min_symbol_coverage,
         max_unchanged_runs=args.max_unchanged_runs,
+        max_unchanged_age_hours=args.max_unchanged_age_hours,
     )
     append_history(status, Path(args.history_jsonl))
     write_json(status, status_path)

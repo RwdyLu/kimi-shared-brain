@@ -393,6 +393,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             max_cache_age_hours=args.max_cache_age_hours,
             min_symbol_coverage=args.min_symbol_coverage,
             max_unchanged_runs=args.max_unchanged_runs,
+            max_unchanged_age_hours=args.max_unchanged_age_hours,
         )
         append_history(data_freshness, Path(args.data_freshness_history_jsonl))
         write_watchdog_json(data_freshness, freshness_status_path)
@@ -512,6 +513,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-cache-age-hours", type=float, default=6.0)
     parser.add_argument("--min-symbol-coverage", type=float, default=0.90)
     parser.add_argument("--max-unchanged-runs", type=int, default=4)
+    parser.add_argument("--max-unchanged-age-hours", type=float)
     parser.add_argument("--marker-dir", default="state")
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--sleep-sec", type=float, default=3600.0)
