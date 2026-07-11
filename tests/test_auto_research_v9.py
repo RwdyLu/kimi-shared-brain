@@ -481,6 +481,51 @@ def test_pending_xsec_rescue_bundles_from_results_recovers_unexplored_rescue(tmp
     assert auto_research.pending_xsec_rescue_bundles_from_results([result], explored={bundles[0].fingerprint}) == []
 
 
+def test_pending_rescue_bundles_prioritizes_lower_multiplicity_p_value(tmp_path) -> None:
+    config_json = tmp_path / "rescue_configs.json"
+    config_json.write_text("[]")
+
+    def planned_task(name: str, fingerprint: str) -> PlannedTask:
+        return PlannedTask(
+            name=name,
+            preset="hq_dd_plateau",
+            train_start="2017-08-01",
+            train_end="2024-06-30 23:59:59",
+            embargo_start="2024-07-01",
+            fingerprint=fingerprint,
+            output_json=str(tmp_path / f"{fingerprint}.json"),
+            output_md=str(tmp_path / f"{fingerprint}.md"),
+        )
+
+    weaker = planned_task("xsec_ohlcv_cont_full_202406_hq_dd_plateau_weaker", "weaker")
+    stronger = planned_task("xsec_ohlcv_cont_full_202406_hq_dd_plateau_stronger", "stronger")
+
+    def result_for(planned: PlannedTask, adjusted_p_value: float) -> dict:
+        return {
+            "fingerprint": planned.fingerprint,
+            "planned_task": planned.record(),
+            "output_json": planned.output_json,
+            "status": "accepted_train_only_candidate_found",
+            "rescue_config_json": str(config_json),
+            "rescue_config_count": 3,
+            "effective_trials": 84,
+            "multiplicity_decision": "rejected_multiplicity",
+            "multiplicity_evidence": {
+                "decision": "rejected_multiplicity",
+                "metrics": {"adjusted_p_value": adjusted_p_value},
+            },
+        }
+
+    bundles = auto_research.pending_rescue_bundles_from_results(
+        [result_for(weaker, 0.60), result_for(stronger, 0.02)],
+        explored={"weaker", "stronger"},
+    )
+
+    assert [bundle.planned_record["parent_fingerprint"] for bundle in bundles] == ["stronger", "weaker"]
+    assert bundles[0].planned_record["rescue_priority"]["policy"] == "multiplicity_adjusted_p_v1"
+    assert bundles[0].planned_record["rescue_priority"]["multiplicity_adjusted_p_value"] == 0.02
+
+
 def test_parent_failure_counts_load_from_rescue_plan(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     plan_path = tmp_path / "artifacts/v9/rescue/xsec_ohlcv_cont_case_rescue_plan.json"

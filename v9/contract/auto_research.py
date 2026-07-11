@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import shutil
 import subprocess
 import time
@@ -188,6 +189,61 @@ def planned_rescue_generation(planned_task: PlannedTask | dict[str, Any]) -> int
     return int(planned_value(planned_task, "rescue_generation", 0) or 0)
 
 
+RESCUE_MULTIPLICITY_DECISION_RANK = {
+    "multiplicity_survivor": 0,
+    "rejected_multiplicity": 1,
+    "rejected_train_hard_gate": 2,
+    "missing_accepted_row": 3,
+    "not_train_only_factory_artifact": 4,
+}
+
+
+def safe_priority_float(value: Any, default: float = 1.0) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return default
+    return out if math.isfinite(out) else default
+
+
+def rescue_priority_metadata(
+    result: dict[str, Any],
+    *,
+    generation: int,
+    config_count: int,
+) -> dict[str, Any]:
+    evidence = result.get("multiplicity_evidence") or {}
+    metrics = evidence.get("metrics") or {}
+    adjusted_p_value = metrics.get("adjusted_p_value")
+    decision = str(result.get("multiplicity_decision") or evidence.get("decision") or "")
+    return {
+        "policy": "multiplicity_adjusted_p_v1",
+        "accepted_train_only": result.get("status") == "accepted_train_only_candidate_found",
+        "multiplicity_decision": decision,
+        "multiplicity_adjusted_p_value": adjusted_p_value,
+        "rescue_generation": int(generation),
+        "rescue_config_count": int(config_count),
+    }
+
+
+def rescue_priority_sort_key(bundle: RescueTaskBundle) -> tuple[Any, ...]:
+    priority = bundle.planned_record.get("rescue_priority") or {}
+    decision = str(priority.get("multiplicity_decision") or "")
+    adjusted_p_value = priority.get("multiplicity_adjusted_p_value")
+    return (
+        0 if bool(priority.get("accepted_train_only")) else 1,
+        RESCUE_MULTIPLICITY_DECISION_RANK.get(decision, 5),
+        safe_priority_float(adjusted_p_value, default=1.0),
+        int(priority.get("rescue_generation") or bundle.planned_record.get("rescue_generation") or 1),
+        int(priority.get("rescue_config_count") or bundle.config_count),
+        bundle.fingerprint,
+    )
+
+
+def sort_rescue_bundles(bundles: list[RescueTaskBundle]) -> list[RescueTaskBundle]:
+    return sorted(bundles, key=rescue_priority_sort_key)
+
+
 def xsec_rescue_task_from_result(
     planned_task: PlannedTask | dict[str, Any],
     result: dict[str, Any],
@@ -293,6 +349,11 @@ def xsec_rescue_task_from_result(
             "prior_trials": prior_effective_trials,
             "prior_effective_trials": prior_effective_trials,
             "effective_trials_after_rescue": effective_trials_after_rescue,
+            "rescue_priority": rescue_priority_metadata(
+                result,
+                generation=generation,
+                config_count=config_count,
+            ),
         }
     )
     return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=record, config_count=config_count)
@@ -389,6 +450,11 @@ def tsmom_rescue_task_from_result(
             "output_json": output_json,
             "output_md": output_md,
             "prior_trials": effective_trials,
+            "rescue_priority": rescue_priority_metadata(
+                result,
+                generation=1,
+                config_count=config_count,
+            ),
         }
     )
     return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=record, config_count=config_count)
@@ -1137,7 +1203,7 @@ def pending_xsec_rescue_bundles_from_results(
             continue
         seen.add(bundle.fingerprint)
         bundles.append(bundle)
-    return bundles
+    return sort_rescue_bundles(bundles)
 
 
 def pending_rescue_bundles_from_results(
@@ -1159,7 +1225,7 @@ def pending_rescue_bundles_from_results(
             continue
         seen.add(bundle.fingerprint)
         bundles.append(bundle)
-    return bundles
+    return sort_rescue_bundles(bundles)
 
 
 def run_continuous_research(
@@ -1514,6 +1580,7 @@ def run_continuous_research(
                 write_latest_summary(latest_summary_path, "paused", reason)
                 return payload
 
+        pending_rescue_bundles = sort_rescue_bundles(pending_rescue_bundles)
         for rescue_bundle in pending_rescue_bundles:
             if stop_file_requested(control_dir):
                 reason = "manual_stop_file"
