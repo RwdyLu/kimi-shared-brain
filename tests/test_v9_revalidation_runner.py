@@ -82,6 +82,31 @@ def write_plan(path: Path, group: dict) -> None:
     )
 
 
+def second_plan_group(tmp_path: Path) -> dict:
+    group = plan_group(tmp_path)
+    group["group_id"] = "group-b"
+    group["config_json"] = str(tmp_path / "artifacts/v9/revalidation/group_b_configs.json")
+    write_json(Path(group["config_json"]), {"configs": [{"lookback_h": 504, "k": 3}]})
+    group["output_json"] = str(tmp_path / "artifacts/v9/contract_lab/revalidate_group-b.json")
+    group["output_md"] = str(tmp_path / "artifacts/v9/contract_lab/revalidate_group-b.md")
+    group["command"] = [*group["command"], "--out-json", group["output_json"]]
+    return group
+
+
+def write_completion(group: dict, *, status: str) -> None:
+    fingerprint = runner_mod.group_plan_fingerprint(group)
+    write_json(
+        runner_mod.completion_metadata_path(group["output_json"]),
+        {
+            "kind": "v9_revalidation_group_completion_v1",
+            "group_id": group["group_id"],
+            "group_plan_fingerprint": fingerprint,
+            "returncode": 0,
+            "status": status,
+        },
+    )
+
+
 def test_revalidation_runner_aborts_on_snapshot_fingerprint_mismatch(tmp_path) -> None:
     group = plan_group(tmp_path, snapshot_fingerprint="expected-snap")
     write_snapshot(Path(group["data_snapshot_path"]), fingerprint="other-snap")
@@ -285,3 +310,55 @@ def test_revalidation_runner_skips_live_lock(tmp_path, monkeypatch) -> None:
     assert row["lock"]["owner_pid"] == 9876
     state = json.loads((tmp_path / "runner_state.json").read_text())
     assert state["summary"]["skipped_locked_count"] == 1
+
+
+def test_next_runnable_stops_when_any_group_has_fresh_progress(tmp_path) -> None:
+    group = plan_group(tmp_path)
+    progress = runner_mod.progress_path_for(group["output_json"])
+    progress.parent.mkdir(parents=True, exist_ok=True)
+    progress.write_text("{}\n")
+
+    selected, selection = runner_mod.select_groups_for_run(
+        [group, second_plan_group(tmp_path)],
+        runner_state_path=tmp_path / "runner_state.json",
+        max_groups=1,
+        next_runnable=True,
+        progress_heartbeat_sec=900,
+    )
+
+    assert selected == []
+    assert selection["selection_stop_reason"] == "active_group_present"
+    assert selection["active"]["reason"] == "fresh_progress"
+
+
+def test_next_runnable_stops_on_accepted_completion(tmp_path) -> None:
+    group = plan_group(tmp_path)
+    write_completion(group, status="accepted_train_only_candidate_found")
+
+    selected, selection = runner_mod.select_groups_for_run(
+        [group, second_plan_group(tmp_path)],
+        runner_state_path=tmp_path / "runner_state.json",
+        max_groups=1,
+        next_runnable=True,
+    )
+
+    assert selected == []
+    assert selection["selection_stop_reason"] == "accepted_completion_present"
+    assert selection["accepted_group_id"] == "group-a"
+
+
+def test_next_runnable_skips_completed_no_candidate_and_selects_next(tmp_path) -> None:
+    first = plan_group(tmp_path)
+    second = second_plan_group(tmp_path)
+    write_completion(first, status="completed_no_candidate")
+
+    selected, selection = runner_mod.select_groups_for_run(
+        [first, second],
+        runner_state_path=tmp_path / "runner_state.json",
+        max_groups=1,
+        next_runnable=True,
+    )
+
+    assert [row["group_id"] for row in selected] == ["group-b"]
+    assert selection["selection_stop_reason"] == "selected_next_runnable"
+    assert selection["skipped"][0]["group_id"] == "group-a"

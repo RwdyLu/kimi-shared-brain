@@ -86,6 +86,20 @@ def already_completed(group: dict[str, Any], fingerprint: str) -> bool:
     )
 
 
+def completion_metadata_for(group: dict[str, Any], fingerprint: str) -> dict[str, Any]:
+    output_json = str(group.get("output_json") or "")
+    if not output_json:
+        return {}
+    metadata = read_json(completion_metadata_path(output_json))
+    if (
+        metadata.get("kind") == "v9_revalidation_group_completion_v1"
+        and metadata.get("group_plan_fingerprint") == fingerprint
+        and metadata.get("returncode") == 0
+    ):
+        return metadata
+    return {}
+
+
 def pid_alive(pid: int | str | None) -> bool:
     try:
         pid_int = int(pid or 0)
@@ -105,9 +119,19 @@ def pid_alive(pid: int | str | None) -> bool:
 
 
 def latest_running_row(runner_state_path: Path, fingerprint: str) -> dict[str, Any]:
-    state = load_runner_state(runner_state_path)
+    return latest_running_row_from_state(load_runner_state(runner_state_path), fingerprint)
+
+
+def latest_running_row_from_state(state: dict[str, Any], fingerprint: str) -> dict[str, Any]:
     for row in reversed(state.get("runs") or []):
         if row.get("group_plan_fingerprint") == fingerprint and row.get("status") == "running":
+            return dict(row)
+    return {}
+
+
+def latest_runner_row_from_state(state: dict[str, Any], fingerprint: str) -> dict[str, Any]:
+    for row in reversed(state.get("runs") or []):
+        if row.get("group_plan_fingerprint") == fingerprint:
             return dict(row)
     return {}
 
@@ -177,6 +201,17 @@ def release_group_lock(lock_path: Path) -> None:
         pass
 
 
+def active_lock_metadata(fingerprint: str, lock_dir: Path) -> dict[str, Any]:
+    lock_path = lock_path_for(fingerprint, lock_dir)
+    if not lock_path.exists():
+        return {}
+    metadata = read_json(lock_path)
+    owner_pid = metadata.get("owner_pid")
+    if owner_pid and pid_alive(owner_pid):
+        return {"reason": "lock_active", "lock_path": str(lock_path), "owner_pid": owner_pid}
+    return {}
+
+
 def verify_snapshot(group: dict[str, Any]) -> dict[str, Any]:
     snapshot_path = Path(str(group.get("data_snapshot_path") or ""))
     expected_fingerprint = str(group.get("data_snapshot_fingerprint") or "")
@@ -229,6 +264,123 @@ def verify_snapshot(group: dict[str, Any]) -> dict[str, Any]:
 def candidate_groups(plan: dict[str, Any]) -> list[dict[str, Any]]:
     groups = [dict(group) for group in plan.get("groups") or [] if group.get("data_snapshot_path")]
     return sorted(groups, key=lambda group: (-int(group.get("config_count") or 0), str(group.get("group_id") or "")))
+
+
+def group_active_guard(
+    group: dict[str, Any],
+    *,
+    runner_state: dict[str, Any],
+    lock_dir: Path,
+    progress_heartbeat_sec: int = DEFAULT_PROGRESS_HEARTBEAT_SEC,
+) -> dict[str, Any]:
+    fingerprint = group_plan_fingerprint(group)
+    running = latest_running_row_from_state(runner_state, fingerprint)
+    if running and pid_alive(running.get("child_pid")):
+        return {
+            "active": True,
+            "reason": "running_state_pid_alive",
+            "group_id": group.get("group_id"),
+            "child_pid": running.get("child_pid"),
+        }
+    lock = active_lock_metadata(fingerprint, lock_dir)
+    if lock:
+        return {"active": True, "group_id": group.get("group_id"), **lock}
+    progress = fresh_progress_metadata(str(group.get("output_json") or ""), heartbeat_sec=progress_heartbeat_sec)
+    if progress.get("fresh"):
+        return {
+            "active": True,
+            "reason": "fresh_progress",
+            "group_id": group.get("group_id"),
+            **progress,
+        }
+    return {"active": False}
+
+
+def select_groups_for_run(
+    groups: list[dict[str, Any]],
+    *,
+    runner_state_path: Path,
+    max_groups: int,
+    lock_dir: Path | None = None,
+    next_runnable: bool = False,
+    progress_heartbeat_sec: int = DEFAULT_PROGRESS_HEARTBEAT_SEC,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not next_runnable:
+        selected = groups[:max_groups] if max_groups > 0 else groups
+        return selected, {"mode": "top_order", "selected_group_count": len(selected)}
+
+    runner_state = load_runner_state(runner_state_path)
+    resolved_lock_dir = lock_dir or runner_state_path.parent / "locks"
+    skipped: list[dict[str, Any]] = []
+    for group in groups:
+        fingerprint = group_plan_fingerprint(group)
+        completion = completion_metadata_for(group, fingerprint)
+        if completion.get("status") == "accepted_train_only_candidate_found":
+            return (
+                [],
+                {
+                    "mode": "next_runnable",
+                    "selection_stop_reason": "accepted_completion_present",
+                    "accepted_group_id": group.get("group_id"),
+                    "skipped": skipped,
+                },
+            )
+        latest_row = latest_runner_row_from_state(runner_state, fingerprint)
+        if latest_row.get("returncode") not in (None, 0):
+            return (
+                [],
+                {
+                    "mode": "next_runnable",
+                    "selection_stop_reason": "failed_runner_row_present",
+                    "failed_group_id": group.get("group_id"),
+                    "failed_status": latest_row.get("status"),
+                    "failed_returncode": latest_row.get("returncode"),
+                    "skipped": skipped,
+                },
+            )
+        active = group_active_guard(
+            group,
+            runner_state=runner_state,
+            lock_dir=resolved_lock_dir,
+            progress_heartbeat_sec=progress_heartbeat_sec,
+        )
+        if active.get("active"):
+            return (
+                [],
+                {
+                    "mode": "next_runnable",
+                    "selection_stop_reason": "active_group_present",
+                    "active": active,
+                    "skipped": skipped,
+                },
+            )
+        if completion:
+            skipped.append(
+                {
+                    "group_id": group.get("group_id"),
+                    "reason": "completed",
+                    "completion_status": completion.get("status"),
+                }
+            )
+            continue
+        return (
+            [group],
+            {
+                "mode": "next_runnable",
+                "selection_stop_reason": "selected_next_runnable",
+                "selected_group_id": group.get("group_id"),
+                "skipped": skipped,
+                "selected_group_count": 1,
+            },
+        )
+    return (
+        [],
+        {
+            "mode": "next_runnable",
+            "selection_stop_reason": "no_runnable_groups",
+            "skipped": skipped,
+        },
+    )
 
 
 def load_runner_state(path: Path) -> dict[str, Any]:
@@ -444,14 +596,21 @@ def run_plan(
     log_dir: Path,
     max_groups: int,
     lock_dir: Path | None = None,
+    next_runnable: bool = False,
     dry_run: bool = False,
     timeout_sec: int = 6 * 60 * 60,
     progress_heartbeat_sec: int = DEFAULT_PROGRESS_HEARTBEAT_SEC,
 ) -> dict[str, Any]:
     plan = read_json(plan_path)
     groups = candidate_groups(plan)
-    if max_groups > 0:
-        groups = groups[:max_groups]
+    groups, selection = select_groups_for_run(
+        groups,
+        runner_state_path=runner_state_path,
+        max_groups=max_groups,
+        lock_dir=lock_dir,
+        next_runnable=next_runnable,
+        progress_heartbeat_sec=progress_heartbeat_sec,
+    )
     rows = [
         run_group(
             group,
@@ -469,6 +628,7 @@ def run_plan(
         "plan": str(plan_path),
         "runner_state": str(runner_state_path),
         "selected_group_count": len(groups),
+        "selection": selection,
         "dry_run": bool(dry_run),
         "rows": rows,
     }
@@ -478,6 +638,7 @@ def format_text(report: dict[str, Any]) -> str:
     lines = [
         f"kind={report['kind']}",
         f"selected_groups={report['selected_group_count']} dry_run={report['dry_run']}",
+        f"selection={json.dumps(report.get('selection') or {}, sort_keys=True)}",
         f"runner_state={report['runner_state']}",
     ]
     for row in report.get("rows") or []:
@@ -495,6 +656,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-dir", default="logs/v9_revalidation")
     parser.add_argument("--lock-dir", default="")
     parser.add_argument("--max-groups", type=int, default=1)
+    parser.add_argument("--next-runnable", action="store_true")
     parser.add_argument("--timeout-sec", type=int, default=6 * 60 * 60)
     parser.add_argument("--progress-heartbeat-sec", type=int, default=DEFAULT_PROGRESS_HEARTBEAT_SEC)
     parser.add_argument("--dry-run", action="store_true")
@@ -511,6 +673,7 @@ def main() -> None:
         log_dir=Path(args.log_dir),
         lock_dir=Path(args.lock_dir) if args.lock_dir else None,
         max_groups=int(args.max_groups),
+        next_runnable=bool(args.next_runnable),
         dry_run=bool(args.dry_run),
         timeout_sec=int(args.timeout_sec),
         progress_heartbeat_sec=int(args.progress_heartbeat_sec),
