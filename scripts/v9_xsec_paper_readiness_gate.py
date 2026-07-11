@@ -79,6 +79,17 @@ def paper_candidate_from_batch(batch: dict[str, Any]) -> dict[str, Any]:
     return rows[0]
 
 
+def paper_gate_payload() -> dict[str, Any]:
+    return {
+        "minimum_duration_weeks": 12,
+        "minimum_rebalance_events": 9,
+        "max_paper_drawdown": 0.15,
+        "required_shadow_signal_match": 1.0,
+        "max_realized_cost_bps": 40.0,
+        "note": "Paper readiness only. Live canary requires paper gate completion, execution controls, reconciliation, kill switch, and explicit live authorization.",
+    }
+
+
 def shadow_oos_report(
     *,
     closes: pd.DataFrame,
@@ -328,7 +339,37 @@ def build_gate_report(
     max_realized_vol_multiple: float,
 ) -> dict[str, Any]:
     batch = read_json(holdout_batch_path)
-    candidate = paper_candidate_from_batch(batch)
+    try:
+        candidate = paper_candidate_from_batch(batch)
+    except ValueError:
+        return {
+            "kind": "xsec_paper_readiness_gate_v1",
+            "created_at": now_utc(),
+            "decision": "paper_blocked_no_candidate",
+            "paper_trading_authorized": False,
+            "live_trading_authorized": False,
+            "source_holdout_batch": str(holdout_batch_path),
+            "source_holdout_report": None,
+            "candidate": {},
+            "thresholds": {
+                "min_decay_ratio": min_decay_ratio,
+                "min_benchmark_excess": min_benchmark_excess,
+                "max_holdout_dd": max_holdout_dd,
+                "max_post_oos_dd": max_post_oos_dd,
+                "min_post_oos_rebalances": min_post_oos_rebalances,
+                "max_realized_vol_multiple": max_realized_vol_multiple,
+            },
+            "checks": {"holdout_batch_has_paper_candidate": False},
+            "holdout_40bps": {},
+            "post_holdout_shadow_oos": {},
+            "data": {
+                "warmup_start": warmup_start,
+                "evaluation_start": evaluation_start,
+                "evaluation_end": evaluation_end,
+                "source_holdout_status_counts": (batch.get("summary") or {}).get("status_counts") or {},
+            },
+            "paper_gate": paper_gate_payload(),
+        }
     holdout_report = read_json(Path(candidate["holdout_report_json"]))
     closes = load_close_matrix(
         cache_dir,
@@ -387,14 +428,7 @@ def build_gate_report(
             "first_dt": closes["dt"].iloc[0].isoformat(),
             "last_dt": closes["dt"].iloc[-1].isoformat(),
         },
-        "paper_gate": {
-            "minimum_duration_weeks": 12,
-            "minimum_rebalance_events": 9,
-            "max_paper_drawdown": 0.15,
-            "required_shadow_signal_match": 1.0,
-            "max_realized_cost_bps": 40.0,
-            "note": "Paper readiness only. Live canary requires paper gate completion, execution controls, reconciliation, kill switch, and explicit live authorization.",
-        },
+        "paper_gate": paper_gate_payload(),
     }
 
 
@@ -454,9 +488,10 @@ def write_marker(report: dict[str, Any], state_dir: Path) -> None:
         )
     else:
         marker = state_dir / "PAPER_REVIEW_REQUIRED.txt"
+        artifact = (report.get("candidate") or {}).get("artifact")
         marker.write_text(
             "PAPER_REVIEW_REQUIRED "
-            f"{now_utc()} artifact={report['candidate']['artifact']} "
+            f"{now_utc()} artifact={artifact or 'NONE'} "
             f"decision={report['decision']} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )

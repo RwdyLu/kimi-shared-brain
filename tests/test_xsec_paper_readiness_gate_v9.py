@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import json
 import pandas as pd
 
 
@@ -119,6 +120,47 @@ def test_paper_candidate_from_batch_selects_best_decay() -> None:
     selected = gate_mod.paper_candidate_from_batch(batch)
 
     assert selected["artifact"] == "better.json"
+
+
+def test_build_gate_report_blocks_when_holdout_batch_has_no_paper_candidate(tmp_path) -> None:
+    holdout_batch = tmp_path / "holdout_batch.json"
+    holdout_batch.write_text(
+        json.dumps(
+            {
+                "holdout_results": [
+                    {"promotion_decision": "holdout_promising_recently_inactive_manual_review_required"}
+                ],
+                "summary": {
+                    "status_counts": {
+                        "holdout_promising_recently_inactive_manual_review_required": 1
+                    }
+                },
+            }
+        )
+    )
+
+    report = gate_mod.build_gate_report(
+        holdout_batch_path=holdout_batch,
+        cache_dir=tmp_path,
+        warmup_start="2024-07-01",
+        evaluation_start="2026-06-01",
+        evaluation_end="2026-07-11 00:00:00",
+        costs_bps=(40.0,),
+        min_decay_ratio=0.5,
+        min_benchmark_excess=0.5,
+        max_holdout_dd=0.25,
+        max_post_oos_dd=0.15,
+        min_post_oos_rebalances=1,
+        max_realized_vol_multiple=3.0,
+    )
+
+    assert report["decision"] == "paper_blocked_no_candidate"
+    assert report["paper_trading_authorized"] is False
+    assert report["live_trading_authorized"] is False
+    assert report["checks"] == {"holdout_batch_has_paper_candidate": False}
+    assert report["data"]["source_holdout_status_counts"] == {
+        "holdout_promising_recently_inactive_manual_review_required": 1
+    }
 
 
 def test_paper_decision_authorizes_only_paper_not_live() -> None:
