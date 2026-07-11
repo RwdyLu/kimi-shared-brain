@@ -213,7 +213,13 @@ def test_trial_metadata_carries_data_fingerprint() -> None:
         {
             "summary": {"rows": 7},
             "selection_validation": {"n_configs_tested": 3, "prior_trials": 10, "effective_trials": 13},
-            "data": {"fingerprint": "abc123"},
+            "data": {
+                "fingerprint": "abc123",
+                "snapshot": {
+                    "path": "artifacts/v9/data_snapshots/xsec.parquet",
+                    "fingerprint": "abc123",
+                },
+            },
         }
     )
     assert metadata == {
@@ -221,6 +227,8 @@ def test_trial_metadata_carries_data_fingerprint() -> None:
         "prior_trials": 10,
         "effective_trials": 13,
         "data_fingerprint": "abc123",
+        "data_snapshot_path": "artifacts/v9/data_snapshots/xsec.parquet",
+        "data_snapshot_fingerprint": "abc123",
     }
 
 
@@ -338,6 +346,8 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
         "rescue_config_count": 12,
         "prior_effective_trials": 20081,
         "effective_trials_after_rescue": 20093,
+        "data_snapshot_path": "artifacts/v9/data_snapshots/xsec_parent.parquet",
+        "data_snapshot_fingerprint": "snap-fp",
     }
 
     bundle = auto_research.xsec_rescue_task_from_result(planned, result)
@@ -351,11 +361,15 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
     assert bundle.planned_record["rescue_task_name"] == bundle.task.name
     assert bundle.task.output_json.startswith("artifacts/v9/contract_lab/xsec_ohlcv_rescue_full_202406")
     assert "--config-list-json" in bundle.task.command
+    assert "--data-snapshot" in bundle.task.command
+    assert "artifacts/v9/data_snapshots/xsec_parent.parquet" in bundle.task.command
     assert "--prior-trials" in bundle.task.command
     assert "20081" in bundle.task.command
     assert "20093" not in bundle.task.command
     assert bundle.planned_record["prior_effective_trials"] == 20081
     assert bundle.planned_record["effective_trials_after_rescue"] == 20093
+    assert bundle.planned_record["data_snapshot_path"] == "artifacts/v9/data_snapshots/xsec_parent.parquet"
+    assert bundle.planned_record["data_snapshot_fingerprint"] == "snap-fp"
     auto_research.validate_train_only_task(bundle.task)
     command = " ".join(bundle.task.command)
     assert "paper" not in command

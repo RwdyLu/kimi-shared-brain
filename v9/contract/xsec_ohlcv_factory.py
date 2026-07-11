@@ -26,6 +26,7 @@ SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
 VALIDATION_MIN_ACTIVE_REBALANCES = 4
 VALIDATION_MIN_TIME_IN_MARKET_FRAC = 0.03
+DATA_SNAPSHOT_KIND = "xsec_ohlcv_data_snapshot_v1"
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ class RunConfig:
     train_end: str = "2024-06-30 23:59:59"
     embargo_start: str = "2024-07-01"
     cache_dir: str = "data/binance_public_cache"
+    data_snapshot: str = ""
     bootstrap_iterations: int = 500
     prior_trials: int = 0
     explicit_configs: tuple[OhlcvConfig, ...] = ()
@@ -87,9 +89,11 @@ def config_for_preset(
     out_json: str,
     out_md: str,
     prior_trials: int = 0,
+    data_snapshot: str = "",
 ) -> RunConfig:
     base = {
         "cache_dir": cache_dir,
+        "data_snapshot": data_snapshot,
         "train_start": train_start,
         "train_end": train_end,
         "embargo_start": embargo_start,
@@ -431,6 +435,73 @@ def data_fingerprint(closes: pd.DataFrame) -> str:
     h.update(pd.to_datetime(closes["dt"]).astype("int64").to_numpy().tobytes())
     h.update(np.ascontiguousarray(closes[symbols].to_numpy(dtype="float64")).tobytes())
     return h.hexdigest()
+
+
+def snapshot_metadata_path(snapshot_path: Path) -> Path:
+    return snapshot_path.with_suffix(snapshot_path.suffix + ".json")
+
+
+def snapshot_window_label(cfg: RunConfig) -> str:
+    raw = f"{cfg.train_start}_{cfg.train_end}_{cfg.embargo_start}"
+    return "".join(ch if ch.isalnum() else "_" for ch in raw).strip("_")
+
+
+def data_snapshot_path_for(cfg: RunConfig, fingerprint: str) -> Path:
+    symbols_hash = hashlib.sha1(json.dumps(list(cfg.symbols), sort_keys=True).encode("utf-8")).hexdigest()[:10]
+    return (
+        Path("artifacts/v9/data_snapshots")
+        / f"xsec_ohlcv_{snapshot_window_label(cfg)}_{symbols_hash}_{fingerprint[:16]}.parquet"
+    )
+
+
+def data_snapshot_metadata(closes: pd.DataFrame, cfg: RunConfig, fingerprint: str) -> dict[str, Any]:
+    return {
+        "kind": DATA_SNAPSHOT_KIND,
+        "fingerprint": fingerprint,
+        "train_start": cfg.train_start,
+        "train_end": cfg.train_end,
+        "embargo_start": cfg.embargo_start,
+        "symbols": list(cfg.symbols),
+        "rows": int(len(closes)),
+        "first_dt": closes["dt"].iloc[0].isoformat() if len(closes) else None,
+        "last_dt": closes["dt"].iloc[-1].isoformat() if len(closes) else None,
+    }
+
+
+def write_data_snapshot(closes: pd.DataFrame, cfg: RunConfig, fingerprint: str) -> tuple[Path, Path]:
+    snapshot_path = data_snapshot_path_for(cfg, fingerprint)
+    metadata_path = snapshot_metadata_path(snapshot_path)
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    if not snapshot_path.exists():
+        closes.to_parquet(snapshot_path, index=False)
+    metadata_path.write_text(json.dumps(data_snapshot_metadata(closes, cfg, fingerprint), sort_keys=True) + "\n")
+    return snapshot_path, metadata_path
+
+
+def read_data_snapshot(snapshot_path: Path, cfg: RunConfig) -> tuple[pd.DataFrame, dict[str, Any]]:
+    metadata_path = snapshot_metadata_path(snapshot_path)
+    if not snapshot_path.exists():
+        raise FileNotFoundError(f"data snapshot missing: {snapshot_path}")
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"data snapshot metadata missing: {metadata_path}")
+    metadata = json.loads(metadata_path.read_text())
+    if metadata.get("kind") != DATA_SNAPSHOT_KIND:
+        raise ValueError(f"unsupported data snapshot kind: {metadata.get('kind')!r}")
+    for key in ("train_start", "train_end", "embargo_start"):
+        if str(metadata.get(key)) != str(getattr(cfg, key)):
+            raise ValueError(f"data snapshot {key} mismatch: {metadata.get(key)!r} != {getattr(cfg, key)!r}")
+    if list(metadata.get("symbols") or []) != list(cfg.symbols):
+        raise ValueError("data snapshot symbols mismatch")
+    closes = pd.read_parquet(snapshot_path)
+    closes["dt"] = pd.to_datetime(closes["dt"], utc=True)
+    closes = closes[["dt", *list(cfg.symbols)]].copy()
+    fingerprint = data_fingerprint(closes)
+    expected_fingerprint = str(metadata.get("fingerprint") or "")
+    if fingerprint != expected_fingerprint:
+        raise ValueError(
+            f"data snapshot fingerprint mismatch: computed={fingerprint} metadata={expected_fingerprint}"
+        )
+    return closes, metadata
 
 
 def row_cache_key(
@@ -1104,8 +1175,21 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     start = utc_ts(cfg.train_start)
     end = utc_ts(cfg.train_end)
     embargo = utc_ts(cfg.embargo_start)
-    closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
+    snapshot_source = "live_cache"
+    snapshot_path: Path | None = None
+    snapshot_meta_path: Path | None = None
+    snapshot_meta: dict[str, Any] = {}
+    if cfg.data_snapshot:
+        snapshot_path = Path(cfg.data_snapshot)
+        closes, snapshot_meta = read_data_snapshot(snapshot_path, cfg)
+        snapshot_meta_path = snapshot_metadata_path(snapshot_path)
+        snapshot_source = "pinned_data_snapshot"
+    else:
+        closes = load_close_matrix(Path(cfg.cache_dir), cfg.symbols, start, end, embargo)
     closes_fingerprint = data_fingerprint(closes)
+    if not cfg.data_snapshot:
+        snapshot_path, snapshot_meta_path = write_data_snapshot(closes, cfg, closes_fingerprint)
+        snapshot_meta = data_snapshot_metadata(closes, cfg, closes_fingerprint)
     if cfg.explicit_configs:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
@@ -1359,6 +1443,13 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "first_dt": closes["dt"].iloc[0].isoformat(),
             "last_dt": closes["dt"].iloc[-1].isoformat(),
             "symbols": list(cfg.symbols),
+            "snapshot": {
+                "enabled": True,
+                "source": snapshot_source,
+                "path": str(snapshot_path) if snapshot_path else "",
+                "metadata_path": str(snapshot_meta_path) if snapshot_meta_path else "",
+                "fingerprint": str(snapshot_meta.get("fingerprint") or closes_fingerprint),
+            },
         },
         "selection_validation": selection_validation,
         "symbols": list(cfg.symbols),
@@ -1470,6 +1561,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="core",
     )
     ap.add_argument("--cache-dir", default="data/binance_public_cache")
+    ap.add_argument("--data-snapshot", default="", help="Optional pinned train-only close matrix snapshot")
     ap.add_argument("--train-start", default="2017-08-01")
     ap.add_argument("--train-end", default="2024-06-30 23:59:59")
     ap.add_argument("--embargo-start", default="2024-07-01")
@@ -1493,6 +1585,7 @@ def main() -> None:
         out_json=args.out_json,
         out_md=args.out_md,
         prior_trials=args.prior_trials,
+        data_snapshot=args.data_snapshot,
     )
     if args.config_list_json:
         cfg = RunConfig(
@@ -1520,6 +1613,7 @@ def main() -> None:
             train_end=cfg.train_end,
             embargo_start=cfg.embargo_start,
             cache_dir=cfg.cache_dir,
+            data_snapshot=cfg.data_snapshot,
             bootstrap_iterations=cfg.bootstrap_iterations,
             prior_trials=cfg.prior_trials,
             explicit_configs=load_explicit_configs(Path(args.config_list_json)),

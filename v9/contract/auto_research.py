@@ -284,31 +284,40 @@ def xsec_rescue_task_from_result(
         or 0
     )
     effective_trials_after_rescue = int(result.get("effective_trials_after_rescue") or prior_effective_trials + config_count)
+    command = (
+        "python3",
+        "-m",
+        "v9.contract.xsec_ohlcv_factory",
+        "--preset",
+        str(planned_value(planned_task, "cli_preset") or planned_value(planned_task, "preset")),
+        "--train-start",
+        str(planned_value(planned_task, "train_start")),
+        "--train-end",
+        str(planned_value(planned_task, "train_end")),
+        "--embargo-start",
+        str(planned_value(planned_task, "embargo_start")),
+        "--bootstrap-iterations",
+        str(planned_value(planned_task, "bootstrap_iterations", 100)),
+        "--prior-trials",
+        str(prior_effective_trials),
+        "--config-list-json",
+        str(config_path),
+        "--out-json",
+        output_json,
+        "--out-md",
+        output_md,
+    )
+    data_snapshot_path = result.get("data_snapshot_path")
+    if data_snapshot_path:
+        command = (
+            *command[:3],
+            "--data-snapshot",
+            str(data_snapshot_path),
+            *command[3:],
+        )
     task = ResearchTask(
         name=name,
-        command=(
-            "python3",
-            "-m",
-            "v9.contract.xsec_ohlcv_factory",
-            "--preset",
-            str(planned_value(planned_task, "cli_preset") or planned_value(planned_task, "preset")),
-            "--train-start",
-            str(planned_value(planned_task, "train_start")),
-            "--train-end",
-            str(planned_value(planned_task, "train_end")),
-            "--embargo-start",
-            str(planned_value(planned_task, "embargo_start")),
-            "--bootstrap-iterations",
-            str(planned_value(planned_task, "bootstrap_iterations", 100)),
-            "--prior-trials",
-            str(prior_effective_trials),
-            "--config-list-json",
-            str(config_path),
-            "--out-json",
-            output_json,
-            "--out-md",
-            output_md,
-        ),
+        command=command,
         output_json=output_json,
         output_md=output_md,
         timeout_sec=max(
@@ -351,6 +360,8 @@ def xsec_rescue_task_from_result(
             "prior_trials": prior_effective_trials,
             "prior_effective_trials": prior_effective_trials,
             "effective_trials_after_rescue": effective_trials_after_rescue,
+            "data_snapshot_path": str(data_snapshot_path or ""),
+            "data_snapshot_fingerprint": str(result.get("data_snapshot_fingerprint") or ""),
             "rescue_priority": rescue_priority_metadata(
                 result,
                 generation=generation,
@@ -561,6 +572,11 @@ def trial_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
         metadata["data_fingerprint"] = str(data["fingerprint"])
     if data.get("symbols"):
         metadata["data_symbols"] = sorted(str(symbol) for symbol in data.get("symbols") or [])
+    snapshot = data.get("snapshot") or {}
+    if snapshot.get("path"):
+        metadata["data_snapshot_path"] = str(snapshot["path"])
+    if snapshot.get("fingerprint"):
+        metadata["data_snapshot_fingerprint"] = str(snapshot["fingerprint"])
     return metadata
 
 
@@ -593,6 +609,63 @@ def maybe_write_xsec_diagnostic_review(output_json: str) -> dict[str, Any]:
         }
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"diagnostic_review_error": str(exc)}
+
+
+def maybe_pin_xsec_data_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("kind") != "xsec_ohlcv_factory_v1_train_only_grid":
+        return {}
+    data = payload.get("data") or {}
+    snapshot = data.get("snapshot") or {}
+    fingerprint = str(data.get("fingerprint") or snapshot.get("fingerprint") or "")
+    if not fingerprint:
+        return {}
+    snapshot_path_raw = snapshot.get("path")
+    if snapshot_path_raw and Path(str(snapshot_path_raw)).exists():
+        return {
+            "data_snapshot_path": str(snapshot_path_raw),
+            "data_snapshot_fingerprint": fingerprint,
+            "data_snapshot_source": str(snapshot.get("source") or "existing_snapshot"),
+        }
+
+    cfg_raw = payload.get("config") or {}
+    symbols = tuple(str(symbol) for symbol in (data.get("symbols") or payload.get("symbols") or cfg_raw.get("symbols") or []))
+    required = ("train_start", "train_end", "embargo_start")
+    if not symbols or not all(cfg_raw.get(key) for key in required):
+        return {"data_snapshot_error": "missing_snapshot_context"}
+
+    try:
+        from v9.contract.xsec_momentum import load_close_matrix
+        from v9.contract.xsec_ohlcv_factory import RunConfig, data_fingerprint, write_data_snapshot
+
+        cfg = RunConfig(
+            symbols=symbols,
+            train_start=str(cfg_raw["train_start"]),
+            train_end=str(cfg_raw["train_end"]),
+            embargo_start=str(cfg_raw["embargo_start"]),
+            cache_dir=str(cfg_raw.get("cache_dir") or "data/binance_public_cache"),
+        )
+        closes = load_close_matrix(
+            Path(cfg.cache_dir),
+            cfg.symbols,
+            utc_ts(cfg.train_start),
+            utc_ts(cfg.train_end),
+            utc_ts(cfg.embargo_start),
+        )
+        current_fingerprint = data_fingerprint(closes)
+        if current_fingerprint != fingerprint:
+            return {
+                "data_snapshot_error": "live_cache_fingerprint_mismatch",
+                "data_snapshot_expected_fingerprint": fingerprint,
+                "data_snapshot_current_fingerprint": current_fingerprint,
+            }
+        snapshot_path, _ = write_data_snapshot(closes, cfg, current_fingerprint)
+        return {
+            "data_snapshot_path": str(snapshot_path),
+            "data_snapshot_fingerprint": current_fingerprint,
+            "data_snapshot_source": "backfilled_from_matching_live_cache",
+        }
+    except Exception as exc:  # pragma: no cover - defensive; runner should continue.
+        return {"data_snapshot_error": str(exc)}
 
 
 def parent_rescue_plan_path_for_output(output_json: str) -> Path | None:
@@ -637,9 +710,12 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
         }
     try:
         payload = read_json(out_path) or {}
+        snapshot_metadata = maybe_pin_xsec_data_snapshot(payload)
         rows = list(payload.get("rows", []))
         meta = dict(payload.get("selection_validation", {}) or {})
         meta["summary"] = dict(payload.get("summary", {}) or {})
+        if snapshot_metadata:
+            meta["data_snapshot"] = snapshot_metadata
         excluded_fingerprints = {
             config_fingerprint(dict(row.get("config") or {}))
             for row in rows
@@ -663,6 +739,7 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
         metadata["rescue_generation"] = current_generation + 1
         metadata["excluded_config_fingerprint_count"] = len(excluded_fingerprints)
         metadata["parent_failure_filter_config_count"] = len(parent_failure_counts)
+        metadata.update(snapshot_metadata)
         return metadata
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"rescue_error": str(exc)}
@@ -894,6 +971,10 @@ def candidate_record(task: ResearchTask, result: dict[str, Any], status: str = "
         record["data_fingerprint"] = result["data_fingerprint"]
     if result.get("data_symbols"):
         record["data_symbols"] = result["data_symbols"]
+    if result.get("data_snapshot_path"):
+        record["data_snapshot_path"] = result["data_snapshot_path"]
+    if result.get("data_snapshot_fingerprint"):
+        record["data_snapshot_fingerprint"] = result["data_snapshot_fingerprint"]
     return record
 
 
@@ -1608,6 +1689,8 @@ def run_continuous_research(
                     "effective_trials": result.get("effective_trials", 0),
                     "data_fingerprint": result.get("data_fingerprint", ""),
                     "data_symbols": result.get("data_symbols", []),
+                    "data_snapshot_path": result.get("data_snapshot_path", ""),
+                    "data_snapshot_fingerprint": result.get("data_snapshot_fingerprint", ""),
                 },
             )
             if result.get("data_fingerprint"):
@@ -1833,6 +1916,8 @@ def run_continuous_research(
                     "effective_trials": rescue_result.get("effective_trials", 0),
                     "data_fingerprint": rescue_result.get("data_fingerprint", ""),
                     "data_symbols": rescue_result.get("data_symbols", []),
+                    "data_snapshot_path": rescue_result.get("data_snapshot_path", ""),
+                    "data_snapshot_fingerprint": rescue_result.get("data_snapshot_fingerprint", ""),
                     "is_rescue": True,
                     "parent_fingerprint": rescue_bundle.planned_record["parent_fingerprint"],
                     "root_parent_fingerprint": rescue_bundle.planned_record.get("root_parent_fingerprint", ""),

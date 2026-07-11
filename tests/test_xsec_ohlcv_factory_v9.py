@@ -19,6 +19,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     build_arg_parser,
     config_for_preset,
     data_fingerprint,
+    data_snapshot_path_for,
     leave_one_symbol_summary,
     load_explicit_configs,
     long_only_weights,
@@ -27,6 +28,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     append_progress_row,
     progress_meta_path_for,
     progress_path_for,
+    read_data_snapshot,
     run_grid,
     score_matrix,
     simulate,
@@ -535,6 +537,83 @@ def test_run_grid_payload_pins_data_fingerprint(monkeypatch, tmp_path) -> None:
     assert "diagnostic_walk_forward" in payload["top"][0]
     assert "leave_one_symbol" in payload["top"][0]
     assert not progress_meta_path_for(cfg.out_json).exists()
+
+
+def test_run_grid_can_reuse_pinned_data_snapshot(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    closes = close_matrix(600)
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", lambda *args: closes)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+    payload = run_grid(cfg)
+    snapshot_path = Path(payload["data"]["snapshot"]["path"])
+    assert snapshot_path.exists()
+    assert payload["data"]["snapshot"]["fingerprint"] == data_fingerprint(closes)
+
+    def fail_live_cache(*args):
+        raise AssertionError("pinned snapshot run should not read live cache")
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", fail_live_cache)
+    snap_cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2,),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        data_snapshot=str(snapshot_path),
+        out_json=str(tmp_path / "snap.json"),
+        out_md="",
+    )
+    snap_payload = run_grid(snap_cfg)
+    assert snap_payload["data"]["fingerprint"] == payload["data"]["fingerprint"]
+    assert snap_payload["data"]["snapshot"]["source"] == "pinned_data_snapshot"
+
+
+def test_data_snapshot_detects_metadata_fingerprint_mismatch(tmp_path) -> None:
+    closes = close_matrix(600)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        data_snapshot="",
+    )
+    fingerprint = data_fingerprint(closes)
+    snapshot_path = data_snapshot_path_for(cfg, fingerprint)
+    snapshot_path = tmp_path / snapshot_path.name
+    closes.to_parquet(snapshot_path, index=False)
+    snapshot_path.with_suffix(snapshot_path.suffix + ".json").write_text(
+        json.dumps(
+            {
+                "kind": "xsec_ohlcv_data_snapshot_v1",
+                "fingerprint": "wrong",
+                "train_start": cfg.train_start,
+                "train_end": cfg.train_end,
+                "embargo_start": cfg.embargo_start,
+                "symbols": list(cfg.symbols),
+            }
+        )
+    )
+
+    try:
+        read_data_snapshot(snapshot_path, cfg)
+    except ValueError as exc:
+        assert "fingerprint mismatch" in str(exc)
+    else:
+        raise AssertionError("expected snapshot fingerprint mismatch")
 
 
 def test_validate_all_rows_can_run_diagnostic_walk_forward_without_passing(monkeypatch, tmp_path) -> None:
