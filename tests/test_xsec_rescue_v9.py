@@ -257,6 +257,45 @@ def test_generate_rescue_neighbors_uses_limited_two_gene_repairs() -> None:
     assert all(neighbor["changed_gene"] == "+".join(neighbor["changed_genes"]) for neighbor in neighbors)
 
 
+def test_generate_rescue_neighbors_spends_pair_budget_on_hostile_year() -> None:
+    config = {
+        **BASE_CONFIG,
+        "lookback_h": 168,
+        "rebalance_h": 72,
+        "score_mode": "breakout",
+        "market_filter_h": 720,
+        "market_confirm_h": 168,
+        "market_drawdown_limit": 0.25,
+        "drawdown_stop": 0.15,
+        "cooldown_h": 168,
+        "vol_target_ann": 0.08,
+    }
+    seed = select_rescue_seeds(
+        [
+            row(
+                config=config,
+                diagnostic_triggered=False,
+                failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+                selection_sharpe=1.70,
+                bootstrap_p5=0.45,
+            )
+        ]
+    )[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=18)
+
+    single_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 1]
+    two_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 2]
+    assert len(neighbors) == 18
+    assert len(two_gene) > len(single_gene)
+    assert single_gene[0]["mutation_bias"] == "hostile_year_defensive"
+    assert any(neighbor["changed_gene"] == "market_filter_h+vol_target_ann" for neighbor in two_gene)
+    first_pair = two_gene[0]
+    assert first_pair["changed_gene"] == "market_filter_h+vol_target_ann"
+    assert first_pair["changes"][0]["to"] == 1008
+    assert first_pair["changes"][1]["to"] == 0.06
+
+
 def test_generate_rescue_neighbors_prefers_defensive_regime_repairs_for_negative_worst_year() -> None:
     config = {
         **BASE_CONFIG,

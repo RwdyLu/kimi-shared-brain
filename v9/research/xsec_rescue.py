@@ -20,6 +20,12 @@ MARKET_CONFIRM_H = (0, 168, 336, 504, 720)
 MARKET_DRAWDOWN_LIMITS = (0.0, 0.20, 0.25, 0.30, 0.35)
 DEFAULT_RESCUE_TOP_K = 8
 DEFAULT_RESCUE_BUDGET_PER_SEED = 18
+HOSTILE_YEAR_DEFENSIVE_PAIRS = (
+    ("market_filter_h", "vol_target_ann"),
+    ("market_confirm_h", "market_drawdown_limit"),
+    ("market_filter_h", "market_drawdown_limit"),
+    ("market_confirm_h", "vol_target_ann"),
+)
 SEED_FAMILY_CONFIG_KEYS = (
     "score_mode",
     "lookback_h",
@@ -466,9 +472,12 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     if limit <= 0:
         return neighbors
 
-    ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
-    single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
     mutation_bias = rescue_mutation_bias(seed)
+    ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
+    if mutation_bias == "hostile_year_defensive" and limit > 5:
+        single_budget = max(1, int(limit / 3))
+    else:
+        single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
 
     def append_neighbor(changes: list[tuple[str, Any]]) -> bool:
         candidate = dict(base)
@@ -506,17 +515,33 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     if len(neighbors) >= limit:
         return neighbors
 
-    pair_genes = ordered_genes[:5]
+    pair_genes = ordered_genes[:7] if mutation_bias == "hostile_year_defensive" else ordered_genes[:5]
     pair_radius = min(1, max(1, int(radius)))
-    for left_pos, left_gene in enumerate(pair_genes):
+    pair_gene_groups: list[tuple[str, str]] = []
+    if mutation_bias == "hostile_year_defensive":
+        pair_gene_groups.extend(
+            (left, right)
+            for left, right in HOSTILE_YEAR_DEFENSIVE_PAIRS
+            if left in pair_genes and right in pair_genes
+        )
+    pair_gene_groups.extend(
+        (left_gene, right_gene)
+        for left_pos, left_gene in enumerate(pair_genes)
+        for right_gene in pair_genes[left_pos + 1 :]
+    )
+    seen_pair_groups: set[tuple[str, str]] = set()
+    for left_gene, right_gene in pair_gene_groups:
+        pair_key = tuple(sorted((left_gene, right_gene)))
+        if pair_key in seen_pair_groups:
+            continue
+        seen_pair_groups.add(pair_key)
         left_values = prioritized_neighbor_values(seed, left_gene, radius=pair_radius)
-        for right_gene in pair_genes[left_pos + 1 :]:
-            right_values = prioritized_neighbor_values(seed, right_gene, radius=pair_radius)
-            for left_value in left_values:
-                for right_value in right_values:
-                    append_neighbor([(left_gene, left_value), (right_gene, right_value)])
-                    if len(neighbors) >= limit:
-                        return neighbors
+        right_values = prioritized_neighbor_values(seed, right_gene, radius=pair_radius)
+        for left_value in left_values:
+            for right_value in right_values:
+                append_neighbor([(left_gene, left_value), (right_gene, right_value)])
+                if len(neighbors) >= limit:
+                    return neighbors
     return neighbors
 
 

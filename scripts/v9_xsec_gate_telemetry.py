@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.v9_xsec_diagnostic_walkforward_report import load_rows
+from v9.research.xsec_rescue import build_rescue_plan
 
+
+AUTO_RESCUE_CONFIG_CAP = 150
 
 FAILURE_CATEGORIES = {
     "activity": {
@@ -247,6 +250,44 @@ def year_robustness_summary(rows: list[dict[str, Any]], near_misses: list[dict[s
     }
 
 
+def rescue_preview(rows: list[dict[str, Any]], meta: dict[str, Any], artifact: Path) -> dict[str, Any]:
+    try:
+        plan = build_rescue_plan(rows, meta=meta, source_artifact=str(artifact))
+    except Exception as exc:  # pragma: no cover - telemetry should not break monitoring loops.
+        return {"enabled": False, "error": str(exc)}
+
+    seeds = list(plan.get("seeds") or [])
+    rescue_config_count = int(plan.get("rescue_config_count") or 0)
+    mutation_bias_counts: Counter[str] = Counter()
+    seed_worst_year_counts: Counter[str] = Counter()
+    first_seed_changes = []
+    for seed in seeds:
+        worst = seed.get("worst_year") or {}
+        bucket = worst.get("bucket")
+        if bucket:
+            seed_worst_year_counts[str(bucket)] += 1
+        for neighbor in seed.get("neighbors") or []:
+            mutation_bias_counts[str(neighbor.get("mutation_bias") or "missing")] += 1
+        if seed.get("neighbors"):
+            first_seed_changes.append((seed["neighbors"][0] or {}).get("changes") or [])
+
+    return {
+        "enabled": True,
+        "seed_count": int(plan.get("seed_count") or 0),
+        "seed_family_count": int(plan.get("seed_family_count") or 0),
+        "diagnostic_seed_count": int(plan.get("diagnostic_seed_count") or 0),
+        "near_miss_seed_count": int(plan.get("near_miss_seed_count") or 0),
+        "rescue_config_count": rescue_config_count,
+        "auto_config_cap": AUTO_RESCUE_CONFIG_CAP,
+        "within_auto_cap": rescue_config_count <= AUTO_RESCUE_CONFIG_CAP,
+        "mutation_bias_counts": dict(mutation_bias_counts.most_common()),
+        "seed_worst_year_counts": dict(seed_worst_year_counts.most_common()),
+        "first_seed_changes": first_seed_changes[:5],
+        "prior_effective_trials": int(plan.get("prior_effective_trials") or 0),
+        "effective_trials_after_rescue": int(plan.get("effective_trials_after_rescue") or 0),
+    }
+
+
 def recommendation(
     *,
     rows: list[dict[str, Any]],
@@ -357,6 +398,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
     fail_rates = {key: count / denom for key, count in fail_counts.items()}
     near_misses = [row for row in rows if not row.get("advance_passed") and 0 < len(market_failed_checks(row)) <= 3]
     year_robustness = year_robustness_summary(rows, near_misses)
+    rescue = rescue_preview(rows, meta, artifact)
     report = {
         "kind": "xsec_gate_telemetry_v1",
         "created_at": now_utc(),
@@ -375,6 +417,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
         "failure_rates": fail_rates,
         "failure_categories": category_counts(fail_counts),
         "year_robustness": year_robustness,
+        "rescue_preview": rescue,
         "top_rows": top_rows(rows, top_limit),
         "near_miss_rows": top_rows(near_misses, min(top_limit, 10)),
         "recommendations": recommendation(
@@ -431,6 +474,44 @@ def format_text(report: dict[str, Any]) -> str:
         lines.append(f"- all_negative_years: {neg_text}")
     else:
         lines.append("- all_negative_years: none")
+    rescue = report.get("rescue_preview") or {}
+    lines.append("rescue_preview:")
+    if rescue.get("enabled") is False:
+        lines.append(f"- enabled:False error:{rescue.get('error', '')}")
+    else:
+        lines.append(
+            "- seeds:{seed_count} families:{seed_family_count} configs:{rescue_config_count}/{auto_config_cap} within_cap:{within_auto_cap}".format(
+                seed_count=int(rescue.get("seed_count") or 0),
+                seed_family_count=int(rescue.get("seed_family_count") or 0),
+                rescue_config_count=int(rescue.get("rescue_config_count") or 0),
+                auto_config_cap=int(rescue.get("auto_config_cap") or 0),
+                within_auto_cap=bool(rescue.get("within_auto_cap")),
+            )
+        )
+        lines.append(
+            "- seed_types: diagnostic:{diagnostic_seed_count} near_miss:{near_miss_seed_count}".format(
+                diagnostic_seed_count=int(rescue.get("diagnostic_seed_count") or 0),
+                near_miss_seed_count=int(rescue.get("near_miss_seed_count") or 0),
+            )
+        )
+        bias_counts = rescue.get("mutation_bias_counts") or {}
+        if bias_counts:
+            bias_text = ", ".join(f"{name}:{count}" for name, count in list(bias_counts.items())[:6])
+            lines.append(f"- mutation_bias: {bias_text}")
+        else:
+            lines.append("- mutation_bias: none")
+        seed_years = rescue.get("seed_worst_year_counts") or {}
+        if seed_years:
+            seed_year_text = ", ".join(f"{bucket}:{count}" for bucket, count in list(seed_years.items())[:6])
+            lines.append(f"- seed_worst_years: {seed_year_text}")
+        else:
+            lines.append("- seed_worst_years: none")
+        lines.append(
+            "- trials: prior:{prior} after_rescue:{after}".format(
+                prior=int(rescue.get("prior_effective_trials") or 0),
+                after=int(rescue.get("effective_trials_after_rescue") or 0),
+            )
+        )
     lines.append("recommendations:")
     for rec in report.get("recommendations") or []:
         lines.append(f"- [{rec['priority']}] {rec['action']}: {rec['reason']}")

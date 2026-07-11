@@ -18,8 +18,10 @@ SPEC.loader.exec_module(telemetry_mod)
 def sample_row(
     *,
     failures: tuple[str, ...],
-    sharpe: float = 1.0,
-    active: int = 10,
+    sharpe: float = 1.5,
+    active: int = 20,
+    time_in_market: float = 0.10,
+    bootstrap_p5: float = 0.20,
     yearly: dict[str, float] | None = None,
 ) -> dict:
     checks = {
@@ -38,16 +40,22 @@ def sample_row(
         "config": {
             "score_mode": "breakout",
             "lookback_h": 168,
+            "skip_h": 0,
             "rebalance_h": 24,
             "k": 2,
+            "market_filter_h": 720,
+            "market_confirm_h": 168,
+            "market_drawdown_limit": 0.25,
+            "vol_target_ann": 0.08,
             "drawdown_stop": 0.1,
             "cooldown_h": 168,
+            "n_tranches": 1,
         },
         "cost20": {
             "sharpe": sharpe,
             "total_return": 0.1,
             "max_drawdown": 0.12,
-            "bootstrap_30d_sharpe_p5": -0.2,
+            "bootstrap_30d_sharpe_p5": bootstrap_p5,
             "equal_weight_benchmark": {"sharpe_excess": -0.1},
             "top_positive_symbol_share": 0.8,
             "yearly": {bucket: {"net_return": value} for bucket, value in yearly.items()},
@@ -56,7 +64,7 @@ def sample_row(
             "sharpe": sharpe - 0.1,
             "daily_turnover": 0.01,
             "active_rebalance_event_count": active,
-            "time_in_market_frac": 0.02,
+            "time_in_market_frac": time_in_market,
         },
     }
 
@@ -91,6 +99,11 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
     assert report["failure_counts"]["positive_3_of_4_years"] == 3
     assert report["failure_categories"]["robustness"] >= 5
     assert report["year_robustness"]["near_miss_rows"]["worst_year_counts"]["2022"] == 3
+    assert report["rescue_preview"]["enabled"] is True
+    assert report["rescue_preview"]["seed_count"] > 0
+    assert report["rescue_preview"]["near_miss_seed_count"] > 0
+    assert report["rescue_preview"]["rescue_config_count"] <= report["rescue_preview"]["auto_config_cap"]
+    assert report["rescue_preview"]["within_auto_cap"] is True
     assert report["top_rows"][0]["year_robustness"]["worst_year"]["bucket"] == "2022"
     actions = {row["action"] for row in report["recommendations"]}
     assert "run_family_registry_and_holdout_queue_after_task_finishes" in actions
@@ -101,6 +114,8 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
     assert "safety=paper:False live:False" in text
     assert "near_miss_definition=market_failures<=3" in text
     assert "near_miss_worst_years: 2022:3" in text
+    assert "rescue_preview:" in text
+    assert "within_cap:True" in text
 
 
 def test_gate_telemetry_near_miss_ignores_validation_flow_failures(tmp_path) -> None:
