@@ -509,6 +509,8 @@ def write_progress_meta(
         "cache_version": ROW_CACHE_VERSION,
         "total_rows": int(total_rows),
         "completed_rows": int(completed_rows),
+        "prior_trials": int(cfg.prior_trials),
+        "effective_trials": int(total_rows) + int(cfg.prior_trials),
         "data_fingerprint": closes_fingerprint,
         "train_start": cfg.train_start,
         "train_end": cfg.train_end,

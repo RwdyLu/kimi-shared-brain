@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -33,6 +34,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     validation_checks,
     validation_sharpe_threshold,
     walk_forward_summary,
+    write_progress_meta,
 )
 
 
@@ -463,6 +465,28 @@ def test_trial_adjusted_thresholds_tighten_with_prior_trials() -> None:
     assert bootstrap_threshold(16 + 500) > bootstrap_threshold(16)
     assert validation_sharpe_threshold(10) == 0.70
     assert validation_sharpe_threshold(1000) > validation_sharpe_threshold(10)
+
+
+def test_progress_meta_records_prior_and_effective_trials(tmp_path) -> None:
+    cfg = RunConfig(prior_trials=123)
+    path = tmp_path / "case.progress.meta.json"
+
+    write_progress_meta(
+        path,
+        total_rows=10,
+        completed_rows=4,
+        closes_fingerprint="fp",
+        cfg=cfg,
+        bootstrap_p5_min=0.30,
+        validation_sharpe20_min=1.10,
+        confirm_iterations=500,
+    )
+
+    payload = json.loads(path.read_text())
+    assert payload["prior_trials"] == 123
+    assert payload["effective_trials"] == 133
+    assert payload["total_rows"] == 10
+    assert payload["completed_rows"] == 4
 
 
 def test_bootstrap_seed_is_stable_and_segment_specific() -> None:
