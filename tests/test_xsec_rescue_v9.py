@@ -159,6 +159,50 @@ def test_select_rescue_seeds_rejects_inactive_near_miss_fallback() -> None:
     assert seeds == []
 
 
+def test_select_rescue_seeds_diversifies_near_miss_families_before_filling() -> None:
+    same_family_a = dict(BASE_CONFIG)
+    same_family_a["lookback_h"] = 168
+    same_family_a["rebalance_h"] = 24
+    same_family_a["score_mode"] = "breakout"
+    same_family_a["market_filter_h"] = 336
+    same_family_a["vol_target_ann"] = 0.08
+
+    same_family_b = dict(same_family_a)
+    same_family_b["vol_target_ann"] = 0.10
+
+    other_family = dict(same_family_a)
+    other_family["lookback_h"] = 336
+
+    rows = [
+        row(
+            config=same_family_a,
+            diagnostic_triggered=False,
+            failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+            selection_sharpe=1.80,
+            bootstrap_p5=0.60,
+        ),
+        row(
+            config=same_family_b,
+            diagnostic_triggered=False,
+            failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+            selection_sharpe=1.79,
+            bootstrap_p5=0.59,
+        ),
+        row(
+            config=other_family,
+            diagnostic_triggered=False,
+            failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+            selection_sharpe=1.40,
+            bootstrap_p5=0.30,
+        ),
+    ]
+
+    seeds = select_rescue_seeds(rows, top_k=2)
+
+    assert [seed["config"]["vol_target_ann"] for seed in seeds] == [0.08, 0.08]
+    assert [seed["rescue_seed_family"]["lookback_h"] for seed in seeds] == [168, 336]
+
+
 def test_rescue_gene_order_targets_robustness_and_benchmark_failures() -> None:
     robustness_order = rescue_gene_order(["positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"])
     benchmark_order = rescue_gene_order(["benchmark_sharpe_excess_ge_0_10", "sharpe40_ge_1"])
@@ -190,6 +234,7 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
     )
 
     assert plan["seed_count"] == 2
+    assert plan["seed_family_count"] == 2
     assert plan["rescue_config_count"] == 10
     assert plan["effective_trials_after_rescue"] == 20010
     assert plan["holdout_authorized"] is False

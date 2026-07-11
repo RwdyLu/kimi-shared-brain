@@ -20,6 +20,13 @@ MARKET_CONFIRM_H = (0, 168, 336, 504, 720)
 MARKET_DRAWDOWN_LIMITS = (0.0, 0.20, 0.25, 0.30, 0.35)
 DEFAULT_RESCUE_TOP_K = 8
 DEFAULT_RESCUE_BUDGET_PER_SEED = 18
+SEED_FAMILY_CONFIG_KEYS = (
+    "score_mode",
+    "lookback_h",
+    "rebalance_h",
+    "market_filter_h",
+    "market_confirm_h",
+)
 
 RESCUE_IGNORED_FAILURES = frozenset({"selection_passed_before_validation"})
 RESCUE_HARD_REJECT_FAILURES = frozenset(
@@ -135,6 +142,14 @@ def config_fingerprint(config: dict[str, Any]) -> str:
     return hashlib.sha1(json.dumps(config, sort_keys=True).encode("utf-8")).hexdigest()[:12]
 
 
+def rescue_seed_family_key(config: dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(config.get(key) for key in SEED_FAMILY_CONFIG_KEYS)
+
+
+def rescue_seed_family(config: dict[str, Any]) -> dict[str, Any]:
+    return {key: config.get(key) for key in SEED_FAMILY_CONFIG_KEYS}
+
+
 def yearly_returns(row: dict[str, Any]) -> dict[str, float]:
     cost20 = (row.get("selection") or {}).get("cost20") or row.get("cost20") or {}
     yearly = cost20.get("yearly") or {}
@@ -210,11 +225,13 @@ def near_miss_sort_key(row: dict[str, Any]) -> tuple[float, ...]:
 def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagnostic_walkforward") -> dict[str, Any]:
     metrics = diagnostic_metrics(row)
     relevant_failures = rescue_relevant_failures(row)
+    config = dict(row.get("config") or {})
     return {
         "source_index": int(source_index),
         "rescue_seed_type": seed_type,
-        "config": dict(row.get("config") or {}),
-        "config_fingerprint": config_fingerprint(row.get("config") or {}),
+        "rescue_seed_family": rescue_seed_family(config),
+        "config": config,
+        "config_fingerprint": config_fingerprint(config),
         "diagnostic_q25_sharpe": safe_float(metrics["q25_sharpe"]),
         "diagnostic_sign_consistency": safe_float(metrics["sign_consistency"]),
         "selection_sharpe20": selection_sharpe20(row),
@@ -265,14 +282,27 @@ def select_rescue_seeds(
 
     seeds: list[dict[str, Any]] = []
     seen_configs: set[str] = set()
-    for row, idx in diagnostic_rows:
-        fp = config_fingerprint(row.get("config") or {})
-        if fp in seen_configs:
-            continue
-        seen_configs.add(fp)
-        seeds.append(seed_record(row, idx, seed_type="diagnostic_walkforward"))
-        if len(seeds) >= limit:
-            return seeds
+
+    def append_diverse_candidates(candidates: list[tuple[dict[str, Any], int]], seed_type: str) -> None:
+        seen_families = {rescue_seed_family_key(seed.get("config") or {}) for seed in seeds}
+        for prefer_new_family in (True, False):
+            for row, idx in candidates:
+                config = row.get("config") or {}
+                fp = config_fingerprint(config)
+                family_key = rescue_seed_family_key(config)
+                if fp in seen_configs:
+                    continue
+                if prefer_new_family and family_key in seen_families:
+                    continue
+                seen_configs.add(fp)
+                seen_families.add(family_key)
+                seeds.append(seed_record(row, idx, seed_type=seed_type))
+                if len(seeds) >= limit:
+                    return
+
+    append_diverse_candidates(diagnostic_rows, "diagnostic_walkforward")
+    if len(seeds) >= limit:
+        return seeds
 
     if not allow_near_miss:
         return seeds
@@ -290,14 +320,7 @@ def select_rescue_seeds(
         )
     ]
     near_miss_rows.sort(key=lambda item: near_miss_sort_key(item[0]), reverse=True)
-    for row, idx in near_miss_rows:
-        fp = config_fingerprint(row.get("config") or {})
-        if fp in seen_configs:
-            continue
-        seen_configs.add(fp)
-        seeds.append(seed_record(row, idx, seed_type="near_miss_gate"))
-        if len(seeds) >= limit:
-            break
+    append_diverse_candidates(near_miss_rows, "near_miss_gate")
     return seeds
 
 
@@ -427,6 +450,7 @@ def build_rescue_plan(
     prior_effective_trials = int(meta.get("effective_trials") or meta.get("prior_trials") or 0)
     diagnostic_seed_count = sum(1 for seed in planned_seeds if seed.get("rescue_seed_type") == "diagnostic_walkforward")
     near_miss_seed_count = sum(1 for seed in planned_seeds if seed.get("rescue_seed_type") == "near_miss_gate")
+    seed_family_count = len({tuple((seed.get("rescue_seed_family") or {}).items()) for seed in planned_seeds})
     return {
         "kind": "xsec_diagnostic_or_nearmiss_rescue_plan_v2",
         "source_artifact": source_artifact,
@@ -434,6 +458,7 @@ def build_rescue_plan(
         "seed_count": len(planned_seeds),
         "diagnostic_seed_count": diagnostic_seed_count,
         "near_miss_seed_count": near_miss_seed_count,
+        "seed_family_count": seed_family_count,
         "rescue_config_count": len(configs),
         "budget_per_seed": int(budget_per_seed),
         "rescue_seed_policy": {
@@ -447,6 +472,7 @@ def build_rescue_plan(
             "near_miss_min_time_in_market40": float(near_miss_min_time_in_market40),
             "ignored_failures": sorted(RESCUE_IGNORED_FAILURES),
             "hard_reject_failures": sorted(RESCUE_HARD_REJECT_FAILURES),
+            "seed_family_config_keys": list(SEED_FAMILY_CONFIG_KEYS),
         },
         "prior_effective_trials": prior_effective_trials,
         "effective_trials_after_rescue": prior_effective_trials + len(configs),
