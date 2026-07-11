@@ -478,18 +478,21 @@ def fmt(value: Any, digits: int = 3) -> str:
 
 
 def write_marker(report: dict[str, Any], state_dir: Path) -> None:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    found_marker = state_dir / "FOUND_PAPER_READY.txt"
+    review_marker = state_dir / "PAPER_REVIEW_REQUIRED.txt"
     if report.get("paper_trading_authorized"):
-        marker = state_dir / "FOUND_PAPER_READY.txt"
-        marker.write_text(
+        review_marker.unlink(missing_ok=True)
+        found_marker.write_text(
             "FOUND_PAPER_READY "
             f"{now_utc()} artifact={report['candidate']['artifact']} "
             f"paper_gate_decision={report['decision']} "
             "live_trading_authorized=False\n"
         )
     else:
-        marker = state_dir / "PAPER_REVIEW_REQUIRED.txt"
+        found_marker.unlink(missing_ok=True)
         artifact = (report.get("candidate") or {}).get("artifact")
-        marker.write_text(
+        review_marker.write_text(
             "PAPER_REVIEW_REQUIRED "
             f"{now_utc()} artifact={artifact or 'NONE'} "
             f"decision={report['decision']} "

@@ -223,3 +223,24 @@ def test_candidate_hash_distinguishes_same_artifact_different_config() -> None:
     right["config"] = {"market_filter_h": 504}
 
     assert batch_mod.candidate_hash(left) != batch_mod.candidate_hash(right)
+
+
+def test_write_validated_marker_removes_stale_marker_when_no_candidate(tmp_path) -> None:
+    stale = tmp_path / "FOUND_VALIDATED_CANDIDATE.txt"
+    stale.write_text("old candidate\n")
+    report = {
+        "holdout_results": [
+            {"promotion_decision": "holdout_promising_recently_inactive_manual_review_required"}
+        ],
+        "summary": {
+            "status_counts": {
+                "holdout_promising_recently_inactive_manual_review_required": 1
+            }
+        },
+    }
+
+    batch_mod.write_validated_marker(report, tmp_path)
+
+    assert not stale.exists()
+    none = tmp_path / "NO_VALIDATED_CANDIDATE.txt"
+    assert "NO_VALIDATED_CANDIDATE" in none.read_text()

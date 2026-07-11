@@ -277,8 +277,26 @@ def test_write_marker_never_authorizes_live(tmp_path) -> None:
         "decision": "paper_ready",
         "candidate": {"artifact": "candidate.json"},
     }
+    (tmp_path / "PAPER_REVIEW_REQUIRED.txt").write_text("old review\n")
 
     gate_mod.write_marker(report, tmp_path)
 
     text = (tmp_path / "FOUND_PAPER_READY.txt").read_text()
     assert "live_trading_authorized=False" in text
+    assert not (tmp_path / "PAPER_REVIEW_REQUIRED.txt").exists()
+
+
+def test_write_marker_removes_stale_paper_ready_when_blocked(tmp_path) -> None:
+    (tmp_path / "FOUND_PAPER_READY.txt").write_text("old ready\n")
+    report = {
+        "paper_trading_authorized": False,
+        "decision": "paper_blocked_no_candidate",
+        "candidate": {},
+    }
+
+    gate_mod.write_marker(report, tmp_path)
+
+    assert not (tmp_path / "FOUND_PAPER_READY.txt").exists()
+    text = (tmp_path / "PAPER_REVIEW_REQUIRED.txt").read_text()
+    assert "artifact=NONE" in text
+    assert "paper_blocked_no_candidate" in text

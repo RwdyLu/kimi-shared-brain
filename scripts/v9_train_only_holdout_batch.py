@@ -552,12 +552,21 @@ def write_validated_marker(report: dict[str, Any], marker_dir: Path) -> None:
     paper_candidates = [
         row for row in report.get("holdout_results", []) if row.get("promotion_decision") == "paper_candidate_manual_review_required"
     ]
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    found_marker = marker_dir / "FOUND_VALIDATED_CANDIDATE.txt"
+    none_marker = marker_dir / "NO_VALIDATED_CANDIDATE.txt"
     if not paper_candidates:
+        found_marker.unlink(missing_ok=True)
+        none_marker.write_text(
+            "NO_VALIDATED_CANDIDATE "
+            f"{now_utc()} "
+            f"status_counts={json.dumps((report.get('summary') or {}).get('status_counts', {}), sort_keys=True)} "
+            "paper_trading_authorized=False live_trading_authorized=False\n"
+        )
         return
     best = paper_candidates[0]
-    marker = marker_dir / "FOUND_VALIDATED_CANDIDATE.txt"
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(
+    none_marker.unlink(missing_ok=True)
+    found_marker.write_text(
         "FOUND_VALIDATED_CANDIDATE "
         f"{now_utc()} artifact={best.get('artifact')} "
         f"holdout_report={best.get('holdout_report_json')} "
