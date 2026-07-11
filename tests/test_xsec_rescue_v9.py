@@ -118,7 +118,10 @@ def test_select_rescue_seeds_requires_strong_diagnostic_and_full_config() -> Non
 
 
 def test_select_rescue_seeds_prefers_accepted_train_only_rows_for_multiplicity_hardening() -> None:
+    accepted_config = dict(BASE_CONFIG)
+    accepted_config["lookback_h"] = 672
     accepted = row(
+        config=accepted_config,
         advance_passed=True,
         diagnostic_q25=0.10,
         diagnostic_triggered=False,
@@ -432,7 +435,9 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
 
 
 def test_build_rescue_plan_counts_accepted_train_only_seeds() -> None:
-    accepted = row(advance_passed=True, diagnostic_triggered=False, failed_checks=())
+    accepted_config = dict(BASE_CONFIG)
+    accepted_config["lookback_h"] = 672
+    accepted = row(config=accepted_config, advance_passed=True, diagnostic_triggered=False, failed_checks=())
     near_miss = row(
         diagnostic_triggered=False,
         failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),

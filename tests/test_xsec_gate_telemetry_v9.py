@@ -18,6 +18,7 @@ SPEC.loader.exec_module(telemetry_mod)
 def sample_row(
     *,
     failures: tuple[str, ...],
+    config_overrides: dict | None = None,
     sharpe: float = 1.5,
     active: int = 20,
     time_in_market: float = 0.10,
@@ -34,23 +35,25 @@ def sample_row(
         "selection_passed_before_validation": "selection_passed_before_validation" not in failures,
     }
     yearly = yearly or {"2021": 0.10, "2022": -0.05, "2023": 0.04, "2024H1": 0.03}
+    config = {
+        "score_mode": "breakout",
+        "lookback_h": 168,
+        "skip_h": 0,
+        "rebalance_h": 24,
+        "k": 2,
+        "market_filter_h": 720,
+        "market_confirm_h": 168,
+        "market_drawdown_limit": 0.25,
+        "vol_target_ann": 0.08,
+        "drawdown_stop": 0.1,
+        "cooldown_h": 168,
+        "n_tranches": 1,
+    }
+    config.update(config_overrides or {})
     return {
         "advance_passed": not failures,
         "advance_checks": checks,
-        "config": {
-            "score_mode": "breakout",
-            "lookback_h": 168,
-            "skip_h": 0,
-            "rebalance_h": 24,
-            "k": 2,
-            "market_filter_h": 720,
-            "market_confirm_h": 168,
-            "market_drawdown_limit": 0.25,
-            "vol_target_ann": 0.08,
-            "drawdown_stop": 0.1,
-            "cooldown_h": 168,
-            "n_tranches": 1,
-        },
+        "config": config,
         "cost20": {
             "sharpe": sharpe,
             "total_return": 0.1,
@@ -82,9 +85,15 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
         tmp_path / "xsec_case",
         [
             sample_row(failures=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min", "active_rebalances40_ge_min")),
-            sample_row(failures=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min", "time_in_market40_ge_min")),
-            sample_row(failures=("positive_3_of_4_years", "benchmark_sharpe_excess_ge_0_10", "top_symbol_share_le_60pct")),
-            sample_row(failures=(), sharpe=1.8, active=20),
+            sample_row(
+                failures=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min", "time_in_market40_ge_min"),
+                config_overrides={"lookback_h": 240},
+            ),
+            sample_row(
+                failures=("positive_3_of_4_years", "benchmark_sharpe_excess_ge_0_10", "top_symbol_share_le_60pct"),
+                config_overrides={"lookback_h": 336},
+            ),
+            sample_row(failures=(), config_overrides={"lookback_h": 504}, sharpe=1.8, active=20),
         ],
     )
 
