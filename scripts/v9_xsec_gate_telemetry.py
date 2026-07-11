@@ -57,6 +57,8 @@ FAILURE_CATEGORIES = {
     },
 }
 
+NEAR_MISS_IGNORED_FAILURES = frozenset({"selection_passed_before_validation", "validation_usable"})
+
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -130,6 +132,10 @@ def failed_checks(row: dict[str, Any]) -> list[str]:
     return [str(name) for name, passed in checks.items() if not passed]
 
 
+def market_failed_checks(row: dict[str, Any]) -> list[str]:
+    return [name for name in failed_checks(row) if name not in NEAR_MISS_IGNORED_FAILURES]
+
+
 def category_counts(fail_counts: dict[str, int]) -> dict[str, int]:
     out = {name: 0 for name in FAILURE_CATEGORIES}
     uncategorized = 0
@@ -170,6 +176,8 @@ def row_summary(row: dict[str, Any]) -> dict[str, Any]:
         "config": compact_config(row.get("config") or {}),
         "advance_passed": bool(row.get("advance_passed")),
         "failed_checks": failed_checks(row),
+        "market_failed_checks": market_failed_checks(row),
+        "market_failure_count": len(market_failed_checks(row)),
         "year_robustness": {
             "worst_year": worst_year(row),
             "negative_years": negative_years(row),
@@ -203,7 +211,7 @@ def top_rows(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
         rows,
         key=lambda row: (
             bool(row.get("advance_passed")),
-            -len(failed_checks(row)),
+            -len(market_failed_checks(row)),
             metric(row, "cost20", "sharpe"),
             metric(row, "cost20", "bootstrap_30d_sharpe_p5"),
             -metric(row, "cost20", "max_drawdown"),
@@ -347,7 +355,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
     fail_counts = dict(fail_counter.most_common())
     denom = max(1, len(rows))
     fail_rates = {key: count / denom for key, count in fail_counts.items()}
-    near_misses = [row for row in rows if not row.get("advance_passed") and 0 < len(failed_checks(row)) <= 3]
+    near_misses = [row for row in rows if not row.get("advance_passed") and 0 < len(market_failed_checks(row)) <= 3]
     year_robustness = year_robustness_summary(rows, near_misses)
     report = {
         "kind": "xsec_gate_telemetry_v1",
@@ -359,6 +367,10 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
         "progress_fraction": completed_rows / max(1, total_rows),
         "pass_count": sum(1 for row in rows if row.get("advance_passed")),
         "near_miss_count": len(near_misses),
+        "near_miss_definition": {
+            "max_market_failures": 3,
+            "ignored_failures": sorted(NEAR_MISS_IGNORED_FAILURES),
+        },
         "failure_counts": fail_counts,
         "failure_rates": fail_rates,
         "failure_categories": category_counts(fail_counts),
@@ -395,6 +407,7 @@ def format_text(report: dict[str, Any]) -> str:
         f"artifact={report['artifact']}",
         f"rows={report['completed_rows']}/{report['total_rows']} progress={report['progress_fraction']:.3f}",
         f"pass_count={report['pass_count']} near_miss_count={report['near_miss_count']}",
+        "near_miss_definition=market_failures<=3 ignoring selection_passed_before_validation,validation_usable",
         "safety=paper:False live:False",
         "failure_counts:",
     ]
@@ -425,8 +438,9 @@ def format_text(report: dict[str, Any]) -> str:
     for row in report.get("top_rows") or []:
         sel = row.get("selection") or {}
         lines.append(
-            "- pass={pass_} fails={fails} sel_sh20={sh:.3f} boot={boot:.3f} active={active:.0f} time={time:.3f} worst={worst} cfg={cfg}".format(
+            "- pass={pass_} market_fails={market_fails} fails={fails} sel_sh20={sh:.3f} boot={boot:.3f} active={active:.0f} time={time:.3f} worst={worst} cfg={cfg}".format(
                 pass_=row.get("advance_passed"),
+                market_fails=",".join((row.get("market_failed_checks") or [])[:5]),
                 fails=",".join((row.get("failed_checks") or [])[:5]),
                 sh=float_or(sel.get("sharpe20")),
                 boot=float_or(sel.get("bootstrap_p5")),

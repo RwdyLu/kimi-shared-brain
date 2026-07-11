@@ -29,6 +29,7 @@ def sample_row(
         "time_in_market40_ge_min": "time_in_market40_ge_min" not in failures,
         "benchmark_sharpe_excess_ge_0_10": "benchmark_sharpe_excess_ge_0_10" not in failures,
         "top_symbol_share_le_60pct": "top_symbol_share_le_60pct" not in failures,
+        "selection_passed_before_validation": "selection_passed_before_validation" not in failures,
     }
     yearly = yearly or {"2021": 0.10, "2022": -0.05, "2023": 0.04, "2024H1": 0.03}
     return {
@@ -86,6 +87,7 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
     assert report["total_rows"] == 10
     assert report["pass_count"] == 1
     assert report["near_miss_count"] == 3
+    assert report["near_miss_definition"]["ignored_failures"] == ["selection_passed_before_validation", "validation_usable"]
     assert report["failure_counts"]["positive_3_of_4_years"] == 3
     assert report["failure_categories"]["robustness"] >= 5
     assert report["year_robustness"]["near_miss_rows"]["worst_year_counts"]["2022"] == 3
@@ -97,7 +99,44 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
     assert "diagnose_hostile_year_regime_filter_before_broadening_search" in actions
     assert "rows=4/10" in text
     assert "safety=paper:False live:False" in text
+    assert "near_miss_definition=market_failures<=3" in text
     assert "near_miss_worst_years: 2022:3" in text
+
+
+def test_gate_telemetry_near_miss_ignores_validation_flow_failures(tmp_path) -> None:
+    artifact = write_progress(
+        tmp_path / "xsec_case",
+        [
+            sample_row(
+                failures=(
+                    "selection_passed_before_validation",
+                    "positive_3_of_4_years",
+                    "bootstrap_p5_ge_adjusted_min",
+                    "active_rebalances40_ge_min",
+                )
+            ),
+            sample_row(
+                failures=(
+                    "selection_passed_before_validation",
+                    "positive_3_of_4_years",
+                    "bootstrap_p5_ge_adjusted_min",
+                    "active_rebalances40_ge_min",
+                    "benchmark_sharpe_excess_ge_0_10",
+                )
+            ),
+        ],
+    )
+
+    report = telemetry_mod.build_report(artifact, top_limit=2)
+
+    assert report["failure_counts"]["selection_passed_before_validation"] == 2
+    assert report["near_miss_count"] == 1
+    assert report["near_miss_rows"][0]["market_failed_checks"] == [
+        "positive_3_of_4_years",
+        "bootstrap_p5_ge_adjusted_min",
+        "active_rebalances40_ge_min",
+    ]
+    assert len(report["near_miss_rows"][0]["failed_checks"]) == 4
 
 
 def test_resolve_artifact_uses_active_progress_path(tmp_path, monkeypatch) -> None:
