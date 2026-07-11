@@ -146,6 +146,33 @@ def append_runner_state(path: Path, row: dict[str, Any]) -> dict[str, Any]:
     runs = state["runs"]
     state["summary"] = {
         "run_count": len(runs),
+        "running_count": sum(1 for run in runs if run.get("status") == "running"),
+        "dry_run_count": sum(1 for run in runs if run.get("status") == "dry_run"),
+        "completed_count": sum(1 for run in runs if run.get("returncode") == 0),
+        "failed_count": sum(1 for run in runs if run.get("returncode") not in (None, 0)),
+        "snapshot_verification_failed_count": sum(
+            1 for run in runs if run.get("status") == "snapshot_verification_failed"
+        ),
+        "skipped_existing_count": sum(1 for run in runs if run.get("status") == "skipped_existing"),
+    }
+    write_json(path, state)
+    return state
+
+
+def replace_runner_state_row(path: Path, fingerprint: str, row: dict[str, Any]) -> dict[str, Any]:
+    state = load_runner_state(path)
+    runs = list(state.get("runs") or [])
+    for idx in range(len(runs) - 1, -1, -1):
+        if runs[idx].get("group_plan_fingerprint") == fingerprint and runs[idx].get("status") == "running":
+            runs[idx] = row
+            break
+    else:
+        runs.append(row)
+    state["runs"] = runs
+    state["updated_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+    state["summary"] = {
+        "run_count": len(runs),
+        "running_count": sum(1 for run in runs if run.get("status") == "running"),
         "dry_run_count": sum(1 for run in runs if run.get("status") == "dry_run"),
         "completed_count": sum(1 for run in runs if run.get("returncode") == 0),
         "failed_count": sum(1 for run in runs if run.get("returncode") not in (None, 0)),
@@ -212,6 +239,17 @@ def run_group(
     started = time.time()
     with log_path.open("w") as log:
         proc = subprocess.Popen(list(group.get("command") or []), stdout=log, stderr=subprocess.STDOUT, text=True)
+        append_runner_state(
+            runner_state_path,
+            {
+                **base,
+                "status": "running",
+                "returncode": None,
+                "child_pid": proc.pid,
+                "log": str(log_path),
+                "snapshot_check": snapshot_check,
+            },
+        )
         try:
             returncode = proc.wait(timeout=timeout_sec)
         except subprocess.TimeoutExpired:
@@ -243,7 +281,7 @@ def run_group(
                 "completed_at": row["completed_at"],
             },
         )
-    append_runner_state(runner_state_path, row)
+    replace_runner_state_row(runner_state_path, fingerprint, row)
     return row
 
 

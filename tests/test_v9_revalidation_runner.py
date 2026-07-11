@@ -148,3 +148,53 @@ def test_revalidation_runner_dry_run_preserves_plan_command(tmp_path, monkeypatc
     assert report["rows"][0]["command"] == group["command"]
     state = json.loads((tmp_path / "runner_state.json").read_text())
     assert state["summary"]["dry_run_count"] == 1
+
+
+def test_revalidation_runner_replaces_running_row_on_completion(tmp_path, monkeypatch) -> None:
+    group = plan_group(tmp_path)
+    write_snapshot(Path(group["data_snapshot_path"]))
+
+    def fake_read_data_snapshot(snapshot_path, cfg):
+        return None, {"fingerprint": group["data_snapshot_fingerprint"]}
+
+    class FakeProc:
+        pid = 12345
+
+        def wait(self, timeout=None):
+            write_json(
+                Path(group["output_json"]),
+                {
+                    "summary": {"accepted_train_only": True, "rows": 1},
+                    "selection_validation": {"n_configs_tested": 1, "effective_trials": 2},
+                    "data": {
+                        "fingerprint": "data-fp",
+                        "symbols": ["BTCUSDT", "ETHUSDT"],
+                        "snapshot": {
+                            "path": group["data_snapshot_path"],
+                            "fingerprint": group["data_snapshot_fingerprint"],
+                        },
+                    },
+                },
+            )
+            return 0
+
+        def kill(self):
+            raise AssertionError("timeout path should not kill")
+
+    monkeypatch.setattr(runner_mod, "read_data_snapshot", fake_read_data_snapshot)
+    monkeypatch.setattr(runner_mod.subprocess, "Popen", lambda *args, **kwargs: FakeProc())
+
+    row = runner_mod.run_group(
+        group,
+        runner_state_path=tmp_path / "runner_state.json",
+        log_dir=tmp_path / "logs",
+        dry_run=False,
+    )
+
+    assert row["status"] == "accepted_train_only_candidate_found"
+    state = json.loads((tmp_path / "runner_state.json").read_text())
+    assert len(state["runs"]) == 1
+    assert state["runs"][0]["status"] == "accepted_train_only_candidate_found"
+    assert state["summary"]["running_count"] == 0
+    assert state["summary"]["completed_count"] == 1
+    assert runner_mod.completion_metadata_path(group["output_json"]).exists()
