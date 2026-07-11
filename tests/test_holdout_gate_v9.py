@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.v9_xsec_paper_readiness_gate import paper_candidate_from_batch  # noqa: E402
 from v9.contract.holdout import run_authorized_holdout  # noqa: E402
 from v9.contract.triage import build_manual_review_queue  # noqa: E402
 
@@ -184,8 +185,22 @@ def test_authorized_holdout_writes_ledger_before_audit_and_is_one_shot(tmp_path)
 
     assert first["applied_count"] == 1
     assert first["decisions"][0]["new_status"] == "validated_holdout"
+    assert first["summary"]["paper_candidate_count"] == 1
+    assert first["summary"]["status_counts"] == {"paper_candidate_manual_review_required": 1}
+    selected = paper_candidate_from_batch(first)
+    assert selected["promotion_decision"] == "paper_candidate_manual_review_required"
+    assert selected["ledger_id"] == first["decisions"][0]["ledger_id"]
+    assert selected["paper_trading_authorized"] is False
+    assert selected["live_trading_authorized"] is False
     assert second["applied_count"] == 0
     assert second["decisions"][0]["reason"] == "candidate_already_consumed"
+    assert second["summary"]["paper_candidate_count"] == 0
+    try:
+        paper_candidate_from_batch(second)
+    except ValueError as exc:
+        assert "no paper_candidate_manual_review_required row" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("second no-op report must not expose a paper candidate")
     assert updated["candidates_found"][0]["status"] == "validated_holdout"
     assert updated["candidates_found"][0]["paper_trading_authorized"] is False
     assert updated["candidates_found"][0]["live_trading_authorized"] is False

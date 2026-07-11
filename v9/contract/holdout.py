@@ -176,6 +176,14 @@ def cost_metrics(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def holdout_result_status_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = str(row.get("promotion_decision") or row.get("audit_status") or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def holdout_decision(audit: dict[str, Any], criteria: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     evidence = dict(audit.get("promotion_evidence") or {})
     metrics = cost_metrics(audit)
@@ -290,6 +298,7 @@ def run_authorized_holdout(
     consumed_ids = consumed_candidate_ids(ledger)
     now = now_utc()
     rows = []
+    holdout_results = []
     applied_count = 0
 
     if audit_candidate is None:
@@ -425,6 +434,17 @@ def run_authorized_holdout(
         holdout_candidate["authorization_criteria"] = dict(raw["criteria"])
         audit = audit_candidate(holdout_candidate)
         new_status, decision_evidence = holdout_decision(audit, dict(raw["criteria"]))
+        holdout_result = {
+            **audit,
+            "candidate_id": candidate_id,
+            "ledger_id": ledger_id,
+            "state_status": new_status,
+            "family_fingerprint": family,
+            "holdout_authorized": True,
+            "paper_trading_authorized": False,
+            "live_trading_authorized": False,
+        }
+        holdout_results.append(holdout_result)
         record["status"] = new_status
         record["holdout_reviewed_at"] = now_utc()
         record["holdout_authorized_by"] = raw.get("authorized_by")
@@ -444,10 +464,10 @@ def run_authorized_holdout(
             {
                 "status": new_status,
                 "completed_at": now_utc(),
-                "holdout_report_json": audit.get("holdout_report_json"),
-                "holdout_report_text": audit.get("holdout_report_text"),
-                "holdout_decision": audit.get("holdout_decision"),
-                "promotion_decision": audit.get("promotion_decision"),
+                "holdout_report_json": holdout_result.get("holdout_report_json"),
+                "holdout_report_text": holdout_result.get("holdout_report_text"),
+                "holdout_decision": holdout_result.get("holdout_decision"),
+                "promotion_decision": holdout_result.get("promotion_decision"),
                 "decision_evidence": decision_evidence,
             },
         )
@@ -459,7 +479,7 @@ def run_authorized_holdout(
                 "ledger_id": ledger_id,
                 "family_fingerprint": family,
                 "holdout_authorized": True,
-                "holdout_report_json": audit.get("holdout_report_json"),
+                "holdout_report_json": holdout_result.get("holdout_report_json"),
             }
         )
         applied_count += 1
@@ -486,6 +506,23 @@ def run_authorized_holdout(
         "holdout_authorized": bool(applied_count),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
+        "holdout_results": holdout_results,
+        "summary": {
+            "authorization_count": len(authorizations),
+            "holdout_completed_count": len(holdout_results),
+            "paper_candidate_count": sum(
+                1
+                for row in holdout_results
+                if row.get("promotion_decision") == "paper_candidate_manual_review_required"
+            ),
+            "status_counts": holdout_result_status_counts(holdout_results),
+        },
+        "recommendation": (
+            "Run the paper readiness gate against this report as --holdout-batch only for "
+            "paper_candidate_manual_review_required XSEC rows. Paper/live trading remain unauthorized here."
+            if holdout_results
+            else "No holdout results were produced. Do not paper trade."
+        ),
         "decisions": rows,
     }
 
