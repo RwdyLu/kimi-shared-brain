@@ -743,11 +743,36 @@ def candidate_multiplicity_metadata(result: dict[str, Any], total_candidates: in
     if not output_json:
         return {}
     payload = read_json(Path(str(output_json)))
-    evidence = multiplicity_evidence(payload, total_trials=max(1, int(total_candidates)))
+    total_trials = multiplicity_total_trials(result, payload, fallback_total_candidates=total_candidates)
+    evidence = multiplicity_evidence(payload, total_trials=total_trials)
     return {
         "multiplicity_decision": evidence.get("decision"),
         "multiplicity_evidence": evidence,
     }
+
+
+def multiplicity_total_trials(
+    result: dict[str, Any],
+    payload: dict[str, Any] | None,
+    *,
+    fallback_total_candidates: int,
+) -> int:
+    for value in (
+        result.get("effective_trials"),
+        ((payload or {}).get("selection_validation") or {}).get("effective_trials"),
+    ):
+        if value is not None:
+            return max(1, int(value or 0))
+    prior_trials = result.get("prior_trials")
+    n_configs = result.get("n_configs_tested")
+    if prior_trials is not None or n_configs is not None:
+        return max(1, int(prior_trials or 0) + int(n_configs or 0))
+    selection_validation = (payload or {}).get("selection_validation") or {}
+    prior_trials = selection_validation.get("prior_trials")
+    n_configs = selection_validation.get("n_configs_tested") or selection_validation.get("n_configs")
+    if prior_trials is not None or n_configs is not None:
+        return max(1, int(prior_trials or 0) + int(n_configs or 0))
+    return max(1, int(fallback_total_candidates))
 
 
 def status_after_multiplicity(base_status: str, metadata: dict[str, Any]) -> str:

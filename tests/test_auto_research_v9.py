@@ -526,6 +526,47 @@ def test_pending_rescue_bundles_prioritizes_lower_multiplicity_p_value(tmp_path)
     assert bundles[0].planned_record["rescue_priority"]["multiplicity_adjusted_p_value"] == 0.02
 
 
+def test_candidate_multiplicity_metadata_uses_effective_trials_before_candidate_count(
+    tmp_path, monkeypatch
+) -> None:
+    output_json = tmp_path / "candidate.json"
+    write_json({"kind": "xsec_ohlcv_factory_v1_train_only_grid", "selection_validation": {}}, output_json)
+    seen = {}
+
+    def fake_multiplicity_evidence(payload: dict, *, total_trials: int, **kwargs) -> dict:
+        seen["total_trials"] = total_trials
+        return {"evaluated": True, "decision": "multiplicity_survivor", "total_trials": total_trials}
+
+    monkeypatch.setattr(auto_research, "multiplicity_evidence", fake_multiplicity_evidence)
+
+    metadata = auto_research.candidate_multiplicity_metadata(
+        {"output_json": str(output_json), "effective_trials": 12345},
+        total_candidates=2,
+    )
+
+    assert seen["total_trials"] == 12345
+    assert metadata["multiplicity_evidence"]["total_trials"] == 12345
+
+
+def test_candidate_multiplicity_metadata_falls_back_to_prior_plus_configs(tmp_path, monkeypatch) -> None:
+    output_json = tmp_path / "candidate.json"
+    write_json({"kind": "xsec_ohlcv_factory_v1_train_only_grid", "selection_validation": {}}, output_json)
+    seen = {}
+
+    def fake_multiplicity_evidence(payload: dict, *, total_trials: int, **kwargs) -> dict:
+        seen["total_trials"] = total_trials
+        return {"evaluated": True, "decision": "multiplicity_survivor", "total_trials": total_trials}
+
+    monkeypatch.setattr(auto_research, "multiplicity_evidence", fake_multiplicity_evidence)
+
+    auto_research.candidate_multiplicity_metadata(
+        {"output_json": str(output_json), "prior_trials": 1000, "n_configs_tested": 25},
+        total_candidates=3,
+    )
+
+    assert seen["total_trials"] == 1025
+
+
 def test_refresh_recent_xsec_rescue_metadata_rebuilds_stale_plan_with_current_logic(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     output_json = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123.json"
