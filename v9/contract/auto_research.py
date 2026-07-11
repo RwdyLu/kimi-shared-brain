@@ -635,7 +635,13 @@ def maybe_pin_xsec_data_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
 
     try:
         from v9.contract.xsec_momentum import load_close_matrix
-        from v9.contract.xsec_ohlcv_factory import RunConfig, data_fingerprint, write_data_snapshot
+        from v9.contract.xsec_ohlcv_factory import (
+            RunConfig,
+            data_fingerprint,
+            data_snapshot_path_for,
+            snapshot_metadata_path,
+            write_data_snapshot,
+        )
 
         cfg = RunConfig(
             symbols=symbols,
@@ -644,6 +650,13 @@ def maybe_pin_xsec_data_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
             embargo_start=str(cfg_raw["embargo_start"]),
             cache_dir=str(cfg_raw.get("cache_dir") or "data/binance_public_cache"),
         )
+        expected_snapshot_path = data_snapshot_path_for(cfg, fingerprint)
+        if expected_snapshot_path.exists() and snapshot_metadata_path(expected_snapshot_path).exists():
+            return {
+                "data_snapshot_path": str(expected_snapshot_path),
+                "data_snapshot_fingerprint": fingerprint,
+                "data_snapshot_source": "existing_snapshot_by_fingerprint",
+            }
         closes = load_close_matrix(
             Path(cfg.cache_dir),
             cfg.symbols,
@@ -710,12 +723,9 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
         }
     try:
         payload = read_json(out_path) or {}
-        snapshot_metadata = maybe_pin_xsec_data_snapshot(payload)
         rows = list(payload.get("rows", []))
         meta = dict(payload.get("selection_validation", {}) or {})
         meta["summary"] = dict(payload.get("summary", {}) or {})
-        if snapshot_metadata:
-            meta["data_snapshot"] = snapshot_metadata
         excluded_fingerprints = {
             config_fingerprint(dict(row.get("config") or {}))
             for row in rows
@@ -734,6 +744,11 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
             excluded_fingerprints=excluded_fingerprints,
             parent_failure_count_by_config_fingerprint=parent_failure_counts,
         )
+        snapshot_metadata = {}
+        if int(plan.get("rescue_config_count") or 0) > 0:
+            snapshot_metadata = maybe_pin_xsec_data_snapshot(payload)
+            if snapshot_metadata:
+                plan.setdefault("source_meta", {})["data_snapshot"] = snapshot_metadata
         plan_path, config_path = rescue_artifact_paths(output_json)
         metadata = write_rescue_artifacts(plan, plan_path, config_path)
         metadata["rescue_generation"] = current_generation + 1
