@@ -564,6 +564,8 @@ def test_tsmom_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path)
     assert "--prior-trials" in bundle.task.command
     assert "26001" in bundle.task.command
     assert bundle.planned_record["rescue_family"] == "tsmom_near_miss"
+    assert bundle.planned_record["rescue_generation"] == 1
+    assert bundle.planned_record["root_parent_fingerprint"] == "abc123"
     auto_research.validate_train_only_task(bundle.task)
     command = " ".join(bundle.task.command)
     assert "v9.contract.tsmom_factory" in command
@@ -571,9 +573,51 @@ def test_tsmom_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path)
     assert "paper" not in command
     assert "live" not in command
 
+    restored = auto_research.tsmom_rescue_task_from_result(planned.record(), result)
+    assert restored is not None
+    assert restored.fingerprint == bundle.fingerprint
+    assert restored.task.command == bundle.task.command
+
     recursive = dict(result)
     recursive["output_json"] = "artifacts/v9/contract_lab/tsmom_rescue_full_202406_tsmom_bear_short_regime.json"
     assert auto_research.tsmom_rescue_task_from_result(planned, recursive) is None
+
+
+def test_pending_rescue_bundles_from_results_recovers_unexplored_tsmom_rescue(tmp_path) -> None:
+    rescue_configs = tmp_path / "tsmom_rescue_configs.json"
+    rescue_configs.write_text(json.dumps([{"asset_vol_target_ann": 0.35, "portfolio_vol_target_ann": 0.12}]))
+    planned = PlannedTask(
+        name="tsmom_cont_full_202406_tsmom_bear_short_regime_abc123",
+        preset="tsmom_bear_short_regime",
+        cli_preset="bear_short_regime",
+        module="v9.contract.tsmom_factory",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(tmp_path / "planned.json"),
+        output_md=str(tmp_path / "planned.md"),
+        prior_trials=26000,
+    )
+    result = {
+        "fingerprint": planned.fingerprint,
+        "planned_task": planned.record(),
+        "output_json": planned.output_json,
+        "output_md": planned.output_md,
+        "status": "completed_no_candidate",
+        "returncode": 0,
+        "rescue_config_json": str(rescue_configs),
+        "rescue_config_count": 1,
+        "effective_trials_after_rescue": 26001,
+    }
+
+    bundles = auto_research.pending_rescue_bundles_from_results([result], explored={"abc123"})
+
+    assert len(bundles) == 1
+    assert bundles[0].task.name.startswith("tsmom_rescue_full_202406")
+    assert bundles[0].planned_record["rescue_family"] == "tsmom_near_miss"
+    assert bundles[0].planned_record["parent_fingerprint"] == "abc123"
+    assert auto_research.pending_rescue_bundles_from_results([result], explored={bundles[0].fingerprint}) == []
 
 
 def test_backfill_internal_candidate_marker_prefers_non_duplicate(tmp_path) -> None:
