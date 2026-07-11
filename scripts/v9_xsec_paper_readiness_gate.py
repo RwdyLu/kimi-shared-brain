@@ -90,64 +90,129 @@ def shadow_oos_report(
     scores = score_matrix(closes, cfg)
     allowed = market_filter(closes, cfg)
     returns = closes[symbols].pct_change().shift(-1)
-    weights = {sym: 0.0 for sym in symbols}
-    tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
-    tranche_offsets = [int((idx * cfg.rebalance_h) // cfg.n_tranches) % cfg.rebalance_h for idx in range(cfg.n_tranches)]
-    rows = []
-    rebalances = []
-    past_gross_returns: list[float] = []
-    latest_rebalance_dt: str | None = None
-
-    for idx in range(len(closes) - 1):
-        ts = pd.Timestamp(closes["dt"].iloc[idx])
-        old_weights = dict(weights)
-        due_rebalance = False
-        for tranche_idx, offset in enumerate(tranche_offsets):
-            if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
-                continue
-            due_rebalance = True
-            target = long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
-            if target is not None:
-                scale = exposure_scale(past_gross_returns, cfg.vol_target_ann)
-                tranche_weights[tranche_idx] = {sym: target[sym] * scale / cfg.n_tranches for sym in symbols}
-        if due_rebalance:
-            weights = {sym: sum(tranche[sym] for tranche in tranche_weights) for sym in symbols}
-            turnover = sum(abs(weights[sym] - old_weights[sym]) for sym in symbols)
-            rebalances.append(
-                {
-                    "dt": ts,
-                    "turnover": turnover,
-                    "gross_exposure": sum(abs(value) for value in weights.values()),
-                }
-            )
-            latest_rebalance_dt = ts.isoformat()
-        row_rets = returns.iloc[idx].fillna(0.0)
-        gross = sum(weights[sym] * float(row_rets[sym]) for sym in symbols)
-        rows.append(
-            {
-                "dt": ts,
-                "gross_return": gross,
-                "gross_exposure": sum(abs(value) for value in weights.values()),
-            }
-        )
-        past_gross_returns.append(gross)
-
-    ret = pd.DataFrame(rows).set_index("dt")
-    reb = pd.DataFrame(rebalances).set_index("dt") if rebalances else pd.DataFrame(columns=["turnover", "gross_exposure"])
-    eval_ret = ret[ret.index >= evaluation_start].copy()
-    eval_reb = reb[reb.index >= evaluation_start].copy() if len(reb) else reb
-    eval_returns = returns.iloc[: len(ret)].copy()
-    eval_returns.index = ret.index
+    eval_returns = returns.iloc[: len(closes) - 1].copy()
+    eval_returns.index = pd.to_datetime(closes["dt"].iloc[: len(closes) - 1])
     eval_equal_weight = eval_returns.mean(axis=1).fillna(0.0)
     eval_equal_weight = eval_equal_weight[eval_equal_weight.index >= evaluation_start]
 
+    def run_path(cost_bps: float) -> dict[str, Any]:
+        weights = {sym: 0.0 for sym in symbols}
+        tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
+        tranche_offsets = [
+            int((idx * cfg.rebalance_h) // cfg.n_tranches) % cfg.rebalance_h
+            for idx in range(cfg.n_tranches)
+        ]
+        rows = []
+        rebalances = []
+        past_net_returns: list[float] = []
+        latest_rebalance_dt: str | None = None
+        equity = 1.0
+        peak_equity = 1.0
+        risk_off_until = -1
+        risk_off_event_count = 0
+        risk_stop_exit_cost = 0.0
+        risk_stop_exit_turnover = 0.0
+
+        for idx in range(len(closes) - 1):
+            ts = pd.Timestamp(closes["dt"].iloc[idx])
+            current_drawdown = 1.0 - equity / peak_equity if peak_equity > 0.0 else 0.0
+            stop_triggered = (
+                cfg.drawdown_stop > 0.0
+                and idx >= risk_off_until
+                and current_drawdown >= cfg.drawdown_stop
+            )
+            if stop_triggered:
+                risk_off_until = idx + max(1, int(cfg.cooldown_h))
+                risk_off_event_count += 1
+            risk_off = idx < risk_off_until
+            old_weights = dict(weights)
+            due_rebalance = False
+            if stop_triggered:
+                tranche_weights = [{sym: 0.0 for sym in symbols} for _ in range(cfg.n_tranches)]
+                due_rebalance = True
+            else:
+                for tranche_idx, offset in enumerate(tranche_offsets):
+                    if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
+                        continue
+                    due_rebalance = True
+                    target = (
+                        {sym: 0.0 for sym in symbols}
+                        if risk_off
+                        else long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
+                    )
+                    if target is not None:
+                        scale = exposure_scale(past_net_returns, cfg.vol_target_ann)
+                        tranche_weights[tranche_idx] = {
+                            sym: target[sym] * scale / cfg.n_tranches for sym in symbols
+                        }
+            if due_rebalance:
+                weights = {sym: sum(tranche[sym] for tranche in tranche_weights) for sym in symbols}
+                turnover = sum(abs(weights[sym] - old_weights[sym]) for sym in symbols)
+                cost = turnover * float(cost_bps) / 10000.0
+                if stop_triggered:
+                    risk_stop_exit_cost += cost
+                    risk_stop_exit_turnover += turnover
+                rebalances.append(
+                    {
+                        "dt": ts,
+                        "turnover": turnover,
+                        "cost": cost,
+                        "gross_exposure": sum(abs(value) for value in weights.values()),
+                        "reason": "risk_stop" if stop_triggered else ("risk_off" if risk_off else "rebalance"),
+                    }
+                )
+                latest_rebalance_dt = ts.isoformat()
+            else:
+                cost = 0.0
+            row_rets = returns.iloc[idx].fillna(0.0)
+            gross = sum(weights[sym] * float(row_rets[sym]) for sym in symbols)
+            net = gross - cost
+            equity *= 1.0 + net
+            peak_equity = max(peak_equity, equity)
+            rows.append(
+                {
+                    "dt": ts,
+                    "gross_return": gross,
+                    "net_return": net,
+                    "cost": cost,
+                    "gross_exposure": sum(abs(value) for value in weights.values()),
+                    "risk_off": bool(risk_off),
+                    "stop_triggered": bool(stop_triggered),
+                }
+            )
+            past_net_returns.append(net)
+
+        ret = pd.DataFrame(rows).set_index("dt")
+        reb = (
+            pd.DataFrame(rebalances).set_index("dt")
+            if rebalances
+            else pd.DataFrame(columns=["turnover", "cost", "gross_exposure", "reason"])
+        )
+        return {
+            "ret": ret,
+            "reb": reb,
+            "latest_rebalance_dt": latest_rebalance_dt,
+            "latest_weights": {symbol: float(weight) for symbol, weight in sorted(weights.items())},
+            "latest_gross_exposure": float(sum(abs(value) for value in weights.values())),
+            "risk_off_event_count": int(risk_off_event_count),
+            "risk_off_hours": int(ret["risk_off"].sum()) if len(ret) else 0,
+            "time_in_risk_off_frac": float(ret["risk_off"].mean()) if len(ret) else 0.0,
+            "risk_stop_exit_cost": float(risk_stop_exit_cost),
+            "risk_stop_exit_turnover": float(risk_stop_exit_turnover),
+        }
+
+    reference_cost = 40.0 if 40.0 in costs_bps else float(costs_bps[0])
+    reference_path: dict[str, Any] | None = None
     costs: dict[str, dict[str, Any]] = {}
     for cost_bps in costs_bps:
-        cost_series = pd.Series(0.0, index=eval_ret.index)
-        if len(eval_reb):
-            reb_costs = eval_reb["turnover"] * float(cost_bps) / 10000.0
-            cost_series = cost_series.add(reb_costs.reindex(cost_series.index).fillna(0.0), fill_value=0.0)
-        hourly = eval_ret["gross_return"] - cost_series
+        path = run_path(float(cost_bps))
+        if float(cost_bps) == reference_cost:
+            reference_path = path
+        ret = path["ret"]
+        reb = path["reb"]
+        eval_ret = ret[ret.index >= evaluation_start].copy()
+        eval_reb = reb[reb.index >= evaluation_start].copy() if len(reb) else reb
+        hourly = eval_ret["net_return"]
         period = (1.0 + hourly).resample(f"{cfg.rebalance_h}h").prod() - 1.0
         daily = (1.0 + hourly).resample("1D").prod() - 1.0
         ew_period = (1.0 + eval_equal_weight).resample(f"{cfg.rebalance_h}h").prod() - 1.0
@@ -166,6 +231,11 @@ def shadow_oos_report(
             "daily_turnover": float(eval_reb["turnover"].resample("1D").sum().mean()) if len(eval_reb) else 0.0,
             "avg_gross_exposure": float(eval_ret["gross_exposure"].mean()) if len(eval_ret) else 0.0,
             "realized_daily_vol_ann": float(daily.std(ddof=0) * math.sqrt(365.0)) if len(daily) else 0.0,
+            "risk_off_event_count": int(path["risk_off_event_count"]),
+            "risk_off_hours": int(path["risk_off_hours"]),
+            "time_in_risk_off_frac": float(path["time_in_risk_off_frac"]),
+            "risk_stop_exit_cost": float(path["risk_stop_exit_cost"]),
+            "risk_stop_exit_turnover": float(path["risk_stop_exit_turnover"]),
             "equal_weight_benchmark": {
                 "sharpe": ew_sharpe,
                 "total_return": float((1.0 + eval_equal_weight).prod() - 1.0) if len(eval_equal_weight) else 0.0,
@@ -174,14 +244,17 @@ def shadow_oos_report(
                 "drawdown_ratio": dd / ew_dd if ew_dd > 0 else 1.0,
             },
         }
+    if reference_path is None:
+        reference_path = run_path(reference_cost)
     return {
         "kind": "xsec_shadow_oos_v1",
         "config": config,
         "evaluation_start": evaluation_start.isoformat(),
         "latest_dt": pd.Timestamp(closes["dt"].iloc[-1]).isoformat(),
-        "latest_rebalance_dt": latest_rebalance_dt,
-        "latest_weights": {symbol: float(weight) for symbol, weight in sorted(weights.items())},
-        "latest_gross_exposure": float(sum(abs(value) for value in weights.values())),
+        "latest_rebalance_dt": reference_path["latest_rebalance_dt"],
+        "reference_cost_bps": reference_cost,
+        "latest_weights": reference_path["latest_weights"],
+        "latest_gross_exposure": reference_path["latest_gross_exposure"],
         "costs": costs,
     }
 
@@ -336,6 +409,7 @@ def format_text(report: dict[str, Any]) -> str:
         f"dd:{fmt(shadow_40.get('max_drawdown'))} "
         f"daily_vol:{fmt(shadow_40.get('realized_daily_vol_ann'))} "
         f"rebalances:{fmt(shadow_40.get('rebalance_event_count'), 0)} "
+        f"risk_off:{fmt(shadow_40.get('risk_off_event_count'), 0)} "
         f"ew_sharpe:{fmt(benchmark.get('sharpe'))} "
         f"ew_return:{fmt(benchmark.get('total_return'))} "
         f"excess:{fmt(benchmark.get('sharpe_excess'))}",

@@ -108,7 +108,14 @@ def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
             "latest_rebalance_dt": "2026-07-10T00:00:00+00:00",
             "latest_weights": {"BTCUSDT": 0.25},
             "latest_gross_exposure": 0.25,
-            "costs": {"40bps": {"max_drawdown": 0.01, "rebalance_event_count": 1}},
+            "costs": {
+                "40bps": {
+                    "max_drawdown": 0.01,
+                    "rebalance_event_count": 1,
+                    "risk_off_event_count": 1,
+                    "risk_stop_exit_turnover": 0.25,
+                }
+            },
         },
     }
 
@@ -123,6 +130,8 @@ def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
     assert chain["valid"] is True
     assert chain["row_count"] == 2
     assert chain["max_gap_sec"] == 3600.0
+    assert first["metrics_40bps"]["risk_off_event_count"] == 1
+    assert first["metrics_40bps"]["risk_stop_exit_turnover"] == 0.25
 
 
 def test_skip_ledger_marker_preserves_hash_chain_but_is_not_normal_record(tmp_path) -> None:

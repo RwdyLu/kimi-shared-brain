@@ -68,6 +68,10 @@ def ledger_metrics_40bps(state: dict[str, Any]) -> dict[str, Any]:
         "daily_turnover",
         "avg_gross_exposure",
         "realized_daily_vol_ann",
+        "risk_off_event_count",
+        "risk_off_hours",
+        "time_in_risk_off_frac",
+        "risk_stop_exit_turnover",
     )
     return {key: metrics.get(key) for key in keep if key in metrics}
 

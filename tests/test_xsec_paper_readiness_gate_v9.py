@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -54,6 +56,45 @@ def shadow_report(rebalances: int = 2, dd: float = 0.05, vol: float = 0.1) -> di
                 "equal_weight_benchmark": {"sharpe": -0.1, "sharpe_excess": 0.3},
             }
         }
+    }
+
+
+def crash_matrix(periods: int = 96) -> pd.DataFrame:
+    dt = pd.date_range("2020-01-01", periods=periods, freq="1h", tz="UTC")
+    aaa = []
+    bbb = []
+    for idx in range(periods):
+        if idx < 36:
+            aaa.append(100 + idx * 1.5)
+            bbb.append(100 + idx)
+        elif idx < 48:
+            aaa.append(154 - (idx - 35) * 5.0)
+            bbb.append(135 - (idx - 35) * 4.0)
+        else:
+            aaa.append(94 + (idx - 48) * 0.1)
+            bbb.append(87 + (idx - 48) * 0.1)
+    return pd.DataFrame(
+        {
+            "dt": dt,
+            "AAA": aaa,
+            "BBB": bbb,
+            "CCC": [100 - idx * 0.1 for idx in range(periods)],
+            "DDD": [100] * periods,
+        }
+    )
+
+
+def stopped_config() -> dict[str, Any]:
+    return {
+        "lookback_h": 8,
+        "skip_h": 0,
+        "rebalance_h": 4,
+        "k": 2,
+        "score_mode": "mom",
+        "market_filter_h": 0,
+        "vol_target_ann": 0.0,
+        "drawdown_stop": 0.05,
+        "cooldown_h": 1000,
     }
 
 
@@ -139,6 +180,23 @@ def test_paper_decision_blocks_post_oos_crash() -> None:
 
     assert decision == "paper_manual_review_required"
     assert checks["post_oos_drawdown_le_max"] is False
+
+
+def test_shadow_oos_report_applies_drawdown_stop_and_cooldown() -> None:
+    report = gate_mod.shadow_oos_report(
+        closes=crash_matrix(),
+        config=stopped_config(),
+        evaluation_start=pd.Timestamp("2020-01-01", tz="UTC"),
+        costs_bps=(20.0, 40.0),
+    )
+
+    cost40 = report["costs"]["40bps"]
+    assert report["reference_cost_bps"] == 40.0
+    assert report["latest_gross_exposure"] == 0.0
+    assert all(weight == 0.0 for weight in report["latest_weights"].values())
+    assert cost40["risk_off_event_count"] >= 1
+    assert cost40["risk_off_hours"] >= 12
+    assert cost40["risk_stop_exit_turnover"] > 0.0
 
 
 def test_write_marker_never_authorizes_live(tmp_path) -> None:
