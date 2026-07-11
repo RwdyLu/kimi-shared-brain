@@ -49,6 +49,7 @@ MAX_AUTO_XSEC_RESCUE_GENERATION = 2
 MAX_AUTO_XSEC_RESCUE_GEN2_TOP_K = 5
 MAX_AUTO_XSEC_RESCUE_GEN2_BUDGET_PER_SEED = 12
 MAX_AUTO_TSMOM_RESCUE_CONFIGS = 75
+MAX_STARTUP_XSEC_RESCUE_REFRESH_RESULTS = 80
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
     "paper",
@@ -1228,6 +1229,43 @@ def pending_rescue_bundles_from_results(
     return sort_rescue_bundles(bundles)
 
 
+def should_refresh_xsec_rescue_metadata(result: dict[str, Any]) -> bool:
+    if result.get("status") == "failed" or result.get("returncode") not in (None, 0):
+        return False
+    output_json = result.get("output_json")
+    if not output_json or "xsec_ohlcv" not in Path(str(output_json)).name:
+        return False
+    if not Path(str(output_json)).exists():
+        return False
+    planned = result.get("planned_task") or {}
+    if isinstance(planned, dict) and planned.get("module") not in (None, "v9.contract.xsec_ohlcv_factory"):
+        return False
+    return True
+
+
+def refresh_recent_xsec_rescue_metadata(
+    task_results: list[dict[str, Any]],
+    max_results: int = MAX_STARTUP_XSEC_RESCUE_REFRESH_RESULTS,
+) -> int:
+    refreshed = 0
+    limit = max(0, int(max_results))
+    if limit <= 0:
+        return 0
+    for result in reversed(task_results):
+        if refreshed >= limit:
+            break
+        if not should_refresh_xsec_rescue_metadata(result):
+            continue
+        metadata = maybe_write_xsec_rescue_artifacts(str(result["output_json"]))
+        if not metadata:
+            continue
+        result.update(metadata)
+        result["rescue_metadata_refresh_policy"] = "startup_recent_xsec_v1"
+        result["rescue_metadata_refreshed_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        refreshed += 1
+    return refreshed
+
+
 def run_continuous_research(
     state_path: Path,
     latest_summary_path: Path,
@@ -1260,9 +1298,14 @@ def run_continuous_research(
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
     drift_history = drift_history_from_explored(explored_path)
+    startup_rescue_refresh_count = refresh_recent_xsec_rescue_metadata(task_results)
     startup_pending_rescue_bundles = pending_rescue_bundles_from_results(task_results, explored)
 
-    write_latest_summary(latest_summary_path, "running", "v9_auto_research_train_only:continuous_starting")
+    write_latest_summary(
+        latest_summary_path,
+        "running",
+        f"v9_auto_research_train_only:continuous_starting refreshed_xsec_rescue={startup_rescue_refresh_count}",
+    )
     consecutive_failures = 0
     cycle_index = int(previous.get("cycle_index") or 0)
     idle_backoff_sec = max(0.0, idle_backoff_initial_sec)

@@ -526,6 +526,93 @@ def test_pending_rescue_bundles_prioritizes_lower_multiplicity_p_value(tmp_path)
     assert bundles[0].planned_record["rescue_priority"]["multiplicity_adjusted_p_value"] == 0.02
 
 
+def test_refresh_recent_xsec_rescue_metadata_rebuilds_stale_plan_with_current_logic(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    output_json = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123.json"
+    output_json.parent.mkdir(parents=True)
+    output_md = output_json.with_suffix(".md")
+    config = {
+        "lookback_h": 504,
+        "skip_h": 0,
+        "rebalance_h": 168,
+        "k": 3,
+        "score_mode": "risk_adj_mom",
+        "market_filter_h": 1008,
+        "market_confirm_h": 336,
+        "market_drawdown_limit": 0.25,
+        "vol_target_ann": 0.08,
+        "n_tranches": 1,
+        "drawdown_stop": 0.10,
+        "cooldown_h": 168,
+    }
+    write_json(
+        {
+            "kind": "xsec_ohlcv_factory_v1_train_only_grid",
+            "summary": {"accepted_train_only": True, "rows": 1},
+            "selection_validation": {"effective_trials": 1200},
+            "rows": [
+                {
+                    "advance_passed": True,
+                    "config": config,
+                    "advance_checks": {},
+                    "selection": {
+                        "cost20": {
+                            "sharpe": 1.7,
+                            "bootstrap_30d_sharpe_p5": 0.42,
+                            "equal_weight_benchmark": {"sharpe_excess": 0.2},
+                            "top_positive_symbol_share": 0.45,
+                            "yearly": {
+                                "2021": {"net_return": 0.20},
+                                "2022": {"net_return": -0.02},
+                                "2023": {"net_return": 0.10},
+                            },
+                        },
+                        "cost40": {
+                            "sharpe": 1.3,
+                            "active_rebalance_event_count": 80,
+                            "time_in_market_frac": 0.20,
+                        },
+                    },
+                    "validation": {"cost20": {"sharpe": 1.6}},
+                    "diagnostic_walk_forward": {"triggered": False},
+                }
+            ],
+        },
+        output_json,
+    )
+    planned = PlannedTask(
+        name="xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123",
+        preset="hq_dd_plateau",
+        train_start="2017-08-01",
+        train_end="2024-06-30 23:59:59",
+        embargo_start="2024-07-01",
+        fingerprint="abc123",
+        output_json=str(output_json),
+        output_md=str(output_md),
+    )
+    result = {
+        "fingerprint": planned.fingerprint,
+        "planned_task": planned.record(),
+        "output_json": str(output_json),
+        "output_md": str(output_md),
+        "status": "accepted_train_only_candidate_found",
+        "returncode": 0,
+        "rescue_config_json": "stale.json",
+        "rescue_config_count": 0,
+    }
+
+    refreshed = auto_research.refresh_recent_xsec_rescue_metadata([result])
+
+    assert refreshed == 1
+    assert result["rescue_metadata_refresh_policy"] == "startup_recent_xsec_v1"
+    assert result["accepted_train_only_seed_count"] == 1
+    assert result["rescue_config_count"] > 0
+    assert Path(result["rescue_config_json"]).exists()
+    bundles = auto_research.pending_rescue_bundles_from_results([result], explored={"abc123"})
+    assert len(bundles) == 1
+    assert bundles[0].planned_record["rescue_config_json"] == result["rescue_config_json"]
+
+
 def test_parent_failure_counts_load_from_rescue_plan(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     plan_path = tmp_path / "artifacts/v9/rescue/xsec_ohlcv_cont_case_rescue_plan.json"
