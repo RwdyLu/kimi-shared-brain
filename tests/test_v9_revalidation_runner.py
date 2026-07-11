@@ -362,3 +362,24 @@ def test_next_runnable_skips_completed_no_candidate_and_selects_next(tmp_path) -
     assert [row["group_id"] for row in selected] == ["group-b"]
     assert selection["selection_stop_reason"] == "selected_next_runnable"
     assert selection["skipped"][0]["group_id"] == "group-a"
+
+
+def test_revalidation_runner_honors_control_stop(tmp_path) -> None:
+    group = plan_group(tmp_path)
+    plan_path = tmp_path / "plan.json"
+    write_plan(plan_path, group)
+    control_dir = tmp_path / "control"
+    control_dir.mkdir()
+    (control_dir / "STOP").write_text("stop")
+
+    report = runner_mod.run_plan(
+        plan_path,
+        runner_state_path=tmp_path / "runner_state.json",
+        log_dir=tmp_path / "logs",
+        control_dir=control_dir,
+        max_groups=1,
+    )
+
+    assert report["selected_group_count"] == 0
+    assert report["selection"]["selection_stop_reason"] == "manual_stop_file"
+    assert report["rows"] == []

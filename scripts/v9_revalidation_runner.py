@@ -383,6 +383,10 @@ def select_groups_for_run(
     )
 
 
+def stop_file_requested(control_dir: Path) -> bool:
+    return (control_dir / "STOP").exists()
+
+
 def load_runner_state(path: Path) -> dict[str, Any]:
     state = read_json(path)
     if not state:
@@ -596,6 +600,7 @@ def run_plan(
     log_dir: Path,
     max_groups: int,
     lock_dir: Path | None = None,
+    control_dir: Path | None = None,
     next_runnable: bool = False,
     dry_run: bool = False,
     timeout_sec: int = 6 * 60 * 60,
@@ -603,6 +608,20 @@ def run_plan(
 ) -> dict[str, Any]:
     plan = read_json(plan_path)
     groups = candidate_groups(plan)
+    if control_dir is not None and stop_file_requested(control_dir):
+        return {
+            "kind": "v9_revalidation_runner_report_v1",
+            "plan": str(plan_path),
+            "runner_state": str(runner_state_path),
+            "selected_group_count": 0,
+            "selection": {
+                "mode": "stop_file",
+                "selection_stop_reason": "manual_stop_file",
+                "control_dir": str(control_dir),
+            },
+            "dry_run": bool(dry_run),
+            "rows": [],
+        }
     groups, selection = select_groups_for_run(
         groups,
         runner_state_path=runner_state_path,
@@ -655,6 +674,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runner-state", default="artifacts/v9/revalidation/runner_state.json")
     parser.add_argument("--log-dir", default="logs/v9_revalidation")
     parser.add_argument("--lock-dir", default="")
+    parser.add_argument("--control-dir", default="control")
     parser.add_argument("--max-groups", type=int, default=1)
     parser.add_argument("--next-runnable", action="store_true")
     parser.add_argument("--timeout-sec", type=int, default=6 * 60 * 60)
@@ -672,6 +692,7 @@ def main() -> None:
         runner_state_path=Path(args.runner_state),
         log_dir=Path(args.log_dir),
         lock_dir=Path(args.lock_dir) if args.lock_dir else None,
+        control_dir=Path(args.control_dir) if args.control_dir else None,
         max_groups=int(args.max_groups),
         next_runnable=bool(args.next_runnable),
         dry_run=bool(args.dry_run),
