@@ -144,6 +144,22 @@ def read_cost_values(path: Path, min_abs_weight_delta: float) -> list[float]:
     return values
 
 
+def read_quote_volume_values(path: Path, min_abs_weight_delta: float) -> list[float]:
+    if not path.exists():
+        return []
+    values = []
+    with path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            try:
+                delta = abs(float(row.get("target_weight_delta") or 0.0))
+                quote_volume = float(row.get("quote_volume_24h") or 0.0)
+            except ValueError:
+                continue
+            if delta >= min_abs_weight_delta and math.isfinite(quote_volume):
+                values.append(quote_volume)
+    return values
+
+
 def percentile(values: list[float], q: float) -> float | None:
     if not values:
         return None
@@ -180,6 +196,7 @@ def build_unsigned_report(
     assumed_cost_bps: float,
     cost_percentile: float,
     min_abs_weight_delta: float,
+    min_quote_volume_24h: float,
     max_data_freshness_status_age_hours: float,
     max_duplicate_latest_dt_records: int,
 ) -> dict[str, Any]:
@@ -189,7 +206,9 @@ def build_unsigned_report(
     rebalances = count_weight_change_events(records, min_abs_delta=min_abs_weight_delta)
     duplicate_latest_dt_records = count_duplicate_latest_dt_records(records)
     cost_values = read_cost_values(cost_evidence_csv, min_abs_weight_delta=min_abs_weight_delta)
+    quote_volume_values = read_quote_volume_values(cost_evidence_csv, min_abs_weight_delta=min_abs_weight_delta)
     observed_cost_pctl = percentile(cost_values, cost_percentile)
+    observed_min_quote_volume = min(quote_volume_values) if quote_volume_values else None
     paper_dd = latest_paper_drawdown(shadow_state)
     candidate_artifact = ((paper_gate_state.get("candidate") or {}).get("artifact"))
     latest_ledger_artifact = latest_normal_candidate_artifact(records)
@@ -207,6 +226,9 @@ def build_unsigned_report(
         "observed_cost_samples_present": len(cost_values) > 0,
         "observed_cost_pctl_le_assumed": observed_cost_pctl is not None
         and observed_cost_pctl <= float(assumed_cost_bps),
+        "observed_quote_volume_samples_present": len(quote_volume_values) > 0,
+        "observed_min_quote_volume_24h_ge_min": observed_min_quote_volume is not None
+        and observed_min_quote_volume >= float(min_quote_volume_24h),
         "candidate_artifact_matches": bool(candidate_artifact) and candidate_artifact == latest_ledger_artifact,
         "data_freshness_status_present": bool(data_freshness_status),
         "data_freshness_status_fresh": data_freshness_age_hours <= float(max_data_freshness_status_age_hours),
@@ -231,6 +253,7 @@ def build_unsigned_report(
             "assumed_cost_bps": assumed_cost_bps,
             "cost_percentile": cost_percentile,
             "min_abs_weight_delta": min_abs_weight_delta,
+            "min_quote_volume_24h": min_quote_volume_24h,
             "max_data_freshness_status_age_hours": max_data_freshness_status_age_hours,
             "max_duplicate_latest_dt_records": max_duplicate_latest_dt_records,
         },
@@ -242,6 +265,8 @@ def build_unsigned_report(
             "paper_drawdown_40bps": paper_dd,
             "observed_cost_sample_count": len(cost_values),
             "observed_cost_percentile_bps": observed_cost_pctl,
+            "observed_quote_volume_sample_count": len(quote_volume_values),
+            "observed_min_quote_volume_24h": observed_min_quote_volume,
             "data_freshness_status_age_hours": data_freshness_age_hours,
             "data_freshness": data_freshness_status,
         },
@@ -264,6 +289,7 @@ def build_report(
     assumed_cost_bps: float,
     cost_percentile: float,
     min_abs_weight_delta: float,
+    min_quote_volume_24h: float,
     max_data_freshness_status_age_hours: float,
     max_duplicate_latest_dt_records: int,
 ) -> dict[str, Any]:
@@ -283,6 +309,7 @@ def build_report(
         assumed_cost_bps=assumed_cost_bps,
         cost_percentile=cost_percentile,
         min_abs_weight_delta=min_abs_weight_delta,
+        min_quote_volume_24h=min_quote_volume_24h,
         max_data_freshness_status_age_hours=max_data_freshness_status_age_hours,
         max_duplicate_latest_dt_records=max_duplicate_latest_dt_records,
     )
@@ -331,6 +358,8 @@ def format_text(report: dict[str, Any]) -> str:
         f"paper_dd:{fmt(evidence.get('paper_drawdown_40bps'))} "
         f"cost_samples:{fmt(evidence.get('observed_cost_sample_count'), 0)} "
         f"cost_pctl_bps:{fmt(evidence.get('observed_cost_percentile_bps'))} "
+        f"quote_volume_samples:{fmt(evidence.get('observed_quote_volume_sample_count'), 0)} "
+        f"min_quote_volume_24h:{fmt(evidence.get('observed_min_quote_volume_24h'), 0)} "
         f"data_fresh:{(evidence.get('data_freshness') or {}).get('data_fresh')}",
         "checks=" + ",".join(f"{key}:{value}" for key, value in report.get("checks", {}).items()),
     ]
@@ -373,6 +402,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--assumed-cost-bps", type=float, default=40.0)
     parser.add_argument("--cost-percentile", type=float, default=0.90)
     parser.add_argument("--min-abs-weight-delta", type=float, default=1e-9)
+    parser.add_argument("--min-quote-volume-24h", type=float, default=10_000_000.0)
     parser.add_argument("--max-data-freshness-status-age-hours", type=float, default=2.0)
     parser.add_argument("--max-duplicate-latest-dt-records", type=int, default=2)
     parser.add_argument("--out-json", default="state/xsec_live_canary_readiness_gate_state.json")
@@ -398,6 +428,7 @@ def main() -> None:
         assumed_cost_bps=args.assumed_cost_bps,
         cost_percentile=args.cost_percentile,
         min_abs_weight_delta=args.min_abs_weight_delta,
+        min_quote_volume_24h=args.min_quote_volume_24h,
         max_data_freshness_status_age_hours=args.max_data_freshness_status_age_hours,
         max_duplicate_latest_dt_records=args.max_duplicate_latest_dt_records,
     )

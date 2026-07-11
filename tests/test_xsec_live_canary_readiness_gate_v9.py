@@ -109,6 +109,7 @@ def build_report(paths: dict[str, Path]) -> dict:
         assumed_cost_bps=40.0,
         cost_percentile=0.90,
         min_abs_weight_delta=1e-9,
+        min_quote_volume_24h=50_000.0,
         max_data_freshness_status_age_hours=2.0,
         max_duplicate_latest_dt_records=0,
     )
@@ -169,3 +170,17 @@ def test_live_canary_gate_blocks_stale_data_freshness_status(tmp_path) -> None:
 
     assert report["decision"] == "live_canary_blocked"
     assert report["checks"]["data_fresh"] is False
+
+
+def test_live_canary_gate_blocks_low_quote_volume_cost_evidence(tmp_path) -> None:
+    paths = write_ready_inputs(tmp_path)
+    paths["cost_csv"].write_text(
+        paths["cost_csv"].read_text().replace(",100000,0.1", ",100,0.1")
+    )
+
+    report = build_report(paths)
+
+    assert report["decision"] == "live_canary_blocked"
+    assert report["checks"]["observed_quote_volume_samples_present"] is True
+    assert report["checks"]["observed_min_quote_volume_24h_ge_min"] is False
+    assert report["unsigned_report"]["evidence"]["observed_min_quote_volume_24h"] == 100.0
