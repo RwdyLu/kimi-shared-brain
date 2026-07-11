@@ -177,7 +177,14 @@ def xsec_rescue_task_from_result(
     name = rescue_task_name(planned_task.name, plan_hash)
     output_json = f"artifacts/v9/contract_lab/{name}.json"
     output_md = f"artifacts/v9/contract_lab/{name}.md"
-    effective_trials = int(result.get("effective_trials") or result.get("prior_trials") or planned_task.prior_trials or 0)
+    prior_effective_trials = int(
+        result.get("prior_effective_trials")
+        or result.get("effective_trials")
+        or result.get("prior_trials")
+        or planned_task.prior_trials
+        or 0
+    )
+    effective_trials_after_rescue = int(result.get("effective_trials_after_rescue") or prior_effective_trials + config_count)
     task = ResearchTask(
         name=name,
         command=(
@@ -195,7 +202,7 @@ def xsec_rescue_task_from_result(
             "--bootstrap-iterations",
             str(planned_task.bootstrap_iterations),
             "--prior-trials",
-            str(effective_trials),
+            str(prior_effective_trials),
             "--config-list-json",
             str(config_path),
             "--out-json",
@@ -228,7 +235,9 @@ def xsec_rescue_task_from_result(
             "rescue_plan_hash": plan_hash,
             "output_json": output_json,
             "output_md": output_md,
-            "prior_trials": effective_trials,
+            "prior_trials": prior_effective_trials,
+            "prior_effective_trials": prior_effective_trials,
+            "effective_trials_after_rescue": effective_trials_after_rescue,
         }
     )
     return RescueTaskBundle(task=task, fingerprint=fingerprint, planned_record=planned_record, config_count=config_count)

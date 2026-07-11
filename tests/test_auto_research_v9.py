@@ -336,7 +336,8 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
         "output_json": planned.output_json,
         "rescue_config_json": str(config_json),
         "rescue_config_count": 12,
-        "effective_trials": 20081,
+        "prior_effective_trials": 20081,
+        "effective_trials_after_rescue": 20093,
     }
 
     bundle = auto_research.xsec_rescue_task_from_result(planned, result)
@@ -349,6 +350,9 @@ def test_xsec_rescue_task_from_result_is_train_only_and_non_recursive(tmp_path) 
     assert "--config-list-json" in bundle.task.command
     assert "--prior-trials" in bundle.task.command
     assert "20081" in bundle.task.command
+    assert "20093" not in bundle.task.command
+    assert bundle.planned_record["prior_effective_trials"] == 20081
+    assert bundle.planned_record["effective_trials_after_rescue"] == 20093
     auto_research.validate_train_only_task(bundle.task)
     command = " ".join(bundle.task.command)
     assert "paper" not in command

@@ -615,4 +615,6 @@ def write_rescue_artifacts(plan: dict[str, Any], plan_path: Path, config_path: P
         "rescue_config_json": str(config_path),
         "rescue_config_count": int(plan.get("rescue_config_count") or 0),
         "rescue_seed_count": int(plan.get("seed_count") or 0),
+        "prior_effective_trials": int(plan.get("prior_effective_trials") or 0),
+        "effective_trials_after_rescue": int(plan.get("effective_trials_after_rescue") or 0),
     }

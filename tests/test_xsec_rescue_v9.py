@@ -345,6 +345,8 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
 
     metadata = write_rescue_artifacts(plan, tmp_path / "plan.json", tmp_path / "configs.json")
     assert metadata["rescue_config_count"] == 10
+    assert metadata["prior_effective_trials"] == 20000
+    assert metadata["effective_trials_after_rescue"] == 20010
     assert json.loads((tmp_path / "configs.json").read_text()) == plan["configs"]
 
 
