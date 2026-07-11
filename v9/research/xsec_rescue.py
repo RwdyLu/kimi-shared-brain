@@ -618,6 +618,17 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     return neighbors
 
 
+def seed_passes_parent_failure_filter(seed: dict[str, Any], parent_failure_count: int) -> bool:
+    failure_count = int(seed["rescue_relevant_failure_count"])
+    if failure_count < int(parent_failure_count):
+        return True
+    return (
+        seed.get("rescue_seed_type") == "accepted_train_only"
+        and failure_count == 0
+        and int(parent_failure_count) == 0
+    )
+
+
 def build_rescue_plan(
     rows: list[dict[str, Any]],
     meta: dict[str, Any] | None = None,
@@ -653,8 +664,10 @@ def build_rescue_plan(
             seed
             for seed in seeds
             if seed["config_fingerprint"] in parent_failure_count_by_config_fingerprint
-            and int(seed["rescue_relevant_failure_count"])
-            < int(parent_failure_count_by_config_fingerprint[seed["config_fingerprint"]])
+            and seed_passes_parent_failure_filter(
+                seed,
+                int(parent_failure_count_by_config_fingerprint[seed["config_fingerprint"]]),
+            )
         ]
     configs: list[dict[str, Any]] = []
     excluded_fingerprints = excluded_fingerprints or frozenset()
@@ -699,6 +712,7 @@ def build_rescue_plan(
             "enabled": generation_int >= 2 and bool(parent_failure_count_by_config_fingerprint),
             "parent_config_count": len(parent_failure_count_by_config_fingerprint),
             "require_relevant_failure_count_improvement": generation_int >= 2,
+            "allow_accepted_train_only_parent_zero_continuation": generation_int >= 2,
         },
         "rescue_seed_policy": {
             "diagnostic_q25_min": 0.50,

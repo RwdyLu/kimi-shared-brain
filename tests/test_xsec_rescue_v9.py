@@ -520,6 +520,45 @@ def test_build_rescue_plan_gen2_requires_parent_failure_improvement() -> None:
     assert plan["seeds"][0]["config"] == improved["config"]
 
 
+def test_build_rescue_plan_gen2_allows_accepted_parent_zero_hardening_continuation() -> None:
+    accepted_config = dict(BASE_CONFIG)
+    accepted_config["lookback_h"] = 672
+    accepted = row(
+        config=accepted_config,
+        advance_passed=True,
+        diagnostic_triggered=False,
+        failed_checks=(),
+        selection_sharpe=1.70,
+        bootstrap_p5=0.45,
+    )
+    unimproved = row(
+        config={**BASE_CONFIG, "lookback_h": 720},
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+        selection_sharpe=1.70,
+        bootstrap_p5=0.40,
+    )
+    parent_counts = {
+        config_fingerprint(accepted["config"]): 0,
+        config_fingerprint(unimproved["config"]): 2,
+    }
+
+    plan = build_rescue_plan(
+        [unimproved, accepted],
+        top_k=2,
+        budget_per_seed=3,
+        generation=2,
+        parent_failure_count_by_config_fingerprint=parent_counts,
+    )
+
+    assert plan["rescue_generation"] == 2
+    assert plan["parent_failure_filter"]["allow_accepted_train_only_parent_zero_continuation"] is True
+    assert plan["seed_count"] == 1
+    assert plan["accepted_train_only_seed_count"] == 1
+    assert plan["seeds"][0]["rescue_seed_type"] == "accepted_train_only"
+    assert plan["seeds"][0]["config"] == accepted["config"]
+
+
 def test_default_rescue_plan_stays_within_auto_rescue_cap() -> None:
     rows = []
     lookbacks = (72, 168, 240, 336, 504, 672, 720, 1008)
