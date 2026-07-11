@@ -19,7 +19,12 @@ def test_paper_status_running_before_min_duration() -> None:
     status, checks = shadow_mod.paper_status(
         evaluation_start="2026-06-01T00:00:00+00:00",
         latest_dt="2026-07-10T00:00:00+00:00",
-        metrics_40bps={"rebalance_event_count": 4, "max_drawdown": 0.02},
+        metrics_40bps={
+            "rebalance_event_count": 4,
+            "active_rebalance_event_count": 4,
+            "time_in_market_frac": 0.10,
+            "max_drawdown": 0.02,
+        },
         min_weeks=12,
         min_rebalances=9,
         max_drawdown=0.15,
@@ -33,7 +38,12 @@ def test_paper_status_handles_naive_latest_timestamp() -> None:
     status, checks = shadow_mod.paper_status(
         evaluation_start="2026-06-01T00:00:00+00:00",
         latest_dt="2026-07-10T00:00:00",
-        metrics_40bps={"rebalance_event_count": 4, "max_drawdown": 0.02},
+        metrics_40bps={
+            "rebalance_event_count": 4,
+            "active_rebalance_event_count": 4,
+            "time_in_market_frac": 0.10,
+            "max_drawdown": 0.02,
+        },
         min_weeks=12,
         min_rebalances=9,
         max_drawdown=0.15,
@@ -54,7 +64,12 @@ def test_paper_status_stops_on_drawdown() -> None:
     status, checks = shadow_mod.paper_status(
         evaluation_start="2026-06-01T00:00:00+00:00",
         latest_dt="2026-09-10T00:00:00+00:00",
-        metrics_40bps={"rebalance_event_count": 10, "max_drawdown": 0.20},
+        metrics_40bps={
+            "rebalance_event_count": 10,
+            "active_rebalance_event_count": 10,
+            "time_in_market_frac": 0.10,
+            "max_drawdown": 0.20,
+        },
         min_weeks=12,
         min_rebalances=9,
         max_drawdown=0.15,
@@ -62,6 +77,27 @@ def test_paper_status_stops_on_drawdown() -> None:
 
     assert status == "paper_stopped_risk_review_required"
     assert checks["paper_drawdown_le_max"] is False
+
+
+def test_paper_status_blocks_scheduled_only_rebalances() -> None:
+    status, checks = shadow_mod.paper_status(
+        evaluation_start="2026-06-01T00:00:00+00:00",
+        latest_dt="2026-09-10T00:00:00+00:00",
+        metrics_40bps={
+            "rebalance_event_count": 10,
+            "active_rebalance_event_count": 0,
+            "time_in_market_frac": 0.0,
+            "max_drawdown": 0.02,
+        },
+        min_weeks=12,
+        min_rebalances=9,
+        max_drawdown=0.15,
+    )
+
+    assert status == "paper_running"
+    assert checks["paper_rebalances_ge_min"] is True
+    assert checks["paper_active_rebalances_ge_min"] is False
+    assert checks["paper_time_in_market_positive"] is False
 
 
 def test_signal_rows_maps_weights_to_enter_exit() -> None:
@@ -112,6 +148,8 @@ def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
                 "40bps": {
                     "max_drawdown": 0.01,
                     "rebalance_event_count": 1,
+                    "active_rebalance_event_count": 1,
+                    "time_in_market_frac": 0.25,
                     "risk_off_event_count": 1,
                     "risk_stop_exit_turnover": 0.25,
                 }
@@ -130,6 +168,8 @@ def test_append_ledger_writes_hash_chain_and_verifies(tmp_path) -> None:
     assert chain["valid"] is True
     assert chain["row_count"] == 2
     assert chain["max_gap_sec"] == 3600.0
+    assert first["metrics_40bps"]["active_rebalance_event_count"] == 1
+    assert first["metrics_40bps"]["time_in_market_frac"] == 0.25
     assert first["metrics_40bps"]["risk_off_event_count"] == 1
     assert first["metrics_40bps"]["risk_stop_exit_turnover"] == 0.25
 

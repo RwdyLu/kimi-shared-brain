@@ -44,7 +44,14 @@ def holdout_report(excess: float = 1.2, dd: float = 0.12) -> dict[str, Any]:
     }
 
 
-def shadow_report(rebalances: int = 2, dd: float = 0.05, vol: float = 0.1) -> dict[str, Any]:
+def shadow_report(
+    rebalances: int = 2,
+    dd: float = 0.05,
+    vol: float = 0.1,
+    active_rebalances: int | None = None,
+    time_in_market: float = 0.2,
+) -> dict[str, Any]:
+    active = rebalances if active_rebalances is None else active_rebalances
     return {
         "costs": {
             "40bps": {
@@ -53,6 +60,8 @@ def shadow_report(rebalances: int = 2, dd: float = 0.05, vol: float = 0.1) -> di
                 "max_drawdown": dd,
                 "realized_daily_vol_ann": vol,
                 "rebalance_event_count": rebalances,
+                "active_rebalance_event_count": active,
+                "time_in_market_frac": time_in_market,
                 "equal_weight_benchmark": {"sharpe": -0.1, "sharpe_excess": 0.3},
             }
         }
@@ -148,6 +157,25 @@ def test_paper_decision_treats_zero_drawdown_as_passing() -> None:
     assert checks["post_oos_drawdown_le_max"] is True
 
 
+def test_paper_decision_blocks_scheduled_only_rebalances() -> None:
+    decision, checks = gate_mod.paper_decision(
+        candidate=candidate(),
+        holdout_report=holdout_report(),
+        shadow_report=shadow_report(rebalances=3, active_rebalances=0, time_in_market=0.0),
+        min_decay_ratio=0.5,
+        min_benchmark_excess=0.5,
+        max_holdout_dd=0.25,
+        max_post_oos_dd=0.15,
+        min_post_oos_rebalances=1,
+        max_realized_vol_multiple=3.0,
+    )
+
+    assert decision == "paper_manual_review_required"
+    assert checks["post_oos_has_min_rebalances"] is True
+    assert checks["post_oos_has_min_active_rebalances"] is False
+    assert checks["post_oos_time_in_market_positive"] is False
+
+
 def test_paper_decision_blocks_weak_benchmark_excess() -> None:
     decision, checks = gate_mod.paper_decision(
         candidate=candidate(),
@@ -197,6 +225,8 @@ def test_shadow_oos_report_applies_drawdown_stop_and_cooldown() -> None:
     assert cost40["risk_off_event_count"] >= 1
     assert cost40["risk_off_hours"] >= 12
     assert cost40["risk_stop_exit_turnover"] > 0.0
+    assert "active_rebalance_event_count" in cost40
+    assert "time_in_market_frac" in cost40
 
 
 def test_write_marker_never_authorizes_live(tmp_path) -> None:

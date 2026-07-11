@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 from v9.contract.simulator import utc_ts  # noqa: E402
 from v9.contract.xsec_momentum import load_close_matrix, sharpe  # noqa: E402
 from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
+    ACTIVE_EXPOSURE_THRESHOLD,
     data_fingerprint,
     exposure_scale,
     long_only_weights,
@@ -212,6 +213,12 @@ def shadow_oos_report(
         reb = path["reb"]
         eval_ret = ret[ret.index >= evaluation_start].copy()
         eval_reb = reb[reb.index >= evaluation_start].copy() if len(reb) else reb
+        active_exposure = eval_ret["gross_exposure"] > ACTIVE_EXPOSURE_THRESHOLD
+        active_rebalances = (
+            eval_reb["gross_exposure"] > ACTIVE_EXPOSURE_THRESHOLD
+            if len(eval_reb)
+            else pd.Series(dtype=bool)
+        )
         hourly = eval_ret["net_return"]
         period = (1.0 + hourly).resample(f"{cfg.rebalance_h}h").prod() - 1.0
         daily = (1.0 + hourly).resample("1D").prod() - 1.0
@@ -228,6 +235,8 @@ def shadow_oos_report(
             "period_count": int(len(period)),
             "daily_count": int(len(daily)),
             "rebalance_event_count": int(len(eval_reb)),
+            "active_rebalance_event_count": int(active_rebalances.sum()) if len(active_rebalances) else 0,
+            "time_in_market_frac": float(active_exposure.mean()) if len(active_exposure) else 0.0,
             "daily_turnover": float(eval_reb["turnover"].resample("1D").sum().mean()) if len(eval_reb) else 0.0,
             "avg_gross_exposure": float(eval_ret["gross_exposure"].mean()) if len(eval_ret) else 0.0,
             "realized_daily_vol_ann": float(daily.std(ddof=0) * math.sqrt(365.0)) if len(daily) else 0.0,
@@ -290,6 +299,9 @@ def paper_decision(
         "holdout_40bps_drawdown_le_max": number_or(holdout_40.get("max_drawdown"), 999.0) <= max_holdout_dd,
         "holdout_40bps_benchmark_excess_ge_min": benchmark_excess >= min_benchmark_excess,
         "post_oos_has_min_rebalances": int(shadow_40.get("rebalance_event_count") or 0) >= min_post_oos_rebalances,
+        "post_oos_has_min_active_rebalances": int(shadow_40.get("active_rebalance_event_count") or 0)
+        >= min_post_oos_rebalances,
+        "post_oos_time_in_market_positive": number_or(shadow_40.get("time_in_market_frac"), 0.0) > 0.0,
         "post_oos_drawdown_le_max": number_or(shadow_40.get("max_drawdown"), 999.0) <= max_post_oos_dd,
         "post_oos_realized_vol_within_limit": realized_vol <= max_allowed_vol,
     }
@@ -409,6 +421,8 @@ def format_text(report: dict[str, Any]) -> str:
         f"dd:{fmt(shadow_40.get('max_drawdown'))} "
         f"daily_vol:{fmt(shadow_40.get('realized_daily_vol_ann'))} "
         f"rebalances:{fmt(shadow_40.get('rebalance_event_count'), 0)} "
+        f"active_rebalances:{fmt(shadow_40.get('active_rebalance_event_count'), 0)} "
+        f"time_in_market:{fmt(shadow_40.get('time_in_market_frac'))} "
         f"risk_off:{fmt(shadow_40.get('risk_off_event_count'), 0)} "
         f"ew_sharpe:{fmt(benchmark.get('sharpe'))} "
         f"ew_return:{fmt(benchmark.get('total_return'))} "

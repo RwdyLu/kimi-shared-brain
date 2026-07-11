@@ -65,6 +65,8 @@ def ledger_metrics_40bps(state: dict[str, Any]) -> dict[str, Any]:
         "total_return",
         "max_drawdown",
         "rebalance_event_count",
+        "active_rebalance_event_count",
+        "time_in_market_frac",
         "daily_turnover",
         "avg_gross_exposure",
         "realized_daily_vol_ann",
@@ -235,6 +237,9 @@ def paper_status(
     checks = {
         "paper_age_ge_min_weeks": age_days >= float(min_weeks * 7),
         "paper_rebalances_ge_min": int(metrics_40bps.get("rebalance_event_count") or 0) >= int(min_rebalances),
+        "paper_active_rebalances_ge_min": int(metrics_40bps.get("active_rebalance_event_count") or 0)
+        >= int(min_rebalances),
+        "paper_time_in_market_positive": float(metrics_40bps.get("time_in_market_frac") or 0.0) > 0.0,
         "paper_drawdown_le_max": float(metrics_40bps.get("max_drawdown") or 0.0) <= float(max_drawdown),
         "paper_live_not_authorized": True,
     }
@@ -349,7 +354,9 @@ def format_text(state: dict[str, Any]) -> str:
         f"sharpe:{fmt(metrics.get('sharpe'))} "
         f"return:{fmt(metrics.get('total_return'))} "
         f"dd:{fmt(metrics.get('max_drawdown'))} "
-        f"rebalances:{fmt(metrics.get('rebalance_event_count'), 0)}",
+        f"rebalances:{fmt(metrics.get('rebalance_event_count'), 0)} "
+        f"active_rebalances:{fmt(metrics.get('active_rebalance_event_count'), 0)} "
+        f"time_in_market:{fmt(metrics.get('time_in_market_frac'))}",
         f"latest_dt={(state.get('shadow') or {}).get('latest_dt')}",
         f"latest_weights={json.dumps((state.get('shadow') or {}).get('latest_weights') or {}, sort_keys=True)}",
         f"data_fresh={freshness.get('data_fresh')}",
