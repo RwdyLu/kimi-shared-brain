@@ -198,3 +198,90 @@ def test_revalidation_runner_replaces_running_row_on_completion(tmp_path, monkey
     assert state["summary"]["running_count"] == 0
     assert state["summary"]["completed_count"] == 1
     assert runner_mod.completion_metadata_path(group["output_json"]).exists()
+
+
+def test_revalidation_runner_skips_when_same_fingerprint_pid_is_alive(tmp_path, monkeypatch) -> None:
+    group = plan_group(tmp_path)
+    fingerprint = runner_mod.group_plan_fingerprint(group)
+    write_json(
+        tmp_path / "runner_state.json",
+        {
+            "kind": "v9_revalidation_runner_state_v1",
+            "runs": [
+                {
+                    "group_plan_fingerprint": fingerprint,
+                    "status": "running",
+                    "child_pid": 4321,
+                    "log": "logs/running.log",
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(runner_mod, "pid_alive", lambda pid: int(pid) == 4321)
+
+    row = runner_mod.run_group(
+        group,
+        runner_state_path=tmp_path / "runner_state.json",
+        log_dir=tmp_path / "logs",
+        dry_run=False,
+    )
+
+    assert row["status"] == "skipped_running"
+    assert row["running_child_pid"] == 4321
+    state = json.loads((tmp_path / "runner_state.json").read_text())
+    assert state["summary"]["skipped_running_count"] == 1
+
+
+def test_revalidation_runner_skips_fresh_progress_without_runner_state(tmp_path) -> None:
+    group = plan_group(tmp_path)
+    progress = runner_mod.progress_path_for(group["output_json"])
+    progress.parent.mkdir(parents=True, exist_ok=True)
+    progress.write_text("{}\n")
+
+    row = runner_mod.run_group(
+        group,
+        runner_state_path=tmp_path / "runner_state.json",
+        log_dir=tmp_path / "logs",
+        dry_run=False,
+        progress_heartbeat_sec=900,
+    )
+
+    assert row["status"] == "skipped_fresh_progress"
+    assert row["progress_guard"]["fresh"] is True
+    state = json.loads((tmp_path / "runner_state.json").read_text())
+    assert state["summary"]["skipped_fresh_progress_count"] == 1
+
+
+def test_revalidation_runner_skips_live_lock(tmp_path, monkeypatch) -> None:
+    group = plan_group(tmp_path)
+    write_snapshot(Path(group["data_snapshot_path"]))
+
+    def fake_read_data_snapshot(snapshot_path, cfg):
+        return None, {"fingerprint": group["data_snapshot_fingerprint"]}
+
+    fingerprint = runner_mod.group_plan_fingerprint(group)
+    lock_dir = tmp_path / "locks"
+    lock_path = runner_mod.lock_path_for(fingerprint, lock_dir)
+    write_json(
+        lock_path,
+        {
+            "kind": "v9_revalidation_group_lock_v1",
+            "group_plan_fingerprint": fingerprint,
+            "owner_pid": 9876,
+        },
+    )
+    monkeypatch.setattr(runner_mod, "read_data_snapshot", fake_read_data_snapshot)
+    monkeypatch.setattr(runner_mod, "pid_alive", lambda pid: int(pid) == 9876)
+
+    row = runner_mod.run_group(
+        group,
+        runner_state_path=tmp_path / "runner_state.json",
+        log_dir=tmp_path / "logs",
+        lock_dir=lock_dir,
+        dry_run=False,
+    )
+
+    assert row["status"] == "skipped_locked"
+    assert row["lock"]["owner_pid"] == 9876
+    state = json.loads((tmp_path / "runner_state.json").read_text())
+    assert state["summary"]["skipped_locked_count"] == 1
