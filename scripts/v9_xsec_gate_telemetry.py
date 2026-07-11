@@ -98,6 +98,33 @@ def metric(row: dict[str, Any], *path: str, default: float = 0.0) -> float:
     return float_or(cur, default)
 
 
+def selection_cost20(row: dict[str, Any]) -> dict[str, Any]:
+    return dict((row.get("cost20") or (row.get("selection") or {}).get("cost20") or {}))
+
+
+def yearly_returns(row: dict[str, Any]) -> dict[str, float]:
+    yearly = selection_cost20(row).get("yearly") or {}
+    if not isinstance(yearly, dict):
+        return {}
+    out: dict[str, float] = {}
+    for bucket, values in yearly.items():
+        if isinstance(values, dict):
+            out[str(bucket)] = float_or(values.get("net_return"))
+    return out
+
+
+def worst_year(row: dict[str, Any]) -> dict[str, Any]:
+    returns = yearly_returns(row)
+    if not returns:
+        return {"bucket": None, "net_return": None}
+    bucket, value = min(returns.items(), key=lambda item: item[1])
+    return {"bucket": bucket, "net_return": value}
+
+
+def negative_years(row: dict[str, Any]) -> list[str]:
+    return [bucket for bucket, value in yearly_returns(row).items() if value < 0.0]
+
+
 def failed_checks(row: dict[str, Any]) -> list[str]:
     checks = row.get("advance_checks") or {}
     return [str(name) for name, passed in checks.items() if not passed]
@@ -138,10 +165,17 @@ def compact_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def row_summary(row: dict[str, Any]) -> dict[str, Any]:
+    year_returns = yearly_returns(row)
     return {
         "config": compact_config(row.get("config") or {}),
         "advance_passed": bool(row.get("advance_passed")),
         "failed_checks": failed_checks(row),
+        "year_robustness": {
+            "worst_year": worst_year(row),
+            "negative_years": negative_years(row),
+            "yearly_returns": year_returns,
+            "positive_year_count": sum(1 for value in year_returns.values() if value > 0.0),
+        },
         "selection": {
             "sharpe20": metric(row, "cost20", "sharpe"),
             "sharpe40": metric(row, "cost40", "sharpe"),
@@ -179,12 +213,39 @@ def top_rows(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     return [row_summary(row) for row in ordered[:limit]]
 
 
+def year_robustness_summary(rows: list[dict[str, Any]], near_misses: list[dict[str, Any]]) -> dict[str, Any]:
+    def summarize(subset: list[dict[str, Any]]) -> dict[str, Any]:
+        worst_counter: Counter[str] = Counter()
+        negative_counter: Counter[str] = Counter()
+        rows_with_yearly = 0
+        for row in subset:
+            returns = yearly_returns(row)
+            if not returns:
+                continue
+            rows_with_yearly += 1
+            worst = worst_year(row).get("bucket")
+            if worst:
+                worst_counter[str(worst)] += 1
+            negative_counter.update(negative_years(row))
+        return {
+            "rows_with_yearly": rows_with_yearly,
+            "worst_year_counts": dict(worst_counter.most_common()),
+            "negative_year_counts": dict(negative_counter.most_common()),
+        }
+
+    return {
+        "all_rows": summarize(rows),
+        "near_miss_rows": summarize(near_misses),
+    }
+
+
 def recommendation(
     *,
     rows: list[dict[str, Any]],
     fail_counts: dict[str, int],
     fail_rates: dict[str, float],
     near_miss_count: int,
+    year_robustness: dict[str, Any] | None = None,
 ) -> list[dict[str, str]]:
     recs: list[dict[str, str]] = []
     if not rows:
@@ -219,6 +280,16 @@ def recommendation(
                 "reason": "Most rows fail positive-year robustness; this is a regime fragility signal, not a gate to relax.",
             }
         )
+        near_years = ((year_robustness or {}).get("near_miss_rows") or {}).get("worst_year_counts") or {}
+        if near_years:
+            top_year, top_count = next(iter(near_years.items()))
+            recs.append(
+                {
+                    "priority": "high",
+                    "action": "diagnose_hostile_year_regime_filter_before_broadening_search",
+                    "reason": f"Near-miss rows most often have worst_year={top_year} ({top_count} rows); target regime filters and exits for that bucket before widening gates.",
+                }
+            )
     if fail_rates.get("bootstrap_p5_ge_adjusted_min", 0.0) >= 0.60:
         recs.append(
             {
@@ -277,6 +348,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
     denom = max(1, len(rows))
     fail_rates = {key: count / denom for key, count in fail_counts.items()}
     near_misses = [row for row in rows if not row.get("advance_passed") and 0 < len(failed_checks(row)) <= 3]
+    year_robustness = year_robustness_summary(rows, near_misses)
     report = {
         "kind": "xsec_gate_telemetry_v1",
         "created_at": now_utc(),
@@ -290,6 +362,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
         "failure_counts": fail_counts,
         "failure_rates": fail_rates,
         "failure_categories": category_counts(fail_counts),
+        "year_robustness": year_robustness,
         "top_rows": top_rows(rows, top_limit),
         "near_miss_rows": top_rows(near_misses, min(top_limit, 10)),
         "recommendations": recommendation(
@@ -297,6 +370,7 @@ def build_report(artifact: Path, *, top_limit: int = 10) -> dict[str, Any]:
             fail_counts=fail_counts,
             fail_rates=fail_rates,
             near_miss_count=len(near_misses),
+            year_robustness=year_robustness,
         ),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -330,6 +404,20 @@ def format_text(report: dict[str, Any]) -> str:
     lines.append("failure_categories:")
     for name, count in (report.get("failure_categories") or {}).items():
         lines.append(f"- {name}: {count}")
+    year_robustness = report.get("year_robustness") or {}
+    near_years = (year_robustness.get("near_miss_rows") or {}).get("worst_year_counts") or {}
+    all_neg_years = (year_robustness.get("all_rows") or {}).get("negative_year_counts") or {}
+    lines.append("year_robustness:")
+    if near_years:
+        near_text = ", ".join(f"{bucket}:{count}" for bucket, count in list(near_years.items())[:6])
+        lines.append(f"- near_miss_worst_years: {near_text}")
+    else:
+        lines.append("- near_miss_worst_years: none")
+    if all_neg_years:
+        neg_text = ", ".join(f"{bucket}:{count}" for bucket, count in list(all_neg_years.items())[:6])
+        lines.append(f"- all_negative_years: {neg_text}")
+    else:
+        lines.append("- all_negative_years: none")
     lines.append("recommendations:")
     for rec in report.get("recommendations") or []:
         lines.append(f"- [{rec['priority']}] {rec['action']}: {rec['reason']}")
@@ -337,13 +425,14 @@ def format_text(report: dict[str, Any]) -> str:
     for row in report.get("top_rows") or []:
         sel = row.get("selection") or {}
         lines.append(
-            "- pass={pass_} fails={fails} sel_sh20={sh:.3f} boot={boot:.3f} active={active:.0f} time={time:.3f} cfg={cfg}".format(
+            "- pass={pass_} fails={fails} sel_sh20={sh:.3f} boot={boot:.3f} active={active:.0f} time={time:.3f} worst={worst} cfg={cfg}".format(
                 pass_=row.get("advance_passed"),
                 fails=",".join((row.get("failed_checks") or [])[:5]),
                 sh=float_or(sel.get("sharpe20")),
                 boot=float_or(sel.get("bootstrap_p5")),
                 active=float_or(sel.get("active_rebalances40")),
                 time=float_or(sel.get("time_in_market40")),
+                worst=(row.get("year_robustness") or {}).get("worst_year"),
                 cfg=json.dumps(row.get("config") or {}, sort_keys=True),
             )
         )

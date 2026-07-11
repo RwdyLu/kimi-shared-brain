@@ -15,7 +15,13 @@ telemetry_mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(telemetry_mod)
 
 
-def sample_row(*, failures: tuple[str, ...], sharpe: float = 1.0, active: int = 10) -> dict:
+def sample_row(
+    *,
+    failures: tuple[str, ...],
+    sharpe: float = 1.0,
+    active: int = 10,
+    yearly: dict[str, float] | None = None,
+) -> dict:
     checks = {
         "positive_3_of_4_years": "positive_3_of_4_years" not in failures,
         "bootstrap_p5_ge_adjusted_min": "bootstrap_p5_ge_adjusted_min" not in failures,
@@ -24,6 +30,7 @@ def sample_row(*, failures: tuple[str, ...], sharpe: float = 1.0, active: int = 
         "benchmark_sharpe_excess_ge_0_10": "benchmark_sharpe_excess_ge_0_10" not in failures,
         "top_symbol_share_le_60pct": "top_symbol_share_le_60pct" not in failures,
     }
+    yearly = yearly or {"2021": 0.10, "2022": -0.05, "2023": 0.04, "2024H1": 0.03}
     return {
         "advance_passed": not failures,
         "advance_checks": checks,
@@ -42,6 +49,7 @@ def sample_row(*, failures: tuple[str, ...], sharpe: float = 1.0, active: int = 
             "bootstrap_30d_sharpe_p5": -0.2,
             "equal_weight_benchmark": {"sharpe_excess": -0.1},
             "top_positive_symbol_share": 0.8,
+            "yearly": {bucket: {"net_return": value} for bucket, value in yearly.items()},
         },
         "cost40": {
             "sharpe": sharpe - 0.1,
@@ -80,12 +88,16 @@ def test_gate_telemetry_summarizes_failures_and_recommendations(tmp_path) -> Non
     assert report["near_miss_count"] == 3
     assert report["failure_counts"]["positive_3_of_4_years"] == 3
     assert report["failure_categories"]["robustness"] >= 5
+    assert report["year_robustness"]["near_miss_rows"]["worst_year_counts"]["2022"] == 3
+    assert report["top_rows"][0]["year_robustness"]["worst_year"]["bucket"] == "2022"
     actions = {row["action"] for row in report["recommendations"]}
     assert "run_family_registry_and_holdout_queue_after_task_finishes" in actions
     assert "rescue_near_miss_configs_with_neighbor_grid" in actions
     assert "de_prioritize_current_preset_until_year_robustness_improves" in actions
+    assert "diagnose_hostile_year_regime_filter_before_broadening_search" in actions
     assert "rows=4/10" in text
     assert "safety=paper:False live:False" in text
+    assert "near_miss_worst_years: 2022:3" in text
 
 
 def test_resolve_artifact_uses_active_progress_path(tmp_path, monkeypatch) -> None:
