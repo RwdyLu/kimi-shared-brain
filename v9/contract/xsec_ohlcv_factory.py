@@ -20,7 +20,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v4_diagnostic_walkforward"
+ROW_CACHE_VERSION = "selection_validation_v5_turnover_gate"
 
 
 @dataclass(frozen=True)
@@ -766,6 +766,7 @@ def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_
     return {
         "sharpe20_ge_1_2": float(cost20["sharpe"]) >= 1.2,
         "max_dd20_le_25pct": float(cost20["max_drawdown"]) <= 0.25,
+        "daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
         "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
         "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
@@ -782,6 +783,7 @@ def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_m
         "validation_max_dd20_le_30pct": float(cost20["max_drawdown"]) <= 0.30,
         "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
+        "validation_daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
     }
 
 

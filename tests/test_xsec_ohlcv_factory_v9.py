@@ -30,6 +30,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     score_matrix,
     simulate,
     split_selection_validation,
+    validation_checks,
     validation_sharpe_threshold,
     walk_forward_summary,
 )
@@ -93,6 +94,28 @@ def market_drawdown_matrix(periods: int = 60) -> pd.DataFrame:
         else:
             values.append(values[-1] - 3.0)
     return pd.DataFrame({"dt": dt, "AAA": values, "BBB": values, "CCC": values, "DDD": values})
+
+
+def passing_gate_result(daily_turnover: float = 0.10) -> dict:
+    return {
+        "sharpe": 1.5,
+        "max_drawdown": 0.10,
+        "daily_turnover": daily_turnover,
+        "total_return": 0.20,
+        "yearly_positive_count": 4,
+        "yearly": {
+            "2021": {"net_return": 0.05},
+            "2022": {"net_return": 0.05},
+            "2023": {"net_return": 0.05},
+            "2024H1": {"net_return": 0.05},
+        },
+        "bootstrap_30d_sharpe_p5": 0.80,
+        "top_positive_symbol_share": 0.40,
+        "equal_weight_benchmark": {
+            "sharpe_excess": 0.20,
+            "drawdown_ratio": 0.50,
+        },
+    }
 
 
 def test_long_only_weights_are_cash_or_gross_one() -> None:
@@ -250,6 +273,16 @@ def test_simulate_reports_gate_inputs() -> None:
     assert result20["avg_short_exposure"] == 0
     assert result20["legs"]["avg_long_exposure"] == result20["avg_long_exposure"]
     assert result20["legs"]["short_gross_return"] == 0
+
+
+def test_selection_and_validation_gates_reject_high_turnover() -> None:
+    low_turnover = passing_gate_result(daily_turnover=0.10)
+    high_turnover = passing_gate_result(daily_turnover=0.75)
+
+    assert advance_checks(low_turnover, low_turnover, bootstrap_p5_min=0.25)["daily_turnover40_le_50pct"] is True
+    assert advance_checks(low_turnover, high_turnover, bootstrap_p5_min=0.25)["daily_turnover40_le_50pct"] is False
+    assert validation_checks(low_turnover, low_turnover, sharpe20_min=0.70)["validation_daily_turnover40_le_50pct"] is True
+    assert validation_checks(low_turnover, high_turnover, sharpe20_min=0.70)["validation_daily_turnover40_le_50pct"] is False
 
 
 def test_simulate_reports_market_regime_diagnostics() -> None:
