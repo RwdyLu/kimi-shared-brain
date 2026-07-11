@@ -222,6 +222,20 @@ def test_generate_rescue_neighbors_prioritizes_failure_repair_and_deduplicates()
     assert len({neighbor["config_fingerprint"] for neighbor in neighbors}) == len(neighbors)
 
 
+def test_generate_rescue_neighbors_uses_limited_two_gene_repairs() -> None:
+    seed = select_rescue_seeds([row(failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"))])[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=12)
+
+    single_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 1]
+    two_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 2]
+    assert len(neighbors) == 12
+    assert single_gene
+    assert two_gene
+    assert all(len(neighbor["changes"]) == len(neighbor["changed_genes"]) for neighbor in neighbors)
+    assert all(neighbor["changed_gene"] == "+".join(neighbor["changed_genes"]) for neighbor in neighbors)
+
+
 def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_path) -> None:
     alternate = dict(BASE_CONFIG)
     alternate["lookback_h"] = 672

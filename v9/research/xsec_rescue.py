@@ -380,29 +380,59 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     failures = list(seed.get("failed_checks") or [])
     neighbors: list[dict[str, Any]] = []
     seen = {config_fingerprint(base)}
-    for gene in rescue_gene_order(failures):
-        if gene not in base or gene not in GENE_LADDERS:
-            continue
-        for value in nearby_values(base[gene], GENE_LADDERS[gene], radius=radius):
-            candidate = dict(base)
+    limit = max(0, int(budget))
+    if limit <= 0:
+        return neighbors
+
+    ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
+    single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
+
+    def append_neighbor(changes: list[tuple[str, Any]]) -> bool:
+        candidate = dict(base)
+        for gene, value in changes:
             candidate[gene] = value
-            fp = config_fingerprint(candidate)
-            if fp in seen:
-                continue
-            seen.add(fp)
-            neighbors.append(
-                {
-                    "parent_source_index": seed["source_index"],
-                    "parent_config_fingerprint": seed["config_fingerprint"],
-                    "changed_gene": gene,
-                    "from": base[gene],
-                    "to": value,
-                    "config_fingerprint": fp,
-                    "config": candidate,
-                }
-            )
-            if len(neighbors) >= budget:
-                return neighbors
+        fp = config_fingerprint(candidate)
+        if fp in seen:
+            return False
+        seen.add(fp)
+        change_rows = [{"gene": gene, "from": base[gene], "to": value} for gene, value in changes]
+        neighbors.append(
+            {
+                "parent_source_index": seed["source_index"],
+                "parent_config_fingerprint": seed["config_fingerprint"],
+                "changed_gene": "+".join(gene for gene, _ in changes),
+                "changed_genes": [gene for gene, _ in changes],
+                "from": change_rows[0]["from"],
+                "to": change_rows[0]["to"],
+                "changes": change_rows,
+                "config_fingerprint": fp,
+                "config": candidate,
+            }
+        )
+        return True
+
+    for gene in ordered_genes:
+        for value in nearby_values(base[gene], GENE_LADDERS[gene], radius=radius):
+            append_neighbor([(gene, value)])
+            if len(neighbors) >= single_budget:
+                break
+        if len(neighbors) >= single_budget:
+            break
+
+    if len(neighbors) >= limit:
+        return neighbors
+
+    pair_genes = ordered_genes[:5]
+    pair_radius = min(1, max(1, int(radius)))
+    for left_pos, left_gene in enumerate(pair_genes):
+        left_values = nearby_values(base[left_gene], GENE_LADDERS[left_gene], radius=pair_radius)
+        for right_gene in pair_genes[left_pos + 1 :]:
+            right_values = nearby_values(base[right_gene], GENE_LADDERS[right_gene], radius=pair_radius)
+            for left_value in left_values:
+                for right_value in right_values:
+                    append_neighbor([(left_gene, left_value), (right_gene, right_value)])
+                    if len(neighbors) >= limit:
+                        return neighbors
     return neighbors
 
 
