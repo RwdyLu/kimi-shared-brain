@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from v9.research.xsec_rescue import (  # noqa: E402
     build_rescue_plan,
     generate_rescue_neighbors,
+    rescue_gene_order,
     select_rescue_seeds,
     write_rescue_artifacts,
 )
@@ -34,35 +35,66 @@ def row(
     config: dict | None = None,
     diagnostic_q25: float = 0.60,
     diagnostic_sign: float = 0.833,
+    diagnostic_triggered: bool = True,
+    selection_sharpe: float = 1.8,
+    selection_sharpe40: float = 1.1,
+    bootstrap_p5: float = 0.55,
+    benchmark_excess: float = 0.20,
+    active_rebalances: int = 80,
+    time_in_market: float = 0.20,
+    top_symbol_share: float = 0.45,
     validation_sharpe: float = 1.40,
     validation_min: float = 1.20,
     failed_checks: tuple[str, ...] = ("positive_3_of_4_years",),
 ) -> dict:
-    checks = {
-        "positive_3_of_4_years": "positive_3_of_4_years" not in failed_checks,
-        "max_dd20_le_25pct": "max_dd20_le_25pct" not in failed_checks,
-        "validation_sharpe20_ge_adjusted_min": "validation_sharpe20_ge_adjusted_min" not in failed_checks,
+    check_names = {
+        "sharpe20_ge_1_2",
+        "max_dd20_le_25pct",
+        "daily_turnover40_le_50pct",
+        "active_rebalances40_ge_min",
+        "time_in_market40_ge_min",
+        "positive_3_of_4_years",
+        "bootstrap_p5_ge_adjusted_min",
+        "sharpe40_ge_1",
+        "top_symbol_share_le_60pct",
+        "benchmark_sharpe_excess_ge_0_10",
+        "drawdown_ratio_le_0_80",
+        "validation_sharpe20_ge_adjusted_min",
+        "validation_max_dd20_le_30pct",
+        "validation_return20_gt_0",
+        "validation_sharpe40_gt_0",
+        "validation_daily_turnover40_le_50pct",
+        "selection_passed_before_validation",
     }
+    checks = {name: name not in failed_checks for name in check_names}
     return {
         "config": dict(config or BASE_CONFIG),
         "advance_passed": False,
         "advance_checks": checks,
         "selection": {
             "cost20": {
-                "sharpe": 1.8,
+                "sharpe": selection_sharpe,
+                "bootstrap_30d_sharpe_p5": bootstrap_p5,
+                "top_positive_symbol_share": top_symbol_share,
+                "equal_weight_benchmark": {"sharpe_excess": benchmark_excess},
                 "yearly": {
                     "2021": {"net_return": 0.20},
                     "2022": {"net_return": -0.03},
                     "2023": {"net_return": 0.11},
                     "2024H1": {"net_return": 0.04},
                 },
-            }
+            },
+            "cost40": {
+                "sharpe": selection_sharpe40,
+                "active_rebalance_event_count": active_rebalances,
+                "time_in_market_frac": time_in_market,
+            },
         },
         "validation": {"cost20": {"sharpe": validation_sharpe}},
         "diagnostic_walk_forward": {
             "enabled": True,
             "diagnostic_only": True,
-            "triggered": True,
+            "triggered": diagnostic_triggered,
             "q25_sharpe": diagnostic_q25,
             "sign_consistency": diagnostic_sign,
             "validation_sharpe20": validation_sharpe,
@@ -82,7 +114,57 @@ def test_select_rescue_seeds_requires_strong_diagnostic_and_full_config() -> Non
 
     assert len(seeds) == 1
     assert seeds[0]["diagnostic_q25_sharpe"] == 0.72
+    assert seeds[0]["rescue_seed_type"] == "diagnostic_walkforward"
     assert seeds[0]["worst_year"] == {"bucket": "2022", "net_return": -0.03}
+
+
+def test_select_rescue_seeds_falls_back_to_active_near_miss_without_diagnostic() -> None:
+    near_miss = row(
+        diagnostic_triggered=False,
+        diagnostic_q25=0.0,
+        failed_checks=(
+            "selection_passed_before_validation",
+            "positive_3_of_4_years",
+            "bootstrap_p5_ge_adjusted_min",
+        ),
+        selection_sharpe=1.70,
+        bootstrap_p5=0.49,
+        active_rebalances=122,
+        time_in_market=0.14,
+    )
+
+    seeds = select_rescue_seeds([near_miss], top_k=3)
+
+    assert len(seeds) == 1
+    assert seeds[0]["rescue_seed_type"] == "near_miss_gate"
+    assert seeds[0]["selection_sharpe20"] == 1.70
+    assert seeds[0]["active_rebalances40"] == 122
+    assert "selection_passed_before_validation" in seeds[0]["failed_checks"]
+    assert "selection_passed_before_validation" not in seeds[0]["rescue_relevant_failures"]
+
+
+def test_select_rescue_seeds_rejects_inactive_near_miss_fallback() -> None:
+    inactive = row(
+        diagnostic_triggered=False,
+        diagnostic_q25=0.0,
+        failed_checks=("positive_3_of_4_years",),
+        selection_sharpe=1.90,
+        bootstrap_p5=0.52,
+        active_rebalances=2,
+        time_in_market=0.01,
+    )
+
+    seeds = select_rescue_seeds([inactive], top_k=3)
+
+    assert seeds == []
+
+
+def test_rescue_gene_order_targets_robustness_and_benchmark_failures() -> None:
+    robustness_order = rescue_gene_order(["positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"])
+    benchmark_order = rescue_gene_order(["benchmark_sharpe_excess_ge_0_10", "sharpe40_ge_1"])
+
+    assert robustness_order[:4] == ["market_filter_h", "market_confirm_h", "rebalance_h", "lookback_h"]
+    assert benchmark_order[:3] == ["score_mode", "k", "rebalance_h"]
 
 
 def test_generate_rescue_neighbors_prioritizes_failure_repair_and_deduplicates() -> None:
