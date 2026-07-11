@@ -567,6 +567,41 @@ def test_candidate_multiplicity_metadata_falls_back_to_prior_plus_configs(tmp_pa
     assert seen["total_trials"] == 1025
 
 
+def test_refresh_recent_multiplicity_metadata_recomputes_stale_candidate_count_trials(
+    tmp_path, monkeypatch
+) -> None:
+    output_json = tmp_path / "candidate.json"
+    write_json(
+        {
+            "kind": "xsec_ohlcv_factory_v1_train_only_grid",
+            "selection_validation": {"effective_trials": 4321},
+        },
+        output_json,
+    )
+    seen = {}
+
+    def fake_multiplicity_evidence(payload: dict, *, total_trials: int, **kwargs) -> dict:
+        seen["total_trials"] = total_trials
+        return {"evaluated": True, "decision": "rejected_multiplicity", "total_trials": total_trials}
+
+    monkeypatch.setattr(auto_research, "multiplicity_evidence", fake_multiplicity_evidence)
+    result = {
+        "output_json": str(output_json),
+        "status": "accepted_train_only_candidate_found",
+        "returncode": 0,
+        "multiplicity_decision": "multiplicity_survivor",
+        "multiplicity_evidence": {"total_trials": 2},
+    }
+
+    refreshed = auto_research.refresh_recent_multiplicity_metadata([result])
+
+    assert refreshed == 1
+    assert seen["total_trials"] == 4321
+    assert result["multiplicity_decision"] == "rejected_multiplicity"
+    assert result["multiplicity_evidence"]["total_trials"] == 4321
+    assert result["multiplicity_metadata_refresh_policy"] == "startup_recent_effective_trials_v1"
+
+
 def test_refresh_recent_xsec_rescue_metadata_rebuilds_stale_plan_with_current_logic(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     output_json = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_hq_dd_plateau_abc123.json"

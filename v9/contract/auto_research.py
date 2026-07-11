@@ -50,6 +50,7 @@ MAX_AUTO_XSEC_RESCUE_GEN2_TOP_K = 5
 MAX_AUTO_XSEC_RESCUE_GEN2_BUDGET_PER_SEED = 12
 MAX_AUTO_TSMOM_RESCUE_CONFIGS = 75
 MAX_STARTUP_XSEC_RESCUE_REFRESH_RESULTS = 80
+MAX_STARTUP_MULTIPLICITY_REFRESH_RESULTS = 120
 FORBIDDEN_COMMAND_FRAGMENTS = (
     "holdout",
     "paper",
@@ -1291,6 +1292,36 @@ def refresh_recent_xsec_rescue_metadata(
     return refreshed
 
 
+def should_refresh_multiplicity_metadata(result: dict[str, Any]) -> bool:
+    if result.get("status") == "failed" or result.get("returncode") not in (None, 0):
+        return False
+    output_json = result.get("output_json")
+    return bool(output_json) and Path(str(output_json)).exists()
+
+
+def refresh_recent_multiplicity_metadata(
+    task_results: list[dict[str, Any]],
+    max_results: int = MAX_STARTUP_MULTIPLICITY_REFRESH_RESULTS,
+) -> int:
+    refreshed = 0
+    limit = max(0, int(max_results))
+    if limit <= 0:
+        return 0
+    for result in reversed(task_results):
+        if refreshed >= limit:
+            break
+        if not should_refresh_multiplicity_metadata(result):
+            continue
+        metadata = candidate_multiplicity_metadata(result, refreshed + 1)
+        if not metadata:
+            continue
+        result.update(metadata)
+        result["multiplicity_metadata_refresh_policy"] = "startup_recent_effective_trials_v1"
+        result["multiplicity_metadata_refreshed_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        refreshed += 1
+    return refreshed
+
+
 def run_continuous_research(
     state_path: Path,
     latest_summary_path: Path,
@@ -1323,13 +1354,16 @@ def run_continuous_research(
     explored.update(legacy_fingerprints_from_results(task_results))
     explored.update(str(row["fingerprint"]) for row in task_results if row.get("fingerprint"))
     drift_history = drift_history_from_explored(explored_path)
+    startup_multiplicity_refresh_count = refresh_recent_multiplicity_metadata(task_results)
     startup_rescue_refresh_count = refresh_recent_xsec_rescue_metadata(task_results)
     startup_pending_rescue_bundles = pending_rescue_bundles_from_results(task_results, explored)
 
     write_latest_summary(
         latest_summary_path,
         "running",
-        f"v9_auto_research_train_only:continuous_starting refreshed_xsec_rescue={startup_rescue_refresh_count}",
+        "v9_auto_research_train_only:continuous_starting "
+        f"refreshed_multiplicity={startup_multiplicity_refresh_count} "
+        f"refreshed_xsec_rescue={startup_rescue_refresh_count}",
     )
     consecutive_failures = 0
     cycle_index = int(previous.get("cycle_index") or 0)
