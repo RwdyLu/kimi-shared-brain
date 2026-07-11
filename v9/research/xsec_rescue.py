@@ -166,12 +166,20 @@ def yearly_returns(row: dict[str, Any]) -> dict[str, float]:
     return {str(name): safe_float(value.get("net_return")) for name, value in yearly.items() if isinstance(value, dict)}
 
 
+def positive_year_count(row: dict[str, Any]) -> int:
+    return sum(1 for value in yearly_returns(row).values() if value > 0.0)
+
+
 def worst_year(row: dict[str, Any]) -> dict[str, Any]:
     returns = yearly_returns(row)
     if not returns:
         return {"bucket": None, "net_return": None}
     bucket, value = min(returns.items(), key=lambda item: item[1])
     return {"bucket": bucket, "net_return": value}
+
+
+def worst_year_return(row: dict[str, Any]) -> float:
+    return safe_float(worst_year(row).get("net_return"), -999.0)
 
 
 def is_rescue_seed(
@@ -222,6 +230,8 @@ def near_miss_sort_key(row: dict[str, Any]) -> tuple[float, ...]:
     failures = rescue_relevant_failures(row)
     return (
         -float(len(failures)),
+        float(positive_year_count(row)),
+        worst_year_return(row),
         selection_bootstrap_p5(row),
         selection_sharpe20(row),
         benchmark_sharpe_excess(row),
@@ -255,8 +265,10 @@ def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagno
         "failed_checks": failed_checks(row),
         "rescue_relevant_failures": relevant_failures,
         "rescue_relevant_failure_count": len(relevant_failures),
+        "positive_year_count": positive_year_count(row),
         "yearly_returns": yearly_returns(row),
         "worst_year": worst_year(row),
+        "worst_year_return": worst_year_return(row),
     }
 
 

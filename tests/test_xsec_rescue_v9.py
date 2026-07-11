@@ -43,6 +43,7 @@ def row(
     active_rebalances: int = 80,
     time_in_market: float = 0.20,
     top_symbol_share: float = 0.45,
+    yearly: dict[str, float] | None = None,
     validation_sharpe: float = 1.40,
     validation_min: float = 1.20,
     failed_checks: tuple[str, ...] = ("positive_3_of_4_years",),
@@ -67,6 +68,7 @@ def row(
         "selection_passed_before_validation",
     }
     checks = {name: name not in failed_checks for name in check_names}
+    yearly = yearly or {"2021": 0.20, "2022": -0.03, "2023": 0.11, "2024H1": 0.04}
     return {
         "config": dict(config or BASE_CONFIG),
         "advance_passed": False,
@@ -77,12 +79,7 @@ def row(
                 "bootstrap_30d_sharpe_p5": bootstrap_p5,
                 "top_positive_symbol_share": top_symbol_share,
                 "equal_weight_benchmark": {"sharpe_excess": benchmark_excess},
-                "yearly": {
-                    "2021": {"net_return": 0.20},
-                    "2022": {"net_return": -0.03},
-                    "2023": {"net_return": 0.11},
-                    "2024H1": {"net_return": 0.04},
-                },
+                "yearly": {bucket: {"net_return": value} for bucket, value in yearly.items()},
             },
             "cost40": {
                 "sharpe": selection_sharpe40,
@@ -201,6 +198,30 @@ def test_select_rescue_seeds_diversifies_near_miss_families_before_filling() -> 
 
     assert [seed["config"]["vol_target_ann"] for seed in seeds] == [0.08, 0.08]
     assert [seed["rescue_seed_family"]["lookback_h"] for seed in seeds] == [168, 336]
+
+
+def test_select_rescue_seeds_prefers_more_rescueable_year_profile() -> None:
+    fragile = row(
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+        selection_sharpe=2.20,
+        bootstrap_p5=0.70,
+        yearly={"2021": 0.30, "2022": -0.20, "2023": 0.10, "2024H1": 0.05},
+    )
+    rescueable = row(
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+        selection_sharpe=1.50,
+        bootstrap_p5=0.40,
+        yearly={"2021": 0.08, "2022": -0.01, "2023": 0.06, "2024H1": 0.04},
+    )
+
+    seeds = select_rescue_seeds([fragile, rescueable], top_k=1)
+
+    assert seeds[0]["selection_sharpe20"] == 1.50
+    assert seeds[0]["worst_year"] == {"bucket": "2022", "net_return": -0.01}
+    assert seeds[0]["worst_year_return"] == -0.01
+    assert seeds[0]["positive_year_count"] == 3
 
 
 def test_rescue_gene_order_targets_robustness_and_benchmark_failures() -> None:
