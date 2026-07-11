@@ -481,6 +481,34 @@ def test_pending_xsec_rescue_bundles_from_results_recovers_unexplored_rescue(tmp
     assert auto_research.pending_xsec_rescue_bundles_from_results([result], explored={bundles[0].fingerprint}) == []
 
 
+def test_parent_failure_counts_load_from_rescue_plan(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_path = tmp_path / "artifacts/v9/rescue/xsec_ohlcv_cont_case_rescue_plan.json"
+    plan_path.parent.mkdir(parents=True)
+    plan_path.write_text(
+        json.dumps(
+            {
+                "seeds": [
+                    {
+                        "rescue_relevant_failure_count": 2,
+                        "neighbors": [
+                            {"config_fingerprint": "aaa"},
+                            {"config_fingerprint": "bbb"},
+                        ],
+                    }
+                ]
+            }
+        )
+    )
+
+    inferred = auto_research.parent_rescue_plan_path_for_output(
+        "artifacts/v9/contract_lab/xsec_ohlcv_rescue_case_deadbeef.json"
+    )
+
+    assert inferred == Path("artifacts/v9/rescue/xsec_ohlcv_cont_case_rescue_plan.json")
+    assert auto_research.parent_failure_count_by_config_from_plan(inferred) == {"aaa": 2, "bbb": 2}
+
+
 def test_xsec_rescue_task_from_result_enforces_config_cap(tmp_path) -> None:
     config_json = tmp_path / "rescue_configs.json"
     config_json.write_text("[]")

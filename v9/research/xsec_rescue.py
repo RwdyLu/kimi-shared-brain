@@ -553,6 +553,7 @@ def build_rescue_plan(
     budget_per_seed: int = DEFAULT_RESCUE_BUDGET_PER_SEED,
     generation: int = 1,
     excluded_fingerprints: set[str] | frozenset[str] | None = None,
+    parent_failure_count_by_config_fingerprint: dict[str, int] | None = None,
     allow_near_miss: bool = True,
     near_miss_max_failures: int = 3,
     near_miss_min_selection_sharpe20: float = 1.20,
@@ -570,6 +571,16 @@ def build_rescue_plan(
         near_miss_min_active_rebalances40=near_miss_min_active_rebalances40,
         near_miss_min_time_in_market40=near_miss_min_time_in_market40,
     )
+    parent_failure_count_by_config_fingerprint = parent_failure_count_by_config_fingerprint or {}
+    generation_int = int(generation)
+    if generation_int >= 2 and parent_failure_count_by_config_fingerprint:
+        seeds = [
+            seed
+            for seed in seeds
+            if seed["config_fingerprint"] in parent_failure_count_by_config_fingerprint
+            and int(seed["rescue_relevant_failure_count"])
+            < int(parent_failure_count_by_config_fingerprint[seed["config_fingerprint"]])
+        ]
     configs: list[dict[str, Any]] = []
     excluded_fingerprints = excluded_fingerprints or frozenset()
     seen_configs: set[str] = {str(fp) for fp in excluded_fingerprints}
@@ -597,7 +608,7 @@ def build_rescue_plan(
         "kind": "xsec_diagnostic_or_nearmiss_rescue_plan_v2",
         "source_artifact": source_artifact,
         "source_meta": meta,
-        "rescue_generation": int(generation),
+        "rescue_generation": generation_int,
         "seed_count": len(planned_seeds),
         "diagnostic_seed_count": diagnostic_seed_count,
         "near_miss_seed_count": near_miss_seed_count,
@@ -605,6 +616,11 @@ def build_rescue_plan(
         "rescue_config_count": len(configs),
         "budget_per_seed": int(budget_per_seed),
         "excluded_config_fingerprint_count": len(excluded_fingerprints),
+        "parent_failure_filter": {
+            "enabled": generation_int >= 2 and bool(parent_failure_count_by_config_fingerprint),
+            "parent_config_count": len(parent_failure_count_by_config_fingerprint),
+            "require_relevant_failure_count_improvement": generation_int >= 2,
+        },
         "rescue_seed_policy": {
             "diagnostic_q25_min": 0.50,
             "diagnostic_sign_min": 0.75,

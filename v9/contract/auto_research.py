@@ -511,6 +511,35 @@ def maybe_write_xsec_diagnostic_review(output_json: str) -> dict[str, Any]:
         return {"diagnostic_review_error": str(exc)}
 
 
+def parent_rescue_plan_path_for_output(output_json: str) -> Path | None:
+    stem = Path(output_json).stem
+    if not stem.startswith("xsec_ohlcv_rescue_"):
+        return None
+    parent_stem = stem.rsplit("_", 1)[0]
+    if parent_stem.startswith("xsec_ohlcv_rescue_"):
+        source_stem = "xsec_ohlcv_cont_" + parent_stem[len("xsec_ohlcv_rescue_") :]
+    else:
+        source_stem = parent_stem
+    return Path("artifacts/v9/rescue") / f"{source_stem}_rescue_plan.json"
+
+
+def parent_failure_count_by_config_from_plan(plan_path: Path | None) -> dict[str, int]:
+    if plan_path is None or not plan_path.exists():
+        return {}
+    try:
+        plan = json.loads(plan_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    out: dict[str, int] = {}
+    for seed in plan.get("seeds") or []:
+        parent_failure_count = int(seed.get("rescue_relevant_failure_count") or 0)
+        for neighbor in seed.get("neighbors") or []:
+            fp = neighbor.get("config_fingerprint")
+            if fp:
+                out[str(fp)] = parent_failure_count
+    return out
+
+
 def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
     out_path = Path(output_json)
     if "xsec_ohlcv" not in out_path.name or not out_path.exists():
@@ -532,6 +561,9 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
             for row in rows
             if isinstance(row.get("config"), dict)
         }
+        parent_failure_counts = parent_failure_count_by_config_from_plan(
+            parent_rescue_plan_path_for_output(output_json)
+        )
         plan = build_rescue_plan(
             rows,
             meta=meta,
@@ -540,11 +572,13 @@ def maybe_write_xsec_rescue_artifacts(output_json: str) -> dict[str, Any]:
             top_k=MAX_AUTO_XSEC_RESCUE_GEN2_TOP_K if current_generation + 1 >= 2 else 8,
             budget_per_seed=MAX_AUTO_XSEC_RESCUE_GEN2_BUDGET_PER_SEED if current_generation + 1 >= 2 else 18,
             excluded_fingerprints=excluded_fingerprints,
+            parent_failure_count_by_config_fingerprint=parent_failure_counts,
         )
         plan_path, config_path = rescue_artifact_paths(output_json)
         metadata = write_rescue_artifacts(plan, plan_path, config_path)
         metadata["rescue_generation"] = current_generation + 1
         metadata["excluded_config_fingerprint_count"] = len(excluded_fingerprints)
+        metadata["parent_failure_filter_config_count"] = len(parent_failure_counts)
         return metadata
     except Exception as exc:  # pragma: no cover - defensive; runner should continue.
         return {"rescue_error": str(exc)}

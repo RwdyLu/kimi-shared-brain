@@ -402,6 +402,39 @@ def test_build_rescue_plan_excludes_cross_generation_fingerprints() -> None:
     assert excluded.isdisjoint({config_fingerprint(config) for config in plan["configs"]})
 
 
+def test_build_rescue_plan_gen2_requires_parent_failure_improvement() -> None:
+    improved = row(
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years",),
+        selection_sharpe=1.60,
+        bootstrap_p5=0.50,
+    )
+    unimproved = row(
+        config={**BASE_CONFIG, "lookback_h": 672},
+        diagnostic_triggered=False,
+        failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+        selection_sharpe=1.70,
+        bootstrap_p5=0.40,
+    )
+    parent_counts = {
+        config_fingerprint(improved["config"]): 2,
+        config_fingerprint(unimproved["config"]): 2,
+    }
+
+    plan = build_rescue_plan(
+        [improved, unimproved],
+        top_k=2,
+        budget_per_seed=3,
+        generation=2,
+        parent_failure_count_by_config_fingerprint=parent_counts,
+    )
+
+    assert plan["rescue_generation"] == 2
+    assert plan["parent_failure_filter"]["enabled"] is True
+    assert plan["seed_count"] == 1
+    assert plan["seeds"][0]["config"] == improved["config"]
+
+
 def test_default_rescue_plan_stays_within_auto_rescue_cap() -> None:
     rows = []
     lookbacks = (72, 168, 240, 336, 504, 672, 720, 1008)
