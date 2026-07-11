@@ -49,7 +49,7 @@ def candidate(task: str, path: Path, status: str = "manual_review_required") -> 
     }
 
 
-def result(task: str, path: Path) -> dict:
+def result(task: str, path: Path, train_end: str = "2024-03-31 23:59:59") -> dict:
     return {
         "task": task,
         "output_json": str(path),
@@ -57,7 +57,7 @@ def result(task: str, path: Path) -> dict:
         "returncode": 0,
         "planned_task": {
             "train_start": "2019-01-01",
-            "train_end": "2024-03-31 23:59:59",
+            "train_end": train_end,
             "embargo_start": "2024-07-01",
             "module": "v9.contract.xsec_ohlcv_factory",
             "preset": "hq_dd_plateau",
@@ -191,3 +191,45 @@ def test_authorized_holdout_writes_ledger_before_audit_and_is_one_shot(tmp_path)
     assert updated["candidates_found"][0]["live_trading_authorized"] is False
     assert len(ledger["entries"]) == 1
     assert ledger["entries"][0]["status"] == "validated_holdout"
+
+
+def test_overlapping_train_window_rejected_without_ledger_consumption(tmp_path) -> None:
+    artifact = tmp_path / "artifacts" / "candidate.json"
+    write_json(artifact, artifact_payload({"lookback_h": 504, "k": 3, "score_mode": "risk_adj_mom"}))
+    state = {
+        "kind": "v9_auto_research_train_only_state",
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+        "candidates_found": [candidate("candidate", artifact)],
+        "task_results": [result("candidate", artifact, train_end="2025-01-01")],
+    }
+    state_path = tmp_path / "state.json"
+    write_json(state_path, state)
+    queue = build_manual_review_queue(state_path=state_path)
+    state["candidates_found"][0]["status"] = "validated_train_only"
+    write_json(state_path, state)
+    authorizations_path = tmp_path / "holdout_authorizations.json"
+    ledger_path = tmp_path / "holdout_ledger.json"
+    write_json(authorizations_path, authorization(queue[0]["identity"], queue[0]["evidence_sha1"]))
+    audit_calls = 0
+
+    def fail_if_called(_candidate: dict) -> dict:
+        nonlocal audit_calls
+        audit_calls += 1
+        raise AssertionError("holdout audit must not run for overlapping train window")
+
+    report = run_authorized_holdout(
+        state_path=state_path,
+        authorizations_path=authorizations_path,
+        ledger_path=ledger_path,
+        base=tmp_path,
+        audit_candidate=fail_if_called,
+    )
+
+    assert report["applied_count"] == 0
+    assert report["decisions"][0]["reason"] == "train_holdout_overlap"
+    assert audit_calls == 0
+    assert not ledger_path.exists()
+    updated = json.loads(state_path.read_text())
+    assert updated["candidates_found"][0]["status"] == "validated_train_only"

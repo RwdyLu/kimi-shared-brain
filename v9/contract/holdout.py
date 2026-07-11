@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -83,6 +83,46 @@ def queue_lookup(entries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         for candidate_id in entry_ids(entry):
             lookup.setdefault(candidate_id, entry)
     return lookup
+
+
+def result_lookup(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for result in results:
+        for key in ("task", "output_json"):
+            value = result.get(key)
+            if value:
+                lookup.setdefault(str(value), result)
+    return lookup
+
+
+def parse_iso_date_prefix(value: Any) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def train_window_disjoint(
+    record: dict[str, Any],
+    results_by_key: dict[str, dict[str, Any]],
+    holdout_start: str,
+) -> tuple[bool, str]:
+    result = (
+        results_by_key.get(str(record.get("task") or ""))
+        or results_by_key.get(str(record.get("output_json") or ""))
+        or {}
+    )
+    planned = result.get("planned_task") or record.get("planned_task") or {}
+    train_end = parse_iso_date_prefix(planned.get("train_end"))
+    embargo_start = parse_iso_date_prefix(planned.get("embargo_start"))
+    holdout_start_date = parse_iso_date_prefix(holdout_start)
+    if train_end is None or embargo_start is None or holdout_start_date is None:
+        return False, "missing_train_window"
+    if train_end >= holdout_start_date or embargo_start > holdout_start_date:
+        return False, "train_holdout_overlap"
+    return True, ""
 
 
 def accepted_row(payload: dict[str, Any]) -> dict[str, Any]:
@@ -246,6 +286,7 @@ def run_authorized_holdout(
     queue = queue_for_validated_state(candidates, results)
     by_candidate_id = candidate_lookup(candidates)
     by_queue_id = queue_lookup(queue)
+    by_result_key = result_lookup(results)
     consumed_ids = consumed_candidate_ids(ledger)
     now = now_utc()
     rows = []
@@ -317,6 +358,11 @@ def run_authorized_holdout(
         row["expected_evidence_sha1"] = queue_entry.get("evidence_sha1")
         if raw.get("evidence_sha1") != queue_entry.get("evidence_sha1"):
             row["reason"] = "evidence_mismatch"
+            rows.append(row)
+            continue
+        disjoint, disjoint_reason = train_window_disjoint(record, by_result_key, holdout_start)
+        if not disjoint:
+            row["reason"] = disjoint_reason
             rows.append(row)
             continue
 
