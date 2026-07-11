@@ -96,11 +96,17 @@ def market_drawdown_matrix(periods: int = 60) -> pd.DataFrame:
     return pd.DataFrame({"dt": dt, "AAA": values, "BBB": values, "CCC": values, "DDD": values})
 
 
-def passing_gate_result(daily_turnover: float = 0.10) -> dict:
+def passing_gate_result(
+    daily_turnover: float = 0.10,
+    active_rebalance_event_count: int = 20,
+    time_in_market_frac: float = 0.20,
+) -> dict:
     return {
         "sharpe": 1.5,
         "max_drawdown": 0.10,
         "daily_turnover": daily_turnover,
+        "active_rebalance_event_count": active_rebalance_event_count,
+        "time_in_market_frac": time_in_market_frac,
         "total_return": 0.20,
         "yearly_positive_count": 4,
         "yearly": {
@@ -268,6 +274,8 @@ def test_simulate_reports_gate_inputs() -> None:
     assert "equal_weight_benchmark" in result20
     assert "bootstrap_p5_ge_adjusted_min" in checks
     assert result20["daily_turnover"] >= 0
+    assert result20["time_in_market_frac"] >= 0
+    assert result20["active_rebalance_event_count"] >= 0
     assert result20["rebalance_offsets_h"] == [0]
     assert result20["avg_long_exposure"] >= 0
     assert result20["avg_short_exposure"] == 0
@@ -283,6 +291,19 @@ def test_selection_and_validation_gates_reject_high_turnover() -> None:
     assert advance_checks(low_turnover, high_turnover, bootstrap_p5_min=0.25)["daily_turnover40_le_50pct"] is False
     assert validation_checks(low_turnover, low_turnover, sharpe20_min=0.70)["validation_daily_turnover40_le_50pct"] is True
     assert validation_checks(low_turnover, high_turnover, sharpe20_min=0.70)["validation_daily_turnover40_le_50pct"] is False
+
+
+def test_selection_and_validation_gates_reject_insufficient_activity() -> None:
+    active = passing_gate_result(active_rebalance_event_count=20, time_in_market_frac=0.20)
+    inactive = passing_gate_result(active_rebalance_event_count=1, time_in_market_frac=0.01)
+
+    selection = advance_checks(active, inactive, bootstrap_p5_min=0.25)
+    validation = validation_checks(active, inactive, sharpe20_min=0.70)
+
+    assert selection["active_rebalances40_ge_min"] is False
+    assert selection["time_in_market40_ge_min"] is False
+    assert validation["validation_active_rebalances40_ge_min"] is False
+    assert validation["validation_time_in_market40_ge_min"] is False
 
 
 def test_simulate_reports_market_regime_diagnostics() -> None:
@@ -522,9 +543,12 @@ def test_validate_all_rows_can_run_diagnostic_walk_forward_without_passing(monke
             "max_drawdown": 0.10,
             "daily_turnover": 0.01,
             "avg_gross_exposure": 1.0,
+            "time_in_market_frac": 1.0,
             "avg_long_exposure": 1.0,
             "avg_short_exposure": 0.0,
             "avg_rebalance_scale": 1.0,
+            "rebalance_event_count": 20,
+            "active_rebalance_event_count": 20,
             "yearly": {
                 "2021": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
                 "2022": {"periods": 10, "net_return": -0.01, "sharpe": -0.2},
@@ -677,7 +701,10 @@ def test_run_grid_confirm_gate_can_reject_initial_bootstrap_pass(monkeypatch, tm
             "max_drawdown": 0.10,
             "daily_turnover": 0.01,
             "avg_gross_exposure": 1.0,
+            "time_in_market_frac": 1.0,
             "avg_rebalance_scale": 1.0,
+            "rebalance_event_count": 20,
+            "active_rebalance_event_count": 20,
             "yearly": {
                 "2021": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},
                 "2022": {"periods": 10, "net_return": 0.05, "sharpe": 1.0},

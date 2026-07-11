@@ -20,7 +20,12 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v5_turnover_gate"
+ROW_CACHE_VERSION = "selection_validation_v6_activity_gate"
+ACTIVE_EXPOSURE_THRESHOLD = 0.01
+SELECTION_MIN_ACTIVE_REBALANCES = 12
+SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
+VALIDATION_MIN_ACTIVE_REBALANCES = 4
+VALIDATION_MIN_TIME_IN_MARKET_FRAC = 0.03
 
 
 @dataclass(frozen=True)
@@ -656,6 +661,8 @@ def simulate(
     ret = pd.DataFrame(rows).set_index("dt")
     reb = pd.DataFrame(rebalances).set_index("dt")
     regime_len = len(ret)
+    active_exposure = ret["gross_exposure"] > ACTIVE_EXPOSURE_THRESHOLD
+    active_rebalances = reb["gross_exposure"] > ACTIVE_EXPOSURE_THRESHOLD if len(reb) else pd.Series(dtype=bool)
 
     def regime_fraction(name: str) -> float:
         series = regime_components[name].iloc[:regime_len]
@@ -697,10 +704,12 @@ def simulate(
         "max_drawdown": dd,
         "daily_turnover": float(reb["turnover"].resample("1D").sum().mean()) if len(reb) else 0.0,
         "avg_gross_exposure": float(ret["gross_exposure"].mean()) if len(ret) else 0.0,
+        "time_in_market_frac": float(active_exposure.mean()) if len(active_exposure) else 0.0,
         "avg_long_exposure": float(ret["long_exposure"].mean()) if len(ret) else 0.0,
         "avg_short_exposure": float(ret["short_exposure"].mean()) if len(ret) else 0.0,
         "avg_rebalance_scale": float(scale_sum / scale_count) if scale_count else 1.0,
         "rebalance_event_count": int(len(reb)),
+        "active_rebalance_event_count": int(active_rebalances.sum()) if len(active_rebalances) else 0,
         "rebalance_offsets_h": [int(v) for v in tranche_offsets],
         "risk_off_event_count": int(risk_off_event_count),
         "risk_off_hours": int(ret["risk_off"].sum()) if len(ret) else 0,
@@ -761,12 +770,22 @@ def validation_sharpe_threshold(effective_trials: int, base: float = 0.70, slope
     return base + slope * max(0.0, math.log10(max(1, int(effective_trials))) - 1.0)
 
 
+def metric_float(block: dict[str, Any], key: str, default: float = 0.0) -> float:
+    try:
+        value = float(block.get(key, default))
+    except (TypeError, ValueError):
+        return default
+    return value if math.isfinite(value) else default
+
+
 def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_min: float = 0.25) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     return {
         "sharpe20_ge_1_2": float(cost20["sharpe"]) >= 1.2,
         "max_dd20_le_25pct": float(cost20["max_drawdown"]) <= 0.25,
         "daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
+        "active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= SELECTION_MIN_ACTIVE_REBALANCES,
+        "time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= SELECTION_MIN_TIME_IN_MARKET_FRAC,
         "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
         "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
@@ -784,6 +803,8 @@ def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_m
         "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
         "validation_daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
+        "validation_active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= VALIDATION_MIN_ACTIVE_REBALANCES,
+        "validation_time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= VALIDATION_MIN_TIME_IN_MARKET_FRAC,
     }
 
 
