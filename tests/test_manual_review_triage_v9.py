@@ -11,15 +11,24 @@ sys.path.insert(0, str(ROOT))
 from v9.contract.triage import build_manual_review_queue, write_manual_review_queue  # noqa: E402
 
 
-def write_candidate_artifact(path: Path, config: dict, symbols: list[str] | None = None) -> None:
+def write_candidate_artifact(
+    path: Path,
+    config: dict,
+    symbols: list[str] | None = None,
+    cost40: dict | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"advance_passed": True, "config": config}
+    if cost40:
+        row["validation"] = {"cost40": cost40}
     path.write_text(
         json.dumps(
             {
                 "kind": "xsec_ohlcv_factory_v1_train_only_grid",
                 "symbols": symbols or ["BTCUSDT", "ETHUSDT"],
                 "summary": {"accepted_train_only": True},
-                "rows": [{"advance_passed": True, "config": config}],
+                "selection_validation": {"effective_trials": 10},
+                "rows": [row],
             },
             sort_keys=True,
         )
@@ -106,3 +115,34 @@ def test_manual_review_queue_ranks_replicated_strong_family_and_drops_duplicates
     written = json.loads((tmp_path / "manual_review_queue.json").read_text())
     assert written["entries"][0]["identity"] == queue[0]["identity"]
     assert written["paper_trading_authorized"] is False
+
+
+def test_manual_review_queue_recomputes_missing_multiplicity_evidence(tmp_path) -> None:
+    path = tmp_path / "candidate.json"
+    write_candidate_artifact(
+        path,
+        {"lookback_h": 504, "rebalance_h": 168, "k": 3, "score_mode": "risk_adj_mom"},
+        cost40={
+            "sharpe": 2.4,
+            "bootstrap_30d_sharpe_p5": 1.9,
+            "max_drawdown": 0.12,
+            "active_yearly_bucket_count": 3,
+            "positive_active_yearly_bucket_count": 3,
+            "rebalance_event_count": 120,
+        },
+    )
+    candidates = [
+        {
+            "task": "candidate",
+            "output_json": str(path),
+            "output_md": str(path.with_suffix(".md")),
+            "status": "manual_review_required",
+        }
+    ]
+    task_results = [{"task": "candidate", "output_json": str(path), "status": "accepted_train_only_candidate_found"}]
+
+    queue = build_manual_review_queue(candidates, task_results=task_results)
+
+    assert len(queue) == 1
+    assert queue[0]["score_components"]["adjusted_p_value"] is not None
+    assert queue[0]["score_components"]["multiplicity_decision"] == "multiplicity_survivor"

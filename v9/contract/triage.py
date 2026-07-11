@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from v9.research.candidate_dedupe import dedupe_candidates
+from v9.research.multiplicity import multiplicity_evidence
 
 
 def safe_float(value: Any, default: float | None = None) -> float | None:
@@ -73,9 +74,42 @@ def result_maps(task_results: list[dict[str, Any]]) -> tuple[dict[str, dict[str,
     return by_output, drift_windows
 
 
+def effective_trials_for_evidence(result: dict[str, Any], payload: dict[str, Any] | None) -> int:
+    selection_validation = (payload or {}).get("selection_validation") or {}
+    for value in (
+        result.get("effective_trials"),
+        selection_validation.get("effective_trials"),
+    ):
+        if value is not None:
+            return max(1, int(value or 0))
+    prior_trials = result.get("prior_trials")
+    n_configs = result.get("n_configs_tested")
+    if prior_trials is not None or n_configs is not None:
+        return max(1, int(prior_trials or 0) + int(n_configs or 0))
+    prior_trials = selection_validation.get("prior_trials")
+    n_configs = selection_validation.get("n_configs_tested") or selection_validation.get("n_configs")
+    if prior_trials is not None or n_configs is not None:
+        return max(1, int(prior_trials or 0) + int(n_configs or 0))
+    return 1
+
+
+def evidence_for_candidate(record: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    evidence = result.get("multiplicity_evidence") or {}
+    metrics = evidence.get("metrics") or {}
+    if metrics.get("adjusted_p_value") is not None:
+        return evidence
+    output_json = record.get("output_json") or result.get("output_json")
+    if not output_json:
+        return evidence
+    payload = read_json(Path(str(output_json)))
+    if not payload:
+        return evidence
+    return multiplicity_evidence(payload, total_trials=effective_trials_for_evidence(result, payload))
+
+
 def score_candidate(record: dict[str, Any], result: dict[str, Any] | None, drift_windows: set[tuple[str, ...]]) -> dict[str, Any]:
     result = result or {}
-    evidence = result.get("multiplicity_evidence") or {}
+    evidence = evidence_for_candidate(record, result)
     metrics = evidence.get("metrics") or {}
     adjusted_p = safe_float(metrics.get("adjusted_p_value"))
     z_score = safe_float(metrics.get("z_score"), 0.0) or 0.0
