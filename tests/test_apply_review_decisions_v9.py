@@ -50,8 +50,8 @@ def candidate(task: str, path: Path) -> dict:
     }
 
 
-def result(task: str, path: Path) -> dict:
-    return {
+def result(task: str, path: Path, snapshot: str = "") -> dict:
+    row = {
         "task": task,
         "output_json": str(path),
         "status": "accepted_train_only_candidate_found",
@@ -65,6 +65,9 @@ def result(task: str, path: Path) -> dict:
             "cli_preset": "hq_dd_plateau",
         },
     }
+    if snapshot:
+        row["data_snapshot_fingerprint"] = snapshot
+    return row
 
 
 def test_apply_review_decisions_transitions_matching_hash_and_skips_stale(tmp_path) -> None:
@@ -82,7 +85,7 @@ def test_apply_review_decisions_transitions_matching_hash_and_skips_stale(tmp_pa
             candidate("stale", stale),
         ],
         "task_results": [
-            result("strong", strong),
+            result("strong", strong, snapshot="snap-strong"),
             result("stale", stale),
         ],
     }
@@ -132,3 +135,43 @@ def test_apply_review_decisions_transitions_matching_hash_and_skips_stale(tmp_pa
     assert second["applied_count"] == 0
     assert second["decisions"][0]["reason"] == "already_applied"
     assert second["decisions"][1]["reason"] == "stale_evidence"
+
+
+def test_apply_review_decisions_blocks_validate_without_snapshot(tmp_path) -> None:
+    path = tmp_path / "artifacts/no_snapshot.json"
+    write_json(path, artifact_payload({"lookback_h": 504, "k": 3}, sharpe=2.4, bootstrap_p5=1.9))
+    state = {
+        "kind": "v9_auto_research_train_only_state",
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+        "candidates_found": [candidate("no_snapshot", path)],
+        "task_results": [result("no_snapshot", path)],
+    }
+    state_path = tmp_path / "state.json"
+    write_json(state_path, state)
+    before = state_path.read_text()
+    queue = build_manual_review_queue(state_path=state_path)
+    decisions_path = tmp_path / "review_decisions.json"
+    write_json(
+        decisions_path,
+        {
+            "decisions": [
+                {
+                    "candidate_id": queue[0]["identity"],
+                    "evidence_sha1": queue[0]["evidence_sha1"],
+                    "decision": "validate_train_only",
+                    "reviewer": "human",
+                    "rationale": "Looks strong, but should be blocked without snapshot.",
+                }
+            ]
+        },
+    )
+
+    report = apply_review_decisions(state_path, decisions_path)
+    updated = json.loads(state_path.read_text())
+
+    assert report["applied_count"] == 0
+    assert report["decisions"][0]["reason"] == "snapshot_revalidation_required"
+    assert updated["candidates_found"][0]["status"] == "manual_review_required"
+    assert state_path.read_text() == before

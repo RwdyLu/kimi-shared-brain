@@ -368,7 +368,12 @@ def build_manual_review_dossier(
         planned = result.get("planned_task") or {}
         window = train_window_review(planned, holdout_start)
         hard_flags, soft_flags = dossier_risk_flags(entry, result, window)
-        recommended_decision = "reject" if hard_flags else "validate_train_only"
+        if hard_flags:
+            recommended_decision = "reject"
+        elif "missing_data_snapshot" in soft_flags:
+            recommended_decision = "snapshot_revalidation_required"
+        else:
+            recommended_decision = "validate_train_only"
         rationale_template = dossier_rationale(entry, hard_flags, soft_flags)
         draft = {
             "candidate_id": entry.get("identity"),
@@ -622,6 +627,10 @@ def apply_review_decisions(state_path: Path, decisions_path: Path, task_results:
         row["expected_evidence_sha1"] = entry.get("evidence_sha1")
         if evidence_sha1 != entry.get("evidence_sha1"):
             row["reason"] = "stale_evidence"
+            rows.append(row)
+            continue
+        if decision == "validate_train_only" and not entry.get("data_snapshot_fingerprint"):
+            row["reason"] = "snapshot_revalidation_required"
             rows.append(row)
             continue
         if record.get("status") != "manual_review_required":

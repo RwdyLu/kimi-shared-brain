@@ -204,3 +204,32 @@ def test_manual_review_dossier_writes_non_apply_ready_draft(tmp_path) -> None:
     assert report["applied_count"] == 0
     assert report["decisions"][0]["reason"] == "invalid_decision"
     assert updated["candidates_found"][0]["status"] == "manual_review_required"
+
+
+def test_manual_review_dossier_requires_snapshot_revalidation_when_snapshot_missing(tmp_path) -> None:
+    path = tmp_path / "missing_snapshot.json"
+    write_candidate_artifact(
+        path,
+        {"lookback_h": 504, "rebalance_h": 168, "k": 3, "score_mode": "risk_adj_mom"},
+    )
+    candidates = [
+        {
+            "task": "missing_snapshot",
+            "output_json": str(path),
+            "output_md": str(path.with_suffix(".md")),
+            "status": "manual_review_required",
+        }
+    ]
+    task_results = [result_for(path, adjusted_p_value=0.001, z_score=4.0, sharpe=2.2)]
+
+    dossier = write_manual_review_dossier(
+        tmp_path / "manual_review_dossier.json",
+        candidates,
+        tmp_path / "state.json",
+        task_results=task_results,
+        limit=1,
+    )
+
+    assert dossier["entries"][0]["recommended_decision"] == "snapshot_revalidation_required"
+    assert "missing_data_snapshot" in dossier["entries"][0]["soft_flags"]
+    assert dossier["draft_decisions"][0]["recommended_decision"] == "snapshot_revalidation_required"
