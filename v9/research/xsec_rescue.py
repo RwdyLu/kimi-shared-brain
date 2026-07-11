@@ -18,6 +18,8 @@ DRAWDOWN_STOPS = (0.0, 0.10, 0.15, 0.20)
 COOLDOWNS_H = (0, 24, 72, 168, 336)
 MARKET_CONFIRM_H = (0, 168, 336, 504, 720)
 MARKET_DRAWDOWN_LIMITS = (0.0, 0.20, 0.25, 0.30, 0.35)
+DEFAULT_RESCUE_TOP_K = 8
+DEFAULT_RESCUE_BUDGET_PER_SEED = 18
 
 RESCUE_IGNORED_FAILURES = frozenset({"selection_passed_before_validation"})
 RESCUE_HARD_REJECT_FAILURES = frozenset(
@@ -233,7 +235,7 @@ def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagno
 
 def select_rescue_seeds(
     rows: list[dict[str, Any]],
-    top_k: int = 8,
+    top_k: int = DEFAULT_RESCUE_TOP_K,
     diagnostic_q25_min: float = 0.50,
     diagnostic_sign_min: float = 0.75,
     allow_near_miss: bool = True,
@@ -385,8 +387,8 @@ def build_rescue_plan(
     rows: list[dict[str, Any]],
     meta: dict[str, Any] | None = None,
     source_artifact: str | None = None,
-    top_k: int = 8,
-    budget_per_seed: int = 30,
+    top_k: int = DEFAULT_RESCUE_TOP_K,
+    budget_per_seed: int = DEFAULT_RESCUE_BUDGET_PER_SEED,
     allow_near_miss: bool = True,
     near_miss_max_failures: int = 3,
     near_miss_min_selection_sharpe20: float = 1.20,

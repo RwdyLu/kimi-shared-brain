@@ -201,6 +201,32 @@ def test_build_rescue_plan_counts_additional_trials_and_keeps_safety_false(tmp_p
     assert json.loads((tmp_path / "configs.json").read_text()) == plan["configs"]
 
 
+def test_default_rescue_plan_stays_within_auto_rescue_cap() -> None:
+    rows = []
+    lookbacks = (72, 168, 240, 336, 504, 672, 720, 1008)
+    for lookback in lookbacks:
+        config = dict(BASE_CONFIG)
+        config["lookback_h"] = lookback
+        rows.append(
+            row(
+                config=config,
+                diagnostic_triggered=False,
+                diagnostic_q25=0.0,
+                failed_checks=("positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"),
+                selection_sharpe=1.55,
+                bootstrap_p5=0.45,
+                active_rebalances=120,
+                time_in_market=0.15,
+            )
+        )
+
+    plan = build_rescue_plan(rows)
+
+    assert plan["seed_count"] == 8
+    assert plan["budget_per_seed"] == 18
+    assert plan["rescue_config_count"] <= 150
+
+
 def test_rescue_plan_script_runs_from_repo_root(tmp_path) -> None:
     artifact = tmp_path / "artifact.json"
     artifact.write_text(
