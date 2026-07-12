@@ -347,6 +347,25 @@ def test_next_runnable_stops_on_accepted_completion(tmp_path) -> None:
     assert selection["accepted_group_id"] == "group-a"
 
 
+def test_next_runnable_can_continue_after_accepted_completion(tmp_path) -> None:
+    first = plan_group(tmp_path)
+    second = second_plan_group(tmp_path)
+    write_completion(first, status="accepted_train_only_candidate_found")
+
+    selected, selection = runner_mod.select_groups_for_run(
+        [first, second],
+        runner_state_path=tmp_path / "runner_state.json",
+        max_groups=1,
+        next_runnable=True,
+        continue_after_accepted=True,
+    )
+
+    assert [row["group_id"] for row in selected] == ["group-b"]
+    assert selection["selection_stop_reason"] == "selected_next_runnable"
+    assert selection["skipped"][0]["group_id"] == "group-a"
+    assert selection["skipped"][0]["completion_status"] == "accepted_train_only_candidate_found"
+
+
 def test_next_runnable_skips_completed_no_candidate_and_selects_next(tmp_path) -> None:
     first = plan_group(tmp_path)
     second = second_plan_group(tmp_path)

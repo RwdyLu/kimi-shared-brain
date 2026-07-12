@@ -20,5 +20,5 @@ fi
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 tmux new-session -d -s "$SESSION" \
-  "cd '$ROOT' && python3 scripts/v9_revalidation_runner.py --plan artifacts/v9/revalidation/v9_candidate_revalidation_plan.json --runner-state artifacts/v9/revalidation/runner_state.json --max-groups 1 --next-runnable --out-json artifacts/v9/revalidation/last_next_runnable_report.json --format text >> logs/v9_revalidation/next_runnable_${stamp}.log 2>&1"
+  "cd '$ROOT' && python3 scripts/v9_revalidation_runner.py --plan artifacts/v9/revalidation/v9_candidate_revalidation_plan.json --runner-state artifacts/v9/revalidation/runner_state.json --max-groups 1 --next-runnable --continue-after-accepted --out-json artifacts/v9/revalidation/last_next_runnable_report.json --format text >> logs/v9_revalidation/next_runnable_${stamp}.log 2>&1"
 echo "started: $SESSION"

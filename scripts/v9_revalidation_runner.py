@@ -303,6 +303,7 @@ def select_groups_for_run(
     max_groups: int,
     lock_dir: Path | None = None,
     next_runnable: bool = False,
+    continue_after_accepted: bool = False,
     progress_heartbeat_sec: int = DEFAULT_PROGRESS_HEARTBEAT_SEC,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not next_runnable:
@@ -316,15 +317,24 @@ def select_groups_for_run(
         fingerprint = group_plan_fingerprint(group)
         completion = completion_metadata_for(group, fingerprint)
         if completion.get("status") == "accepted_train_only_candidate_found":
-            return (
-                [],
+            if not continue_after_accepted:
+                return (
+                    [],
+                    {
+                        "mode": "next_runnable",
+                        "selection_stop_reason": "accepted_completion_present",
+                        "accepted_group_id": group.get("group_id"),
+                        "skipped": skipped,
+                    },
+                )
+            skipped.append(
                 {
-                    "mode": "next_runnable",
-                    "selection_stop_reason": "accepted_completion_present",
-                    "accepted_group_id": group.get("group_id"),
-                    "skipped": skipped,
-                },
+                    "group_id": group.get("group_id"),
+                    "reason": "completed",
+                    "completion_status": completion.get("status"),
+                }
             )
+            continue
         latest_row = latest_runner_row_from_state(runner_state, fingerprint)
         if latest_row.get("returncode") not in (None, 0):
             return (
@@ -602,6 +612,7 @@ def run_plan(
     lock_dir: Path | None = None,
     control_dir: Path | None = None,
     next_runnable: bool = False,
+    continue_after_accepted: bool = False,
     dry_run: bool = False,
     timeout_sec: int = 6 * 60 * 60,
     progress_heartbeat_sec: int = DEFAULT_PROGRESS_HEARTBEAT_SEC,
@@ -628,6 +639,7 @@ def run_plan(
         max_groups=max_groups,
         lock_dir=lock_dir,
         next_runnable=next_runnable,
+        continue_after_accepted=continue_after_accepted,
         progress_heartbeat_sec=progress_heartbeat_sec,
     )
     rows = [
@@ -677,6 +689,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--control-dir", default="control")
     parser.add_argument("--max-groups", type=int, default=1)
     parser.add_argument("--next-runnable", action="store_true")
+    parser.add_argument("--continue-after-accepted", action="store_true")
     parser.add_argument("--timeout-sec", type=int, default=6 * 60 * 60)
     parser.add_argument("--progress-heartbeat-sec", type=int, default=DEFAULT_PROGRESS_HEARTBEAT_SEC)
     parser.add_argument("--dry-run", action="store_true")
@@ -695,6 +708,7 @@ def main() -> None:
         control_dir=Path(args.control_dir) if args.control_dir else None,
         max_groups=int(args.max_groups),
         next_runnable=bool(args.next_runnable),
+        continue_after_accepted=bool(args.continue_after_accepted),
         dry_run=bool(args.dry_run),
         timeout_sec=int(args.timeout_sec),
         progress_heartbeat_sec=int(args.progress_heartbeat_sec),
