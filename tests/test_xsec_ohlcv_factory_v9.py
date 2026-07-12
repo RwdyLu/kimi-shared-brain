@@ -924,10 +924,12 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert max(drawdown.market_filters_h) == 2160
     assert 1008 in hq_dd.lookbacks_h
     assert 0.06 in hq_dd.vol_targets_ann
-    assert hq_active.rebalances_h == (72, 120, 168)
-    assert hq_active.market_filters_h == (720, 1008)
+    assert hq_active.lookbacks_h == (504, 720, 1008)
+    assert hq_active.rebalances_h == (120, 168, 240)
+    assert hq_active.score_modes == ("mom", "risk_adj_mom")
+    assert hq_active.market_filters_h == (336, 504, 720, 1008)
     assert hq_active.vol_targets_ann == (0.04, 0.06, 0.08)
-    assert hq_active.n_tranches == (1, 2)
+    assert hq_active.n_tranches == (1,)
     assert hq_active.selection_min_time_in_market_frac == 0.35
     assert hq_active.selection_max_flat_streak_h == 45 * 24
     assert hq_active.validation_max_flat_streak_h == 45 * 24
@@ -935,10 +937,11 @@ def test_presets_select_distinct_search_spaces() -> None:
         len(hq_active.lookbacks_h)
         * len(hq_active.rebalances_h)
         * len(hq_active.ks)
+        * len(hq_active.score_modes)
         * len(hq_active.market_filters_h)
         * len(hq_active.vol_targets_ann)
         * len(hq_active.n_tranches)
-        == 432
+        == 648
     )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504

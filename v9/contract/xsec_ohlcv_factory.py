@@ -263,14 +263,14 @@ def config_for_preset(
         )
     if preset == "hq_active_recent":
         return RunConfig(
-            lookbacks_h=(336, 504, 720, 1008),
+            lookbacks_h=(504, 720, 1008),
             skips_h=(0,),
-            rebalances_h=(72, 120, 168),
+            rebalances_h=(120, 168, 240),
             ks=(3, 4, 5),
-            score_modes=("risk_adj_mom",),
-            market_filters_h=(720, 1008),
+            score_modes=("mom", "risk_adj_mom"),
+            market_filters_h=(336, 504, 720, 1008),
             vol_targets_ann=(0.04, 0.06, 0.08),
-            n_tranches=(1, 2),
+            n_tranches=(1,),
             selection_min_time_in_market_frac=0.35,
             selection_max_flat_streak_h=45 * 24,
             validation_min_time_in_market_frac=0.20,

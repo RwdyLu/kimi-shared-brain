@@ -190,7 +190,7 @@ EVALUATION_VERSION_BY_PRESET = {
     "evergreen_guarded": "selection_validation_v12_xsec_risk_stop_hysteresis",
     "breakout_fast": "selection_validation_v10_xsec_risk_stop_hysteresis",
     "breakout_slow": "selection_validation_v10_xsec_risk_stop_hysteresis",
-    "hq_active_recent": "selection_validation_v1_xsec_hq_recent_activity",
+    "hq_active_recent": "selection_validation_v2_xsec_hq_recent_activity",
     "tsmom_bear_short_medium": "selection_validation_v2_tsmom_walkforward_symbol_leg",
     "tsmom_bear_short_medium_neighbor": "selection_validation_v2_tsmom_walkforward_symbol_leg",
     "tsmom_bear_short_medium_risk": "selection_validation_v2_tsmom_walkforward_symbol_leg",
