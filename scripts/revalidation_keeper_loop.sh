@@ -7,10 +7,16 @@ INTERVAL_SEC="${REVALIDATION_KEEPER_INTERVAL_SEC:-600}"
 STATUS_GROUPS="${REVALIDATION_KEEPER_STATUS_GROUPS:-5}"
 COMMAND_TIMEOUT_SEC="${REVALIDATION_KEEPER_COMMAND_TIMEOUT_SEC:-120}"
 STOP_POLL_SEC="${REVALIDATION_KEEPER_STOP_POLL_SEC:-30}"
+HOLDOUT_AUDITOR_ENABLED="${REVALIDATION_HOLDOUT_AUDITOR_ENABLED:-1}"
+HOLDOUT_AUDITOR_TIMEOUT_SEC="${REVALIDATION_HOLDOUT_AUDITOR_TIMEOUT_SEC:-900}"
+HOLDOUT_AUDITOR_MAX_GROUPS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_GROUPS:-10}"
+HOLDOUT_AUDITOR_MAX_CONFIGS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_CONFIGS:-25}"
+HOLDOUT_AUDITOR_RECENT_DAYS="${REVALIDATION_HOLDOUT_AUDITOR_RECENT_DAYS:-45}"
 PLAN="${REVALIDATION_PLAN:-artifacts/v9/revalidation/v9_candidate_revalidation_plan.json}"
 RUNNER_STATE="${REVALIDATION_RUNNER_STATE:-artifacts/v9/revalidation/runner_state.json}"
 STATUS_JSON="${REVALIDATION_KEEPER_STATUS_JSON:-artifacts/v9/revalidation/keeper_status_report.json}"
 HEARTBEAT_JSON="${REVALIDATION_KEEPER_HEARTBEAT_JSON:-artifacts/v9/revalidation/keeper_heartbeat.json}"
+HOLDOUT_AUDITOR_JSON="${REVALIDATION_HOLDOUT_AUDITOR_JSON:-artifacts/v9/revalidation/holdout_auditor_report.json}"
 CONTROL_DIR="${REVALIDATION_CONTROL_DIR:-control}"
 RUN_ONCE="${REVALIDATION_KEEPER_ONCE:-0}"
 
@@ -26,6 +32,11 @@ fi
 
 if ! [[ "$COMMAND_TIMEOUT_SEC" =~ ^[0-9]+$ ]] || [[ "$COMMAND_TIMEOUT_SEC" -lt 30 ]]; then
   echo "REVALIDATION_KEEPER_COMMAND_TIMEOUT_SEC must be an integer >= 30" >&2
+  exit 2
+fi
+
+if ! [[ "$HOLDOUT_AUDITOR_TIMEOUT_SEC" =~ ^[0-9]+$ ]] || [[ "$HOLDOUT_AUDITOR_TIMEOUT_SEC" -lt 60 ]]; then
+  echo "REVALIDATION_HOLDOUT_AUDITOR_TIMEOUT_SEC must be an integer >= 60" >&2
   exit 2
 fi
 
@@ -103,6 +114,22 @@ while true; do
   else
     rm -f "$status_tmp"
     echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) status refresh failed"
+  fi
+
+  if [[ "$HOLDOUT_AUDITOR_ENABLED" == "1" && ! -e "$CONTROL_DIR/STOP" ]]; then
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) auditing accepted revalidation holdouts"
+    if ! run_with_timeout "$HOLDOUT_AUDITOR_TIMEOUT_SEC" python3 "$ROOT/scripts/v9_revalidation_holdout_auditor.py" \
+      --plan "$PLAN" \
+      --runner-state "$RUNNER_STATE" \
+      --holdout-authorized \
+      --skip-existing-any-key \
+      --max-groups "$HOLDOUT_AUDITOR_MAX_GROUPS" \
+      --max-configs "$HOLDOUT_AUDITOR_MAX_CONFIGS" \
+      --recent-days "$HOLDOUT_AUDITOR_RECENT_DAYS" \
+      --out-json "$HOLDOUT_AUDITOR_JSON" \
+      --format text; then
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) holdout auditor failed"
+    fi
   fi
 
   if [[ "$RUN_ONCE" == "1" ]]; then
