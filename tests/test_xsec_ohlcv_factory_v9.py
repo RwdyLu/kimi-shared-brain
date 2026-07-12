@@ -195,6 +195,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
     assert parser.parse_args(["--preset", "hq_active_recent"]).preset == "hq_active_recent"
     assert parser.parse_args(["--preset", "hq_recent_signal"]).preset == "hq_recent_signal"
+    assert parser.parse_args(["--preset", "hq_decay_bridge"]).preset == "hq_decay_bridge"
 
 
 def test_breakout_presets_sweep_stop_enabled_configs() -> None:
@@ -905,6 +906,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
     hq_active = config_for_preset("hq_active_recent", "cache", "start", "end", "embargo", 10, "ar.json", "ar.md")
     hq_signal = config_for_preset("hq_recent_signal", "cache", "start", "end", "embargo", 10, "rs.json", "rs.md")
+    hq_bridge = config_for_preset("hq_decay_bridge", "cache", "start", "end", "embargo", 10, "db.json", "db.md")
     hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
@@ -964,6 +966,26 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_signal.market_filters_h)
         * len(hq_signal.vol_targets_ann)
         == 384
+    )
+    assert hq_bridge.lookbacks_h == (336, 504, 720, 1008)
+    assert hq_bridge.rebalances_h == (120, 168, 240)
+    assert hq_bridge.ks == (3,)
+    assert hq_bridge.score_modes == ("risk_adj_mom",)
+    assert hq_bridge.market_filters_h == (240, 336, 504, 720)
+    assert hq_bridge.vol_targets_ann == (0.06, 0.08, 0.10)
+    assert hq_bridge.drawdown_stops == (0.0, 0.10)
+    assert hq_bridge.cooldowns_h == (72,)
+    assert hq_bridge.selection_max_flat_streak_h == 45 * 24
+    assert hq_bridge.validation_max_flat_streak_h == 45 * 24
+    assert (
+        len(hq_bridge.lookbacks_h)
+        * len(hq_bridge.rebalances_h)
+        * len(hq_bridge.ks)
+        * len(hq_bridge.score_modes)
+        * len(hq_bridge.market_filters_h)
+        * len(hq_bridge.vol_targets_ann)
+        * len(hq_bridge.drawdown_stops)
+        == 288
     )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504

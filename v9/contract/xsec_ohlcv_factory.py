@@ -299,6 +299,25 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_decay_bridge":
+        return RunConfig(
+            lookbacks_h=(336, 504, 720, 1008),
+            skips_h=(0,),
+            rebalances_h=(120, 168, 240),
+            ks=(3,),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(240, 336, 504, 720),
+            vol_targets_ann=(0.06, 0.08, 0.10),
+            n_tranches=(1,),
+            drawdown_stops=(0.0, 0.10),
+            cooldowns_h=(72,),
+            selection_min_time_in_market_frac=0.25,
+            selection_max_flat_streak_h=45 * 24,
+            validation_min_time_in_market_frac=0.15,
+            validation_max_flat_streak_h=45 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "breakout_fast":
         return RunConfig(
             lookbacks_h=(168, 240, 336),
@@ -1757,6 +1776,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_dd_plateau",
             "hq_active_recent",
             "hq_recent_signal",
+            "hq_decay_bridge",
             "hq_cadence_tranche",
             "hq_fast_rebal",
             "hq_breadth_wide",
