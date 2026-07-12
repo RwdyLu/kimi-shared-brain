@@ -29,6 +29,22 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
+def read_jsonl_candidates(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
 def infer_preset(task_name: str) -> str | None:
     for preset in sorted(PRESETS, key=len, reverse=True):
         if preset in task_name:
@@ -72,9 +88,16 @@ def build_revalidation_plan(
     state_path: Path,
     out_dir: Path = Path("artifacts/v9/revalidation"),
     max_configs_per_group: int = 250,
+    supplemental_candidates_path: Path | None = Path("state/v9_supplemental_train_only_candidates.jsonl"),
 ) -> dict[str, Any]:
     state = read_json(state_path)
-    candidates = dedupe_candidates(list(state.get("candidates_found", [])))
+    state_candidates = list(state.get("candidates_found", []))
+    supplemental_candidates = (
+        read_jsonl_candidates(supplemental_candidates_path)
+        if supplemental_candidates_path is not None
+        else []
+    )
+    candidates = dedupe_candidates([*state_candidates, *supplemental_candidates])
     groups: dict[str, dict[str, Any]] = {}
     skipped = []
     max_effective_trials = 0
@@ -239,6 +262,8 @@ def build_revalidation_plan(
     return {
         "kind": "v9_train_only_candidate_revalidation_plan_v1",
         "source_state": str(state_path),
+        "supplemental_candidates": str(supplemental_candidates_path or ""),
+        "supplemental_candidate_count": len(supplemental_candidates),
         "current_xsec_eval_version": EVALUATION_VERSION,
         "current_tsmom_eval_versions": EVALUATION_VERSION_BY_PRESET,
         "global_prior_trials": max_effective_trials,
@@ -274,6 +299,11 @@ def format_text(plan: dict[str, Any]) -> str:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build train-only revalidation config lists for existing candidates")
     parser.add_argument("--state", default="state/v9_auto_research_state.json")
+    parser.add_argument(
+        "--supplemental-candidates",
+        default="state/v9_supplemental_train_only_candidates.jsonl",
+        help="Optional JSONL candidate ledger appended by out-of-band train-only runs; use empty string to disable.",
+    )
     parser.add_argument("--out-dir", default="artifacts/v9/revalidation")
     parser.add_argument("--out-json", default="artifacts/v9/revalidation/v9_candidate_revalidation_plan.json")
     parser.add_argument("--format", choices=("json", "text"), default="text")
@@ -282,7 +312,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_arg_parser().parse_args()
-    plan = build_revalidation_plan(Path(args.state), out_dir=Path(args.out_dir))
+    supplemental = Path(args.supplemental_candidates) if args.supplemental_candidates else None
+    plan = build_revalidation_plan(
+        Path(args.state),
+        out_dir=Path(args.out_dir),
+        supplemental_candidates_path=supplemental,
+    )
     out_json = Path(args.out_json)
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(plan, indent=2, sort_keys=True))

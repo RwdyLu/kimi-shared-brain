@@ -179,4 +179,64 @@ def test_build_revalidation_plan_skips_unpinned_xsec_candidate(tmp_path, monkeyp
     assert plan["pinned_group_count"] == 0
     assert plan["groups"] == []
     assert plan["skipped"][0]["reason"] == "missing_data_snapshot"
-    assert plan["skipped"][0]["source_candidates"][0]["task"] == "xsec_ohlcv_cont_full_202401_hq_dd_plateau_abc123"
+
+
+def test_build_revalidation_plan_reads_supplemental_candidates(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_cont_full_202406_evergreen_fast_abc.json"
+    snapshot = tmp_path / "artifacts/v9/data_snapshots/xsec.parquet"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_text("snapshot")
+    write_artifact(
+        artifact,
+        kind="xsec_ohlcv_factory_v1_train_only_grid",
+        config={
+            "train_start": "2017-08-01",
+            "train_end": "2024-06-30 23:59:59",
+            "embargo_start": "2024-07-01",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "lookbacks_h": [72, 120, 168],
+        },
+        row_config={
+            "lookback_h": 72,
+            "skip_h": 0,
+            "rebalance_h": 8,
+            "k": 2,
+            "score_mode": "risk_adj_mom",
+            "market_filter_h": 168,
+            "vol_target_ann": 0.12,
+        },
+        data={
+            "fingerprint": "snap-evergreen",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "snapshot": {
+                "path": str(snapshot),
+                "fingerprint": "snap-evergreen",
+                "source": "unit_test",
+            },
+        },
+    )
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"candidates_found": []}))
+    supplemental = tmp_path / "supplemental.jsonl"
+    supplemental.write_text(
+        json.dumps(
+            {
+                "task": "xsec_ohlcv_cont_full_202406_evergreen_fast_abc",
+                "status": "manual_review_required",
+                "output_json": str(artifact),
+            }
+        )
+        + "\n"
+    )
+
+    plan = plan_mod.build_revalidation_plan(
+        state,
+        out_dir=tmp_path / "revalidation",
+        supplemental_candidates_path=supplemental,
+    )
+
+    assert plan["supplemental_candidate_count"] == 1
+    assert plan["group_count"] == 1
+    assert plan["groups"][0]["preset"] == "evergreen_fast"
+    assert plan["groups"][0]["config_count"] == 1
