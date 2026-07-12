@@ -369,6 +369,27 @@ def test_simulate_drawdown_stop_forces_flat_and_charges_exit_cost() -> None:
     assert result["risk_stop_exit_cost"] > 0.0
 
 
+def test_simulate_drawdown_stop_rearms_after_cooldown_without_self_locking() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=8,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        drawdown_stop=0.05,
+        cooldown_h=12,
+    )
+
+    result = simulate(crash_matrix(144), cfg, cost_bps=20.0, bootstrap_iterations=0)
+
+    assert result["risk_off_event_count"] == 1
+    assert result["risk_off_hours"] == 12
+    assert result["time_in_market_frac"] > 0.80
+    assert result["max_flat_streak_h"] <= 16
+
+
 def test_simulate_drawdown_stop_zero_disables_risk_off() -> None:
     cfg = OhlcvConfig(
         lookback_h=8,
@@ -908,7 +929,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert evergreen.validation_min_time_in_market_frac == 0.30
     assert evergreen.validation_max_flat_streak_h == 45 * 24
     assert guarded.drawdown_stops == (0.05, 0.10)
-    assert guarded.cooldowns_h == (168,)
+    assert guarded.cooldowns_h == (72, 168)
     assert guarded.vol_targets_ann == (0.08, 0.10, 0.12)
     assert guarded.selection_min_time_in_market_frac == 0.45
     assert guarded.selection_max_flat_streak_h == 60 * 24

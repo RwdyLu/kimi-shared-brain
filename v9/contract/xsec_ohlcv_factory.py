@@ -20,7 +20,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v7_evergreen_activity_gate"
+ROW_CACHE_VERSION = "selection_validation_v8_risk_stop_hysteresis"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -169,7 +169,7 @@ def config_for_preset(
             market_filters_h=(0, 168),
             vol_targets_ann=(0.08, 0.10, 0.12),
             drawdown_stops=(0.05, 0.10),
-            cooldowns_h=(168,),
+            cooldowns_h=(72, 168),
             selection_min_time_in_market_frac=0.45,
             selection_max_flat_streak_h=60 * 24,
             validation_min_time_in_market_frac=0.25,
@@ -710,6 +710,7 @@ def simulate(
     scale_count = 0
     equity = 1.0
     peak_equity = 1.0
+    risk_stop_peak_equity = 1.0
     risk_off_until = -1
     risk_off_event_count = 0
     risk_stop_exit_cost = 0.0
@@ -717,14 +718,16 @@ def simulate(
 
     for idx in range(len(closes) - 1):
         ts = pd.Timestamp(closes["dt"].iloc[idx])
-        current_drawdown = 1.0 - equity / peak_equity if peak_equity > 0.0 else 0.0
+        risk_off = idx < risk_off_until
+        current_drawdown = 1.0 - equity / risk_stop_peak_equity if risk_stop_peak_equity > 0.0 else 0.0
         stop_triggered = (
             cfg.drawdown_stop > 0.0
-            and idx >= risk_off_until
+            and not risk_off
             and current_drawdown >= cfg.drawdown_stop
         )
         if stop_triggered:
             risk_off_until = idx + max(1, int(cfg.cooldown_h))
+            risk_stop_peak_equity = max(equity, 1e-12)
             risk_off_event_count += 1
         risk_off = idx < risk_off_until
         old_weights = dict(weights)
@@ -776,6 +779,8 @@ def simulate(
         net = gross - cost
         equity *= 1.0 + net
         peak_equity = max(peak_equity, equity)
+        if not risk_off:
+            risk_stop_peak_equity = max(risk_stop_peak_equity, equity)
         long_exposure = sum(max(v, 0.0) for v in weights.values())
         short_exposure = sum(abs(min(v, 0.0)) for v in weights.values())
         rows.append(
