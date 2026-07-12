@@ -189,6 +189,7 @@ def test_cli_accepts_breakout_presets() -> None:
     parser = build_arg_parser()
     assert parser.parse_args(["--preset", "evergreen_fast"]).preset == "evergreen_fast"
     assert parser.parse_args(["--preset", "evergreen_guarded"]).preset == "evergreen_guarded"
+    assert parser.parse_args(["--preset", "evergreen_regime_guarded"]).preset == "evergreen_regime_guarded"
     assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
@@ -904,6 +905,9 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
     evergreen = config_for_preset("evergreen_fast", "cache", "start", "end", "embargo", 10, "ev.json", "ev.md")
     guarded = config_for_preset("evergreen_guarded", "cache", "start", "end", "embargo", 10, "eg.json", "eg.md")
+    regime_guarded = config_for_preset(
+        "evergreen_regime_guarded", "cache", "start", "end", "embargo", 10, "erg.json", "erg.md"
+    )
     assert core.out_json == "a.json"
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
@@ -935,6 +939,24 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert guarded.selection_max_flat_streak_h == 60 * 24
     assert guarded.validation_min_time_in_market_frac == 0.25
     assert guarded.validation_max_flat_streak_h == 60 * 24
+    assert regime_guarded.market_filters_h == (168, 336)
+    assert regime_guarded.market_confirm_hs == (72,)
+    assert regime_guarded.market_drawdown_limits == (0.20, 0.30)
+    assert regime_guarded.n_tranches == (2,)
+    assert regime_guarded.cooldowns_h == (72, 168)
+    assert regime_guarded.selection_min_time_in_market_frac == 0.25
+    assert regime_guarded.selection_max_flat_streak_h == 120 * 24
+    assert (
+        len(regime_guarded.lookbacks_h)
+        * len(regime_guarded.rebalances_h)
+        * len(regime_guarded.score_modes)
+        * len(regime_guarded.market_filters_h)
+        * len(regime_guarded.vol_targets_ann)
+        * len(regime_guarded.drawdown_stops)
+        * len(regime_guarded.cooldowns_h)
+        * len(regime_guarded.market_drawdown_limits)
+        == 256
+    )
 
 
 def test_plateau_stability_summary_passes_plateau_and_rejects_spike() -> None:
