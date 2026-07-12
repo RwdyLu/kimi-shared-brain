@@ -196,6 +196,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_active_recent"]).preset == "hq_active_recent"
     assert parser.parse_args(["--preset", "hq_recent_signal"]).preset == "hq_recent_signal"
     assert parser.parse_args(["--preset", "hq_decay_bridge"]).preset == "hq_decay_bridge"
+    assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
 
 
 def test_breakout_presets_sweep_stop_enabled_configs() -> None:
@@ -1012,6 +1013,33 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_bridge.vol_targets_ann)
         * len(hq_bridge.drawdown_stops)
         == 288
+    )
+    hq_wf_bridge = config_for_preset("hq_wf_bridge", "cache", "start", "end", "embargo", 10, "wfb.json", "wfb.md")
+    assert hq_wf_bridge.lookbacks_h == (336, 504)
+    assert hq_wf_bridge.rebalances_h == (120, 168)
+    assert hq_wf_bridge.ks == (3, 4)
+    assert hq_wf_bridge.score_modes == ("mom", "risk_adj_mom")
+    assert hq_wf_bridge.market_filters_h == (240, 336)
+    assert hq_wf_bridge.vol_targets_ann == (0.04, 0.06)
+    assert hq_wf_bridge.n_tranches == (2,)
+    assert hq_wf_bridge.drawdown_stops == (0.08, 0.10)
+    assert hq_wf_bridge.cooldowns_h == (72,)
+    assert hq_wf_bridge.market_confirm_hs == (0, 72)
+    assert hq_wf_bridge.market_drawdown_limits == (0.0, 0.25)
+    assert hq_wf_bridge.selection_max_flat_streak_h == 45 * 24
+    assert hq_wf_bridge.validation_max_flat_streak_h == 45 * 24
+    assert (
+        len(hq_wf_bridge.lookbacks_h)
+        * len(hq_wf_bridge.rebalances_h)
+        * len(hq_wf_bridge.ks)
+        * len(hq_wf_bridge.score_modes)
+        * len(hq_wf_bridge.market_filters_h)
+        * len(hq_wf_bridge.vol_targets_ann)
+        * len(hq_wf_bridge.n_tranches)
+        * len(hq_wf_bridge.drawdown_stops)
+        * len(hq_wf_bridge.market_confirm_hs)
+        * len(hq_wf_bridge.market_drawdown_limits)
+        == 512
     )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504
