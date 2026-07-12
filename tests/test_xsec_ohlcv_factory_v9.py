@@ -190,6 +190,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "evergreen_fast"]).preset == "evergreen_fast"
     assert parser.parse_args(["--preset", "evergreen_guarded"]).preset == "evergreen_guarded"
     assert parser.parse_args(["--preset", "evergreen_regime_guarded"]).preset == "evergreen_regime_guarded"
+    assert parser.parse_args(["--preset", "evergreen_lowvol_guarded"]).preset == "evergreen_lowvol_guarded"
     assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
@@ -908,6 +909,9 @@ def test_presets_select_distinct_search_spaces() -> None:
     regime_guarded = config_for_preset(
         "evergreen_regime_guarded", "cache", "start", "end", "embargo", 10, "erg.json", "erg.md"
     )
+    lowvol_guarded = config_for_preset(
+        "evergreen_lowvol_guarded", "cache", "start", "end", "embargo", 10, "elg.json", "elg.md"
+    )
     assert core.out_json == "a.json"
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
@@ -956,6 +960,23 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(regime_guarded.cooldowns_h)
         * len(regime_guarded.market_drawdown_limits)
         == 256
+    )
+    assert lowvol_guarded.market_filters_h == (336,)
+    assert lowvol_guarded.vol_targets_ann == (0.04, 0.06, 0.08)
+    assert lowvol_guarded.n_tranches == (2, 3)
+    assert lowvol_guarded.drawdown_stops == (0.10, 0.15)
+    assert lowvol_guarded.cooldowns_h == (72, 168)
+    assert lowvol_guarded.selection_min_time_in_market_frac == 0.40
+    assert lowvol_guarded.validation_min_time_in_market_frac == 0.20
+    assert (
+        len(lowvol_guarded.lookbacks_h)
+        * len(lowvol_guarded.rebalances_h)
+        * len(lowvol_guarded.ks)
+        * len(lowvol_guarded.vol_targets_ann)
+        * len(lowvol_guarded.n_tranches)
+        * len(lowvol_guarded.drawdown_stops)
+        * len(lowvol_guarded.cooldowns_h)
+        == 192
     )
 
 
