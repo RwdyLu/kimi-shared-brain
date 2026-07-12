@@ -58,6 +58,7 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         "hq_cadence_tranche",
         "hq_dd_long",
         "hq_dd_plateau",
+        "evergreen_fast",
         "breakout_fast",
         "breakout_slow",
         "hq_fast_rebal",
@@ -190,10 +191,10 @@ def test_focus_train_only_presets_take_priority() -> None:
         "tsmom_bear_short_fast",
     ]
     assert [task.preset for task in first[12:16]] == [
+        "evergreen_fast",
         "breakout_fast",
         "breakout_slow",
         "hq_dd_plateau",
-        "hq_dd_long",
     ]
     assert all(task.module == "v9.contract.tsmom_factory" for task in first[:12])
     assert first[0].cli_preset == "defensive_regime"
@@ -204,8 +205,9 @@ def test_focus_train_only_presets_take_priority() -> None:
 
 
 def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> None:
-    first = propose_tasks(set(), 18, preset_mode="xsec_first")
-    assert [task.preset for task in first[:14]] == [
+    first = propose_tasks(set(), 19, preset_mode="xsec_first")
+    assert [task.preset for task in first[:15]] == [
+        "evergreen_fast",
         "breakout_fast",
         "breakout_slow",
         "hq_dd_plateau",
@@ -221,14 +223,14 @@ def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> No
         "core",
         "fast",
     ]
-    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:14])
-    assert [task.preset for task in first[14:18]] == [
+    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:15])
+    assert [task.preset for task in first[15:19]] == [
         "tsmom_defensive_regime",
         "tsmom_bear_short_regime",
         "tsmom_trend_ensemble",
         "tsmom_bear_short_medium",
     ]
-    assert all(task.module == "v9.contract.tsmom_factory" for task in first[14:18])
+    assert all(task.module == "v9.contract.tsmom_factory" for task in first[15:19])
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
@@ -278,8 +280,8 @@ def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:
         "tsmom_bear_short_fast",
     ]
     assert [task.preset for task in first[12:16]] == [
+        "evergreen_fast",
         "breakout_fast",
         "breakout_slow",
         "hq_dd_plateau",
-        "hq_dd_long",
     ]

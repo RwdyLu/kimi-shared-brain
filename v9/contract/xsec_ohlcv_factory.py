@@ -20,7 +20,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v6_activity_gate"
+ROW_CACHE_VERSION = "selection_validation_v7_evergreen_activity_gate"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -63,6 +63,12 @@ class RunConfig:
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
+    selection_min_active_rebalances: int = SELECTION_MIN_ACTIVE_REBALANCES
+    selection_min_time_in_market_frac: float = SELECTION_MIN_TIME_IN_MARKET_FRAC
+    selection_max_flat_streak_h: int = 0
+    validation_min_active_rebalances: int = VALIDATION_MIN_ACTIVE_REBALANCES
+    validation_min_time_in_market_frac: float = VALIDATION_MIN_TIME_IN_MARKET_FRAC
+    validation_max_flat_streak_h: int = 0
     plateau_center_config: dict[str, Any] | None = None
     plateau_validation_sharpe_min: float = 1.0
     plateau_neighbor_pass_fraction_min: float = 0.70
@@ -135,6 +141,22 @@ def config_for_preset(
             score_modes=("mom", "risk_adj_mom"),
             market_filters_h=(0, 336),
             vol_targets_ann=(0.18,),
+            **base,
+        )
+    if preset == "evergreen_fast":
+        return RunConfig(
+            lookbacks_h=(72, 120, 168),
+            skips_h=(0,),
+            rebalances_h=(8, 12, 24),
+            ks=(2, 3),
+            score_modes=("mom", "risk_adj_mom", "vol_breakout"),
+            market_filters_h=(0, 168, 336),
+            vol_targets_ann=(0.12, 0.15, 0.18),
+            selection_min_time_in_market_frac=0.60,
+            selection_max_flat_streak_h=45 * 24,
+            validation_min_time_in_market_frac=0.30,
+            validation_max_flat_streak_h=45 * 24,
+            stress_costs_bps=(30.0, 40.0),
             **base,
         )
     if preset == "defensive_neighbor":
@@ -406,6 +428,18 @@ def max_drawdown_from_returns(returns: pd.Series, initial: float = 10_000.0) -> 
     return float(max_drawdown(curve))
 
 
+def max_inactive_streak_h(active_exposure: pd.Series) -> float:
+    max_streak = 0
+    streak = 0
+    for active in active_exposure.tolist():
+        if bool(active):
+            streak = 0
+            continue
+        streak += 1
+        max_streak = max(max_streak, streak)
+    return float(max_streak)
+
+
 def annual_bucket(ts: pd.Timestamp) -> str:
     if ts.year <= 2021:
         return "2021"
@@ -526,6 +560,12 @@ def row_cache_key(
             "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
             "validate_all_rows": bool(cfg.validate_all_rows),
             "validation_sharpe20_min": float(validation_sharpe20_min),
+            "selection_min_active_rebalances": int(cfg.selection_min_active_rebalances),
+            "selection_min_time_in_market_frac": float(cfg.selection_min_time_in_market_frac),
+            "selection_max_flat_streak_h": int(cfg.selection_max_flat_streak_h),
+            "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
+            "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
+            "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         },
         sort_keys=True,
     )
@@ -590,6 +630,12 @@ def write_progress_meta(
         "confirm_iterations": int(confirm_iterations),
         "bootstrap_p5_min": float(bootstrap_p5_min),
         "validation_sharpe20_min": float(validation_sharpe20_min),
+        "selection_min_active_rebalances": int(cfg.selection_min_active_rebalances),
+        "selection_min_time_in_market_frac": float(cfg.selection_min_time_in_market_frac),
+        "selection_max_flat_streak_h": int(cfg.selection_max_flat_streak_h),
+        "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
+        "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
+        "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, sort_keys=True) + "\n")
@@ -778,6 +824,7 @@ def simulate(
         "daily_turnover": float(reb["turnover"].resample("1D").sum().mean()) if len(reb) else 0.0,
         "avg_gross_exposure": float(ret["gross_exposure"].mean()) if len(ret) else 0.0,
         "time_in_market_frac": float(active_exposure.mean()) if len(active_exposure) else 0.0,
+        "max_flat_streak_h": max_inactive_streak_h(active_exposure),
         "avg_long_exposure": float(ret["long_exposure"].mean()) if len(ret) else 0.0,
         "avg_short_exposure": float(ret["short_exposure"].mean()) if len(ret) else 0.0,
         "avg_rebalance_scale": float(scale_sum / scale_count) if scale_count else 1.0,
@@ -851,14 +898,21 @@ def metric_float(block: dict[str, Any], key: str, default: float = 0.0) -> float
     return value if math.isfinite(value) else default
 
 
-def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_min: float = 0.25) -> dict[str, bool]:
+def advance_checks(
+    cost20: dict[str, Any],
+    cost40: dict[str, Any],
+    bootstrap_p5_min: float = 0.25,
+    min_active_rebalances: int = SELECTION_MIN_ACTIVE_REBALANCES,
+    min_time_in_market_frac: float = SELECTION_MIN_TIME_IN_MARKET_FRAC,
+    max_flat_streak_h: int = 0,
+) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
-    return {
+    checks = {
         "sharpe20_ge_1_2": float(cost20["sharpe"]) >= 1.2,
         "max_dd20_le_25pct": float(cost20["max_drawdown"]) <= 0.25,
         "daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
-        "active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= SELECTION_MIN_ACTIVE_REBALANCES,
-        "time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= SELECTION_MIN_TIME_IN_MARKET_FRAC,
+        "active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= min_active_rebalances,
+        "time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= min_time_in_market_frac,
         "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
         "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
@@ -867,18 +921,33 @@ def advance_checks(cost20: dict[str, Any], cost40: dict[str, Any], bootstrap_p5_
         "benchmark_sharpe_excess_ge_0_10": float(benchmark["sharpe_excess"]) >= 0.10,
         "drawdown_ratio_le_0_80": float(benchmark["drawdown_ratio"]) <= 0.80,
     }
+    if max_flat_streak_h > 0:
+        checks["max_flat_streak40_le_limit"] = metric_float(cost40, "max_flat_streak_h") <= max_flat_streak_h
+    return checks
 
 
-def validation_checks(cost20: dict[str, Any], cost40: dict[str, Any], sharpe20_min: float = 0.70) -> dict[str, bool]:
-    return {
+def validation_checks(
+    cost20: dict[str, Any],
+    cost40: dict[str, Any],
+    sharpe20_min: float = 0.70,
+    min_active_rebalances: int = VALIDATION_MIN_ACTIVE_REBALANCES,
+    min_time_in_market_frac: float = VALIDATION_MIN_TIME_IN_MARKET_FRAC,
+    max_flat_streak_h: int = 0,
+) -> dict[str, bool]:
+    checks = {
         "validation_sharpe20_ge_adjusted_min": float(cost20["sharpe"]) >= sharpe20_min,
         "validation_max_dd20_le_30pct": float(cost20["max_drawdown"]) <= 0.30,
         "validation_return20_gt_0": float(cost20["total_return"]) > 0.0,
         "validation_sharpe40_gt_0": float(cost40["sharpe"]) > 0.0,
         "validation_daily_turnover40_le_50pct": float(cost40["daily_turnover"]) <= 0.50,
-        "validation_active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= VALIDATION_MIN_ACTIVE_REBALANCES,
-        "validation_time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= VALIDATION_MIN_TIME_IN_MARKET_FRAC,
+        "validation_active_rebalances40_ge_min": metric_float(cost40, "active_rebalance_event_count") >= min_active_rebalances,
+        "validation_time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= min_time_in_market_frac,
     }
+    if max_flat_streak_h > 0:
+        checks["validation_max_flat_streak40_le_limit"] = (
+            metric_float(cost40, "max_flat_streak_h") <= max_flat_streak_h
+        )
+    return checks
 
 
 def min_rows_for_config(cfg: OhlcvConfig) -> int:
@@ -1250,7 +1319,14 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             bootstrap_iterations=cfg.bootstrap_iterations,
             bootstrap_seed_value=bootstrap_seed(g, 40.0, "selection", cfg.train_start, cfg.train_end),
         )
-        selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
+        selection_checks = advance_checks(
+            cost20,
+            cost40,
+            bootstrap_p5_min=bootstrap_p5_min,
+            min_active_rebalances=cfg.selection_min_active_rebalances,
+            min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
+            max_flat_streak_h=cfg.selection_max_flat_streak_h,
+        )
         if all(selection_checks.values()):
             cost20 = simulate(
                 selection_closes,
@@ -1261,7 +1337,14 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 bootstrap_confirm_iterations=confirm_iterations,
                 bootstrap_confirm_seed_value=bootstrap_seed(g, 20.0, "selection_confirm", cfg.train_start, cfg.train_end),
             )
-            selection_checks = advance_checks(cost20, cost40, bootstrap_p5_min=bootstrap_p5_min)
+            selection_checks = advance_checks(
+                cost20,
+                cost40,
+                bootstrap_p5_min=bootstrap_p5_min,
+                min_active_rebalances=cfg.selection_min_active_rebalances,
+                min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
+                max_flat_streak_h=cfg.selection_max_flat_streak_h,
+            )
             selection_checks["bootstrap_p5_confirm_ge_adjusted_min"] = (
                 float(cost20["bootstrap_30d_sharpe_p5_confirm"]) >= bootstrap_p5_min
             )
@@ -1300,7 +1383,14 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 bootstrap_iterations=cfg.bootstrap_iterations,
                 bootstrap_seed_value=bootstrap_seed(g, 40.0, "validation", cfg.train_start, cfg.train_end),
             )
-            val_checks = validation_checks(val20, val40, sharpe20_min=validation_sharpe20_min)
+            val_checks = validation_checks(
+                val20,
+                val40,
+                sharpe20_min=validation_sharpe20_min,
+                min_active_rebalances=cfg.validation_min_active_rebalances,
+                min_time_in_market_frac=cfg.validation_min_time_in_market_frac,
+                max_flat_streak_h=cfg.validation_max_flat_streak_h,
+            )
             if selection_passed:
                 leave_one_symbol = leave_one_symbol_summary(validation_closes, g, cost_bps=40.0)
                 val_checks["leave_one_symbol_robust"] = bool(leave_one_symbol["passed"])
@@ -1411,6 +1501,12 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "selection_bootstrap_p5_min": bootstrap_p5_min,
         "selection_bootstrap_confirm_iterations": confirm_iterations,
         "validation_sharpe20_min": validation_sharpe20_min,
+        "selection_min_active_rebalances": int(cfg.selection_min_active_rebalances),
+        "selection_min_time_in_market_frac": float(cfg.selection_min_time_in_market_frac),
+        "selection_max_flat_streak_h": int(cfg.selection_max_flat_streak_h),
+        "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
+        "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
+        "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         "validate_all_rows": bool(cfg.validate_all_rows),
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
         "explicit_config_list": bool(cfg.explicit_configs),
@@ -1550,6 +1646,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_neighbor",
             "defensive_breadth",
             "defensive_drawdown",
+            "evergreen_fast",
             "breakout_fast",
             "breakout_slow",
             "hq_dd_long",

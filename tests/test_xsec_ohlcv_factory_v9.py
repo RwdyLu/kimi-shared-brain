@@ -187,6 +187,7 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
 
 def test_cli_accepts_breakout_presets() -> None:
     parser = build_arg_parser()
+    assert parser.parse_args(["--preset", "evergreen_fast"]).preset == "evergreen_fast"
     assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
@@ -279,6 +280,7 @@ def test_simulate_reports_gate_inputs() -> None:
     assert "bootstrap_p5_ge_adjusted_min" in checks
     assert result20["daily_turnover"] >= 0
     assert result20["time_in_market_frac"] >= 0
+    assert result20["max_flat_streak_h"] >= 0
     assert result20["active_rebalance_event_count"] >= 0
     assert result20["rebalance_offsets_h"] == [0]
     assert result20["avg_long_exposure"] >= 0
@@ -308,6 +310,18 @@ def test_selection_and_validation_gates_reject_insufficient_activity() -> None:
     assert selection["time_in_market40_ge_min"] is False
     assert validation["validation_active_rebalances40_ge_min"] is False
     assert validation["validation_time_in_market40_ge_min"] is False
+
+
+def test_activity_gates_can_reject_long_flat_streaks() -> None:
+    active = passing_gate_result(active_rebalance_event_count=20, time_in_market_frac=0.70)
+    active["max_flat_streak_h"] = 24
+    inactive = {**active, "max_flat_streak_h": 60}
+
+    selection = advance_checks(active, inactive, bootstrap_p5_min=0.25, max_flat_streak_h=48)
+    validation = validation_checks(active, inactive, sharpe20_min=0.70, max_flat_streak_h=48)
+
+    assert selection["max_flat_streak40_le_limit"] is False
+    assert validation["validation_max_flat_streak40_le_limit"] is False
 
 
 def test_simulate_reports_market_regime_diagnostics() -> None:
@@ -866,6 +880,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
+    evergreen = config_for_preset("evergreen_fast", "cache", "start", "end", "embargo", 10, "ev.json", "ev.md")
     assert core.out_json == "a.json"
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
@@ -884,6 +899,12 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert len(hq_cadence.lookbacks_h) * len(hq_cadence.rebalances_h) * len(hq_cadence.ks) * len(hq_cadence.market_filters_h) * len(hq_cadence.vol_targets_ann) == 72
     assert 24 in hq_fast.rebalances_h
     assert 5 in hq_breadth.ks
+    assert evergreen.rebalances_h == (8, 12, 24)
+    assert evergreen.market_filters_h == (0, 168, 336)
+    assert evergreen.selection_min_time_in_market_frac == 0.60
+    assert evergreen.selection_max_flat_streak_h == 45 * 24
+    assert evergreen.validation_min_time_in_market_frac == 0.30
+    assert evergreen.validation_max_flat_streak_h == 45 * 24
 
 
 def test_plateau_stability_summary_passes_plateau_and_rejects_spike() -> None:
