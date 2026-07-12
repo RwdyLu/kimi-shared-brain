@@ -523,6 +523,26 @@ def test_progress_meta_records_prior_and_effective_trials(tmp_path) -> None:
         bootstrap_p5_min=0.30,
         validation_sharpe20_min=1.10,
         confirm_iterations=500,
+        progress_rows=[
+            {
+                "config": {"lookback_h": 24},
+                "advance_passed": False,
+                "cost20": {"sharpe": 0.5, "total_return": 0.01, "max_drawdown": 0.2},
+                "selection": {"checks": {"bootstrap_p5_ge_adjusted_min": False}},
+                "validation": {"cost20": {}},
+                "walk_forward": {"q25_sharpe": -0.1},
+                "advance_checks": {"bootstrap_p5_ge_adjusted_min": False, "validation_usable": True},
+            },
+            {
+                "config": {"lookback_h": 48},
+                "advance_passed": True,
+                "cost20": {"sharpe": 1.8, "total_return": 0.20, "max_drawdown": 0.08},
+                "selection": {"checks": {"bootstrap_p5_ge_adjusted_min": True}},
+                "validation": {"cost20": {"sharpe": 1.2, "total_return": 0.06, "max_drawdown": 0.05}},
+                "walk_forward": {"q25_sharpe": 0.7},
+                "advance_checks": {"bootstrap_p5_ge_adjusted_min": True, "validation_usable": True},
+            },
+        ],
     )
 
     payload = json.loads(path.read_text())
@@ -530,6 +550,12 @@ def test_progress_meta_records_prior_and_effective_trials(tmp_path) -> None:
     assert payload["effective_trials"] == 133
     assert payload["total_rows"] == 10
     assert payload["completed_rows"] == 4
+    assert payload["diagnostics"]["pass_count_so_far"] == 1
+    assert payload["diagnostics"]["selection_pass_count_so_far"] == 1
+    assert payload["diagnostics"]["validated_row_count_so_far"] == 1
+    assert payload["diagnostics"]["failed_check_counts"] == {"bootstrap_p5_ge_adjusted_min": 1}
+    assert payload["diagnostics"]["best_so_far"]["config"] == {"lookback_h": 48}
+    assert payload["diagnostics"]["best_passed_so_far"]["config"] == {"lookback_h": 48}
 
 
 def test_bootstrap_seed_is_stable_and_segment_specific() -> None:

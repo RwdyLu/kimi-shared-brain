@@ -7,9 +7,10 @@ import json
 import math
 import random
 import time
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import pandas as pd
 import numpy as np
@@ -720,6 +721,80 @@ def append_progress_row(path: Path, key: str, row: dict[str, Any]) -> None:
         handle.flush()
 
 
+def progress_float(value: Any) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)):
+        return float(value)
+    return None
+
+
+def progress_row_sort_key(row: dict[str, Any]) -> tuple[bool, float, float, float, float]:
+    cost20 = row.get("cost20") or {}
+    validation20 = ((row.get("validation") or {}).get("cost20") or {})
+    walk_forward = row.get("walk_forward") or {}
+    return (
+        bool(row.get("advance_passed")),
+        progress_float(walk_forward.get("q25_sharpe")) or -999.0,
+        progress_float(validation20.get("sharpe")) or -999.0,
+        progress_float(cost20.get("sharpe")) or -999.0,
+        -(progress_float(cost20.get("max_drawdown")) or 999.0),
+    )
+
+
+def progress_row_summary(row: dict[str, Any]) -> dict[str, Any]:
+    cost20 = row.get("cost20") or {}
+    validation20 = ((row.get("validation") or {}).get("cost20") or {})
+    walk_forward = row.get("walk_forward") or {}
+    checks = row.get("advance_checks") or {}
+    return {
+        "advance_passed": bool(row.get("advance_passed")),
+        "config": row.get("config") or {},
+        "cost20_sharpe": progress_float(cost20.get("sharpe")),
+        "cost20_return": progress_float(cost20.get("total_return")),
+        "cost20_max_drawdown": progress_float(cost20.get("max_drawdown")),
+        "validation20_sharpe": progress_float(validation20.get("sharpe")),
+        "validation20_return": progress_float(validation20.get("total_return")),
+        "validation20_max_drawdown": progress_float(validation20.get("max_drawdown")),
+        "walk_forward_q25_sharpe": progress_float(walk_forward.get("q25_sharpe")),
+        "failed_checks": sorted(str(key) for key, value in checks.items() if value is False),
+    }
+
+
+def progress_diagnostics(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    materialized = list(rows)
+    if not materialized:
+        return {
+            "pass_count_so_far": 0,
+            "selection_pass_count_so_far": 0,
+            "validated_row_count_so_far": 0,
+            "failed_check_counts": {},
+            "best_so_far": None,
+            "best_passed_so_far": None,
+        }
+    failed_counts: Counter[str] = Counter()
+    selection_pass_count = 0
+    validated_row_count = 0
+    for row in materialized:
+        selection_checks = ((row.get("selection") or {}).get("checks") or {})
+        if selection_checks and all(bool(value) for value in selection_checks.values()):
+            selection_pass_count += 1
+        if ((row.get("validation") or {}).get("cost20") or {}):
+            validated_row_count += 1
+        for key, value in (row.get("advance_checks") or {}).items():
+            if value is False:
+                failed_counts[str(key)] += 1
+    passed = [row for row in materialized if row.get("advance_passed")]
+    best = max(materialized, key=progress_row_sort_key)
+    best_passed = max(passed, key=progress_row_sort_key) if passed else None
+    return {
+        "pass_count_so_far": len(passed),
+        "selection_pass_count_so_far": int(selection_pass_count),
+        "validated_row_count_so_far": int(validated_row_count),
+        "failed_check_counts": dict(failed_counts.most_common(12)),
+        "best_so_far": progress_row_summary(best),
+        "best_passed_so_far": progress_row_summary(best_passed) if best_passed else None,
+    }
+
+
 def write_progress_meta(
     path: Path,
     total_rows: int,
@@ -729,6 +804,7 @@ def write_progress_meta(
     bootstrap_p5_min: float,
     validation_sharpe20_min: float,
     confirm_iterations: int,
+    progress_rows: Iterable[dict[str, Any]] | None = None,
 ) -> None:
     payload = {
         "updated_at": pd.Timestamp.now(tz="UTC").isoformat(),
@@ -752,6 +828,8 @@ def write_progress_meta(
         "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
     }
+    if progress_rows is not None:
+        payload["diagnostics"] = progress_diagnostics(progress_rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, sort_keys=True) + "\n")
 
@@ -1417,6 +1495,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         bootstrap_p5_min,
         validation_sharpe20_min,
         confirm_iterations,
+        progress_rows=progress_rows.values(),
     )
     rows = []
     for g in grid:
@@ -1596,6 +1675,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             bootstrap_p5_min,
             validation_sharpe20_min,
             confirm_iterations,
+            progress_rows=progress_rows.values(),
         )
         rows.append(row)
     rows.sort(
