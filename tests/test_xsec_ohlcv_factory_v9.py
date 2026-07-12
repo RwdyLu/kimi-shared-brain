@@ -496,6 +496,73 @@ def test_walk_forward_summary_reports_cross_sectional_fold_metrics() -> None:
     assert "median_short_gross_sharpe" in summary
 
 
+def test_walk_forward_summary_allows_bounded_loss_consistency(monkeypatch) -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    fold_results = iter(
+        [
+            {"sharpe": 4.0, "total_return": 0.40, "max_drawdown": 0.06},
+            {"sharpe": 2.0, "total_return": 0.20, "max_drawdown": 0.08},
+            {"sharpe": 1.9, "total_return": 0.15, "max_drawdown": 0.09},
+            {"sharpe": 1.5, "total_return": 0.10, "max_drawdown": 0.10},
+            {"sharpe": -0.2, "total_return": -0.02, "max_drawdown": 0.11},
+            {"sharpe": -0.1, "total_return": -0.03, "max_drawdown": 0.12},
+        ]
+    )
+
+    def fake_simulate(frame, cfg, cost_bps, bootstrap_iterations=0):
+        row = dict(next(fold_results))
+        row["daily_turnover"] = 0.02
+        row["legs"] = {
+            "long_gross_sharpe": 1.0,
+            "short_gross_sharpe": 0.0,
+            "long_gross_return": 0.1,
+            "short_gross_return": 0.0,
+            "avg_long_exposure": 1.0,
+            "avg_short_exposure": 0.0,
+        }
+        return row
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    summary = walk_forward_summary(close_matrix(1440), cfg, folds=6)
+    assert summary["strict_consistency_passed"] is False
+    assert summary["bounded_loss_consistency_passed"] is True
+    assert summary["checks"]["wf_consistency_ge_min_or_bounded_loss"] is True
+    assert summary["passed"] is True
+
+
+def test_walk_forward_summary_rejects_unbounded_fold_loss(monkeypatch) -> None:
+    cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
+    fold_results = iter(
+        [
+            {"sharpe": 4.0, "total_return": 0.40, "max_drawdown": 0.06},
+            {"sharpe": 2.0, "total_return": 0.20, "max_drawdown": 0.08},
+            {"sharpe": 1.9, "total_return": 0.15, "max_drawdown": 0.09},
+            {"sharpe": 1.5, "total_return": 0.10, "max_drawdown": 0.10},
+            {"sharpe": -0.2, "total_return": -0.02, "max_drawdown": 0.11},
+            {"sharpe": -0.1, "total_return": -0.08, "max_drawdown": 0.12},
+        ]
+    )
+
+    def fake_simulate(frame, cfg, cost_bps, bootstrap_iterations=0):
+        row = dict(next(fold_results))
+        row["daily_turnover"] = 0.02
+        row["legs"] = {
+            "long_gross_sharpe": 1.0,
+            "short_gross_sharpe": 0.0,
+            "long_gross_return": 0.1,
+            "short_gross_return": 0.0,
+            "avg_long_exposure": 1.0,
+            "avg_short_exposure": 0.0,
+        }
+        return row
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    summary = walk_forward_summary(close_matrix(1440), cfg, folds=6)
+    assert summary["bounded_loss_consistency_passed"] is False
+    assert summary["checks"]["wf_consistency_ge_min_or_bounded_loss"] is False
+    assert summary["passed"] is False
+
+
 def test_leave_one_symbol_summary_reports_each_symbol_drop() -> None:
     cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
     summary = leave_one_symbol_summary(close_matrix(600), cfg, cost_bps=0.0, min_sharpe=-99.0)

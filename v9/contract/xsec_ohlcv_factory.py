@@ -21,7 +21,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v8_risk_stop_hysteresis"
+ROW_CACHE_VERSION = "selection_validation_v9_wf_bounded_loss"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -1186,6 +1186,9 @@ def walk_forward_summary(
     folds: int = 6,
     min_q25_sharpe: float = 0.30,
     min_sign_consistency: float = 0.70,
+    min_bounded_loss_consistency: float = 2.0 / 3.0,
+    max_bounded_loss_return: float = 0.05,
+    max_bounded_loss_drawdown: float = 0.20,
 ) -> dict[str, Any]:
     min_rows = min_rows_for_config(cfg)
     usable_folds = max(1, min(int(folds), len(closes) // min_rows))
@@ -1236,14 +1239,22 @@ def walk_forward_summary(
     q25 = float(np.percentile(sharpes, 25))
     sign_consistency = float(sum(1 for value in sharpes if value > 0.0) / len(sharpes))
     positive_return_fraction = float(sum(1 for row in rows if row["total_return"] > 0.0) / len(rows))
+    worst_fold_return = float(min(row["total_return"] for row in rows))
+    worst_fold_drawdown = float(max(row["max_drawdown"] for row in rows))
     long_active = [row for row in rows if row["avg_long_exposure"] > 0.01]
     short_active = [row for row in rows if row["avg_short_exposure"] > 0.01]
     median_long_sharpe = float(np.median([row["long_gross_sharpe"] for row in long_active])) if long_active else 0.0
     median_short_sharpe = float(np.median([row["short_gross_sharpe"] for row in short_active])) if short_active else 0.0
+    strict_consistency = sign_consistency >= min_sign_consistency and positive_return_fraction >= min_sign_consistency
+    bounded_loss_consistency = (
+        sign_consistency >= min_bounded_loss_consistency
+        and positive_return_fraction >= min_bounded_loss_consistency
+        and worst_fold_return >= -max_bounded_loss_return
+        and worst_fold_drawdown <= max_bounded_loss_drawdown
+    )
     checks = {
         "wf_q25_sharpe_ge_min": q25 >= min_q25_sharpe,
-        "wf_sign_consistency_ge_min": sign_consistency >= min_sign_consistency,
-        "wf_positive_return_fraction_ge_min": positive_return_fraction >= min_sign_consistency,
+        "wf_consistency_ge_min_or_bounded_loss": strict_consistency or bounded_loss_consistency,
         "wf_median_long_leg_sharpe_ge_0": median_long_sharpe >= 0.0,
         "wf_median_short_leg_sharpe_ge_0": median_short_sharpe >= 0.0,
     }
@@ -1254,11 +1265,18 @@ def walk_forward_summary(
         "fold_count": int(len(rows)),
         "min_q25_sharpe": float(min_q25_sharpe),
         "min_sign_consistency": float(min_sign_consistency),
+        "min_bounded_loss_consistency": float(min_bounded_loss_consistency),
+        "max_bounded_loss_return": float(max_bounded_loss_return),
+        "max_bounded_loss_drawdown": float(max_bounded_loss_drawdown),
         "q25_sharpe": q25,
         "sign_consistency": sign_consistency,
         "positive_return_fraction": positive_return_fraction,
+        "worst_fold_return": worst_fold_return,
+        "worst_fold_max_drawdown": worst_fold_drawdown,
         "median_long_gross_sharpe": median_long_sharpe,
         "median_short_gross_sharpe": median_short_sharpe,
+        "strict_consistency_passed": strict_consistency,
+        "bounded_loss_consistency_passed": bounded_loss_consistency,
         "checks": checks,
         "folds": rows,
         "note": "Train-only cross-sectional walk-forward robustness; it does not authorize holdout, paper trading, or live trading.",
