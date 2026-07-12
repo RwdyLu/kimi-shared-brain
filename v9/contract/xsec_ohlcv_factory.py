@@ -278,6 +278,27 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_recent_signal":
+        return RunConfig(
+            lookbacks_h=(168, 240, 336, 504),
+            skips_h=(0,),
+            rebalances_h=(48, 72, 120),
+            ks=(2, 3),
+            score_modes=("risk_adj_mom", "vol_breakout"),
+            market_filters_h=(168, 240, 336, 504),
+            vol_targets_ann=(0.04, 0.06),
+            n_tranches=(1,),
+            drawdown_stops=(0.10,),
+            cooldowns_h=(72,),
+            market_confirm_hs=(72,),
+            market_drawdown_limits=(0.25,),
+            selection_min_time_in_market_frac=0.30,
+            selection_max_flat_streak_h=30 * 24,
+            validation_min_time_in_market_frac=0.18,
+            validation_max_flat_streak_h=45 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "breakout_fast":
         return RunConfig(
             lookbacks_h=(168, 240, 336),
@@ -1735,6 +1756,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_dd_long",
             "hq_dd_plateau",
             "hq_active_recent",
+            "hq_recent_signal",
             "hq_cadence_tranche",
             "hq_fast_rebal",
             "hq_breadth_wide",
