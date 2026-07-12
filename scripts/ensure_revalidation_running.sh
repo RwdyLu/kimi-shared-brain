@@ -13,7 +13,12 @@ if [[ -e "$STOP" ]]; then
   exit 0
 fi
 
-if tmux has-session -t "$SESSION" 2>/dev/null; then
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "tmux is required" >&2
+  exit 2
+fi
+
+if tmux has-session -t "=$SESSION" 2>/dev/null; then
   echo "already running: $SESSION"
   exit 0
 fi
