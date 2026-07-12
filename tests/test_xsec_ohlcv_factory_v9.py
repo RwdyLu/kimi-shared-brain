@@ -193,6 +193,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "evergreen_lowvol_guarded"]).preset == "evergreen_lowvol_guarded"
     assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
+    assert parser.parse_args(["--preset", "hq_active_recent"]).preset == "hq_active_recent"
 
 
 def test_breakout_presets_sweep_stop_enabled_configs() -> None:
@@ -901,6 +902,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
     hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
     hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
+    hq_active = config_for_preset("hq_active_recent", "cache", "start", "end", "embargo", 10, "ar.json", "ar.md")
     hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
@@ -922,6 +924,22 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert max(drawdown.market_filters_h) == 2160
     assert 1008 in hq_dd.lookbacks_h
     assert 0.06 in hq_dd.vol_targets_ann
+    assert hq_active.rebalances_h == (72, 120, 168)
+    assert hq_active.market_filters_h == (720, 1008)
+    assert hq_active.vol_targets_ann == (0.04, 0.06, 0.08)
+    assert hq_active.n_tranches == (1, 2)
+    assert hq_active.selection_min_time_in_market_frac == 0.35
+    assert hq_active.selection_max_flat_streak_h == 45 * 24
+    assert hq_active.validation_max_flat_streak_h == 45 * 24
+    assert (
+        len(hq_active.lookbacks_h)
+        * len(hq_active.rebalances_h)
+        * len(hq_active.ks)
+        * len(hq_active.market_filters_h)
+        * len(hq_active.vol_targets_ann)
+        * len(hq_active.n_tranches)
+        == 432
+    )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504
     assert len(hq_plateau.lookbacks_h) * len(hq_plateau.rebalances_h) * len(hq_plateau.market_filters_h) * len(hq_plateau.vol_targets_ann) == 81
