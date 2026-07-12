@@ -159,6 +159,24 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "evergreen_guarded":
+        return RunConfig(
+            lookbacks_h=(72, 120),
+            skips_h=(0,),
+            rebalances_h=(8, 12, 24),
+            ks=(2, 3),
+            score_modes=("risk_adj_mom", "vol_breakout"),
+            market_filters_h=(0, 168),
+            vol_targets_ann=(0.08, 0.10, 0.12),
+            drawdown_stops=(0.05, 0.10),
+            cooldowns_h=(168,),
+            selection_min_time_in_market_frac=0.45,
+            selection_max_flat_streak_h=60 * 24,
+            validation_min_time_in_market_frac=0.25,
+            validation_max_flat_streak_h=60 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "defensive_neighbor":
         return RunConfig(
             lookbacks_h=(240, 336, 504),
@@ -1647,6 +1665,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "defensive_breadth",
             "defensive_drawdown",
             "evergreen_fast",
+            "evergreen_guarded",
             "breakout_fast",
             "breakout_slow",
             "hq_dd_long",

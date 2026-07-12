@@ -56,6 +56,7 @@ FOCUS_PRESETS = (
     "tsmom_core_slow_cost_guard",
     "tsmom_bear_short_fast",
     "evergreen_fast",
+    "evergreen_guarded",
     "breakout_fast",
     "breakout_slow",
     "hq_dd_plateau",
@@ -86,6 +87,7 @@ PRESETS = (
     "tsmom_defensive_regime",
     "tsmom_trend_ensemble",
     "evergreen_fast",
+    "evergreen_guarded",
     "hq_cadence_tranche",
     "breakout_fast",
     "breakout_slow",
@@ -177,6 +179,7 @@ DEFAULT_EMBARGO_START = "2024-07-01"
 EVALUATION_VERSION = "selection_validation_v4_xsec_diagnostic_walkforward"
 EVALUATION_VERSION_BY_PRESET = {
     "evergreen_fast": "selection_validation_v10_xsec_evergreen_activity_gate",
+    "evergreen_guarded": "selection_validation_v11_xsec_evergreen_guarded_activity_gate",
     "breakout_fast": "selection_validation_v9_xsec_activity_gate",
     "breakout_slow": "selection_validation_v9_xsec_activity_gate",
     "tsmom_bear_short_medium": "selection_validation_v2_tsmom_walkforward_symbol_leg",

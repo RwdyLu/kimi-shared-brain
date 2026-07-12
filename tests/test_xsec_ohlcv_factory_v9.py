@@ -188,6 +188,7 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
 def test_cli_accepts_breakout_presets() -> None:
     parser = build_arg_parser()
     assert parser.parse_args(["--preset", "evergreen_fast"]).preset == "evergreen_fast"
+    assert parser.parse_args(["--preset", "evergreen_guarded"]).preset == "evergreen_guarded"
     assert parser.parse_args(["--preset", "breakout_fast"]).preset == "breakout_fast"
     assert parser.parse_args(["--preset", "breakout_slow"]).preset == "breakout_slow"
 
@@ -881,6 +882,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
     evergreen = config_for_preset("evergreen_fast", "cache", "start", "end", "embargo", 10, "ev.json", "ev.md")
+    guarded = config_for_preset("evergreen_guarded", "cache", "start", "end", "embargo", 10, "eg.json", "eg.md")
     assert core.out_json == "a.json"
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
@@ -905,6 +907,13 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert evergreen.selection_max_flat_streak_h == 45 * 24
     assert evergreen.validation_min_time_in_market_frac == 0.30
     assert evergreen.validation_max_flat_streak_h == 45 * 24
+    assert guarded.drawdown_stops == (0.05, 0.10)
+    assert guarded.cooldowns_h == (168,)
+    assert guarded.vol_targets_ann == (0.08, 0.10, 0.12)
+    assert guarded.selection_min_time_in_market_frac == 0.45
+    assert guarded.selection_max_flat_streak_h == 60 * 24
+    assert guarded.validation_min_time_in_market_frac == 0.25
+    assert guarded.validation_max_flat_streak_h == 60 * 24
 
 
 def test_plateau_stability_summary_passes_plateau_and_rejects_spike() -> None:
