@@ -17,6 +17,8 @@ assert SPEC and SPEC.loader
 gate_mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gate_mod)
 
+from v9.contract.xsec_ohlcv_factory import ohlcv_config_from_dict, simulate  # noqa: E402
+
 
 def candidate(decay: float = 0.67) -> dict[str, Any]:
     return {
@@ -269,6 +271,36 @@ def test_shadow_oos_report_applies_drawdown_stop_and_cooldown() -> None:
     assert cost40["risk_stop_exit_turnover"] > 0.0
     assert "active_rebalance_event_count" in cost40
     assert "time_in_market_frac" in cost40
+
+
+def test_shadow_oos_report_matches_backtest_on_full_window() -> None:
+    closes = crash_matrix(periods=160)
+    config = stopped_config()
+    simulated = simulate(
+        closes,
+        ohlcv_config_from_dict(config),
+        cost_bps=40.0,
+        bootstrap_iterations=0,
+    )
+    shadow = gate_mod.shadow_oos_report(
+        closes=closes,
+        config=config,
+        evaluation_start=pd.Timestamp("2020-01-01", tz="UTC"),
+        costs_bps=(40.0,),
+    )
+
+    cost40 = shadow["costs"]["40bps"]
+    for key in (
+        "sharpe",
+        "total_return",
+        "max_drawdown",
+        "daily_turnover",
+        "avg_gross_exposure",
+        "rebalance_event_count",
+        "active_rebalance_event_count",
+        "time_in_market_frac",
+    ):
+        assert cost40[key] == simulated[key]
 
 
 def test_write_marker_never_authorizes_live(tmp_path) -> None:
