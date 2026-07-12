@@ -190,3 +190,38 @@ def test_audit_group_can_skip_existing_verdict_even_when_key_changes(tmp_path) -
 
     assert verdict["audit_status"] == "skipped_existing"
     assert verdict["audit_key"] == "old-key"
+
+
+def test_write_validated_marker_for_revalidation_paper_candidate(tmp_path) -> None:
+    report = {
+        "verdicts": [
+            {
+                "group_id": "group-a",
+                "output_json": "artifacts/v9/contract_lab/revalidate_group.json",
+                "verdict_path": "artifacts/v9/contract_lab/revalidate_group.json.holdout_verdict.json",
+                "paper_candidate_count": 1,
+                "results": [
+                    {
+                        "config_sig": "abc123",
+                        "promotion_decision": "paper_candidate_manual_review_required",
+                    }
+                ],
+            }
+        ]
+    }
+
+    auditor.write_validated_marker(report, tmp_path)
+
+    text = (tmp_path / "FOUND_VALIDATED_CANDIDATE.txt").read_text()
+    assert "source=revalidation_holdout_auditor" in text
+    assert "group_id=group-a" in text
+    assert "config_sig=abc123" in text
+    assert "paper_trading_authorized=False" in text
+    assert "live_trading_authorized=False" in text
+    assert not (tmp_path / "FOUND_PAPER_READY.txt").exists()
+
+
+def test_write_validated_marker_leaves_state_unchanged_without_candidate(tmp_path) -> None:
+    auditor.write_validated_marker({"verdicts": [{"paper_candidate_count": 0}]}, tmp_path)
+
+    assert not (tmp_path / "FOUND_VALIDATED_CANDIDATE.txt").exists()

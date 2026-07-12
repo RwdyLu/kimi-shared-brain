@@ -379,6 +379,34 @@ def build_audit_report(
     }
 
 
+def first_paper_candidate(report: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    for verdict in report.get("verdicts") or []:
+        if int(verdict.get("paper_candidate_count") or 0) <= 0:
+            continue
+        for result in verdict.get("results") or []:
+            if result.get("promotion_decision") == "paper_candidate_manual_review_required":
+                return verdict, result
+    return None
+
+
+def write_validated_marker(report: dict[str, Any], state_dir: Path) -> None:
+    found = first_paper_candidate(report)
+    if found is None:
+        return
+    verdict, result = found
+    state_dir.mkdir(parents=True, exist_ok=True)
+    marker = state_dir / "FOUND_VALIDATED_CANDIDATE.txt"
+    marker.write_text(
+        "FOUND_VALIDATED_CANDIDATE "
+        f"{now_utc()} source=revalidation_holdout_auditor "
+        f"group_id={verdict.get('group_id')} "
+        f"artifact={verdict.get('output_json')} "
+        f"verdict={verdict.get('verdict_path')} "
+        f"config_sig={result.get('config_sig')} "
+        "paper_trading_authorized=False live_trading_authorized=False\n"
+    )
+
+
 def default_holdout_end(cache_dir: Path, symbols: tuple[str, ...], timeframe: str) -> str:
     return latest_common_end(cache_dir, symbols, timeframe).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -415,6 +443,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-existing-any-key", action="store_true")
     parser.add_argument("--stop-path", default="control/STOP")
     parser.add_argument("--out-json", default="artifacts/v9/revalidation/holdout_auditor_report.json")
+    parser.add_argument("--state-dir", default="state")
     parser.add_argument("--format", choices=("text", "json"), default="text")
     return parser
 
@@ -462,6 +491,7 @@ def main() -> None:
         stop_path=Path(args.stop_path),
     )
     write_json(report, Path(args.out_json))
+    write_validated_marker(report, Path(args.state_dir))
     if args.format == "json":
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     else:
