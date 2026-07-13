@@ -571,6 +571,33 @@ def test_build_rescue_plan_excludes_cross_generation_fingerprints() -> None:
     assert excluded.isdisjoint({config_fingerprint(config) for config in plan["configs"]})
 
 
+def test_build_rescue_plan_excludes_source_configs_by_default() -> None:
+    seed_config = dict(BASE_CONFIG)
+    seed_config["lookback_h"] = 504
+    already_tested = dict(BASE_CONFIG)
+    already_tested["lookback_h"] = 240
+    already_fp = config_fingerprint(already_tested)
+
+    plan = build_rescue_plan(
+        [
+            row(config=seed_config, diagnostic_q25=0.70),
+            row(
+                config=already_tested,
+                diagnostic_q25=0.10,
+                selection_sharpe=0.10,
+                bootstrap_p5=-0.20,
+            ),
+        ],
+        top_k=1,
+        budget_per_seed=8,
+    )
+
+    assert plan["source_config_fingerprint_count"] == 2
+    assert plan["excluded_source_config_fingerprint_count"] == 2
+    assert plan["rescue_seed_policy"]["exclude_source_configs"] is True
+    assert already_fp not in {config_fingerprint(config) for config in plan["configs"]}
+
+
 def test_build_rescue_plan_gen2_requires_parent_failure_improvement() -> None:
     improved = row(
         diagnostic_triggered=False,

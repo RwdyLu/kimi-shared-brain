@@ -724,6 +724,7 @@ def build_rescue_plan(
     near_miss_min_bootstrap_p5: float = 0.0,
     near_miss_min_active_rebalances40: float = 12.0,
     near_miss_min_time_in_market40: float = 0.05,
+    exclude_source_configs: bool = True,
 ) -> dict[str, Any]:
     seeds = select_rescue_seeds(
         rows,
@@ -750,7 +751,14 @@ def build_rescue_plan(
         ]
     configs: list[dict[str, Any]] = []
     excluded_fingerprints = excluded_fingerprints or frozenset()
+    source_config_fingerprints = {
+        config_fingerprint(dict(row.get("config") or {}))
+        for row in rows
+        if valid_config(dict(row.get("config") or {}))
+    }
     seen_configs: set[str] = {str(fp) for fp in excluded_fingerprints}
+    if exclude_source_configs:
+        seen_configs.update(source_config_fingerprints)
     planned_seeds = []
     for seed in seeds:
         neighbors = generate_rescue_neighbors(seed, budget=budget_per_seed)
@@ -787,6 +795,8 @@ def build_rescue_plan(
         "rescue_config_count": len(configs),
         "budget_per_seed": int(budget_per_seed),
         "excluded_config_fingerprint_count": len(excluded_fingerprints),
+        "source_config_fingerprint_count": len(source_config_fingerprints),
+        "excluded_source_config_fingerprint_count": len(source_config_fingerprints) if exclude_source_configs else 0,
         "parent_failure_filter": {
             "enabled": generation_int >= 2 and bool(parent_failure_count_by_config_fingerprint),
             "parent_config_count": len(parent_failure_count_by_config_fingerprint),
@@ -803,6 +813,7 @@ def build_rescue_plan(
             "near_miss_min_bootstrap_p5": float(near_miss_min_bootstrap_p5),
             "near_miss_min_active_rebalances40": float(near_miss_min_active_rebalances40),
             "near_miss_min_time_in_market40": float(near_miss_min_time_in_market40),
+            "exclude_source_configs": bool(exclude_source_configs),
             "ignored_failures": sorted(RESCUE_IGNORED_FAILURES),
             "hard_reject_failures": sorted(RESCUE_HARD_REJECT_FAILURES),
             "seed_family_config_keys": list(SEED_FAMILY_CONFIG_KEYS),
