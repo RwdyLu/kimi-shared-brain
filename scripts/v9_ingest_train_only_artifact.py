@@ -289,6 +289,12 @@ def ingest_train_only_artifact(
         record = candidate_record(task, result, status=candidate_status)
         record["source"] = "supplemental_ingest_v1"
         record["created_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        record["module"] = planned.module
+        record["preset"] = planned.preset
+        record["cli_preset"] = planned.cli_preset
+        record["train_start"] = planned.train_start
+        record["train_end"] = planned.train_end
+        record["embargo_start"] = planned.embargo_start
         if plateau_override:
             record["plateau_multiplicity_override"] = plateau_override
         candidate_added = append_jsonl_once(

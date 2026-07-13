@@ -103,21 +103,31 @@ def build_revalidation_plan(
     max_effective_trials = 0
 
     for candidate in candidates:
+        task_name = str(candidate.get("task") or "")
         if candidate.get("duplicate_of"):
             continue
+        if candidate.get("quarantined"):
+            skipped.append(
+                {
+                    "task": task_name,
+                    "reason": "candidate_not_revalidatable",
+                    "status": candidate.get("status"),
+                    "output_json": candidate.get("output_json"),
+                }
+            )
+            continue
         output_json = candidate.get("output_json")
-        task_name = str(candidate.get("task") or "")
         artifact = Path(str(output_json or ""))
         if not output_json or not artifact.exists():
             skipped.append({"task": task_name, "reason": "missing_artifact", "output_json": output_json})
             continue
         payload = read_json(artifact)
-        preset = infer_preset(task_name)
+        preset = str(candidate.get("preset") or "") or infer_preset(task_name)
         if not preset:
             skipped.append({"task": task_name, "reason": "unknown_preset", "output_json": output_json})
             continue
-        module = MODULE_BY_PRESET.get(preset, XSEC_MODULE)
-        cli_preset = CLI_PRESET_BY_PRESET.get(preset, preset)
+        module = str(candidate.get("module") or "") or MODULE_BY_PRESET.get(preset, XSEC_MODULE)
+        cli_preset = str(candidate.get("cli_preset") or "") or CLI_PRESET_BY_PRESET.get(preset, preset)
         configs = accepted_configs(payload)
         if not configs:
             skipped.append({"task": task_name, "reason": "no_accepted_configs", "output_json": output_json})

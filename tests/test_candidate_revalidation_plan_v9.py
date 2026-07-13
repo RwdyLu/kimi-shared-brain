@@ -240,3 +240,123 @@ def test_build_revalidation_plan_reads_supplemental_candidates(tmp_path, monkeyp
     assert plan["group_count"] == 1
     assert plan["groups"][0]["preset"] == "evergreen_fast"
     assert plan["groups"][0]["config_count"] == 1
+
+
+def test_build_revalidation_plan_uses_candidate_preset_when_task_name_is_generic(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_rowb_basin_full_202403_fable5_abc.json"
+    snapshot = tmp_path / "artifacts/v9/data_snapshots/xsec.parquet"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_text("snapshot")
+    write_artifact(
+        artifact,
+        kind="xsec_ohlcv_factory_v1_train_only_grid",
+        config={
+            "train_start": "2017-08-01",
+            "train_end": "2024-03-31 23:59:59",
+            "embargo_start": "2024-07-01",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "lookbacks_h": [600, 720, 840],
+        },
+        row_config={
+            "lookback_h": 720,
+            "skip_h": 0,
+            "rebalance_h": 168,
+            "k": 3,
+            "score_mode": "risk_adj_mom",
+            "market_filter_h": 1176,
+            "vol_target_ann": 0.07,
+        },
+        data={
+            "fingerprint": "snap-rowb",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "snapshot": {
+                "path": str(snapshot),
+                "fingerprint": "snap-rowb",
+                "source": "unit_test",
+            },
+        },
+    )
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"candidates_found": []}))
+    supplemental = tmp_path / "supplemental.jsonl"
+    supplemental.write_text(
+        json.dumps(
+            {
+                "task": "xsec_ohlcv_rowb_basin_full_202403_fable5_abc",
+                "status": "manual_review_required",
+                "preset": "hq_dd_long",
+                "output_json": str(artifact),
+            }
+        )
+        + "\n"
+    )
+
+    plan = plan_mod.build_revalidation_plan(
+        state,
+        out_dir=tmp_path / "revalidation",
+        supplemental_candidates_path=supplemental,
+    )
+
+    assert plan["group_count"] == 1
+    assert plan["groups"][0]["preset"] == "hq_dd_long"
+
+
+def test_build_revalidation_plan_skips_rejected_supplemental_candidates(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    artifact = tmp_path / "artifacts/v9/contract_lab/xsec_ohlcv_rowb_basin_full_202403_fable5_abc.json"
+    snapshot = tmp_path / "artifacts/v9/data_snapshots/xsec.parquet"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_text("snapshot")
+    write_artifact(
+        artifact,
+        kind="xsec_ohlcv_factory_v1_train_only_grid",
+        config={
+            "train_start": "2017-08-01",
+            "train_end": "2024-03-31 23:59:59",
+            "embargo_start": "2024-07-01",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "lookbacks_h": [720],
+        },
+        row_config={
+            "lookback_h": 720,
+            "skip_h": 0,
+            "rebalance_h": 168,
+            "k": 3,
+            "score_mode": "risk_adj_mom",
+            "market_filter_h": 1176,
+            "vol_target_ann": 0.07,
+        },
+        data={
+            "fingerprint": "snap-rowb",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "snapshot": {
+                "path": str(snapshot),
+                "fingerprint": "snap-rowb",
+                "source": "unit_test",
+            },
+        },
+    )
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"candidates_found": []}))
+    supplemental = tmp_path / "supplemental.jsonl"
+    supplemental.write_text(
+        json.dumps(
+            {
+                "task": "xsec_ohlcv_rowb_basin_full_202403_fable5_abc",
+                "status": "rejected_multiplicity",
+                "preset": "hq_dd_long",
+                "output_json": str(artifact),
+            }
+        )
+        + "\n"
+    )
+
+    plan = plan_mod.build_revalidation_plan(
+        state,
+        out_dir=tmp_path / "revalidation",
+        supplemental_candidates_path=supplemental,
+    )
+
+    assert plan["group_count"] == 0
+    assert plan["skipped"][0]["reason"] == "candidate_not_revalidatable"
