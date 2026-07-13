@@ -593,7 +593,7 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
         short_ret = prices.shift(cfg.skip_h) / prices.shift(cfg.skip_h + reversal_h) - 1.0
         risk_rank = risk_adj.rank(axis=1, pct=True) - 0.5
         reversal_rank = short_ret.rank(axis=1, pct=True) - 0.5
-        return 0.70 * risk_rank - 0.30 * reversal_rank
+        return 0.50 * risk_rank - 0.50 * reversal_rank
     if cfg.score_mode in {"breakout", "vol_breakout"}:
         prior_high = prices.shift(cfg.skip_h + 1).rolling(cfg.lookback_h, min_periods=min_periods).max()
         breakout = prices.shift(cfg.skip_h) / prior_high - 1.0
