@@ -44,6 +44,7 @@ class OhlcvConfig:
     cooldown_h: int = 0
     market_confirm_h: int = 0
     market_drawdown_limit: float = 0.0
+    portfolio_mode: str = "long_only"
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class RunConfig:
     cooldowns_h: tuple[int, ...] = (0,)
     market_confirm_hs: tuple[int, ...] = (0,)
     market_drawdown_limits: tuple[float, ...] = (0.0,)
+    portfolio_modes: tuple[str, ...] = ("long_only",)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -262,6 +264,24 @@ def config_for_preset(
             vol_targets_ann=(0.06, 0.08, 0.10, 0.12),
             **base,
         )
+    if preset == "hq_market_neutral":
+        return RunConfig(
+            lookbacks_h=(600, 720, 840),
+            skips_h=(0,),
+            rebalances_h=(168,),
+            ks=(3,),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(0, 504, 1176),
+            vol_targets_ann=(0.04, 0.06, 0.07),
+            portfolio_modes=("long_short",),
+            n_tranches=(1,),
+            drawdown_stops=(0.08,),
+            cooldowns_h=(72, 120),
+            selection_min_time_in_market_frac=0.05,
+            validation_min_time_in_market_frac=0.03,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_active_recent":
         return RunConfig(
             lookbacks_h=(504, 720, 1008),
@@ -445,6 +465,7 @@ def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
         cooldown_h=int(raw.get("cooldown_h", 0)),
         market_confirm_h=int(raw.get("market_confirm_h", 0)),
         market_drawdown_limit=float(raw.get("market_drawdown_limit", 0.0)),
+        portfolio_mode=str(raw.get("portfolio_mode", "long_only")),
     )
 
 
@@ -541,6 +562,31 @@ def long_only_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bo
     for sym in longs:
         weights[sym] = 1.0 / cfg.k
     return weights
+
+
+def long_short_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bool) -> dict[str, float] | None:
+    if score_row.isna().any():
+        return None
+    if not allow_exposure:
+        return {sym: 0.0 for sym in score_row.index}
+    ranked = sorted(score_row.index, key=lambda sym: (-float(score_row[sym]), sym))
+    k = min(int(cfg.k), max(1, len(ranked) // 2))
+    longs = ranked[:k]
+    shorts = ranked[-k:]
+    weights = {sym: 0.0 for sym in score_row.index}
+    for sym in longs:
+        weights[sym] = 0.5 / k
+    for sym in shorts:
+        weights[sym] = -0.5 / k
+    return weights
+
+
+def target_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bool) -> dict[str, float] | None:
+    if cfg.portfolio_mode == "long_only":
+        return long_only_weights(score_row, cfg, allow_exposure)
+    if cfg.portfolio_mode == "long_short":
+        return long_short_weights(score_row, cfg, allow_exposure)
+    raise ValueError(f"unknown portfolio_mode: {cfg.portfolio_mode!r}")
 
 
 def exposure_scale(past_returns: list[float], vol_target_ann: float, lookback_h: int = 720) -> float:
@@ -780,6 +826,7 @@ def row_cache_key(
             "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
             "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
             "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
+            "portfolio_modes": list(cfg.portfolio_modes),
         },
         sort_keys=True,
     )
@@ -925,6 +972,7 @@ def write_progress_meta(
         "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
         "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
+        "portfolio_modes": list(cfg.portfolio_modes),
     }
     if progress_rows is not None:
         payload["diagnostics"] = progress_diagnostics(progress_rows)
@@ -1013,7 +1061,7 @@ def simulate(
                 if idx < offset or (idx - offset) % cfg.rebalance_h != 0:
                     continue
                 due_rebalance = True
-                target = {sym: 0.0 for sym in symbols} if risk_off else long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
+                target = {sym: 0.0 for sym in symbols} if risk_off else target_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
                 if target is not None:
                     scale = exposure_scale(past_returns, cfg.vol_target_ann)
                     tranche_weights[tranche_idx] = {sym: target[sym] * scale / cfg.n_tranches for sym in symbols}
@@ -1401,6 +1449,7 @@ def leave_one_symbol_summary(
             cooldown_h=cfg.cooldown_h,
             market_confirm_h=cfg.market_confirm_h,
             market_drawdown_limit=cfg.market_drawdown_limit,
+            portfolio_mode=cfg.portfolio_mode,
         )
         result = simulate(frame, test_cfg, cost_bps, bootstrap_iterations=0)
         rows.append(
@@ -1586,8 +1635,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
         grid = [
-            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl)
-            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl in itertools.product(
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm)
+            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm in itertools.product(
                 cfg.lookbacks_h,
                 cfg.skips_h,
                 cfg.rebalances_h,
@@ -1600,6 +1649,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 cfg.cooldowns_h,
                 cfg.market_confirm_hs,
                 cfg.market_drawdown_limits,
+                cfg.portfolio_modes,
             )
         ]
     n_trials = len(grid)
@@ -1936,7 +1986,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         label = (
             "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_"
             "MF{market_filter_h}_MC{market_confirm_h}_MD{market_drawdown_limit}_"
-            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}"
+            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}_PM{portfolio_mode}"
         ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
@@ -1978,6 +2028,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "breakout_fast",
             "breakout_slow",
             "hq_dd_long",
+            "hq_market_neutral",
             "hq_dd_plateau",
             "hq_active_recent",
             "hq_recent_signal",
@@ -2031,6 +2082,7 @@ def main() -> None:
             cooldowns_h=cfg.cooldowns_h,
             market_confirm_hs=cfg.market_confirm_hs,
             market_drawdown_limits=cfg.market_drawdown_limits,
+            portfolio_modes=cfg.portfolio_modes,
             costs_bps=cfg.costs_bps,
             stress_costs_bps=cfg.stress_costs_bps,
             validate_all_rows=cfg.validate_all_rows,

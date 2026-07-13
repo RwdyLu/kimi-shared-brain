@@ -57,6 +57,7 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         "tsmom_trend_ensemble",
         "hq_cadence_tranche",
         "hq_dd_long",
+        "hq_market_neutral",
         "hq_dd_plateau",
         "evergreen_fast",
         "evergreen_guarded",

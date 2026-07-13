@@ -23,6 +23,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     leave_one_symbol_summary,
     load_explicit_configs,
     long_only_weights,
+    long_short_weights,
     market_filter,
     plateau_stability_summary,
     append_progress_row,
@@ -140,6 +141,26 @@ def test_long_only_weights_are_cash_or_gross_one() -> None:
     assert long_only_weights(row, cfg, allow_exposure=False) == {"AAA": 0.0, "BBB": 0.0, "CCC": 0.0}
 
 
+def test_long_short_weights_are_market_neutral_gross_one() -> None:
+    row = pd.Series({"AAA": 4.0, "BBB": 3.0, "CCC": 2.0, "DDD": 1.0})
+    cfg = OhlcvConfig(
+        lookback_h=4,
+        skip_h=0,
+        rebalance_h=2,
+        k=1,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        portfolio_mode="long_short",
+    )
+
+    weights = long_short_weights(row, cfg, allow_exposure=True)
+
+    assert weights == {"AAA": 0.5, "BBB": 0.0, "CCC": 0.0, "DDD": -0.5}
+    assert sum(weights.values()) == 0.0
+    assert sum(abs(v) for v in weights.values()) == 1.0
+
+
 def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
     path = tmp_path / "configs.json"
     path.write_text(
@@ -158,7 +179,8 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
               "drawdown_stop": 0.10,
               "cooldown_h": 168,
               "market_confirm_h": 336,
-              "market_drawdown_limit": 0.25
+              "market_drawdown_limit": 0.25,
+              "portfolio_mode": "long_short"
             }
           ]
         }
@@ -181,6 +203,7 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
             cooldown_h=168,
             market_confirm_h=336,
             market_drawdown_limit=0.25,
+            portfolio_mode="long_short",
         ),
     )
 
@@ -197,6 +220,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_recent_signal"]).preset == "hq_recent_signal"
     assert parser.parse_args(["--preset", "hq_decay_bridge"]).preset == "hq_decay_bridge"
     assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
+    assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
 
 
 def test_breakout_presets_sweep_stop_enabled_configs() -> None:
@@ -357,6 +381,26 @@ def test_simulate_reports_market_regime_diagnostics() -> None:
     assert 0.99 <= attribution["above_trend_hour_frac"] + attribution["below_trend_hour_frac"] <= 1.01
     assert attribution["above_trend_avg_gross_exposure"] >= 0.0
     assert attribution["below_trend_avg_gross_exposure"] >= 0.0
+
+
+def test_simulate_long_short_portfolio_reports_short_leg() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=4,
+        skip_h=0,
+        rebalance_h=4,
+        k=1,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        portfolio_mode="long_short",
+    )
+
+    result = simulate(close_matrix(120), cfg, cost_bps=20.0, bootstrap_iterations=0)
+
+    assert result["avg_long_exposure"] > 0.0
+    assert result["avg_short_exposure"] > 0.0
+    assert abs(result["avg_long_exposure"] - result["avg_short_exposure"]) < 1e-9
+    assert result["legs"]["avg_short_exposure"] > 0.0
 
 
 def test_simulate_drawdown_stop_forces_flat_and_charges_exit_cost() -> None:
@@ -1005,6 +1049,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     neighbor = config_for_preset("defensive_neighbor", "cache", "start", "end", "embargo", 10, "c.json", "c.md")
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
     hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
+    hq_neutral = config_for_preset("hq_market_neutral", "cache", "start", "end", "embargo", 10, "mn.json", "mn.md")
     hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
     hq_active = config_for_preset("hq_active_recent", "cache", "start", "end", "embargo", 10, "ar.json", "ar.md")
     hq_signal = config_for_preset("hq_recent_signal", "cache", "start", "end", "embargo", 10, "rs.json", "rs.md")
@@ -1030,6 +1075,21 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert max(drawdown.market_filters_h) == 2160
     assert 1008 in hq_dd.lookbacks_h
     assert 0.06 in hq_dd.vol_targets_ann
+    assert hq_neutral.portfolio_modes == ("long_short",)
+    assert hq_neutral.lookbacks_h == (600, 720, 840)
+    assert hq_neutral.market_filters_h == (0, 504, 1176)
+    assert (
+        len(hq_neutral.lookbacks_h)
+        * len(hq_neutral.rebalances_h)
+        * len(hq_neutral.ks)
+        * len(hq_neutral.score_modes)
+        * len(hq_neutral.market_filters_h)
+        * len(hq_neutral.vol_targets_ann)
+        * len(hq_neutral.portfolio_modes)
+        * len(hq_neutral.drawdown_stops)
+        * len(hq_neutral.cooldowns_h)
+        == 54
+    )
     assert hq_active.lookbacks_h == (504, 720, 1008)
     assert hq_active.rebalances_h == (120, 168, 240)
     assert hq_active.score_modes == ("mom", "risk_adj_mom")
