@@ -54,6 +54,37 @@ def test_evaluate_funding_carry_uses_point_in_time_trailing_signal() -> None:
     assert metrics["passes_gross_precheck"] is True
 
 
+def test_last_closed_hour_open_time_for_funding_uses_previous_closed_candle() -> None:
+    funding_time = int(pd.Timestamp("2026-07-13T08:00:00.001Z").timestamp() * 1000)
+
+    open_time = precheck_mod.last_closed_hour_open_time_for_funding(funding_time)
+
+    assert pd.Timestamp(open_time, unit="ms", tz="UTC").isoformat() == "2026-07-13T07:00:00+00:00"
+
+
+def test_price_aware_carry_uses_close_to_close_returns() -> None:
+    frame = synthetic_funding_frame()
+    detail, _metrics = precheck_mod.evaluate_funding_carry(
+        frame,
+        lookback_events=3,
+        bucket_fraction=0.25,
+        min_symbols=4,
+    )
+    close_rows = []
+    for funding_time in sorted(frame["funding_time"].unique()):
+        open_time = precheck_mod.last_closed_hour_open_time_for_funding(int(funding_time))
+        for symbol in sorted(frame["symbol"].unique()):
+            close_rows.append({"symbol": symbol, "open_time": open_time, "close": 100.0})
+    close_frame = pd.DataFrame(close_rows)
+
+    metrics = precheck_mod.evaluate_price_aware_carry(detail, close_frame, turnover_cost_bps=0.0)
+
+    assert metrics["status"] == "ok"
+    assert metrics["net_annualized_return"] == metrics["funding_annualized_return"]
+    assert metrics["price_annualized_return"] == 0.0
+    assert metrics["passes_price_aware_precheck"] is True
+
+
 def test_load_funding_cache_reads_symbol_monthly_files(tmp_path) -> None:
     frame = synthetic_funding_frame()
     for symbol, part in frame.groupby("symbol"):
