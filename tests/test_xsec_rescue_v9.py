@@ -595,6 +595,8 @@ def test_build_rescue_plan_excludes_source_configs_by_default() -> None:
     assert plan["source_config_fingerprint_count"] == 2
     assert plan["excluded_source_config_fingerprint_count"] == 2
     assert plan["rescue_seed_policy"]["exclude_source_configs"] is True
+    assert plan["candidate_budget_per_seed"] == 24
+    assert plan["rescue_config_count"] == 8
     assert already_fp not in {config_fingerprint(config) for config in plan["configs"]}
 
 

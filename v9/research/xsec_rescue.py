@@ -725,6 +725,7 @@ def build_rescue_plan(
     near_miss_min_active_rebalances40: float = 12.0,
     near_miss_min_time_in_market40: float = 0.05,
     exclude_source_configs: bool = True,
+    candidate_budget_multiplier: int = 3,
 ) -> dict[str, Any]:
     seeds = select_rescue_seeds(
         rows,
@@ -760,8 +761,10 @@ def build_rescue_plan(
     if exclude_source_configs:
         seen_configs.update(source_config_fingerprints)
     planned_seeds = []
+    target_per_seed = max(0, int(budget_per_seed))
+    candidate_budget = max(target_per_seed, target_per_seed * max(1, int(candidate_budget_multiplier)))
     for seed in seeds:
-        neighbors = generate_rescue_neighbors(seed, budget=budget_per_seed)
+        neighbors = generate_rescue_neighbors(seed, budget=candidate_budget)
         unique_neighbors = []
         for neighbor in neighbors:
             fp = str(neighbor["config_fingerprint"])
@@ -770,6 +773,8 @@ def build_rescue_plan(
             seen_configs.add(fp)
             configs.append(dict(neighbor["config"]))
             unique_neighbors.append(neighbor)
+            if len(unique_neighbors) >= target_per_seed:
+                break
         seed_out = dict(seed)
         seed_out["neighbors"] = unique_neighbors
         seed_out["neighbor_count"] = len(unique_neighbors)
@@ -794,6 +799,8 @@ def build_rescue_plan(
         "seed_family_count": seed_family_count,
         "rescue_config_count": len(configs),
         "budget_per_seed": int(budget_per_seed),
+        "candidate_budget_per_seed": candidate_budget,
+        "candidate_budget_multiplier": max(1, int(candidate_budget_multiplier)),
         "excluded_config_fingerprint_count": len(excluded_fingerprints),
         "source_config_fingerprint_count": len(source_config_fingerprints),
         "excluded_source_config_fingerprint_count": len(source_config_fingerprints) if exclude_source_configs else 0,
@@ -814,6 +821,7 @@ def build_rescue_plan(
             "near_miss_min_active_rebalances40": float(near_miss_min_active_rebalances40),
             "near_miss_min_time_in_market40": float(near_miss_min_time_in_market40),
             "exclude_source_configs": bool(exclude_source_configs),
+            "candidate_budget_multiplier": max(1, int(candidate_budget_multiplier)),
             "ignored_failures": sorted(RESCUE_IGNORED_FAILURES),
             "hard_reject_failures": sorted(RESCUE_HARD_REJECT_FAILURES),
             "seed_family_config_keys": list(SEED_FAMILY_CONFIG_KEYS),
