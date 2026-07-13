@@ -191,6 +191,7 @@ def audit_group(
     holdout_authorized: bool,
     force: bool = False,
     skip_existing_any_key: bool = False,
+    require_recent_activity_before_holdout: bool = False,
     holdout_builder: Callable[..., dict[str, Any]] = build_xsec_holdout_report,
     probe_builder: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -207,6 +208,7 @@ def audit_group(
         "min_decay_ratio": float(min_decay_ratio),
         "min_recent_active_rebalances": int(min_recent_active_rebalances),
         "min_recent_time_in_market": float(min_recent_time_in_market),
+        "require_recent_activity_before_holdout": bool(require_recent_activity_before_holdout),
     }
     payload = read_json(artifact)
     key = audit_key(payload, group, params)
@@ -277,7 +279,7 @@ def audit_group(
             "paper_trading_authorized": False,
             "live_trading_authorized": False,
         }
-        if recent_activity_passed or idx == 0:
+        if recent_activity_passed or (idx == 0 and not require_recent_activity_before_holdout):
             holdout = holdout_builder(
                 artifact=artifact,
                 cache_dir=cache_dir,
@@ -357,6 +359,7 @@ def build_audit_report(
     force: bool,
     skip_existing_any_key: bool,
     stop_path: Path,
+    require_recent_activity_before_holdout: bool = False,
     target_group_ids: tuple[str, ...] = (),
     target_output_jsons: tuple[str, ...] = (),
     missing_verdicts_first: bool = False,
@@ -416,6 +419,7 @@ def build_audit_report(
                 holdout_authorized=holdout_authorized,
                 force=force,
                 skip_existing_any_key=skip_existing_any_key,
+                require_recent_activity_before_holdout=require_recent_activity_before_holdout,
             )
         )
     paper_candidates = [row for row in verdicts if row.get("paper_candidate_count", 0) > 0]
@@ -432,6 +436,7 @@ def build_audit_report(
             "target_group_ids": sorted(target_group_id_set),
             "target_output_jsons": sorted(target_output_json_set),
             "missing_verdicts_first": bool(missing_verdicts_first),
+            "require_recent_activity_before_holdout": bool(require_recent_activity_before_holdout),
         },
         "summary": {
             "accepted_groups_seen": sum(1 for row in groups if row.get("status") == "completed_accepted"),
@@ -471,12 +476,23 @@ def first_paper_candidate(report: dict[str, Any]) -> tuple[dict[str, Any], dict[
 
 def write_validated_marker(report: dict[str, Any], state_dir: Path) -> None:
     found = first_paper_candidate(report)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    found_marker = state_dir / "FOUND_VALIDATED_CANDIDATE.txt"
+    none_marker = state_dir / "NO_VALIDATED_CANDIDATE.txt"
     if found is None:
+        found_marker.unlink(missing_ok=True)
+        summary = report.get("summary") or {}
+        none_marker.write_text(
+            "NO_VALIDATED_CANDIDATE "
+            f"{now_utc()} source=revalidation_holdout_auditor "
+            f"paper_candidate_group_count={summary.get('paper_candidate_group_count', 0)} "
+            f"reason_counts={json.dumps(summary.get('reason_counts', {}), sort_keys=True)} "
+            "paper_trading_authorized=False live_trading_authorized=False\n"
+        )
         return
     verdict, result = found
-    state_dir.mkdir(parents=True, exist_ok=True)
-    marker = state_dir / "FOUND_VALIDATED_CANDIDATE.txt"
-    marker.write_text(
+    none_marker.unlink(missing_ok=True)
+    found_marker.write_text(
         "FOUND_VALIDATED_CANDIDATE "
         f"{now_utc()} source=revalidation_holdout_auditor "
         f"group_id={verdict.get('group_id')} "
@@ -521,6 +537,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--holdout-authorized", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--skip-existing-any-key", action="store_true")
+    parser.add_argument("--require-recent-activity-before-holdout", action="store_true")
     parser.add_argument("--target-group-id", action="append", default=[])
     parser.add_argument("--target-output-json", action="append", default=[])
     parser.add_argument("--missing-verdicts-first", action="store_true")
@@ -571,6 +588,7 @@ def main() -> None:
         holdout_authorized=bool(args.holdout_authorized),
         force=bool(args.force),
         skip_existing_any_key=bool(args.skip_existing_any_key),
+        require_recent_activity_before_holdout=bool(args.require_recent_activity_before_holdout),
         stop_path=Path(args.stop_path),
         target_group_ids=tuple(args.target_group_id or ()),
         target_output_jsons=tuple(args.target_output_json or ()),

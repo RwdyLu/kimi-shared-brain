@@ -156,6 +156,52 @@ def test_audit_group_writes_idempotent_verdict_without_authorizing_paper(tmp_pat
     assert rerun["audit_key"] == verdict["audit_key"]
 
 
+def test_audit_group_can_require_recent_activity_before_spending_holdout(tmp_path) -> None:
+    artifact = tmp_path / "revalidate_group.json"
+    write_artifact(artifact)
+
+    def fake_probe_builder(**_kwargs: Any) -> dict[str, Any]:
+        return {
+            "evaluation_start": "2026-06-01T00:00:00+00:00",
+            "latest_dt": "2026-07-12T01:00:00+00:00",
+            "latest_gross_exposure": 0.0,
+            "latest_weights": {},
+            "costs": {
+                "40bps": {
+                    "active_rebalance_event_count": 0,
+                    "time_in_market_frac": 0.0,
+                    "total_return": 0.0,
+                }
+            },
+        }
+
+    def fail_holdout_builder(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("inactive rows should not spend holdout")
+
+    verdict = auditor.audit_group(
+        {"group_id": "group-a", "output_json": str(artifact), "group_plan_fingerprint": "plan-a"},
+        cache_dir=tmp_path,
+        holdout_start="2024-07-01",
+        holdout_end="2026-07-12 01:00:00",
+        recent_start="2026-06-01",
+        costs_bps=(40.0,),
+        bootstrap_iterations=0,
+        max_configs=2,
+        min_decay_ratio=0.5,
+        min_recent_active_rebalances=1,
+        min_recent_time_in_market=0.0,
+        holdout_authorized=True,
+        require_recent_activity_before_holdout=True,
+        holdout_builder=fail_holdout_builder,
+        probe_builder=fake_probe_builder,
+    )
+
+    assert verdict["decision"] == "not_paper_candidate"
+    assert verdict["reason"] == "recent_activity_no_active_configs"
+    assert verdict["recent_active_count"] == 0
+    assert verdict["results"][0]["promotion_decision"] == "recent_activity_failed_not_holdout_audited"
+
+
 def test_audit_group_can_skip_existing_verdict_even_when_key_changes(tmp_path) -> None:
     artifact = tmp_path / "revalidate_group.json"
     write_artifact(artifact)
@@ -221,10 +267,16 @@ def test_write_validated_marker_for_revalidation_paper_candidate(tmp_path) -> No
     assert not (tmp_path / "FOUND_PAPER_READY.txt").exists()
 
 
-def test_write_validated_marker_leaves_state_unchanged_without_candidate(tmp_path) -> None:
+def test_write_validated_marker_records_no_validated_without_candidate(tmp_path) -> None:
+    stale = tmp_path / "FOUND_VALIDATED_CANDIDATE.txt"
+    stale.write_text("stale\n")
+
     auditor.write_validated_marker({"verdicts": [{"paper_candidate_count": 0}]}, tmp_path)
 
-    assert not (tmp_path / "FOUND_VALIDATED_CANDIDATE.txt").exists()
+    assert not stale.exists()
+    none = tmp_path / "NO_VALIDATED_CANDIDATE.txt"
+    assert "NO_VALIDATED_CANDIDATE" in none.read_text()
+    assert "source=revalidation_holdout_auditor" in none.read_text()
 
 
 def test_build_audit_report_filters_target_group_id(tmp_path, monkeypatch) -> None:
