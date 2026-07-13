@@ -25,7 +25,7 @@ usage() {
 usage: queue_xsec_rescue_after_parent.sh \
   --parent-output-json PATH --output-json PATH --output-md PATH --report-json PATH \
   --config-list-json PATH --data-snapshot PATH --task-name NAME --preset PRESET \
-  --fingerprint SHA1 --prior-trials N [--train-start DATE] [--train-end TS] \
+  --fingerprint SHA1|auto --prior-trials N [--train-start DATE] [--train-end TS] \
   [--embargo-start DATE] [--bootstrap-iterations N] [--max-parallel-factory N]
 EOF
 }
@@ -111,6 +111,16 @@ raise SystemExit(0 if accepted else 1)
 PY
 }
 
+config_list_fingerprint() {
+  python3 - "$CONFIG_LIST_JSON" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+print(hashlib.sha1(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+}
+
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) waiting_for_parent $PARENT_OUTPUT_JSON"
 while [[ ! -s "$PARENT_OUTPUT_JSON" ]]; do
   sleep "$POLL_SEC"
@@ -131,6 +141,12 @@ while true; do
   sleep "$SLOT_POLL_SEC"
 done
 
+EFFECTIVE_FINGERPRINT="$FINGERPRINT"
+if [[ "$EFFECTIVE_FINGERPRINT" == "auto" ]]; then
+  EFFECTIVE_FINGERPRINT="$(config_list_fingerprint)"
+fi
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) rescue_fingerprint=$EFFECTIVE_FINGERPRINT"
+
 TRAIN_ONLY_ARTIFACT_COMMAND_TIMEOUT_SEC="${TRAIN_ONLY_ARTIFACT_COMMAND_TIMEOUT_SEC:-14400}" \
 TRAIN_ONLY_ARTIFACT_MAX_RUNTIME_SEC="${TRAIN_ONLY_ARTIFACT_MAX_RUNTIME_SEC:-57600}" \
 TRAIN_ONLY_ARTIFACT_POLL_SEC="${TRAIN_ONLY_ARTIFACT_POLL_SEC:-60}" \
@@ -150,7 +166,7 @@ TRAIN_ONLY_ARTIFACT_POLL_SEC="${TRAIN_ONLY_ARTIFACT_POLL_SEC:-60}" \
 python3 scripts/v9_ingest_train_only_artifact.py \
   --task-name "$TASK_NAME" \
   --preset "$PRESET" \
-  --fingerprint "$FINGERPRINT" \
+  --fingerprint "$EFFECTIVE_FINGERPRINT" \
   --train-start "$TRAIN_START" \
   --train-end "$TRAIN_END" \
   --embargo-start "$EMBARGO_START" \

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import hashlib
 from pathlib import Path
 
 
@@ -38,7 +39,7 @@ def write_fake_scripts(tmp_path: Path) -> None:
     )
 
 
-def run_queue(tmp_path: Path, parent: Path) -> subprocess.CompletedProcess[str]:
+def run_queue(tmp_path: Path, parent: Path, *, fingerprint: str = "abc123") -> subprocess.CompletedProcess[str]:
     env = {
         **os.environ,
         "QUEUE_XSEC_RESCUE_POLL_SEC": "1",
@@ -65,7 +66,7 @@ def run_queue(tmp_path: Path, parent: Path) -> subprocess.CompletedProcess[str]:
             "--preset",
             "hq_active_recent",
             "--fingerprint",
-            "abc123",
+            fingerprint,
             "--prior-trials",
             "10",
             "--max-parallel-factory",
@@ -104,3 +105,18 @@ def test_queue_runs_rescue_and_ingest_when_parent_rejected(tmp_path) -> None:
     assert "parent did not accept; queueing rescue" in result.stdout
     assert (tmp_path / "keeper.txt").read_text().strip() == "keeper_ran"
     assert "rescue_task" in (tmp_path / "ingest.txt").read_text()
+
+
+def test_queue_auto_fingerprint_uses_config_list_sha1(tmp_path) -> None:
+    write_fake_scripts(tmp_path)
+    parent = tmp_path / "parent.json"
+    parent.write_text(json.dumps({"summary": {"accepted_train_only": False}}))
+    config = tmp_path / "configs.json"
+    config.write_text(json.dumps([{"lookback_h": 168, "score_mode": "risk_adj_mom"}], sort_keys=True))
+    expected = hashlib.sha1(config.read_bytes()).hexdigest()
+
+    result = run_queue(tmp_path, parent, fingerprint="auto")
+
+    assert result.returncode == 0, result.stderr
+    assert f"rescue_fingerprint={expected}" in result.stdout
+    assert f"--fingerprint {expected}" in (tmp_path / "ingest.txt").read_text()
