@@ -21,7 +21,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v9_wf_bounded_loss"
+ROW_CACHE_VERSION = "selection_validation_v9_wf_bounded_loss_regime_attr"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
