@@ -18,6 +18,8 @@ Environment:
   NICE_LEVEL                  default: 10
   PRIOR_TRIALS                default: auto
   START_HIT_MONITOR           default: 1
+  WAIT_FOR_SLOT               default: 0
+  SLOT_POLL_SEC               default: 300
   DATA_SNAPSHOT               default: full 2017-08..2024-06 snapshot
   TRAIN_START                 default: 2017-08-01
   TRAIN_END                   default: 2024-06-30 23:59:59
@@ -45,13 +47,15 @@ MAX_PARALLEL_FACTORY="${MAX_PARALLEL_FACTORY:-2}"
 NICE_LEVEL="${NICE_LEVEL:-10}"
 PRIOR_TRIALS="${PRIOR_TRIALS:-auto}"
 START_HIT_MONITOR="${START_HIT_MONITOR:-1}"
+WAIT_FOR_SLOT="${WAIT_FOR_SLOT:-0}"
+SLOT_POLL_SEC="${SLOT_POLL_SEC:-300}"
 TRAIN_START="${TRAIN_START:-2017-08-01}"
 TRAIN_END="${TRAIN_END:-2024-06-30 23:59:59}"
 EMBARGO_START="${EMBARGO_START:-2024-07-01}"
 BOOTSTRAP_ITERATIONS="${BOOTSTRAP_ITERATIONS:-100}"
 DATA_SNAPSHOT="${DATA_SNAPSHOT:-artifacts/v9/data_snapshots/xsec_ohlcv_2017_08_01_2024_06_30_23_59_59_2024_07_01_5b60e9a9f3_958ac849fb867a34.parquet}"
 
-for pair in "MAX_PARALLEL_FACTORY:$MAX_PARALLEL_FACTORY" "NICE_LEVEL:$NICE_LEVEL" "BOOTSTRAP_ITERATIONS:$BOOTSTRAP_ITERATIONS"; do
+for pair in "MAX_PARALLEL_FACTORY:$MAX_PARALLEL_FACTORY" "NICE_LEVEL:$NICE_LEVEL" "BOOTSTRAP_ITERATIONS:$BOOTSTRAP_ITERATIONS" "SLOT_POLL_SEC:$SLOT_POLL_SEC"; do
   name="${pair%%:*}"
   value="${pair#*:}"
   if ! [[ "$value" =~ ^-?[0-9]+$ ]]; then
@@ -61,6 +65,14 @@ for pair in "MAX_PARALLEL_FACTORY:$MAX_PARALLEL_FACTORY" "NICE_LEVEL:$NICE_LEVEL
 done
 if [[ "$MAX_PARALLEL_FACTORY" -lt 1 ]]; then
   echo "MAX_PARALLEL_FACTORY must be >= 1" >&2
+  exit 2
+fi
+if [[ "$SLOT_POLL_SEC" -lt 1 ]]; then
+  echo "SLOT_POLL_SEC must be >= 1" >&2
+  exit 2
+fi
+if [[ "$WAIT_FOR_SLOT" != "0" && "$WAIT_FOR_SLOT" != "1" ]]; then
+  echo "WAIT_FOR_SLOT must be 0 or 1" >&2
   exit 2
 fi
 
@@ -154,12 +166,19 @@ if tmux has-session -t "=$SESSION" 2>/dev/null; then
   exit 0
 fi
 
-count="$(active_factory_count)"
-echo "active_factory_count=$count max=$MAX_PARALLEL_FACTORY"
-if [[ "$count" -ge "$MAX_PARALLEL_FACTORY" ]]; then
-  echo "not starting: active factory limit reached"
-  exit 0
-fi
+while true; do
+  count="$(active_factory_count)"
+  echo "active_factory_count=$count max=$MAX_PARALLEL_FACTORY"
+  if [[ "$count" -lt "$MAX_PARALLEL_FACTORY" ]]; then
+    break
+  fi
+  if [[ "$WAIT_FOR_SLOT" != "1" ]]; then
+    echo "not starting: active factory limit reached"
+    exit 0
+  fi
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) waiting_for_slot sleep=${SLOT_POLL_SEC}s"
+  sleep "$SLOT_POLL_SEC"
+done
 
 mkdir -p "$(dirname "$OUT")" "$(dirname "$REPORT")" "$(dirname "$LOG")"
 

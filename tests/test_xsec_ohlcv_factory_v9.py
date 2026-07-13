@@ -244,6 +244,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_decay_bridge"]).preset == "hq_decay_bridge"
     assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_bridge"]).preset == "hq_wf_hostile_bridge"
+    assert parser.parse_args(["--preset", "hq_wf_hostile_hedged"]).preset == "hq_wf_hostile_hedged"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
     assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
 
@@ -1143,6 +1144,9 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_signal = config_for_preset("hq_recent_signal", "cache", "start", "end", "embargo", 10, "rs.json", "rs.md")
     hq_bridge = config_for_preset("hq_decay_bridge", "cache", "start", "end", "embargo", 10, "db.json", "db.md")
     hq_wf_hostile = config_for_preset("hq_wf_hostile_bridge", "cache", "start", "end", "embargo", 10, "hwb.json", "hwb.md")
+    hq_wf_hostile_hedged = config_for_preset(
+        "hq_wf_hostile_hedged", "cache", "start", "end", "embargo", 10, "hwh.json", "hwh.md"
+    )
     hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
@@ -1307,6 +1311,38 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile.drawdown_stops)
         * len(hq_wf_hostile.market_confirm_hs)
         * len(hq_wf_hostile.market_drawdown_limits)
+        == 192
+    )
+    assert hq_wf_hostile_hedged.lookbacks_h == (336, 504)
+    assert hq_wf_hostile_hedged.rebalances_h == (120, 168)
+    assert hq_wf_hostile_hedged.ks == (3, 4)
+    assert hq_wf_hostile_hedged.score_modes == ("risk_adj_mom",)
+    assert hq_wf_hostile_hedged.market_filters_h == (720, 1008)
+    assert hq_wf_hostile_hedged.vol_targets_ann == (0.04, 0.05)
+    assert hq_wf_hostile_hedged.n_tranches == (2,)
+    assert hq_wf_hostile_hedged.drawdown_stops == (0.08,)
+    assert hq_wf_hostile_hedged.cooldowns_h == (72,)
+    assert hq_wf_hostile_hedged.market_confirm_hs == (168,)
+    assert hq_wf_hostile_hedged.market_drawdown_limits == (0.0, 0.15, 0.20)
+    assert hq_wf_hostile_hedged.portfolio_modes == ("hedged_long",)
+    assert hq_wf_hostile_hedged.hedge_ratios == (0.5, 1.0)
+    assert hq_wf_hostile_hedged.selection_min_time_in_market_frac == 0.15
+    assert hq_wf_hostile_hedged.selection_max_flat_streak_h == 180 * 24
+    assert hq_wf_hostile_hedged.validation_min_time_in_market_frac == 0.10
+    assert hq_wf_hostile_hedged.validation_max_flat_streak_h == 180 * 24
+    assert (
+        len(hq_wf_hostile_hedged.lookbacks_h)
+        * len(hq_wf_hostile_hedged.rebalances_h)
+        * len(hq_wf_hostile_hedged.ks)
+        * len(hq_wf_hostile_hedged.score_modes)
+        * len(hq_wf_hostile_hedged.market_filters_h)
+        * len(hq_wf_hostile_hedged.vol_targets_ann)
+        * len(hq_wf_hostile_hedged.n_tranches)
+        * len(hq_wf_hostile_hedged.drawdown_stops)
+        * len(hq_wf_hostile_hedged.market_confirm_hs)
+        * len(hq_wf_hostile_hedged.market_drawdown_limits)
+        * len(hq_wf_hostile_hedged.portfolio_modes)
+        * len(hq_wf_hostile_hedged.hedge_ratios)
         == 192
     )
     assert hq_plateau.validate_all_rows is True

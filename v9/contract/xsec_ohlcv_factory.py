@@ -402,6 +402,29 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_wf_hostile_hedged":
+        return RunConfig(
+            lookbacks_h=(336, 504),
+            skips_h=(0,),
+            rebalances_h=(120, 168),
+            ks=(3, 4),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(720, 1008),
+            vol_targets_ann=(0.04, 0.05),
+            n_tranches=(2,),
+            drawdown_stops=(0.08,),
+            cooldowns_h=(72,),
+            market_confirm_hs=(168,),
+            market_drawdown_limits=(0.0, 0.15, 0.20),
+            portfolio_modes=("hedged_long",),
+            hedge_ratios=(0.5, 1.0),
+            selection_min_time_in_market_frac=0.15,
+            selection_max_flat_streak_h=180 * 24,
+            validation_min_time_in_market_frac=0.10,
+            validation_max_flat_streak_h=180 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "breakout_fast":
         return RunConfig(
             lookbacks_h=(168, 240, 336),
@@ -2141,6 +2164,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_decay_bridge",
             "hq_wf_bridge",
             "hq_wf_hostile_bridge",
+            "hq_wf_hostile_hedged",
             "hq_cadence_tranche",
             "hq_fast_rebal",
             "hq_breadth_wide",
