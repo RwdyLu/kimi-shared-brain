@@ -1283,19 +1283,19 @@ def test_presets_select_distinct_search_spaces() -> None:
     )
     assert hq_wf_hostile.lookbacks_h == (336, 504)
     assert hq_wf_hostile.rebalances_h == (120, 168)
-    assert hq_wf_hostile.ks == (3,)
+    assert hq_wf_hostile.ks == (3, 4)
     assert hq_wf_hostile.score_modes == ("risk_adj_mom",)
     assert hq_wf_hostile.market_filters_h == (720, 1008)
-    assert hq_wf_hostile.vol_targets_ann == (0.03, 0.04, 0.05)
+    assert hq_wf_hostile.vol_targets_ann == (0.04, 0.05)
     assert hq_wf_hostile.n_tranches == (2,)
     assert hq_wf_hostile.drawdown_stops == (0.08, 0.10)
     assert hq_wf_hostile.cooldowns_h == (72,)
-    assert hq_wf_hostile.market_confirm_hs == (168, 336)
-    assert hq_wf_hostile.market_drawdown_limits == (0.0, 0.20)
+    assert hq_wf_hostile.market_confirm_hs == (168,)
+    assert hq_wf_hostile.market_drawdown_limits == (0.0, 0.15, 0.20)
     assert hq_wf_hostile.selection_min_time_in_market_frac == 0.15
-    assert hq_wf_hostile.selection_max_flat_streak_h == 90 * 24
+    assert hq_wf_hostile.selection_max_flat_streak_h == 180 * 24
     assert hq_wf_hostile.validation_min_time_in_market_frac == 0.10
-    assert hq_wf_hostile.validation_max_flat_streak_h == 90 * 24
+    assert hq_wf_hostile.validation_max_flat_streak_h == 180 * 24
     assert (
         len(hq_wf_hostile.lookbacks_h)
         * len(hq_wf_hostile.rebalances_h)
