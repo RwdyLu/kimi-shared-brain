@@ -15,6 +15,7 @@ HOLDOUT_AUDITOR_MAX_CONFIGS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_CONFIGS:-25}"
 HOLDOUT_AUDITOR_RECENT_DAYS="${REVALIDATION_HOLDOUT_AUDITOR_RECENT_DAYS:-45}"
 HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY="${REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY:-1}"
 HOLDOUT_AUDITOR_MISSING_FIRST="${REVALIDATION_HOLDOUT_AUDITOR_MISSING_FIRST:-1}"
+HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY="${REVALIDATION_HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY:-1}"
 PLAN="${REVALIDATION_PLAN:-artifacts/v9/revalidation/v9_candidate_revalidation_plan.json}"
 RUNNER_STATE="${REVALIDATION_RUNNER_STATE:-artifacts/v9/revalidation/runner_state.json}"
 STATUS_JSON="${REVALIDATION_KEEPER_STATUS_JSON:-artifacts/v9/revalidation/keeper_status_report.json}"
@@ -50,6 +51,11 @@ fi
 
 if [[ "$HOLDOUT_AUDITOR_MISSING_FIRST" != "0" && "$HOLDOUT_AUDITOR_MISSING_FIRST" != "1" ]]; then
   echo "REVALIDATION_HOLDOUT_AUDITOR_MISSING_FIRST must be 0 or 1" >&2
+  exit 2
+fi
+
+if [[ "$HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY" != "0" && "$HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY" != "1" ]]; then
+  echo "REVALIDATION_HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY must be 0 or 1" >&2
   exit 2
 fi
 
@@ -162,6 +168,9 @@ while true; do
       )
       if [[ "$HOLDOUT_AUDITOR_MISSING_FIRST" == "1" ]]; then
         auditor_args+=(--missing-verdicts-first)
+      fi
+      if [[ "$HOLDOUT_AUDITOR_REQUIRE_RECENT_ACTIVITY" == "1" ]]; then
+        auditor_args+=(--require-recent-activity-before-holdout)
       fi
       if ! run_with_timeout "$HOLDOUT_AUDITOR_TIMEOUT_SEC" python3 "$ROOT/scripts/v9_revalidation_holdout_auditor.py" "${auditor_args[@]}"; then
         echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) holdout auditor failed"
