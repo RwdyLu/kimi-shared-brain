@@ -113,6 +113,7 @@ def evaluate_funding_carry(
     bucket_fraction: float,
     min_symbols: int,
     rebalance_every_events: int = 1,
+    direction: str = "carry",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     clean = normalize_funding_frame(frame)
     if clean.empty:
@@ -127,6 +128,8 @@ def evaluate_funding_carry(
     selected_leg_count = 0
     evaluated_count = 0
     rebalance_every = max(1, int(rebalance_every_events))
+    if direction not in {"carry", "anti_carry"}:
+        raise ValueError("direction must be 'carry' or 'anti_carry'")
     for funding_time in pivot.index:
         scores = trailing.loc[funding_time].dropna()
         realized = pivot.loc[funding_time].dropna()
@@ -143,8 +146,12 @@ def evaluate_funding_carry(
         if should_rebalance:
             selected_leg_count = max(1, int(math.floor(len(ranked) * float(bucket_fraction))))
             selected_leg_count = min(selected_leg_count, max(1, len(ranked) // 2))
-            selected_longs = list(ranked.index[:selected_leg_count])
-            selected_shorts = list(ranked.index[-selected_leg_count:])
+            if direction == "carry":
+                selected_longs = list(ranked.index[:selected_leg_count])
+                selected_shorts = list(ranked.index[-selected_leg_count:])
+            else:
+                selected_longs = list(ranked.index[-selected_leg_count:])
+                selected_shorts = list(ranked.index[:selected_leg_count])
         leg_count = selected_leg_count
         longs = selected_longs
         shorts = selected_shorts
@@ -195,6 +202,7 @@ def evaluate_funding_carry(
         "positive_event_fraction": float((returns > 0).mean()),
         "max_cashflow_drawdown": max_drawdown_from_returns(returns),
         "rebalance_every_events": rebalance_every,
+        "direction": direction,
         "average_rebalance_fraction": float(detail["rebalanced"].mean()),
         "passes_gross_precheck": bool((sharpe is not None and sharpe >= 1.0) and annualized_return > 0.0),
         "costs_and_price_risk_included": False,
@@ -323,6 +331,7 @@ def run_precheck(args: argparse.Namespace) -> dict[str, Any]:
         bucket_fraction=args.bucket_fraction,
         min_symbols=args.min_symbols,
         rebalance_every_events=args.rebalance_every_events,
+        direction=args.direction,
     )
     top_events = []
     if not detail.empty:
@@ -346,6 +355,7 @@ def run_precheck(args: argparse.Namespace) -> dict[str, Any]:
         "bucket_fraction": float(args.bucket_fraction),
         "min_symbols": int(args.min_symbols),
         "rebalance_every_events": int(args.rebalance_every_events),
+        "direction": args.direction,
         "loaded_rows": int(len(frame)),
         "ohlcv_cache_dir": args.ohlcv_cache_dir,
         "loaded_ohlcv_rows": loaded_ohlcv_rows,
@@ -436,6 +446,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bucket-fraction", type=float, default=0.2)
     parser.add_argument("--min-symbols", type=int, default=6)
     parser.add_argument("--rebalance-every-events", type=int, default=1)
+    parser.add_argument("--direction", choices=("carry", "anti_carry"), default="carry")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/funding_carry_precheck_v1.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/funding_carry_precheck_v1.md")
     parser.add_argument("--format", choices=("json", "text"), default="text")

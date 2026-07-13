@@ -99,6 +99,21 @@ def test_evaluate_funding_carry_can_rebalance_less_frequently() -> None:
     assert metrics["average_rebalance_fraction"] < 1.0
 
 
+def test_evaluate_funding_carry_can_reverse_direction() -> None:
+    detail, metrics = precheck_mod.evaluate_funding_carry(
+        synthetic_funding_frame(),
+        lookback_events=3,
+        bucket_fraction=0.25,
+        min_symbols=4,
+        direction="anti_carry",
+    )
+
+    assert metrics["direction"] == "anti_carry"
+    assert detail.iloc[0]["long_symbols"] == ["DDDUSDT"]
+    assert detail.iloc[0]["short_symbols"] == ["AAAUSDT"]
+    assert metrics["annualized_gross_return"] < 0
+
+
 def test_symbol_event_trailing_mean_handles_mixed_funding_frequencies() -> None:
     pivot = pd.DataFrame(
         {
