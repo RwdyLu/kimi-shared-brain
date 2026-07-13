@@ -392,6 +392,41 @@ def test_generate_rescue_neighbors_prefers_defensive_regime_repairs_for_negative
     assert neighbors[1]["to"] == 1344
 
 
+def test_generate_rescue_neighbors_uses_tail_defensive_bias_for_bootstrap_only_failure() -> None:
+    config = {
+        **BASE_CONFIG,
+        "market_filter_h": 504,
+        "market_confirm_h": 168,
+        "rebalance_h": 48,
+        "k": 2,
+        "vol_target_ann": 0.08,
+        "n_tranches": 1,
+    }
+    seed = select_rescue_seeds(
+        [
+            row(
+                config=config,
+                diagnostic_triggered=False,
+                failed_checks=("bootstrap_p5_ge_adjusted_min",),
+                selection_sharpe=1.70,
+                bootstrap_p5=0.20,
+                yearly={"2021": 0.20, "2022": 0.01, "2023": 0.11, "2024H1": 0.04},
+            )
+        ]
+    )[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=18)
+
+    two_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 2]
+    assert neighbors[0]["mutation_bias"] == "tail_defensive"
+    assert neighbors[0]["changed_gene"] == "market_filter_h"
+    assert neighbors[0]["to"] == 720
+    assert any(neighbor["changed_gene"] == "vol_target_ann+n_tranches" for neighbor in two_gene)
+    vol_tranche = next(neighbor for neighbor in two_gene if neighbor["changed_gene"] == "vol_target_ann+n_tranches")
+    assert vol_tranche["changes"][0]["to"] == 0.06
+    assert vol_tranche["changes"][1]["to"] == 3
+
+
 def test_generate_rescue_neighbors_prefers_less_restrictive_repairs_when_activity_fails() -> None:
     config = {
         **BASE_CONFIG,

@@ -26,6 +26,12 @@ HOSTILE_YEAR_DEFENSIVE_PAIRS = (
     ("market_filter_h", "market_drawdown_limit"),
     ("market_confirm_h", "vol_target_ann"),
 )
+TAIL_DEFENSIVE_PAIRS = (
+    ("vol_target_ann", "n_tranches"),
+    ("market_filter_h", "vol_target_ann"),
+    ("rebalance_h", "vol_target_ann"),
+    ("market_confirm_h", "vol_target_ann"),
+)
 ACCEPTED_TRAIN_ONLY_GENE_ORDER = (
     "score_mode",
     "k",
@@ -73,9 +79,16 @@ REGIME_ROBUSTNESS_FAILURES = frozenset(
     {
         "positive_3_of_4_years",
         "bootstrap_p5_ge_adjusted_min",
+        "bootstrap_p5_confirm_ge_adjusted_min",
         "sharpe40_ge_1",
         "sharpe20_ge_1_2",
         "benchmark_sharpe_excess_ge_0_10",
+    }
+)
+TAIL_ROBUSTNESS_FAILURES = frozenset(
+    {
+        "bootstrap_p5_ge_adjusted_min",
+        "bootstrap_p5_confirm_ge_adjusted_min",
     }
 )
 
@@ -459,6 +472,8 @@ def rescue_mutation_bias(seed: dict[str, Any]) -> str:
         return "activity_unblock"
     if failures.intersection(REGIME_ROBUSTNESS_FAILURES) and safe_float(worst.get("net_return")) < 0.0:
         return "hostile_year_defensive"
+    if failures.intersection(TAIL_ROBUSTNESS_FAILURES):
+        return "tail_defensive"
     return "balanced_neighbor"
 
 
@@ -471,12 +486,12 @@ def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2
             return order_numeric_neighbors(base.get(gene), values, "lower")
         if gene in {"market_drawdown_limit", "drawdown_stop"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
-    if bias == "hostile_year_defensive":
+    if bias in {"hostile_year_defensive", "tail_defensive"}:
         if gene in {"market_filter_h", "market_confirm_h", "cooldown_h", "lookback_h", "rebalance_h"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
         if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
             return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
-        if gene == "n_tranches":
+        if gene in {"k", "n_tranches"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
     if bias == "multiplicity_hardening":
         if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
@@ -491,8 +506,10 @@ def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2
 def rescue_gene_order(failures: list[str]) -> list[str]:
     failures = [name for name in failures if name not in RESCUE_IGNORED_FAILURES]
     ordered = []
-    if "positive_3_of_4_years" in failures or "bootstrap_p5_ge_adjusted_min" in failures:
-        ordered.extend(["market_filter_h", "market_confirm_h", "rebalance_h", "lookback_h", "vol_target_ann", "n_tranches"])
+    if "positive_3_of_4_years" in failures or TAIL_ROBUSTNESS_FAILURES.intersection(failures):
+        ordered.extend(
+            ["market_filter_h", "market_confirm_h", "rebalance_h", "lookback_h", "vol_target_ann", "n_tranches", "k"]
+        )
     if "benchmark_sharpe_excess_ge_0_10" in failures or "sharpe40_ge_1" in failures or "sharpe20_ge_1_2" in failures:
         ordered.extend(["score_mode", "k", "rebalance_h", "lookback_h", "vol_target_ann"])
     if "max_dd20_le_25pct" in failures or "validation_max_dd20_le_30pct" in failures:
@@ -539,7 +556,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         ordered_genes = [gene for gene in ACCEPTED_TRAIN_ONLY_GENE_ORDER if gene in base and gene in GENE_LADDERS]
     else:
         ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
-    if mutation_bias in {"hostile_year_defensive", "multiplicity_hardening"} and limit > 5:
+    if mutation_bias in {"hostile_year_defensive", "tail_defensive", "multiplicity_hardening"} and limit > 5:
         single_budget = max(1, int(limit / 3))
     else:
         single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
@@ -580,7 +597,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     if len(neighbors) >= limit:
         return neighbors
 
-    pair_genes = ordered_genes[:7] if mutation_bias == "hostile_year_defensive" else ordered_genes[:5]
+    pair_genes = ordered_genes[:7] if mutation_bias in {"hostile_year_defensive", "tail_defensive"} else ordered_genes[:5]
     if mutation_bias == "multiplicity_hardening":
         pair_genes = ordered_genes[:8]
     pair_radius = min(1, max(1, int(radius)))
@@ -589,6 +606,12 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         pair_gene_groups.extend(
             (left, right)
             for left, right in HOSTILE_YEAR_DEFENSIVE_PAIRS
+            if left in pair_genes and right in pair_genes
+        )
+    if mutation_bias == "tail_defensive":
+        pair_gene_groups.extend(
+            (left, right)
+            for left, right in TAIL_DEFENSIVE_PAIRS
             if left in pair_genes and right in pair_genes
         )
     if mutation_bias == "multiplicity_hardening":
