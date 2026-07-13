@@ -95,6 +95,17 @@ def max_drawdown_from_returns(returns: pd.Series) -> float:
     return float(drawdown.max())
 
 
+def symbol_event_trailing_mean(pivot: pd.DataFrame, lookback_events: int) -> pd.DataFrame:
+    lookback = max(1, int(lookback_events))
+    trailing = pd.DataFrame(index=pivot.index, columns=pivot.columns, dtype=float)
+    for symbol in pivot.columns:
+        series = pivot[symbol].dropna()
+        if series.empty:
+            continue
+        trailing.loc[series.index, symbol] = series.rolling(lookback, min_periods=lookback).mean().shift(1)
+    return trailing
+
+
 def evaluate_funding_carry(
     frame: pd.DataFrame,
     *,
@@ -108,7 +119,7 @@ def evaluate_funding_carry(
         return pd.DataFrame(), {"status": "insufficient_data", "reason": "empty_funding_cache"}
     pivot = clean.pivot_table(index="funding_time", columns="symbol", values="funding_rate", aggfunc="last").sort_index()
     lookback = max(1, int(lookback_events))
-    trailing = pivot.rolling(lookback, min_periods=lookback).mean().shift(1)
+    trailing = symbol_event_trailing_mean(pivot, lookback)
     rows: list[dict[str, Any]] = []
     previous_funding_time = None
     selected_longs: list[str] = []

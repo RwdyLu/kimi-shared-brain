@@ -99,6 +99,21 @@ def test_evaluate_funding_carry_can_rebalance_less_frequently() -> None:
     assert metrics["average_rebalance_fraction"] < 1.0
 
 
+def test_symbol_event_trailing_mean_handles_mixed_funding_frequencies() -> None:
+    pivot = pd.DataFrame(
+        {
+            "FASTUSDT": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "SLOWUSDT": [10.0, None, 20.0, None, 30.0],
+        },
+        index=[1000, 2000, 3000, 4000, 5000],
+    )
+
+    trailing = precheck_mod.symbol_event_trailing_mean(pivot, 2)
+
+    assert trailing.loc[3000, "FASTUSDT"] == 1.5
+    assert trailing.loc[5000, "SLOWUSDT"] == 15.0
+
+
 def test_load_funding_cache_reads_symbol_monthly_files(tmp_path) -> None:
     frame = synthetic_funding_frame()
     for symbol, part in frame.groupby("symbol"):
