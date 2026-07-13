@@ -1366,6 +1366,7 @@ def advance_checks(
     min_active_rebalances: int = SELECTION_MIN_ACTIVE_REBALANCES,
     min_time_in_market_frac: float = SELECTION_MIN_TIME_IN_MARKET_FRAC,
     max_flat_streak_h: int = 0,
+    require_bootstrap: bool = True,
 ) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     checks = {
@@ -1376,12 +1377,13 @@ def advance_checks(
         "time_in_market40_ge_min": metric_float(cost40, "time_in_market_frac") >= min_time_in_market_frac,
         "positive_3_of_4_years": int(cost20["yearly_positive_count"]) >= 3,
         "return_2024h1_gt_minus_2pct": float(cost20["yearly"]["2024H1"]["net_return"]) > -0.02,
-        "bootstrap_p5_ge_adjusted_min": float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min,
         "sharpe40_ge_1": float(cost40["sharpe"]) >= 1.0,
         "top_symbol_share_le_60pct": float(cost20["top_positive_symbol_share"]) <= 0.60,
         "benchmark_sharpe_excess_ge_0_10": float(benchmark["sharpe_excess"]) >= 0.10,
         "drawdown_ratio_le_0_80": float(benchmark["drawdown_ratio"]) <= 0.80,
     }
+    if require_bootstrap:
+        checks["bootstrap_p5_ge_adjusted_min"] = float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min
     if max_flat_streak_h > 0:
         checks["max_flat_streak40_le_limit"] = metric_float(cost40, "max_flat_streak_h") <= max_flat_streak_h
     return checks
@@ -1839,14 +1841,14 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             selection_closes,
             g,
             20.0,
-            bootstrap_iterations=cfg.bootstrap_iterations,
+            bootstrap_iterations=0,
             bootstrap_seed_value=bootstrap_seed(g, 20.0, "selection", cfg.train_start, cfg.train_end),
         )
         cost40 = simulate(
             selection_closes,
             g,
             40.0,
-            bootstrap_iterations=cfg.bootstrap_iterations,
+            bootstrap_iterations=0,
             bootstrap_seed_value=bootstrap_seed(g, 40.0, "selection", cfg.train_start, cfg.train_end),
         )
         selection_checks = advance_checks(
@@ -1856,7 +1858,41 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             min_active_rebalances=cfg.selection_min_active_rebalances,
             min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
             max_flat_streak_h=cfg.selection_max_flat_streak_h,
+            require_bootstrap=False,
         )
+        selection_prefilter_passed = all(selection_checks.values())
+        selection_prefilter = {
+            "enabled": True,
+            "passed": bool(selection_prefilter_passed),
+            "skipped_bootstrap": not bool(selection_prefilter_passed),
+            "failed_checks": sorted(name for name, passed in selection_checks.items() if not passed),
+            "note": "Cheap train-only selection gates run before bootstrap, walk-forward, and validation.",
+        }
+        if selection_prefilter_passed:
+            cost20 = simulate(
+                selection_closes,
+                g,
+                20.0,
+                bootstrap_iterations=cfg.bootstrap_iterations,
+                bootstrap_seed_value=bootstrap_seed(g, 20.0, "selection", cfg.train_start, cfg.train_end),
+            )
+            cost40 = simulate(
+                selection_closes,
+                g,
+                40.0,
+                bootstrap_iterations=cfg.bootstrap_iterations,
+                bootstrap_seed_value=bootstrap_seed(g, 40.0, "selection", cfg.train_start, cfg.train_end),
+            )
+            selection_checks = advance_checks(
+                cost20,
+                cost40,
+                bootstrap_p5_min=bootstrap_p5_min,
+                min_active_rebalances=cfg.selection_min_active_rebalances,
+                min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
+                max_flat_streak_h=cfg.selection_max_flat_streak_h,
+            )
+        else:
+            selection_checks["bootstrap_p5_ge_adjusted_min"] = False
         if all(selection_checks.values()):
             cost20 = simulate(
                 selection_closes,
@@ -1987,6 +2023,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "cost20": cost20,
             "cost40": cost40,
             "selection": {"cost20": cost20, "cost40": cost40, "checks": selection_checks},
+            "selection_prefilter": selection_prefilter,
             "validation": {"cost20": val20, "cost40": val40, "checks": val_checks, "split": split_meta},
             "walk_forward": walk_forward,
             "diagnostic_walk_forward": diagnostic_walk_forward,
@@ -2054,6 +2091,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "explicit_config_list": bool(cfg.explicit_configs),
         "walk_forward_required": True,
         "walk_forward_cost_bps": 40.0,
+        "selection_prefilter_enabled": True,
         "diagnostic_walk_forward_for_validate_all_rows": True,
         "leave_one_symbol_required": True,
         "note": "All selection and validation data remains before embargo_start.",
