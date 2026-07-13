@@ -7,6 +7,7 @@ INTERVAL_SEC="${REVALIDATION_KEEPER_INTERVAL_SEC:-600}"
 STATUS_GROUPS="${REVALIDATION_KEEPER_STATUS_GROUPS:-5}"
 COMMAND_TIMEOUT_SEC="${REVALIDATION_KEEPER_COMMAND_TIMEOUT_SEC:-120}"
 STOP_POLL_SEC="${REVALIDATION_KEEPER_STOP_POLL_SEC:-30}"
+RUNNER_MAX_PYTHON_FACTORY="${REVALIDATION_RUNNER_MAX_PYTHON_FACTORY:-1}"
 HOLDOUT_AUDITOR_ENABLED="${REVALIDATION_HOLDOUT_AUDITOR_ENABLED:-1}"
 HOLDOUT_AUDITOR_TIMEOUT_SEC="${REVALIDATION_HOLDOUT_AUDITOR_TIMEOUT_SEC:-900}"
 HOLDOUT_AUDITOR_MAX_GROUPS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_GROUPS:-10}"
@@ -48,6 +49,11 @@ fi
 
 if ! [[ "$STOP_POLL_SEC" =~ ^[0-9]+$ ]] || [[ "$STOP_POLL_SEC" -lt 1 ]]; then
   echo "REVALIDATION_KEEPER_STOP_POLL_SEC must be an integer >= 1" >&2
+  exit 2
+fi
+
+if ! [[ "$RUNNER_MAX_PYTHON_FACTORY" =~ ^[0-9]+$ ]]; then
+  echo "REVALIDATION_RUNNER_MAX_PYTHON_FACTORY must be a non-negative integer" >&2
   exit 2
 fi
 
@@ -108,8 +114,13 @@ while true; do
 
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ensuring revalidation runner"
   write_heartbeat
-  if ! run_with_timeout "$COMMAND_TIMEOUT_SEC" "$ROOT/scripts/ensure_revalidation_running.sh" "$RUNNER_SESSION"; then
-    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ensure_revalidation_running failed"
+  active_factory_count="$(python_factory_count)"
+  if [[ "$active_factory_count" -gt "$RUNNER_MAX_PYTHON_FACTORY" ]]; then
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) skipping revalidation runner active_python_factory=$active_factory_count max=$RUNNER_MAX_PYTHON_FACTORY"
+  else
+    if ! run_with_timeout "$COMMAND_TIMEOUT_SEC" "$ROOT/scripts/ensure_revalidation_running.sh" "$RUNNER_SESSION"; then
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ensure_revalidation_running failed"
+    fi
   fi
 
   status_tmp="${STATUS_JSON}.tmp.$$"
