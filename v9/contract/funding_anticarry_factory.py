@@ -240,13 +240,19 @@ def split_detail(detail: pd.DataFrame, selection_frac: float = 0.75) -> tuple[pd
 
 def price_aware_event_detail(
     detail: pd.DataFrame,
-    close_frame: pd.DataFrame,
+    close_frame: pd.DataFrame | None = None,
     *,
     turnover_cost_bps: float,
+    close_pivot: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    if detail.empty or close_frame.empty:
+    if detail.empty:
         return pd.DataFrame()
-    close_pivot = close_frame.pivot_table(index="open_time", columns="symbol", values="close", aggfunc="last").sort_index()
+    if close_pivot is None:
+        if close_frame is None or close_frame.empty:
+            return pd.DataFrame()
+        close_pivot = close_frame.pivot_table(index="open_time", columns="symbol", values="close", aggfunc="last").sort_index()
+    if close_pivot.empty:
+        return pd.DataFrame()
     rows: list[dict[str, Any]] = []
     previous_weights = pd.Series(dtype=float)
     for _, row in detail.sort_values("funding_time").iterrows():
@@ -385,7 +391,13 @@ def metric_row(detail: pd.DataFrame, *, cost_bps: float) -> dict[str, Any]:
     }
 
 
-def walk_forward_summary(detail: pd.DataFrame, close_frame: pd.DataFrame, *, cfg: FundingAntiCarryConfig, cost_bps: float) -> dict[str, Any]:
+def walk_forward_summary(
+    detail: pd.DataFrame,
+    close_pivot: pd.DataFrame,
+    *,
+    cfg: FundingAntiCarryConfig,
+    cost_bps: float,
+) -> dict[str, Any]:
     if detail.empty:
         return {"enabled": True, "passed": False, "folds": [], "q25_sharpe": 0.0, "min_sharpe": 0.0}
     times = sorted(detail["funding_time"].unique())
@@ -396,7 +408,7 @@ def walk_forward_summary(detail: pd.DataFrame, close_frame: pd.DataFrame, *, cfg
         if end_idx <= start_idx:
             continue
         subset = detail[(detail["funding_time"] >= times[start_idx]) & (detail["funding_time"] <= times[end_idx - 1])]
-        event_detail = price_aware_event_detail(subset, close_frame, turnover_cost_bps=cost_bps)
+        event_detail = price_aware_event_detail(subset, turnover_cost_bps=cost_bps, close_pivot=close_pivot)
         metrics = metric_row(event_detail, cost_bps=cost_bps)
         folds.append(
             {
@@ -456,6 +468,7 @@ def evaluate_config(
     run: RunConfig,
     data_fp: str,
 ) -> dict[str, Any]:
+    close_pivot = closes.pivot_table(index="open_time", columns="symbol", values="close", aggfunc="last").sort_index()
     gross_detail, gross_metrics = evaluate_funding_carry(
         funding,
         lookback_events=cfg_row.lookback_events,
@@ -467,21 +480,21 @@ def evaluate_config(
     selection_detail, validation_detail, split_meta = split_detail(gross_detail)
     selection_cost = {
         f"cost{int(cost)}": metric_row(
-            price_aware_event_detail(selection_detail, closes, turnover_cost_bps=float(cost)),
+            price_aware_event_detail(selection_detail, turnover_cost_bps=float(cost), close_pivot=close_pivot),
             cost_bps=float(cost),
         )
         for cost in run.costs_bps
     }
     validation_cost = {
         f"cost{int(cost)}": metric_row(
-            price_aware_event_detail(validation_detail, closes, turnover_cost_bps=float(cost)),
+            price_aware_event_detail(validation_detail, turnover_cost_bps=float(cost), close_pivot=close_pivot),
             cost_bps=float(cost),
         )
         for cost in run.costs_bps
     }
     stress_cost = {
         f"cost{int(cost)}": metric_row(
-            price_aware_event_detail(validation_detail, closes, turnover_cost_bps=float(cost)),
+            price_aware_event_detail(validation_detail, turnover_cost_bps=float(cost), close_pivot=close_pivot),
             cost_bps=float(cost),
         )
         for cost in run.stress_costs_bps
@@ -491,7 +504,7 @@ def evaluate_config(
     val20 = validation_cost.get("cost20") or next(iter(validation_cost.values()), {})
     val40 = validation_cost.get("cost40") or val20
     stress50 = stress_cost.get("cost50") or next(iter(stress_cost.values()), {})
-    walk_forward = walk_forward_summary(gross_detail, closes, cfg=cfg_row, cost_bps=40.0)
+    walk_forward = walk_forward_summary(gross_detail, close_pivot, cfg=cfg_row, cost_bps=40.0)
     checks = validation_checks(cost20, cost40, val20, val40, stress50, walk_forward)
     row = {
         "row_cache_key": row_cache_key(cfg_row, data_fp, run),
