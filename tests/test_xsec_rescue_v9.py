@@ -82,7 +82,7 @@ def row(
                 "bootstrap_30d_sharpe_p5": bootstrap_p5,
                 "top_positive_symbol_share": top_symbol_share,
                 "equal_weight_benchmark": {"sharpe_excess": benchmark_excess},
-                "yearly": {bucket: {"net_return": value} for bucket, value in yearly.items()},
+                "yearly": {bucket: {"net_return": value, "periods": 10} for bucket, value in yearly.items()},
             },
             "cost40": {
                 "sharpe": selection_sharpe40,
@@ -156,6 +156,38 @@ def test_generate_rescue_neighbors_hardens_accepted_train_only_seed_for_multipli
     assert neighbors[0]["mutation_bias"] == "multiplicity_hardening"
     assert neighbors[0]["changed_gene"] == "score_mode"
     assert neighbors[1]["changed_gene"] == "score_mode"
+
+
+def test_generate_rescue_neighbors_repairs_train_recent_inactive_accepted_seed() -> None:
+    accepted = row(
+        advance_passed=True,
+        diagnostic_triggered=False,
+        failed_checks=(),
+        yearly={"2021": 0.20, "2022": 0.03, "2023": 0.11, "2024H1": 0.00},
+    )
+    accepted["selection"]["cost20"]["yearly"]["2024H1"]["periods"] = 0
+    seed = select_rescue_seeds([accepted], top_k=1)[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=18)
+
+    assert seed["rescue_seed_type"] == "accepted_train_only"
+    assert seed["yearly_periods"]["2024H1"] == 0
+    assert neighbors[0]["mutation_bias"] == "accepted_recent_activity_hardening"
+    assert any(
+        neighbor["changed_gene"] == "lookback_h" and neighbor["to"] < accepted["config"]["lookback_h"]
+        for neighbor in neighbors
+    )
+    assert any(
+        any(change["gene"] == "rebalance_h" and change["to"] < accepted["config"]["rebalance_h"] for change in neighbor["changes"])
+        for neighbor in neighbors
+    )
+    assert any(
+        any(
+            change["gene"] == "market_filter_h" and change["to"] < accepted["config"]["market_filter_h"]
+            for change in neighbor["changes"]
+        )
+        for neighbor in neighbors
+    )
 
 
 def test_generate_rescue_neighbors_spends_pair_budget_on_accepted_train_only_hardening() -> None:

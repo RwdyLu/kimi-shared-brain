@@ -62,6 +62,12 @@ ACCEPTED_TRAIN_ONLY_HARDENING_PAIRS = (
     ("vol_target_ann", "market_drawdown_limit"),
     ("rebalance_h", "vol_target_ann"),
 )
+ACCEPTED_TRAIN_ONLY_RECENT_ACTIVITY_PAIRS = (
+    ("market_filter_h", "market_confirm_h"),
+    ("rebalance_h", "lookback_h"),
+    ("score_mode", "k"),
+    ("vol_target_ann", "drawdown_stop"),
+)
 SEED_FAMILY_CONFIG_KEYS = (
     "score_mode",
     "lookback_h",
@@ -217,6 +223,16 @@ def yearly_returns(row: dict[str, Any]) -> dict[str, float]:
     return {str(name): safe_float(value.get("net_return")) for name, value in yearly.items() if isinstance(value, dict)}
 
 
+def yearly_periods(row: dict[str, Any]) -> dict[str, int]:
+    cost20 = (row.get("selection") or {}).get("cost20") or row.get("cost20") or {}
+    yearly = cost20.get("yearly") or {}
+    return {
+        str(name): int(safe_float(value.get("periods")))
+        for name, value in yearly.items()
+        if isinstance(value, dict)
+    }
+
+
 def positive_year_count(row: dict[str, Any]) -> int:
     return sum(1 for value in yearly_returns(row).values() if value > 0.0)
 
@@ -346,6 +362,7 @@ def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagno
         "rescue_relevant_failure_count": len(relevant_failures),
         "positive_year_count": positive_year_count(row),
         "yearly_returns": yearly_returns(row),
+        "yearly_periods": yearly_periods(row),
         "worst_year": worst_year(row),
         "worst_year_return": worst_year_return(row),
         "walk_forward_checks": walk_forward_checks(row),
@@ -491,6 +508,9 @@ def order_numeric_neighbors(value: Any, candidates: list[Any], direction: str, z
 
 def rescue_mutation_bias(seed: dict[str, Any]) -> str:
     if seed.get("rescue_seed_type") == "accepted_train_only":
+        periods = seed.get("yearly_periods") or {}
+        if int(periods.get("2024H1") or 0) <= 0:
+            return "accepted_recent_activity_hardening"
         return "multiplicity_hardening"
     failures = set(seed.get("rescue_relevant_failures") or seed.get("failed_checks") or [])
     worst = seed.get("worst_year") or {}
@@ -535,6 +555,13 @@ def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2
             return order_numeric_neighbors(base.get(gene), values, "higher")
         if gene == "n_tranches":
             return order_numeric_neighbors(base.get(gene), values, "higher")
+    if bias == "accepted_recent_activity_hardening":
+        if gene in {"market_filter_h", "market_confirm_h", "cooldown_h", "rebalance_h", "lookback_h"}:
+            return order_numeric_neighbors(base.get(gene), values, "lower")
+        if gene in {"drawdown_stop", "n_tranches", "k"}:
+            return order_numeric_neighbors(base.get(gene), values, "higher")
+        if gene in {"vol_target_ann", "market_drawdown_limit"}:
+            return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
     return values
 
 
@@ -606,7 +633,13 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         ordered_genes = [gene for gene in ACCEPTED_TRAIN_ONLY_GENE_ORDER if gene in base and gene in GENE_LADDERS]
     else:
         ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
-    if mutation_bias in {"hostile_year_defensive", "tail_defensive", "walk_forward_plateau", "multiplicity_hardening"} and limit > 5:
+    if mutation_bias in {
+        "hostile_year_defensive",
+        "tail_defensive",
+        "walk_forward_plateau",
+        "multiplicity_hardening",
+        "accepted_recent_activity_hardening",
+    } and limit > 5:
         single_budget = max(1, int(limit / 3))
     else:
         single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
@@ -650,6 +683,8 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     pair_genes = ordered_genes[:7] if mutation_bias in {"hostile_year_defensive", "tail_defensive", "walk_forward_plateau"} else ordered_genes[:5]
     if mutation_bias == "multiplicity_hardening":
         pair_genes = ordered_genes[:8]
+    if mutation_bias == "accepted_recent_activity_hardening":
+        pair_genes = ordered_genes[:8]
     pair_radius = min(1, max(1, int(radius)))
     pair_gene_groups: list[tuple[str, str]] = []
     if mutation_bias == "hostile_year_defensive":
@@ -674,6 +709,12 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         pair_gene_groups.extend(
             (left, right)
             for left, right in ACCEPTED_TRAIN_ONLY_HARDENING_PAIRS
+            if left in pair_genes and right in pair_genes
+        )
+    if mutation_bias == "accepted_recent_activity_hardening":
+        pair_gene_groups.extend(
+            (left, right)
+            for left, right in ACCEPTED_TRAIN_ONLY_RECENT_ACTIVITY_PAIRS
             if left in pair_genes and right in pair_genes
         )
     pair_gene_groups.extend(
