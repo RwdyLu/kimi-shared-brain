@@ -351,6 +351,12 @@ def test_simulate_reports_market_regime_diagnostics() -> None:
     assert regime["drawdown_limit"] == 0.25
     assert 0.0 <= regime["allowed_frac"] <= 1.0
     assert regime["allowed_frac"] <= regime["primary_allowed_frac"]
+    attribution = result["regime_attribution"]
+    assert attribution["trend_filter_h"] == 20
+    assert -5.0 <= attribution["beta_to_equal_weight"] <= 5.0
+    assert 0.99 <= attribution["above_trend_hour_frac"] + attribution["below_trend_hour_frac"] <= 1.01
+    assert attribution["above_trend_avg_gross_exposure"] >= 0.0
+    assert attribution["below_trend_avg_gross_exposure"] >= 0.0
 
 
 def test_simulate_drawdown_stop_forces_flat_and_charges_exit_cost() -> None:
@@ -494,6 +500,8 @@ def test_walk_forward_summary_reports_cross_sectional_fold_metrics() -> None:
     assert {row["fold"] for row in summary["folds"]} == {0, 1, 2}
     assert "median_long_gross_sharpe" in summary
     assert "median_short_gross_sharpe" in summary
+    assert "regime_attribution" in summary["folds"][0]
+    assert "beta_to_equal_weight" in summary["folds"][0]["regime_attribution"]
 
 
 def test_walk_forward_summary_allows_bounded_loss_consistency(monkeypatch) -> None:

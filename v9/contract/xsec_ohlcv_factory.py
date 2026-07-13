@@ -577,6 +577,83 @@ def max_inactive_streak_h(active_exposure: pd.Series) -> float:
     return float(max_streak)
 
 
+def compounded_return(returns: pd.Series) -> float:
+    if len(returns) == 0:
+        return 0.0
+    return float((1.0 + returns.fillna(0.0)).prod() - 1.0)
+
+
+def beta_and_correlation(strategy_returns: pd.Series, market_returns: pd.Series) -> tuple[float, float]:
+    aligned = pd.concat(
+        [
+            strategy_returns.rename("strategy"),
+            market_returns.rename("market"),
+        ],
+        axis=1,
+    ).replace([np.inf, -np.inf], np.nan).dropna()
+    if len(aligned) < 2:
+        return 0.0, 0.0
+    market = aligned["market"].to_numpy(dtype="float64")
+    strategy = aligned["strategy"].to_numpy(dtype="float64")
+    variance = float(np.var(market))
+    beta = float(np.cov(strategy, market, ddof=0)[0, 1] / variance) if variance > 0.0 else 0.0
+    corr = float(np.corrcoef(strategy, market)[0, 1]) if np.std(strategy) > 0.0 and np.std(market) > 0.0 else 0.0
+    return beta, corr
+
+
+def regime_attribution(
+    ret: pd.DataFrame,
+    market_returns: pd.Series,
+    primary_allowed: pd.Series,
+    cfg: OhlcvConfig,
+) -> dict[str, float | int]:
+    if len(ret) == 0:
+        return {
+            "trend_filter_h": int(cfg.market_filter_h),
+            "market_total_return": 0.0,
+            "market_sharpe": 0.0,
+            "beta_to_equal_weight": 0.0,
+            "corr_to_equal_weight": 0.0,
+            "above_trend_hour_frac": 0.0,
+            "below_trend_hour_frac": 0.0,
+            "above_trend_avg_gross_exposure": 0.0,
+            "below_trend_avg_gross_exposure": 0.0,
+            "above_trend_strategy_return": 0.0,
+            "below_trend_strategy_return": 0.0,
+            "above_trend_market_return": 0.0,
+            "below_trend_market_return": 0.0,
+        }
+
+    trend = pd.Series(primary_allowed.iloc[: len(ret)].to_numpy(dtype=bool), index=ret.index)
+    market = market_returns.reindex(ret.index).fillna(0.0)
+    beta, corr = beta_and_correlation(ret["net_return"], market)
+    market_period_returns = (1.0 + market).resample(f"{cfg.rebalance_h}h").prod() - 1.0
+
+    def mean_exposure(mask: pd.Series) -> float:
+        subset = ret.loc[mask, "gross_exposure"]
+        return float(subset.mean()) if len(subset) else 0.0
+
+    def subset_return(series: pd.Series, mask: pd.Series) -> float:
+        return compounded_return(series.loc[mask]) if bool(mask.any()) else 0.0
+
+    below = ~trend
+    return {
+        "trend_filter_h": int(cfg.market_filter_h),
+        "market_total_return": compounded_return(market),
+        "market_sharpe": sharpe(market_period_returns, 8760.0 / cfg.rebalance_h),
+        "beta_to_equal_weight": beta,
+        "corr_to_equal_weight": corr,
+        "above_trend_hour_frac": float(trend.mean()) if len(trend) else 0.0,
+        "below_trend_hour_frac": float(below.mean()) if len(below) else 0.0,
+        "above_trend_avg_gross_exposure": mean_exposure(trend),
+        "below_trend_avg_gross_exposure": mean_exposure(below),
+        "above_trend_strategy_return": subset_return(ret["net_return"], trend),
+        "below_trend_strategy_return": subset_return(ret["net_return"], below),
+        "above_trend_market_return": subset_return(market, trend),
+        "below_trend_market_return": subset_return(market, below),
+    }
+
+
 def annual_bucket(ts: pd.Timestamp) -> str:
     if ts.year <= 2021:
         return "2021"
@@ -1031,6 +1108,12 @@ def simulate(
     ew_period_returns = (1.0 + equal_weight).resample(f"{cfg.rebalance_h}h").prod() - 1.0
     ew_sharpe = sharpe(ew_period_returns, 8760.0 / cfg.rebalance_h)
     ew_dd = max_drawdown_from_returns(equal_weight)
+    regime_attr = regime_attribution(
+        ret,
+        equal_weight,
+        regime_components["primary_allowed"],
+        cfg,
+    )
     bootstrap_p5 = block_bootstrap_p5(daily_returns, iterations=bootstrap_iterations, seed=bootstrap_seed_value)
     yearly_positive = sum(1 for row in by_year.values() if row["net_return"] > 0)
     result = {
@@ -1088,6 +1171,7 @@ def simulate(
             "sharpe_excess": period_sharpe - ew_sharpe,
             "drawdown_ratio": dd / ew_dd if ew_dd > 0 else 1.0,
         },
+        "regime_attribution": regime_attr,
     }
     if bootstrap_confirm_iterations > 0:
         confirm_seed = int(bootstrap_confirm_seed_value if bootstrap_confirm_seed_value is not None else bootstrap_seed_value)
@@ -1209,6 +1293,7 @@ def walk_forward_summary(
             continue
         result = simulate(frame, cfg, cost_bps, bootstrap_iterations=0)
         legs = result.get("legs", {}) or {}
+        attribution = result.get("regime_attribution", {}) or {}
         rows.append(
             {
                 "fold": int(fold),
@@ -1225,6 +1310,7 @@ def walk_forward_summary(
                 "short_gross_return": float(legs.get("short_gross_return", 0.0) or 0.0),
                 "avg_long_exposure": float(legs.get("avg_long_exposure", 0.0) or 0.0),
                 "avg_short_exposure": float(legs.get("avg_short_exposure", 0.0) or 0.0),
+                "regime_attribution": attribution,
             }
         )
     if not rows:
