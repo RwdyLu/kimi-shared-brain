@@ -619,3 +619,43 @@ def test_rescue_plan_script_runs_from_repo_root(tmp_path) -> None:
     assert metadata["rescue_seed_count"] == 1
     assert plan_path.exists()
     assert config_path.exists()
+
+
+def test_rescue_plan_script_accepts_progress_jsonl(tmp_path) -> None:
+    progress = tmp_path / "artifact.progress.jsonl"
+    progress.write_text(json.dumps({"key": "a", "row": row(failed_checks=("positive_3_of_4_years",))}) + "\n")
+    progress.with_suffix(".meta.json").write_text(
+        json.dumps(
+            {
+                "completed_rows": 1,
+                "total_rows": 10,
+                "effective_trials": 50,
+            }
+        )
+    )
+    plan_path = tmp_path / "progress_plan.json"
+    config_path = tmp_path / "progress_configs.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/v9_xsec_rescue_plan.py"),
+            str(progress),
+            "--out-plan",
+            str(plan_path),
+            "--out-configs",
+            str(config_path),
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    metadata = json.loads(completed.stdout)
+    plan = json.loads(plan_path.read_text())
+    assert metadata["source_kind"] == "progress"
+    assert metadata["rescue_config_count"] > 0
+    assert plan["source_meta"]["source_kind"] == "progress"
+    assert plan["prior_effective_trials"] == 50
+    assert config_path.exists()
