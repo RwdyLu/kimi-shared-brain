@@ -70,6 +70,8 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         "hq_wf_bridge",
         "hq_wf_hostile_bridge",
         "hq_wf_hostile_hedged",
+        "hq_wf_hostile_regime_hedged",
+        "hq_wf_tail_defense",
         "hq_wf_hostile_long_short",
         "breakout_fast",
         "breakout_slow",
@@ -217,8 +219,8 @@ def test_focus_train_only_presets_take_priority() -> None:
 
 
 def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> None:
-    first = propose_tasks(set(), 28, preset_mode="xsec_first")
-    assert [task.preset for task in first[:27]] == [
+    first = propose_tasks(set(), 30, preset_mode="xsec_first")
+    assert [task.preset for task in first[:29]] == [
         "evergreen_regime_guarded",
         "evergreen_lowvol_guarded",
         "evergreen_guarded",
@@ -231,6 +233,8 @@ def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> No
         "hq_wf_bridge",
         "hq_wf_hostile_bridge",
         "hq_wf_hostile_hedged",
+        "hq_wf_hostile_regime_hedged",
+        "hq_wf_tail_defense",
         "hq_wf_hostile_long_short",
         "hq_dd_plateau",
         "hq_dd_long",
@@ -247,11 +251,11 @@ def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> No
         "core",
         "fast",
     ]
-    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:27])
-    assert [task.preset for task in first[27:28]] == [
+    assert all(task.module == "v9.contract.xsec_ohlcv_factory" for task in first[:29])
+    assert [task.preset for task in first[29:30]] == [
         "tsmom_defensive_regime",
     ]
-    assert all(task.module == "v9.contract.tsmom_factory" for task in first[27:28])
+    assert all(task.module == "v9.contract.tsmom_factory" for task in first[29:30])
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:

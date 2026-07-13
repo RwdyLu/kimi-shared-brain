@@ -463,6 +463,32 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_wf_tail_defense":
+        return RunConfig(
+            lookbacks_h=(240, 336, 504),
+            skips_h=(0,),
+            rebalances_h=(72, 120),
+            ks=(3,),
+            score_modes=("risk_adj_mom_ensemble",),
+            market_filters_h=(720, 1008),
+            vol_targets_ann=(0.03, 0.04),
+            n_tranches=(2,),
+            drawdown_stops=(0.06,),
+            cooldowns_h=(72,),
+            market_confirm_hs=(168,),
+            market_drawdown_limits=(0.10, 0.15),
+            portfolio_modes=("hedged_long",),
+            hedge_ratios=(0.5,),
+            downtrend_hedge_ratios=(0.50, 0.75),
+            selection_min_2022_return=-0.02,
+            selection_min_time_in_market_frac=0.12,
+            validation_min_2024h1_periods=1,
+            selection_max_flat_streak_h=180 * 24,
+            validation_min_time_in_market_frac=0.08,
+            validation_max_flat_streak_h=180 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_wf_hostile_long_short":
         return RunConfig(
             lookbacks_h=(336, 504),
@@ -612,6 +638,26 @@ def load_explicit_configs(path: Path) -> tuple[OhlcvConfig, ...]:
     return configs
 
 
+def rank_centered(frame: pd.DataFrame) -> pd.DataFrame:
+    all_missing = frame.isna().all(axis=1)
+    ranked = frame.rank(axis=1, pct=True, na_option="bottom") - 0.5
+    ranked.loc[all_missing] = np.nan
+    return ranked
+
+
+def risk_adjusted_momentum_score(
+    prices: pd.DataFrame,
+    log_ret: pd.DataFrame,
+    lookback_h: int,
+    skip_h: int,
+) -> pd.DataFrame:
+    lookback = max(2, int(lookback_h))
+    min_periods = min(lookback, max(2, lookback // 4))
+    mom = prices.shift(skip_h) / prices.shift(skip_h + lookback) - 1.0
+    vol = log_ret.rolling(lookback, min_periods=min_periods).std().shift(skip_h)
+    return mom / vol.replace(0.0, np.nan)
+
+
 def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
     prices = closes.drop(columns=["dt"])
     mom = prices.shift(cfg.skip_h) / prices.shift(cfg.skip_h + cfg.lookback_h) - 1.0
@@ -624,6 +670,21 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
         min_periods = min(cfg.lookback_h, max(2, cfg.lookback_h // 4))
         vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
         return mom / vol.replace(0.0, pd.NA)
+    if cfg.score_mode == "risk_adj_mom_ensemble":
+        horizons = tuple(
+            dict.fromkeys(
+                (
+                    max(2, cfg.lookback_h // 2),
+                    max(2, cfg.lookback_h),
+                    max(2, int(round(cfg.lookback_h * 1.5))),
+                )
+            )
+        )
+        ranked_scores = [
+            rank_centered(risk_adjusted_momentum_score(prices, log_ret, horizon, cfg.skip_h))
+            for horizon in horizons
+        ]
+        return sum(ranked_scores) / len(ranked_scores)
     if cfg.score_mode == "mom_reversal_blend":
         vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
         risk_adj = mom / vol.replace(0.0, pd.NA)
@@ -2427,6 +2488,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_wf_hostile_bridge",
             "hq_wf_hostile_hedged",
             "hq_wf_hostile_regime_hedged",
+            "hq_wf_tail_defense",
             "hq_wf_hostile_long_short",
             "hq_cadence_tranche",
             "hq_fast_rebal",

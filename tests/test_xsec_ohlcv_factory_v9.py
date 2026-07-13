@@ -292,6 +292,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_wf_hostile_bridge"]).preset == "hq_wf_hostile_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_hedged"]).preset == "hq_wf_hostile_hedged"
     assert parser.parse_args(["--preset", "hq_wf_hostile_regime_hedged"]).preset == "hq_wf_hostile_regime_hedged"
+    assert parser.parse_args(["--preset", "hq_wf_tail_defense"]).preset == "hq_wf_tail_defense"
     assert parser.parse_args(["--preset", "hq_wf_hostile_long_short"]).preset == "hq_wf_hostile_long_short"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
     assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
@@ -329,6 +330,27 @@ def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     vol_breakout = score_matrix(close_matrix(240), vol_breakout_cfg)
     assert set(vol_breakout.columns) == {"AAA", "BBB", "CCC", "DDD"}
     assert vol_breakout.dropna(how="all").shape[0] > 0
+
+
+def test_score_matrix_risk_adjusted_momentum_ensemble_blends_ranked_horizons() -> None:
+    cfg = OhlcvConfig(
+        lookback_h=12,
+        skip_h=0,
+        rebalance_h=4,
+        k=2,
+        score_mode="risk_adj_mom_ensemble",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+    )
+
+    scores = score_matrix(close_matrix(80), cfg)
+    late = scores.iloc[-1].dropna()
+
+    assert list(scores.columns) == ["AAA", "BBB", "CCC", "DDD"]
+    assert len(late) == 4
+    assert late.max() <= 0.5
+    assert late.min() >= -0.5
+    assert late["AAA"] > late["CCC"]
 
 
 def test_score_matrix_momentum_reversal_blend_rewards_pullbacks() -> None:
@@ -1619,6 +1641,16 @@ def test_presets_select_distinct_search_spaces() -> None:
         "hwrh.json",
         "hwrh.md",
     )
+    hq_wf_tail_defense = config_for_preset(
+        "hq_wf_tail_defense",
+        "cache",
+        "start",
+        "end",
+        "embargo",
+        10,
+        "hwtd.json",
+        "hwtd.md",
+    )
     hq_wf_hostile_long_short = config_for_preset(
         "hq_wf_hostile_long_short", "cache", "start", "end", "embargo", 10, "hwls.json", "hwls.md"
     )
@@ -1848,6 +1880,34 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile_regime_hedged.hedge_ratios)
         * len(hq_wf_hostile_regime_hedged.downtrend_hedge_ratios)
         == 384
+    )
+    assert hq_wf_tail_defense.lookbacks_h == (240, 336, 504)
+    assert hq_wf_tail_defense.rebalances_h == (72, 120)
+    assert hq_wf_tail_defense.score_modes == ("risk_adj_mom_ensemble",)
+    assert hq_wf_tail_defense.market_filters_h == (720, 1008)
+    assert hq_wf_tail_defense.vol_targets_ann == (0.03, 0.04)
+    assert hq_wf_tail_defense.drawdown_stops == (0.06,)
+    assert hq_wf_tail_defense.market_drawdown_limits == (0.10, 0.15)
+    assert hq_wf_tail_defense.portfolio_modes == ("hedged_long",)
+    assert hq_wf_tail_defense.hedge_ratios == (0.5,)
+    assert hq_wf_tail_defense.downtrend_hedge_ratios == (0.50, 0.75)
+    assert hq_wf_tail_defense.selection_min_time_in_market_frac == 0.12
+    assert hq_wf_tail_defense.validation_min_time_in_market_frac == 0.08
+    assert (
+        len(hq_wf_tail_defense.lookbacks_h)
+        * len(hq_wf_tail_defense.rebalances_h)
+        * len(hq_wf_tail_defense.ks)
+        * len(hq_wf_tail_defense.score_modes)
+        * len(hq_wf_tail_defense.market_filters_h)
+        * len(hq_wf_tail_defense.vol_targets_ann)
+        * len(hq_wf_tail_defense.n_tranches)
+        * len(hq_wf_tail_defense.drawdown_stops)
+        * len(hq_wf_tail_defense.market_confirm_hs)
+        * len(hq_wf_tail_defense.market_drawdown_limits)
+        * len(hq_wf_tail_defense.portfolio_modes)
+        * len(hq_wf_tail_defense.hedge_ratios)
+        * len(hq_wf_tail_defense.downtrend_hedge_ratios)
+        == 96
     )
     assert hq_wf_hostile_long_short.lookbacks_h == (336, 504)
     assert hq_wf_hostile_long_short.rebalances_h == (120, 168)
