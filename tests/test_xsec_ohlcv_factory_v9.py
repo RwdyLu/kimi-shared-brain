@@ -305,6 +305,34 @@ def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     assert vol_breakout.dropna(how="all").shape[0] > 0
 
 
+def test_score_matrix_momentum_reversal_blend_rewards_pullbacks() -> None:
+    dt = pd.date_range("2020-01-01", periods=160, freq="1h", tz="UTC")
+    data = pd.DataFrame(
+        {
+            "dt": dt,
+            "TREND_PULLBACK": [100 + idx * 1.0 - max(0, idx - 120) * 1.4 for idx in range(160)],
+            "HOT_TREND": [100 + idx * 0.9 + max(0, idx - 120) * 1.0 for idx in range(160)],
+            "WEAK": [100 - idx * 0.2 for idx in range(160)],
+            "FLAT": [100.0] * 160,
+        }
+    )
+    cfg = OhlcvConfig(
+        lookback_h=96,
+        skip_h=0,
+        rebalance_h=24,
+        k=2,
+        score_mode="mom_reversal_blend",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+    )
+
+    blended = score_matrix(data, cfg).dropna(how="all").iloc[-1]
+
+    assert set(blended.index) == {"TREND_PULLBACK", "HOT_TREND", "WEAK", "FLAT"}
+    assert blended["TREND_PULLBACK"] > blended["HOT_TREND"]
+    assert blended["TREND_PULLBACK"] > blended["WEAK"]
+
+
 def test_market_filter_turns_off_when_market_momentum_is_negative() -> None:
     data = close_matrix()
     data["AAA"] = list(reversed(data["AAA"].tolist()))
@@ -1574,7 +1602,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile_long_short.lookbacks_h == (336, 504)
     assert hq_wf_hostile_long_short.rebalances_h == (120, 168)
     assert hq_wf_hostile_long_short.ks == (3, 4)
-    assert hq_wf_hostile_long_short.score_modes == ("risk_adj_mom",)
+    assert hq_wf_hostile_long_short.score_modes == ("risk_adj_mom", "mom_reversal_blend")
     assert hq_wf_hostile_long_short.market_filters_h == (0,)
     assert hq_wf_hostile_long_short.vol_targets_ann == (0.04, 0.05)
     assert hq_wf_hostile_long_short.n_tranches == (2,)
@@ -1601,7 +1629,7 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile_long_short.market_drawdown_limits)
         * len(hq_wf_hostile_long_short.portfolio_modes)
         * len(hq_wf_hostile_long_short.hedge_ratios)
-        == 64
+        == 128
     )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504

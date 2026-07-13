@@ -433,7 +433,7 @@ def config_for_preset(
             skips_h=(0,),
             rebalances_h=(120, 168),
             ks=(3, 4),
-            score_modes=("risk_adj_mom",),
+            score_modes=("risk_adj_mom", "mom_reversal_blend"),
             market_filters_h=(0,),
             vol_targets_ann=(0.04, 0.05),
             n_tranches=(2,),
@@ -586,6 +586,14 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
         min_periods = min(cfg.lookback_h, max(2, cfg.lookback_h // 4))
         vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
         return mom / vol.replace(0.0, pd.NA)
+    if cfg.score_mode == "mom_reversal_blend":
+        vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
+        risk_adj = mom / vol.replace(0.0, pd.NA)
+        reversal_h = max(24, min(72, cfg.lookback_h // 4))
+        short_ret = prices.shift(cfg.skip_h) / prices.shift(cfg.skip_h + reversal_h) - 1.0
+        risk_rank = risk_adj.rank(axis=1, pct=True) - 0.5
+        reversal_rank = short_ret.rank(axis=1, pct=True) - 0.5
+        return 0.70 * risk_rank - 0.30 * reversal_rank
     if cfg.score_mode in {"breakout", "vol_breakout"}:
         prior_high = prices.shift(cfg.skip_h + 1).rolling(cfg.lookback_h, min_periods=min_periods).max()
         breakout = prices.shift(cfg.skip_h) / prior_high - 1.0
