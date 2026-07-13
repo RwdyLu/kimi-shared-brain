@@ -123,6 +123,11 @@ def verdict_path_for(output_json: str) -> Path:
     return path.with_suffix(path.suffix + ".holdout_verdict.json")
 
 
+def has_group_verdict(group: dict[str, Any]) -> bool:
+    existing = read_json(verdict_path_for(str(group.get("output_json") or "")))
+    return existing.get("kind") == GROUP_VERDICT_KIND
+
+
 def normalized_target_path(raw: str) -> str:
     return str(Path(str(raw).strip()))
 
@@ -354,6 +359,7 @@ def build_audit_report(
     stop_path: Path,
     target_group_ids: tuple[str, ...] = (),
     target_output_jsons: tuple[str, ...] = (),
+    missing_verdicts_first: bool = False,
 ) -> dict[str, Any]:
     target_group_id_set = {str(item).strip() for item in target_group_ids if str(item).strip()}
     target_output_json_set = {
@@ -365,11 +371,25 @@ def build_audit_report(
     status = build_revalidation_status(
         plan_path,
         runner_state_path=runner_state_path,
-        max_groups=0 if targeted else max_groups,
+        max_groups=0 if (targeted or missing_verdicts_first) else max_groups,
         include_processes=True,
     )
+    groups = list(status.get("groups") or [])
+    missing_verdict_groups = [
+        group
+        for group in groups
+        if group.get("status") == "completed_accepted" and not has_group_verdict(group)
+    ]
+    if targeted:
+        groups_for_audit = groups
+    elif missing_verdicts_first and missing_verdict_groups:
+        groups_for_audit = missing_verdict_groups[:max_groups] if max_groups > 0 else missing_verdict_groups
+    elif missing_verdicts_first and max_groups > 0:
+        groups_for_audit = groups[:max_groups]
+    else:
+        groups_for_audit = groups
     verdicts = []
-    for group in status.get("groups") or []:
+    for group in groups_for_audit:
         if stop_path.exists():
             break
         if not group_matches_targets(
@@ -411,14 +431,18 @@ def build_audit_report(
             "status_counts": status.get("status_counts") or {},
             "target_group_ids": sorted(target_group_id_set),
             "target_output_jsons": sorted(target_output_json_set),
+            "missing_verdicts_first": bool(missing_verdicts_first),
         },
         "summary": {
-            "accepted_groups_seen": sum(1 for row in status.get("groups") or [] if row.get("status") == "completed_accepted"),
+            "accepted_groups_seen": sum(1 for row in groups if row.get("status") == "completed_accepted"),
             "verdict_count": len(verdicts),
             "targeted": targeted,
+            "missing_verdicts_first": bool(missing_verdicts_first),
+            "missing_verdict_count_seen": len(missing_verdict_groups),
+            "selected_for_audit_count": len(groups_for_audit),
             "target_matched_count": sum(
                 1
-                for row in status.get("groups") or []
+                for row in groups
                 if group_matches_targets(
                     row,
                     target_group_ids=target_group_id_set,
@@ -499,6 +523,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-existing-any-key", action="store_true")
     parser.add_argument("--target-group-id", action="append", default=[])
     parser.add_argument("--target-output-json", action="append", default=[])
+    parser.add_argument("--missing-verdicts-first", action="store_true")
     parser.add_argument("--stop-path", default="control/STOP")
     parser.add_argument("--out-json", default="artifacts/v9/revalidation/holdout_auditor_report.json")
     parser.add_argument("--state-dir", default="state")
@@ -549,6 +574,7 @@ def main() -> None:
         stop_path=Path(args.stop_path),
         target_group_ids=tuple(args.target_group_id or ()),
         target_output_jsons=tuple(args.target_output_json or ()),
+        missing_verdicts_first=bool(args.missing_verdicts_first),
     )
     write_json(report, Path(args.out_json))
     write_validated_marker(report, Path(args.state_dir))

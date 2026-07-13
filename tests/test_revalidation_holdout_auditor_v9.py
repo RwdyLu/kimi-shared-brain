@@ -333,3 +333,116 @@ def test_build_audit_report_filters_target_output_json_suffix(tmp_path, monkeypa
 
     assert seen == ["group-b"]
     assert report["summary"]["target_matched_count"] == 1
+
+
+def test_build_audit_report_prioritizes_missing_verdict_groups(tmp_path, monkeypatch) -> None:
+    existing_output = tmp_path / "artifacts/v9/contract_lab/a.json"
+    missing_output = tmp_path / "artifacts/v9/contract_lab/b.json"
+    existing_verdict = auditor.verdict_path_for(str(existing_output))
+    existing_verdict.parent.mkdir(parents=True, exist_ok=True)
+    existing_verdict.write_text(json.dumps({"kind": auditor.GROUP_VERDICT_KIND}))
+
+    def fake_status(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs["max_groups"] == 0
+        return {
+            "status_counts": {"completed_accepted": 2},
+            "groups": [
+                {"group_id": "group-a", "status": "completed_accepted", "output_json": str(existing_output)},
+                {"group_id": "group-b", "status": "completed_accepted", "output_json": str(missing_output)},
+            ],
+        }
+
+    seen: list[str] = []
+
+    def fake_audit_group(group: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        seen.append(str(group["group_id"]))
+        return {
+            "group_id": group["group_id"],
+            "paper_candidate_count": 0,
+            "reason": "holdout_failed",
+        }
+
+    monkeypatch.setattr(auditor, "build_revalidation_status", fake_status)
+    monkeypatch.setattr(auditor, "audit_group", fake_audit_group)
+
+    report = auditor.build_audit_report(
+        plan_path=tmp_path / "plan.json",
+        runner_state_path=tmp_path / "runner.json",
+        cache_dir=tmp_path,
+        holdout_start="2024-07-01",
+        holdout_end="2026-07-12 01:00:00",
+        recent_start="2026-06-01",
+        costs_bps=(40.0,),
+        bootstrap_iterations=0,
+        max_groups=1,
+        max_configs=2,
+        min_decay_ratio=0.5,
+        min_recent_active_rebalances=1,
+        min_recent_time_in_market=0.0,
+        holdout_authorized=True,
+        force=False,
+        skip_existing_any_key=False,
+        stop_path=tmp_path / "STOP",
+        missing_verdicts_first=True,
+    )
+
+    assert seen == ["group-b"]
+    assert report["summary"]["missing_verdicts_first"] is True
+    assert report["summary"]["missing_verdict_count_seen"] == 1
+    assert report["summary"]["selected_for_audit_count"] == 1
+
+
+def test_build_audit_report_falls_back_to_max_groups_when_no_missing_verdicts(tmp_path, monkeypatch) -> None:
+    output_a = tmp_path / "artifacts/v9/contract_lab/a.json"
+    output_b = tmp_path / "artifacts/v9/contract_lab/b.json"
+    for output in (output_a, output_b):
+        verdict = auditor.verdict_path_for(str(output))
+        verdict.parent.mkdir(parents=True, exist_ok=True)
+        verdict.write_text(json.dumps({"kind": auditor.GROUP_VERDICT_KIND}))
+
+    def fake_status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "status_counts": {"completed_accepted": 2},
+            "groups": [
+                {"group_id": "group-a", "status": "completed_accepted", "output_json": str(output_a)},
+                {"group_id": "group-b", "status": "completed_accepted", "output_json": str(output_b)},
+            ],
+        }
+
+    seen: list[str] = []
+
+    def fake_audit_group(group: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        seen.append(str(group["group_id"]))
+        return {
+            "group_id": group["group_id"],
+            "paper_candidate_count": 0,
+            "reason": "holdout_failed",
+        }
+
+    monkeypatch.setattr(auditor, "build_revalidation_status", fake_status)
+    monkeypatch.setattr(auditor, "audit_group", fake_audit_group)
+
+    report = auditor.build_audit_report(
+        plan_path=tmp_path / "plan.json",
+        runner_state_path=tmp_path / "runner.json",
+        cache_dir=tmp_path,
+        holdout_start="2024-07-01",
+        holdout_end="2026-07-12 01:00:00",
+        recent_start="2026-06-01",
+        costs_bps=(40.0,),
+        bootstrap_iterations=0,
+        max_groups=1,
+        max_configs=2,
+        min_decay_ratio=0.5,
+        min_recent_active_rebalances=1,
+        min_recent_time_in_market=0.0,
+        holdout_authorized=True,
+        force=False,
+        skip_existing_any_key=False,
+        stop_path=tmp_path / "STOP",
+        missing_verdicts_first=True,
+    )
+
+    assert seen == ["group-a"]
+    assert report["summary"]["missing_verdict_count_seen"] == 0
+    assert report["summary"]["selected_for_audit_count"] == 1
