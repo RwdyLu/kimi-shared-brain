@@ -136,15 +136,6 @@ print(max(values) if values else 1)
 PY
 }
 
-EFFECTIVE_PRIOR_TRIALS="$PRIOR_TRIALS"
-if [[ "$EFFECTIVE_PRIOR_TRIALS" == "auto" ]]; then
-  EFFECTIVE_PRIOR_TRIALS="$(auto_prior_trials)"
-fi
-if ! [[ "$EFFECTIVE_PRIOR_TRIALS" =~ ^[0-9]+$ ]] || [[ "$EFFECTIVE_PRIOR_TRIALS" -lt 1 ]]; then
-  echo "PRIOR_TRIALS must be a positive integer or auto" >&2
-  exit 2
-fi
-
 TASK="xsec_ohlcv_${PRESET}_${TASK_SUFFIX}"
 SESSION="v9_${PRESET}_${TASK_SUFFIX}"
 MONITOR_SESSION="v9_xsec_hit_monitor_${PRESET}_${TASK_SUFFIX}"
@@ -179,6 +170,15 @@ while true; do
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) waiting_for_slot sleep=${SLOT_POLL_SEC}s"
   sleep "$SLOT_POLL_SEC"
 done
+
+EFFECTIVE_PRIOR_TRIALS="$PRIOR_TRIALS"
+if [[ "$EFFECTIVE_PRIOR_TRIALS" == "auto" ]]; then
+  EFFECTIVE_PRIOR_TRIALS="$(auto_prior_trials)"
+fi
+if ! [[ "$EFFECTIVE_PRIOR_TRIALS" =~ ^[0-9]+$ ]] || [[ "$EFFECTIVE_PRIOR_TRIALS" -lt 1 ]]; then
+  echo "PRIOR_TRIALS must be a positive integer or auto" >&2
+  exit 2
+fi
 
 mkdir -p "$(dirname "$OUT")" "$(dirname "$REPORT")" "$(dirname "$LOG")"
 
