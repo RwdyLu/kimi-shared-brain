@@ -21,7 +21,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v11_prefilter_skip_telemetry"
+ROW_CACHE_VERSION = "selection_validation_v12_recent_period_gate"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -79,6 +79,7 @@ class RunConfig:
     validation_max_flat_streak_h: int = 0
     accepted_min_validation_active_rebalances: int = ACCEPTANCE_MIN_VALIDATION_ACTIVE_REBALANCES
     selection_min_2022_return: float | None = None
+    selection_min_2024h1_periods: int = 0
     plateau_center_config: dict[str, Any] | None = None
     plateau_validation_sharpe_min: float = 1.0
     plateau_neighbor_pass_fraction_min: float = 0.70
@@ -319,6 +320,7 @@ def config_for_preset(
             vol_targets_ann=(0.04, 0.06, 0.08),
             n_tranches=(1,),
             selection_min_time_in_market_frac=0.35,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=45 * 24,
             validation_min_time_in_market_frac=0.20,
             validation_max_flat_streak_h=45 * 24,
@@ -340,6 +342,7 @@ def config_for_preset(
             market_confirm_hs=(72,),
             market_drawdown_limits=(0.25,),
             selection_min_time_in_market_frac=0.30,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=30 * 24,
             validation_min_time_in_market_frac=0.18,
             validation_max_flat_streak_h=45 * 24,
@@ -359,6 +362,7 @@ def config_for_preset(
             drawdown_stops=(0.0, 0.10),
             cooldowns_h=(72,),
             selection_min_time_in_market_frac=0.25,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=45 * 24,
             validation_min_time_in_market_frac=0.15,
             validation_max_flat_streak_h=45 * 24,
@@ -380,6 +384,7 @@ def config_for_preset(
             market_confirm_hs=(0, 72),
             market_drawdown_limits=(0.0, 0.25),
             selection_min_time_in_market_frac=0.25,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=45 * 24,
             validation_min_time_in_market_frac=0.15,
             validation_max_flat_streak_h=45 * 24,
@@ -401,6 +406,7 @@ def config_for_preset(
             market_confirm_hs=(168,),
             market_drawdown_limits=(0.0, 0.15, 0.20),
             selection_min_time_in_market_frac=0.15,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=180 * 24,
             validation_min_time_in_market_frac=0.10,
             validation_max_flat_streak_h=180 * 24,
@@ -424,6 +430,7 @@ def config_for_preset(
             portfolio_modes=("hedged_long",),
             hedge_ratios=(0.5, 1.0),
             selection_min_time_in_market_frac=0.15,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=180 * 24,
             validation_min_time_in_market_frac=0.10,
             validation_max_flat_streak_h=180 * 24,
@@ -449,6 +456,7 @@ def config_for_preset(
             downtrend_hedge_ratios=(0.25, 0.50),
             selection_min_2022_return=-0.02,
             selection_min_time_in_market_frac=0.15,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=180 * 24,
             validation_min_time_in_market_frac=0.10,
             validation_max_flat_streak_h=180 * 24,
@@ -472,6 +480,7 @@ def config_for_preset(
             portfolio_modes=("long_short",),
             hedge_ratios=(0.5, 1.0),
             selection_min_time_in_market_frac=0.60,
+            selection_min_2024h1_periods=1,
             selection_max_flat_streak_h=45 * 24,
             validation_min_time_in_market_frac=0.30,
             validation_max_flat_streak_h=45 * 24,
@@ -977,6 +986,7 @@ def row_cache_key(
             "hedge_ratios": list(cfg.hedge_ratios),
             "downtrend_hedge_ratios": list(cfg.downtrend_hedge_ratios),
             "selection_min_2022_return": cfg.selection_min_2022_return,
+            "selection_min_2024h1_periods": int(cfg.selection_min_2024h1_periods),
         },
         sort_keys=True,
     )
@@ -1126,6 +1136,7 @@ def write_progress_meta(
         "hedge_ratios": list(cfg.hedge_ratios),
         "downtrend_hedge_ratios": list(cfg.downtrend_hedge_ratios),
         "selection_min_2022_return": cfg.selection_min_2022_return,
+        "selection_min_2024h1_periods": int(cfg.selection_min_2024h1_periods),
     }
     if progress_rows is not None:
         payload["diagnostics"] = progress_diagnostics(progress_rows)
@@ -1411,6 +1422,7 @@ def advance_checks(
     max_flat_streak_h: int = 0,
     require_bootstrap: bool = True,
     min_2022_return: float | None = None,
+    min_2024h1_periods: int = 0,
 ) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     checks = {
@@ -1432,6 +1444,10 @@ def advance_checks(
         checks["max_flat_streak40_le_limit"] = metric_float(cost40, "max_flat_streak_h") <= max_flat_streak_h
     if min_2022_return is not None:
         checks["return_2022_ge_min"] = float(cost20["yearly"]["2022"]["net_return"]) >= float(min_2022_return)
+    if int(min_2024h1_periods) > 0:
+        checks["periods_2024h1_ge_min"] = (
+            metric_float(cost20["yearly"]["2024H1"], "periods") >= int(min_2024h1_periods)
+        )
     return checks
 
 
@@ -1912,6 +1928,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             max_flat_streak_h=cfg.selection_max_flat_streak_h,
             require_bootstrap=False,
             min_2022_return=cfg.selection_min_2022_return,
+            min_2024h1_periods=cfg.selection_min_2024h1_periods,
         )
         selection_prefilter_passed = all(selection_checks.values())
         selection_prefilter = {
@@ -1945,6 +1962,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
                 max_flat_streak_h=cfg.selection_max_flat_streak_h,
                 min_2022_return=cfg.selection_min_2022_return,
+                min_2024h1_periods=cfg.selection_min_2024h1_periods,
             )
         if all(selection_checks.values()):
             cost20 = simulate(
@@ -1964,6 +1982,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
                 max_flat_streak_h=cfg.selection_max_flat_streak_h,
                 min_2022_return=cfg.selection_min_2022_return,
+                min_2024h1_periods=cfg.selection_min_2024h1_periods,
             )
             selection_checks["bootstrap_p5_confirm_ge_adjusted_min"] = (
                 float(cost20["bootstrap_30d_sharpe_p5_confirm"]) >= bootstrap_p5_min
@@ -2141,6 +2160,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         "accepted_min_validation_active_rebalances": int(cfg.accepted_min_validation_active_rebalances),
         "selection_min_2022_return": cfg.selection_min_2022_return,
+        "selection_min_2024h1_periods": int(cfg.selection_min_2024h1_periods),
         "validate_all_rows": bool(cfg.validate_all_rows),
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
         "explicit_config_list": bool(cfg.explicit_configs),
@@ -2357,6 +2377,7 @@ def main() -> None:
             stress_costs_bps=cfg.stress_costs_bps,
             validate_all_rows=cfg.validate_all_rows,
             selection_min_2022_return=cfg.selection_min_2022_return,
+            selection_min_2024h1_periods=cfg.selection_min_2024h1_periods,
             plateau_center_config=None,
             plateau_validation_sharpe_min=cfg.plateau_validation_sharpe_min,
             plateau_neighbor_pass_fraction_min=cfg.plateau_neighbor_pass_fraction_min,

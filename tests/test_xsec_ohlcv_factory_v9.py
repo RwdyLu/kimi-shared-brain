@@ -464,6 +464,31 @@ def test_selection_gate_can_require_2022_return_floor() -> None:
     )["return_2022_ge_min"] is True
 
 
+def test_selection_gate_can_require_2024h1_trading_activity() -> None:
+    inactive_recent = passing_gate_result()
+    inactive_recent["yearly"]["2024H1"]["periods"] = 0
+    active_recent = passing_gate_result()
+    active_recent["yearly"]["2024H1"]["periods"] = 3
+
+    assert "periods_2024h1_ge_min" not in advance_checks(
+        inactive_recent,
+        inactive_recent,
+        bootstrap_p5_min=0.25,
+    )
+    assert advance_checks(
+        inactive_recent,
+        inactive_recent,
+        bootstrap_p5_min=0.25,
+        min_2024h1_periods=1,
+    )["periods_2024h1_ge_min"] is False
+    assert advance_checks(
+        active_recent,
+        active_recent,
+        bootstrap_p5_min=0.25,
+        min_2024h1_periods=1,
+    )["periods_2024h1_ge_min"] is True
+
+
 def test_activity_gates_can_reject_long_flat_streaks() -> None:
     active = passing_gate_result(active_rebalance_event_count=20, time_in_market_frac=0.70)
     active["max_flat_streak_h"] = 24
@@ -1469,6 +1494,7 @@ def test_presets_select_distinct_search_spaces() -> None:
         "evergreen_lowvol_guarded", "cache", "start", "end", "embargo", 10, "elg.json", "elg.md"
     )
     assert core.out_json == "a.json"
+    assert core.selection_min_2024h1_periods == 0
     assert slow.out_json == "b.json"
     assert slow.rebalances_h != core.rebalances_h
     assert 1440 in slow.lookbacks_h
@@ -1516,6 +1542,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_active.vol_targets_ann == (0.04, 0.06, 0.08)
     assert hq_active.n_tranches == (1,)
     assert hq_active.selection_min_time_in_market_frac == 0.35
+    assert hq_active.selection_min_2024h1_periods == 1
     assert hq_active.selection_max_flat_streak_h == 45 * 24
     assert hq_active.validation_max_flat_streak_h == 45 * 24
     assert (
@@ -1537,6 +1564,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_signal.cooldowns_h == (72,)
     assert hq_signal.market_confirm_hs == (72,)
     assert hq_signal.market_drawdown_limits == (0.25,)
+    assert hq_signal.selection_min_2024h1_periods == 1
     assert hq_signal.selection_max_flat_streak_h == 30 * 24
     assert hq_signal.validation_max_flat_streak_h == 45 * 24
     assert (
@@ -1556,6 +1584,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_bridge.vol_targets_ann == (0.06, 0.08, 0.10)
     assert hq_bridge.drawdown_stops == (0.0, 0.10)
     assert hq_bridge.cooldowns_h == (72,)
+    assert hq_bridge.selection_min_2024h1_periods == 1
     assert hq_bridge.selection_max_flat_streak_h == 45 * 24
     assert hq_bridge.validation_max_flat_streak_h == 45 * 24
     assert (
@@ -1607,6 +1636,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile.market_confirm_hs == (168,)
     assert hq_wf_hostile.market_drawdown_limits == (0.0, 0.15, 0.20)
     assert hq_wf_hostile.selection_min_time_in_market_frac == 0.15
+    assert hq_wf_hostile.selection_min_2024h1_periods == 1
     assert hq_wf_hostile.selection_max_flat_streak_h == 180 * 24
     assert hq_wf_hostile.validation_min_time_in_market_frac == 0.10
     assert hq_wf_hostile.validation_max_flat_streak_h == 180 * 24
@@ -1638,6 +1668,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile_hedged.hedge_ratios == (0.5, 1.0)
     assert hq_wf_hostile_hedged.downtrend_hedge_ratios == (0.0,)
     assert hq_wf_hostile_hedged.selection_min_time_in_market_frac == 0.15
+    assert hq_wf_hostile_hedged.selection_min_2024h1_periods == 1
     assert hq_wf_hostile_hedged.selection_max_flat_streak_h == 180 * 24
     assert hq_wf_hostile_hedged.validation_min_time_in_market_frac == 0.10
     assert hq_wf_hostile_hedged.validation_max_flat_streak_h == 180 * 24
@@ -1661,6 +1692,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile_regime_hedged.portfolio_modes == ("hedged_long",)
     assert hq_wf_hostile_regime_hedged.downtrend_hedge_ratios == (0.25, 0.50)
     assert hq_wf_hostile_regime_hedged.selection_min_2022_return == -0.02
+    assert hq_wf_hostile_regime_hedged.selection_min_2024h1_periods == 1
     assert (
         len(hq_wf_hostile_regime_hedged.lookbacks_h)
         * len(hq_wf_hostile_regime_hedged.rebalances_h)
@@ -1691,6 +1723,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile_long_short.portfolio_modes == ("long_short",)
     assert hq_wf_hostile_long_short.hedge_ratios == (0.5, 1.0)
     assert hq_wf_hostile_long_short.selection_min_time_in_market_frac == 0.60
+    assert hq_wf_hostile_long_short.selection_min_2024h1_periods == 1
     assert hq_wf_hostile_long_short.selection_max_flat_streak_h == 45 * 24
     assert hq_wf_hostile_long_short.validation_min_time_in_market_frac == 0.30
     assert hq_wf_hostile_long_short.validation_max_flat_streak_h == 45 * 24
