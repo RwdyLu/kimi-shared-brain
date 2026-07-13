@@ -37,9 +37,28 @@ def write_fake_scripts(tmp_path: Path) -> None:
         "import sys\n"
         "Path('ingest.txt').write_text(' '.join(sys.argv[1:]))\n"
     )
+    rescue = scripts / "v9_xsec_rescue_plan.py"
+    rescue.write_text(
+        "import argparse, json\n"
+        "p=argparse.ArgumentParser()\n"
+        "p.add_argument('artifact')\n"
+        "p.add_argument('--top-k')\n"
+        "p.add_argument('--budget-per-seed')\n"
+        "p.add_argument('--out-plan')\n"
+        "p.add_argument('--out-configs')\n"
+        "a=p.parse_args()\n"
+        "open(a.out_plan,'w').write(json.dumps({'artifact':a.artifact,'top_k':a.top_k}))\n"
+        "open(a.out_configs,'w').write(json.dumps([{'refreshed':True,'budget':a.budget_per_seed}]))\n"
+    )
 
 
-def run_queue(tmp_path: Path, parent: Path, *, fingerprint: str = "abc123") -> subprocess.CompletedProcess[str]:
+def run_queue(
+    tmp_path: Path,
+    parent: Path,
+    *,
+    fingerprint: str = "abc123",
+    extra: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     env = {
         **os.environ,
         "QUEUE_XSEC_RESCUE_POLL_SEC": "1",
@@ -71,6 +90,7 @@ def run_queue(tmp_path: Path, parent: Path, *, fingerprint: str = "abc123") -> s
             "10",
             "--max-parallel-factory",
             "999",
+            *(extra or []),
         ],
         cwd=tmp_path,
         env=env,
@@ -120,3 +140,29 @@ def test_queue_auto_fingerprint_uses_config_list_sha1(tmp_path) -> None:
     assert result.returncode == 0, result.stderr
     assert f"rescue_fingerprint={expected}" in result.stdout
     assert f"--fingerprint {expected}" in (tmp_path / "ingest.txt").read_text()
+
+
+def test_queue_refreshes_rescue_configs_from_parent_before_run(tmp_path) -> None:
+    write_fake_scripts(tmp_path)
+    parent = tmp_path / "parent.json"
+    parent.write_text(json.dumps({"summary": {"accepted_train_only": False}, "rows": []}))
+    (tmp_path / "configs.json").write_text(json.dumps([{"stale": True}]))
+
+    result = run_queue(
+        tmp_path,
+        parent,
+        extra=[
+            "--refresh-before-run",
+            "--refresh-plan-json",
+            "artifacts/refresh_plan.json",
+            "--refresh-top-k",
+            "7",
+            "--refresh-budget-per-seed",
+            "9",
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "refreshed_rescue_from_parent configs=configs.json plan=artifacts/refresh_plan.json" in result.stdout
+    assert json.loads((tmp_path / "configs.json").read_text()) == [{"refreshed": True, "budget": "9"}]
+    assert json.loads((tmp_path / "artifacts" / "refresh_plan.json").read_text())["top_k"] == "7"

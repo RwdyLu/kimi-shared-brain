@@ -19,6 +19,10 @@ POLL_SEC="${QUEUE_XSEC_RESCUE_POLL_SEC:-120}"
 SLOT_POLL_SEC="${QUEUE_XSEC_RESCUE_SLOT_POLL_SEC:-300}"
 MAX_PARALLEL_FACTORY="${QUEUE_XSEC_RESCUE_MAX_PARALLEL_FACTORY:-2}"
 NICE_LEVEL="${QUEUE_XSEC_RESCUE_NICE:-5}"
+REFRESH_BEFORE_RUN="0"
+REFRESH_PLAN_JSON=""
+REFRESH_TOP_K="16"
+REFRESH_BUDGET_PER_SEED="16"
 
 usage() {
   cat >&2 <<'EOF'
@@ -26,7 +30,9 @@ usage: queue_xsec_rescue_after_parent.sh \
   --parent-output-json PATH --output-json PATH --output-md PATH --report-json PATH \
   --config-list-json PATH --data-snapshot PATH --task-name NAME --preset PRESET \
   --fingerprint SHA1|auto --prior-trials N [--train-start DATE] [--train-end TS] \
-  [--embargo-start DATE] [--bootstrap-iterations N] [--max-parallel-factory N]
+  [--embargo-start DATE] [--bootstrap-iterations N] [--max-parallel-factory N] \
+  [--refresh-before-run] [--refresh-plan-json PATH] [--refresh-top-k N] \
+  [--refresh-budget-per-seed N]
 EOF
 }
 
@@ -47,6 +53,10 @@ while [[ "$#" -gt 0 ]]; do
     --embargo-start) EMBARGO_START="$2"; shift 2 ;;
     --bootstrap-iterations) BOOTSTRAP_ITERATIONS="$2"; shift 2 ;;
     --max-parallel-factory) MAX_PARALLEL_FACTORY="$2"; shift 2 ;;
+    --refresh-before-run) REFRESH_BEFORE_RUN="1"; shift ;;
+    --refresh-plan-json) REFRESH_PLAN_JSON="$2"; shift 2 ;;
+    --refresh-top-k) REFRESH_TOP_K="$2"; shift 2 ;;
+    --refresh-budget-per-seed) REFRESH_BUDGET_PER_SEED="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage; exit 2 ;;
   esac
@@ -74,6 +84,14 @@ if ! [[ "$SLOT_POLL_SEC" =~ ^[0-9]+$ ]] || [[ "$SLOT_POLL_SEC" -lt 1 ]]; then
 fi
 if ! [[ "$MAX_PARALLEL_FACTORY" =~ ^[0-9]+$ ]] || [[ "$MAX_PARALLEL_FACTORY" -lt 1 ]]; then
   echo "QUEUE_XSEC_RESCUE_MAX_PARALLEL_FACTORY must be an integer >= 1" >&2
+  exit 2
+fi
+if ! [[ "$REFRESH_TOP_K" =~ ^[0-9]+$ ]] || [[ "$REFRESH_TOP_K" -lt 1 ]]; then
+  echo "--refresh-top-k must be a positive integer" >&2
+  exit 2
+fi
+if ! [[ "$REFRESH_BUDGET_PER_SEED" =~ ^[0-9]+$ ]] || [[ "$REFRESH_BUDGET_PER_SEED" -lt 1 ]]; then
+  echo "--refresh-budget-per-seed must be a positive integer" >&2
   exit 2
 fi
 
@@ -121,6 +139,24 @@ print(hashlib.sha1(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
 PY
 }
 
+refresh_rescue_configs_from_parent() {
+  local plan_json="$REFRESH_PLAN_JSON"
+  if [[ -z "$plan_json" ]]; then
+    plan_json="${CONFIG_LIST_JSON%.json}_plan.json"
+  fi
+  mkdir -p "$(dirname "$plan_json")" "$(dirname "$CONFIG_LIST_JSON")"
+  local tmp_plan="${plan_json}.tmp.$$"
+  local tmp_configs="${CONFIG_LIST_JSON}.tmp.$$"
+  python3 scripts/v9_xsec_rescue_plan.py "$PARENT_OUTPUT_JSON" \
+    --top-k "$REFRESH_TOP_K" \
+    --budget-per-seed "$REFRESH_BUDGET_PER_SEED" \
+    --out-plan "$tmp_plan" \
+    --out-configs "$tmp_configs"
+  mv "$tmp_plan" "$plan_json"
+  mv "$tmp_configs" "$CONFIG_LIST_JSON"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) refreshed_rescue_from_parent configs=$CONFIG_LIST_JSON plan=$plan_json"
+}
+
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) waiting_for_parent $PARENT_OUTPUT_JSON"
 while [[ ! -s "$PARENT_OUTPUT_JSON" ]]; do
   sleep "$POLL_SEC"
@@ -132,6 +168,9 @@ if parent_is_accepted; then
 fi
 
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) parent did not accept; queueing rescue configs=$CONFIG_LIST_JSON"
+if [[ "$REFRESH_BEFORE_RUN" == "1" ]]; then
+  refresh_rescue_configs_from_parent
+fi
 while true; do
   active_factory_count="$(python_factory_count)"
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) python_factory_count=$active_factory_count waiting_for_slot max=$MAX_PARALLEL_FACTORY"
