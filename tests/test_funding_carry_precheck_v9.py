@@ -85,6 +85,20 @@ def test_price_aware_carry_uses_close_to_close_returns() -> None:
     assert metrics["passes_price_aware_precheck"] is True
 
 
+def test_evaluate_funding_carry_can_rebalance_less_frequently() -> None:
+    detail, metrics = precheck_mod.evaluate_funding_carry(
+        synthetic_funding_frame(),
+        lookback_events=3,
+        bucket_fraction=0.25,
+        min_symbols=4,
+        rebalance_every_events=3,
+    )
+
+    assert metrics["rebalance_every_events"] == 3
+    assert detail["rebalanced"].head(4).tolist() == [True, False, False, True]
+    assert metrics["average_rebalance_fraction"] < 1.0
+
+
 def test_load_funding_cache_reads_symbol_monthly_files(tmp_path) -> None:
     frame = synthetic_funding_frame()
     for symbol, part in frame.groupby("symbol"):

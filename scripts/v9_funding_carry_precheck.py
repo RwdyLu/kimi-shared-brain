@@ -101,6 +101,7 @@ def evaluate_funding_carry(
     lookback_events: int,
     bucket_fraction: float,
     min_symbols: int,
+    rebalance_every_events: int = 1,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     clean = normalize_funding_frame(frame)
     if clean.empty:
@@ -110,6 +111,11 @@ def evaluate_funding_carry(
     trailing = pivot.rolling(lookback, min_periods=lookback).mean().shift(1)
     rows: list[dict[str, Any]] = []
     previous_funding_time = None
+    selected_longs: list[str] = []
+    selected_shorts: list[str] = []
+    selected_leg_count = 0
+    evaluated_count = 0
+    rebalance_every = max(1, int(rebalance_every_events))
     for funding_time in pivot.index:
         scores = trailing.loc[funding_time].dropna()
         realized = pivot.loc[funding_time].dropna()
@@ -118,10 +124,19 @@ def evaluate_funding_carry(
             previous_funding_time = int(funding_time)
             continue
         ranked = scores.loc[common].sort_values()
-        leg_count = max(1, int(math.floor(len(ranked) * float(bucket_fraction))))
-        leg_count = min(leg_count, max(1, len(ranked) // 2))
-        longs = list(ranked.index[:leg_count])
-        shorts = list(ranked.index[-leg_count:])
+        should_rebalance = (
+            not selected_longs
+            or evaluated_count % rebalance_every == 0
+            or not set(selected_longs + selected_shorts).issubset(set(common))
+        )
+        if should_rebalance:
+            selected_leg_count = max(1, int(math.floor(len(ranked) * float(bucket_fraction))))
+            selected_leg_count = min(selected_leg_count, max(1, len(ranked) // 2))
+            selected_longs = list(ranked.index[:selected_leg_count])
+            selected_shorts = list(ranked.index[-selected_leg_count:])
+        leg_count = selected_leg_count
+        longs = selected_longs
+        shorts = selected_shorts
         weights = pd.Series(0.0, index=common)
         weights.loc[longs] = 0.5 / leg_count
         weights.loc[shorts] = -0.5 / leg_count
@@ -134,6 +149,7 @@ def evaluate_funding_carry(
                 "previous_funding_time_iso": timestamp_ms_to_iso(previous_funding_time),
                 "symbol_count": int(len(common)),
                 "leg_count": int(leg_count),
+                "rebalanced": bool(should_rebalance),
                 "long_symbols": longs,
                 "short_symbols": shorts,
                 "gross_funding_return": funding_return,
@@ -144,6 +160,7 @@ def evaluate_funding_carry(
             }
         )
         previous_funding_time = int(funding_time)
+        evaluated_count += 1
     detail = pd.DataFrame(rows)
     if detail.empty:
         return detail, {"status": "insufficient_data", "reason": "no_point_in_time_events_after_lookback"}
@@ -166,6 +183,8 @@ def evaluate_funding_carry(
         "gross_sharpe": sharpe,
         "positive_event_fraction": float((returns > 0).mean()),
         "max_cashflow_drawdown": max_drawdown_from_returns(returns),
+        "rebalance_every_events": rebalance_every,
+        "average_rebalance_fraction": float(detail["rebalanced"].mean()),
         "passes_gross_precheck": bool((sharpe is not None and sharpe >= 1.0) and annualized_return > 0.0),
         "costs_and_price_risk_included": False,
     }
@@ -292,6 +311,7 @@ def run_precheck(args: argparse.Namespace) -> dict[str, Any]:
         lookback_events=args.lookback_events,
         bucket_fraction=args.bucket_fraction,
         min_symbols=args.min_symbols,
+        rebalance_every_events=args.rebalance_every_events,
     )
     top_events = []
     if not detail.empty:
@@ -314,6 +334,7 @@ def run_precheck(args: argparse.Namespace) -> dict[str, Any]:
         "lookback_events": int(args.lookback_events),
         "bucket_fraction": float(args.bucket_fraction),
         "min_symbols": int(args.min_symbols),
+        "rebalance_every_events": int(args.rebalance_every_events),
         "loaded_rows": int(len(frame)),
         "ohlcv_cache_dir": args.ohlcv_cache_dir,
         "loaded_ohlcv_rows": loaded_ohlcv_rows,
@@ -403,6 +424,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lookback-events", type=int, default=9)
     parser.add_argument("--bucket-fraction", type=float, default=0.2)
     parser.add_argument("--min-symbols", type=int, default=6)
+    parser.add_argument("--rebalance-every-events", type=int, default=1)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/funding_carry_precheck_v1.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/funding_carry_precheck_v1.md")
     parser.add_argument("--format", choices=("json", "text"), default="text")
