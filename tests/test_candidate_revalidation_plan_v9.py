@@ -300,6 +300,36 @@ def test_build_revalidation_plan_uses_candidate_preset_when_task_name_is_generic
 
     assert plan["group_count"] == 1
     assert plan["groups"][0]["preset"] == "hq_dd_long"
+    assert plan["groups"][0]["base_group_id"] != plan["groups"][0]["group_id"]
+    assert plan["groups"][0]["config_set_fingerprint"]
+
+    payload = json.loads(artifact.read_text())
+    payload["summary"]["pass_count"] = 2
+    payload["rows"].append(
+        {
+            "advance_passed": True,
+            "config": {
+                "lookback_h": 720,
+                "skip_h": 0,
+                "rebalance_h": 168,
+                "k": 3,
+                "score_mode": "risk_adj_mom",
+                "market_filter_h": 1176,
+                "vol_target_ann": 0.08,
+            },
+        }
+    )
+    artifact.write_text(json.dumps(payload))
+
+    changed_plan = plan_mod.build_revalidation_plan(
+        state,
+        out_dir=tmp_path / "revalidation_changed",
+        supplemental_candidates_path=supplemental,
+    )
+
+    assert changed_plan["groups"][0]["base_group_id"] == plan["groups"][0]["base_group_id"]
+    assert changed_plan["groups"][0]["group_id"] != plan["groups"][0]["group_id"]
+    assert changed_plan["groups"][0]["output_json"] != plan["groups"][0]["output_json"]
 
 
 def test_build_revalidation_plan_skips_rejected_supplemental_candidates(tmp_path, monkeypatch) -> None:

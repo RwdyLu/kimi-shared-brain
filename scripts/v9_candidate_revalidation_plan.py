@@ -64,6 +64,11 @@ def group_fingerprint(parts: dict[str, Any]) -> str:
     return hashlib.sha1(json.dumps(parts, sort_keys=True).encode("utf-8")).hexdigest()[:12]
 
 
+def config_set_fingerprint(configs: list[dict[str, Any]]) -> str:
+    normalized = sorted(configs, key=lambda row: json.dumps(row, sort_keys=True))
+    return hashlib.sha1(json.dumps(normalized, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+
+
 def accepted_configs(payload: dict[str, Any]) -> list[dict[str, Any]]:
     configs = []
     seen: set[str] = set()
@@ -202,6 +207,16 @@ def build_revalidation_plan(
     for group in sorted(groups.values(), key=lambda row: (row["module"], row["preset"], row["train_end"])):
         configs = group.pop("configs")
         group.pop("config_fingerprints", None)
+        base_group_id = str(group["group_id"])
+        config_set_id = config_set_fingerprint(configs)
+        group["base_group_id"] = base_group_id
+        group["config_set_fingerprint"] = config_set_id
+        group["group_id"] = group_fingerprint(
+            {
+                "base_group_id": base_group_id,
+                "config_set_fingerprint": config_set_id,
+            }
+        )
         data_snapshot = group.pop("data_snapshot", {}) or {}
         data_snapshot_errors = group.pop("data_snapshot_errors", []) or []
         if group["module"] == XSEC_MODULE:
