@@ -82,3 +82,30 @@ def test_update_symbol_skips_when_cache_already_has_last_closed(tmp_path, monkey
 
     assert result["status"] == "up_to_date"
     assert result["downloaded_rows"] == 0
+
+
+def test_update_symbol_passes_custom_api_url_to_fetch(tmp_path, monkeypatch) -> None:
+    start = int(pd.Timestamp("2026-07-11T00:00:00Z").timestamp() * 1000)
+    calls = []
+
+    def fake_fetch(symbol, interval, start_ms, end_ms, *, api_url, limit=1000):
+        calls.append((symbol, interval, start_ms, end_ms, api_url, limit))
+        return [
+            [start, "100.0", "101.0", "99.0", "100.5", "10.0"],
+            [start + 3_600_000, "100.5", "102.0", "100.0", "101.5", "11.0"],
+        ]
+
+    monkeypatch.setattr(update_mod, "fetch_klines", fake_fetch)
+
+    result = update_mod.update_symbol(
+        cache_dir=tmp_path,
+        symbol="BTCUSDT",
+        interval="1h",
+        now_ms=int(pd.Timestamp("2026-07-11T02:21:00Z").timestamp() * 1000),
+        lookback_bars_if_empty=2,
+        api_url="https://fapi.binance.com/fapi/v1/klines",
+    )
+
+    assert calls[0][4] == "https://fapi.binance.com/fapi/v1/klines"
+    assert result["status"] == "updated"
+    assert result["downloaded_rows"] == 2

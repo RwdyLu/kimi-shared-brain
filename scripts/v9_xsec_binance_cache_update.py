@@ -102,7 +102,15 @@ def latest_cached_open_time(cache_dir: Path, symbol: str, interval: str) -> int 
     return latest
 
 
-def fetch_klines(symbol: str, interval: str, start_ms: int, end_ms: int, *, limit: int = 1000) -> list[list[Any]]:
+def fetch_klines(
+    symbol: str,
+    interval: str,
+    start_ms: int,
+    end_ms: int,
+    *,
+    limit: int = 1000,
+    api_url: str = BINANCE_API,
+) -> list[list[Any]]:
     out: list[list[Any]] = []
     cursor = int(start_ms)
     step = interval_ms(interval)
@@ -116,7 +124,7 @@ def fetch_klines(symbol: str, interval: str, start_ms: int, end_ms: int, *, limi
                 "limit": int(limit),
             }
         )
-        with urllib.request.urlopen(f"{BINANCE_API}?{params}", timeout=20) as response:
+        with urllib.request.urlopen(f"{api_url}?{params}", timeout=20) as response:
             batch = json.loads(response.read().decode("utf-8"))
         if not batch:
             break
@@ -149,6 +157,7 @@ def update_symbol(
     interval: str,
     now_ms: int,
     lookback_bars_if_empty: int,
+    api_url: str = BINANCE_API,
 ) -> dict[str, Any]:
     step = interval_ms(interval)
     latest_before = latest_cached_open_time(cache_dir, symbol, interval)
@@ -167,7 +176,7 @@ def update_symbol(
             "latest_after": latest_before,
             "downloaded_rows": 0,
         }
-    rows = fetch_klines(symbol, interval, start_ms, last_closed + step - 1)
+    rows = fetch_klines(symbol, interval, start_ms, last_closed + step - 1, api_url=api_url)
     frame = frame_from_klines(rows)
     if frame.empty:
         return {
@@ -201,6 +210,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             interval=args.timeframe,
             now_ms=now_ms,
             lookback_bars_if_empty=args.lookback_bars_if_empty,
+            api_url=args.api_url,
         )
         for symbol in parse_symbols(args.symbols)
     ]
@@ -209,6 +219,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": now_utc(),
         "cache_dir": args.cache_dir,
         "timeframe": args.timeframe,
+        "api_url": args.api_url,
         "symbols": parse_symbols(args.symbols),
         "updated_count": sum(1 for row in results if row.get("status") == "updated"),
         "results": results,
@@ -240,6 +251,7 @@ def format_text(report: dict[str, Any]) -> str:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Update XSEC Binance OHLCV parquet cache for closed candles only.")
     parser.add_argument("--cache-dir", default="data/binance_public_cache")
+    parser.add_argument("--api-url", default=BINANCE_API)
     parser.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS))
     parser.add_argument("--timeframe", default="1h")
     parser.add_argument("--lookback-bars-if-empty", type=int, default=72)
