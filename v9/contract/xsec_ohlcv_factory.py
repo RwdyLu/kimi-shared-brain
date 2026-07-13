@@ -45,6 +45,7 @@ class OhlcvConfig:
     market_confirm_h: int = 0
     market_drawdown_limit: float = 0.0
     portfolio_mode: str = "long_only"
+    hedge_ratio: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class RunConfig:
     market_confirm_hs: tuple[int, ...] = (0,)
     market_drawdown_limits: tuple[float, ...] = (0.0,)
     portfolio_modes: tuple[str, ...] = ("long_only",)
+    hedge_ratios: tuple[float, ...] = (0.0,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -282,6 +284,25 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_hedged_long":
+        return RunConfig(
+            lookbacks_h=(600, 720, 840),
+            skips_h=(0,),
+            rebalances_h=(168,),
+            ks=(3,),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(0, 1176),
+            vol_targets_ann=(0.06, 0.07),
+            portfolio_modes=("hedged_long",),
+            hedge_ratios=(0.5, 1.0),
+            n_tranches=(1,),
+            drawdown_stops=(0.08,),
+            cooldowns_h=(72, 120),
+            selection_min_time_in_market_frac=0.05,
+            validation_min_time_in_market_frac=0.03,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_active_recent":
         return RunConfig(
             lookbacks_h=(504, 720, 1008),
@@ -466,6 +487,7 @@ def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
         market_confirm_h=int(raw.get("market_confirm_h", 0)),
         market_drawdown_limit=float(raw.get("market_drawdown_limit", 0.0)),
         portfolio_mode=str(raw.get("portfolio_mode", "long_only")),
+        hedge_ratio=float(raw.get("hedge_ratio", 0.0)),
     )
 
 
@@ -581,11 +603,25 @@ def long_short_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: b
     return weights
 
 
+def hedged_long_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bool) -> dict[str, float] | None:
+    weights = long_only_weights(score_row, cfg, allow_exposure)
+    if weights is None:
+        return None
+    if not allow_exposure:
+        return weights
+    hedge_symbol = "BTCUSDT" if "BTCUSDT" in weights else sorted(weights)[0]
+    long_gross = sum(max(v, 0.0) for v in weights.values())
+    weights[hedge_symbol] = weights.get(hedge_symbol, 0.0) - float(cfg.hedge_ratio) * long_gross
+    return weights
+
+
 def target_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: bool) -> dict[str, float] | None:
     if cfg.portfolio_mode == "long_only":
         return long_only_weights(score_row, cfg, allow_exposure)
     if cfg.portfolio_mode == "long_short":
         return long_short_weights(score_row, cfg, allow_exposure)
+    if cfg.portfolio_mode == "hedged_long":
+        return hedged_long_weights(score_row, cfg, allow_exposure)
     raise ValueError(f"unknown portfolio_mode: {cfg.portfolio_mode!r}")
 
 
@@ -827,6 +863,7 @@ def row_cache_key(
             "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
             "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
             "portfolio_modes": list(cfg.portfolio_modes),
+            "hedge_ratios": list(cfg.hedge_ratios),
         },
         sort_keys=True,
     )
@@ -973,6 +1010,7 @@ def write_progress_meta(
         "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         "portfolio_modes": list(cfg.portfolio_modes),
+        "hedge_ratios": list(cfg.hedge_ratios),
     }
     if progress_rows is not None:
         payload["diagnostics"] = progress_diagnostics(progress_rows)
@@ -1450,6 +1488,7 @@ def leave_one_symbol_summary(
             market_confirm_h=cfg.market_confirm_h,
             market_drawdown_limit=cfg.market_drawdown_limit,
             portfolio_mode=cfg.portfolio_mode,
+            hedge_ratio=cfg.hedge_ratio,
         )
         result = simulate(frame, test_cfg, cost_bps, bootstrap_iterations=0)
         rows.append(
@@ -1635,8 +1674,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
         grid = [
-            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm)
-            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm in itertools.product(
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr)
+            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr in itertools.product(
                 cfg.lookbacks_h,
                 cfg.skips_h,
                 cfg.rebalances_h,
@@ -1650,6 +1689,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 cfg.market_confirm_hs,
                 cfg.market_drawdown_limits,
                 cfg.portfolio_modes,
+                cfg.hedge_ratios,
             )
         ]
     n_trials = len(grid)
@@ -1986,7 +2026,7 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         label = (
             "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_"
             "MF{market_filter_h}_MC{market_confirm_h}_MD{market_drawdown_limit}_"
-            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}_PM{portfolio_mode}"
+            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}_PM{portfolio_mode}_HR{hedge_ratio}"
         ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
@@ -2029,6 +2069,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "breakout_slow",
             "hq_dd_long",
             "hq_market_neutral",
+            "hq_hedged_long",
             "hq_dd_plateau",
             "hq_active_recent",
             "hq_recent_signal",
@@ -2083,6 +2124,7 @@ def main() -> None:
             market_confirm_hs=cfg.market_confirm_hs,
             market_drawdown_limits=cfg.market_drawdown_limits,
             portfolio_modes=cfg.portfolio_modes,
+            hedge_ratios=cfg.hedge_ratios,
             costs_bps=cfg.costs_bps,
             stress_costs_bps=cfg.stress_costs_bps,
             validate_all_rows=cfg.validate_all_rows,

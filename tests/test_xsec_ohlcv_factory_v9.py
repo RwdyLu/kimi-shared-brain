@@ -22,6 +22,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     data_snapshot_path_for,
     leave_one_symbol_summary,
     load_explicit_configs,
+    hedged_long_weights,
     long_only_weights,
     long_short_weights,
     market_filter,
@@ -161,6 +162,26 @@ def test_long_short_weights_are_market_neutral_gross_one() -> None:
     assert sum(abs(v) for v in weights.values()) == 1.0
 
 
+def test_hedged_long_weights_short_single_btc_overlay() -> None:
+    row = pd.Series({"ADAUSDT": 4.0, "BTCUSDT": 3.0, "ETHUSDT": 2.0, "XRPUSDT": 1.0})
+    cfg = OhlcvConfig(
+        lookback_h=4,
+        skip_h=0,
+        rebalance_h=2,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        portfolio_mode="hedged_long",
+        hedge_ratio=0.5,
+    )
+
+    weights = hedged_long_weights(row, cfg, allow_exposure=True)
+
+    assert weights == {"ADAUSDT": 0.5, "BTCUSDT": 0.0, "ETHUSDT": 0.0, "XRPUSDT": 0.0}
+    assert sum(max(v, 0.0) for v in weights.values()) == 0.5
+
+
 def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
     path = tmp_path / "configs.json"
     path.write_text(
@@ -180,7 +201,8 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
               "cooldown_h": 168,
               "market_confirm_h": 336,
               "market_drawdown_limit": 0.25,
-              "portfolio_mode": "long_short"
+              "portfolio_mode": "long_short",
+              "hedge_ratio": 0.5
             }
           ]
         }
@@ -204,6 +226,7 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
             market_confirm_h=336,
             market_drawdown_limit=0.25,
             portfolio_mode="long_short",
+            hedge_ratio=0.5,
         ),
     )
 
@@ -221,6 +244,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_decay_bridge"]).preset == "hq_decay_bridge"
     assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
+    assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
 
 
 def test_breakout_presets_sweep_stop_enabled_configs() -> None:
@@ -1049,6 +1073,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     neighbor = config_for_preset("defensive_neighbor", "cache", "start", "end", "embargo", 10, "c.json", "c.md")
     drawdown = config_for_preset("defensive_drawdown", "cache", "start", "end", "embargo", 10, "d.json", "d.md")
     hq_dd = config_for_preset("hq_dd_long", "cache", "start", "end", "embargo", 10, "e.json", "e.md")
+    hq_hedged = config_for_preset("hq_hedged_long", "cache", "start", "end", "embargo", 10, "hl.json", "hl.md")
     hq_neutral = config_for_preset("hq_market_neutral", "cache", "start", "end", "embargo", 10, "mn.json", "mn.md")
     hq_plateau = config_for_preset("hq_dd_plateau", "cache", "start", "end", "embargo", 10, "p.json", "p.md")
     hq_active = config_for_preset("hq_active_recent", "cache", "start", "end", "embargo", 10, "ar.json", "ar.md")
@@ -1075,6 +1100,22 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert max(drawdown.market_filters_h) == 2160
     assert 1008 in hq_dd.lookbacks_h
     assert 0.06 in hq_dd.vol_targets_ann
+    assert hq_hedged.portfolio_modes == ("hedged_long",)
+    assert hq_hedged.hedge_ratios == (0.5, 1.0)
+    assert hq_hedged.market_filters_h == (0, 1176)
+    assert (
+        len(hq_hedged.lookbacks_h)
+        * len(hq_hedged.rebalances_h)
+        * len(hq_hedged.ks)
+        * len(hq_hedged.score_modes)
+        * len(hq_hedged.market_filters_h)
+        * len(hq_hedged.vol_targets_ann)
+        * len(hq_hedged.portfolio_modes)
+        * len(hq_hedged.hedge_ratios)
+        * len(hq_hedged.drawdown_stops)
+        * len(hq_hedged.cooldowns_h)
+        == 48
+    )
     assert hq_neutral.portfolio_modes == ("long_short",)
     assert hq_neutral.lookbacks_h == (600, 720, 840)
     assert hq_neutral.market_filters_h == (0, 504, 1176)
