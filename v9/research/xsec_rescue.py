@@ -18,6 +18,7 @@ DRAWDOWN_STOPS = (0.0, 0.10, 0.15, 0.20)
 COOLDOWNS_H = (0, 24, 72, 168, 336)
 MARKET_CONFIRM_H = (0, 168, 336, 504, 720)
 MARKET_DRAWDOWN_LIMITS = (0.0, 0.20, 0.25, 0.30, 0.35)
+HEDGE_RATIOS = (0.20, 0.30, 0.40, 0.50, 0.60, 0.80, 1.00)
 DEFAULT_RESCUE_TOP_K = 8
 DEFAULT_RESCUE_BUDGET_PER_SEED = 18
 HOSTILE_YEAR_DEFENSIVE_PAIRS = (
@@ -31,6 +32,13 @@ TAIL_DEFENSIVE_PAIRS = (
     ("market_filter_h", "vol_target_ann"),
     ("rebalance_h", "vol_target_ann"),
     ("market_confirm_h", "vol_target_ann"),
+)
+WALK_FORWARD_PLATEAU_PAIRS = (
+    ("rebalance_h", "lookback_h"),
+    ("vol_target_ann", "n_tranches"),
+    ("vol_target_ann", "hedge_ratio"),
+    ("market_filter_h", "market_confirm_h"),
+    ("market_filter_h", "hedge_ratio"),
 )
 ACCEPTED_TRAIN_ONLY_GENE_ORDER = (
     "score_mode",
@@ -85,6 +93,7 @@ REGIME_ROBUSTNESS_FAILURES = frozenset(
         "benchmark_sharpe_excess_ge_0_10",
     }
 )
+WALK_FORWARD_FAILURES = frozenset({"walk_forward_robust"})
 TAIL_ROBUSTNESS_FAILURES = frozenset(
     {
         "bootstrap_p5_ge_adjusted_min",
@@ -105,6 +114,7 @@ GENE_LADDERS: dict[str, tuple[Any, ...]] = {
     "cooldown_h": COOLDOWNS_H,
     "market_confirm_h": MARKET_CONFIRM_H,
     "market_drawdown_limit": MARKET_DRAWDOWN_LIMITS,
+    "hedge_ratio": HEDGE_RATIOS,
 }
 
 REQUIRED_CONFIG_KEYS = (
@@ -223,6 +233,15 @@ def worst_year_return(row: dict[str, Any]) -> float:
     return safe_float(worst_year(row).get("net_return"), -999.0)
 
 
+def walk_forward_checks(row: dict[str, Any]) -> dict[str, bool]:
+    checks = (row.get("walk_forward") or {}).get("checks") or {}
+    return {str(name): bool(value) for name, value in checks.items()}
+
+
+def walk_forward_metric(row: dict[str, Any], key: str, default: float = 0.0) -> float:
+    return safe_float((row.get("walk_forward") or {}).get(key), default)
+
+
 def is_rescue_seed(
     row: dict[str, Any],
     diagnostic_q25_min: float = 0.50,
@@ -329,6 +348,13 @@ def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagno
         "yearly_returns": yearly_returns(row),
         "worst_year": worst_year(row),
         "worst_year_return": worst_year_return(row),
+        "walk_forward_checks": walk_forward_checks(row),
+        "walk_forward_q25_sharpe": walk_forward_metric(row, "q25_sharpe"),
+        "walk_forward_worst_fold_return": walk_forward_metric(row, "worst_fold_return"),
+        "walk_forward_worst_fold_max_drawdown": walk_forward_metric(row, "worst_fold_max_drawdown"),
+        "walk_forward_hedged_dd_improvement_fraction": walk_forward_metric(
+            row, "hedged_dd_improvement_fraction", -1.0
+        ),
     }
 
 
@@ -472,6 +498,8 @@ def rescue_mutation_bias(seed: dict[str, Any]) -> str:
         return "activity_unblock"
     if failures.intersection(REGIME_ROBUSTNESS_FAILURES) and safe_float(worst.get("net_return")) < 0.0:
         return "hostile_year_defensive"
+    if failures.intersection(WALK_FORWARD_FAILURES):
+        return "walk_forward_plateau"
     if failures.intersection(TAIL_ROBUSTNESS_FAILURES):
         return "tail_defensive"
     return "balanced_neighbor"
@@ -486,13 +514,20 @@ def prioritized_neighbor_values(seed: dict[str, Any], gene: str, radius: int = 2
             return order_numeric_neighbors(base.get(gene), values, "lower")
         if gene in {"market_drawdown_limit", "drawdown_stop"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
-    if bias in {"hostile_year_defensive", "tail_defensive"}:
+    if bias in {"hostile_year_defensive", "tail_defensive", "walk_forward_plateau"}:
         if gene in {"market_filter_h", "market_confirm_h", "cooldown_h", "lookback_h", "rebalance_h"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
         if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
             return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
         if gene in {"k", "n_tranches"}:
             return order_numeric_neighbors(base.get(gene), values, "higher")
+        if gene == "hedge_ratio":
+            checks = seed.get("walk_forward_checks") or {}
+            if checks.get("wf_net_median_sharpe_retains_80pct_long_only") is False:
+                return order_numeric_neighbors(base.get(gene), values, "lower")
+            if checks.get("wf_hedged_dd_improves_half_folds") is False:
+                return order_numeric_neighbors(base.get(gene), values, "higher")
+            return order_numeric_neighbors(base.get(gene), values, "lower")
     if bias == "multiplicity_hardening":
         if gene in {"vol_target_ann", "drawdown_stop", "market_drawdown_limit"}:
             return order_numeric_neighbors(base.get(gene), values, "lower", zero_last=True)
@@ -509,6 +544,21 @@ def rescue_gene_order(failures: list[str]) -> list[str]:
     if "positive_3_of_4_years" in failures or TAIL_ROBUSTNESS_FAILURES.intersection(failures):
         ordered.extend(
             ["market_filter_h", "market_confirm_h", "rebalance_h", "lookback_h", "vol_target_ann", "n_tranches", "k"]
+        )
+    if WALK_FORWARD_FAILURES.intersection(failures):
+        ordered.extend(
+            [
+                "rebalance_h",
+                "lookback_h",
+                "vol_target_ann",
+                "hedge_ratio",
+                "n_tranches",
+                "k",
+                "market_filter_h",
+                "market_confirm_h",
+                "drawdown_stop",
+                "cooldown_h",
+            ]
         )
     if "benchmark_sharpe_excess_ge_0_10" in failures or "sharpe40_ge_1" in failures or "sharpe20_ge_1_2" in failures:
         ordered.extend(["score_mode", "k", "rebalance_h", "lookback_h", "vol_target_ann"])
@@ -556,7 +606,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         ordered_genes = [gene for gene in ACCEPTED_TRAIN_ONLY_GENE_ORDER if gene in base and gene in GENE_LADDERS]
     else:
         ordered_genes = [gene for gene in rescue_gene_order(failures) if gene in base and gene in GENE_LADDERS]
-    if mutation_bias in {"hostile_year_defensive", "tail_defensive", "multiplicity_hardening"} and limit > 5:
+    if mutation_bias in {"hostile_year_defensive", "tail_defensive", "walk_forward_plateau", "multiplicity_hardening"} and limit > 5:
         single_budget = max(1, int(limit / 3))
     else:
         single_budget = limit if limit <= 5 else max(1, int(limit * 2 / 3))
@@ -597,7 +647,7 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
     if len(neighbors) >= limit:
         return neighbors
 
-    pair_genes = ordered_genes[:7] if mutation_bias in {"hostile_year_defensive", "tail_defensive"} else ordered_genes[:5]
+    pair_genes = ordered_genes[:7] if mutation_bias in {"hostile_year_defensive", "tail_defensive", "walk_forward_plateau"} else ordered_genes[:5]
     if mutation_bias == "multiplicity_hardening":
         pair_genes = ordered_genes[:8]
     pair_radius = min(1, max(1, int(radius)))
@@ -612,6 +662,12 @@ def generate_rescue_neighbors(seed: dict[str, Any], budget: int = 30, radius: in
         pair_gene_groups.extend(
             (left, right)
             for left, right in TAIL_DEFENSIVE_PAIRS
+            if left in pair_genes and right in pair_genes
+        )
+    if mutation_bias == "walk_forward_plateau":
+        pair_gene_groups.extend(
+            (left, right)
+            for left, right in WALK_FORWARD_PLATEAU_PAIRS
             if left in pair_genes and right in pair_genes
         )
     if mutation_bias == "multiplicity_hardening":

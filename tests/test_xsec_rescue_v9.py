@@ -68,6 +68,7 @@ def row(
         "validation_sharpe40_gt_0",
         "validation_daily_turnover40_le_50pct",
         "selection_passed_before_validation",
+        "walk_forward_robust",
     }
     checks = {name: name not in failed_checks for name in check_names}
     yearly = yearly or {"2021": 0.20, "2022": -0.03, "2023": 0.11, "2024H1": 0.04}
@@ -425,6 +426,54 @@ def test_generate_rescue_neighbors_uses_tail_defensive_bias_for_bootstrap_only_f
     vol_tranche = next(neighbor for neighbor in two_gene if neighbor["changed_gene"] == "vol_target_ann+n_tranches")
     assert vol_tranche["changes"][0]["to"] == 0.06
     assert vol_tranche["changes"][1]["to"] == 3
+
+
+def test_generate_rescue_neighbors_uses_walk_forward_plateau_bias_for_wf_failure() -> None:
+    config = {
+        **BASE_CONFIG,
+        "lookback_h": 336,
+        "rebalance_h": 48,
+        "market_filter_h": 720,
+        "market_confirm_h": 0,
+        "vol_target_ann": 0.04,
+        "n_tranches": 1,
+        "drawdown_stop": 0.08,
+        "cooldown_h": 72,
+        "portfolio_mode": "hedged_long",
+        "hedge_ratio": 0.40,
+    }
+    sample = row(
+        config=config,
+        diagnostic_triggered=False,
+        failed_checks=("walk_forward_robust",),
+        selection_sharpe=2.40,
+        bootstrap_p5=1.20,
+        yearly={"2021": 0.20, "2022": 0.05, "2023": 0.11, "2024H1": 0.01},
+    )
+    sample["walk_forward"] = {
+        "q25_sharpe": -0.01,
+        "worst_fold_return": -0.056,
+        "worst_fold_max_drawdown": 0.095,
+        "hedged_dd_improvement_fraction": 0.667,
+        "checks": {
+            "wf_q25_sharpe_ge_min": False,
+            "wf_consistency_ge_min_or_bounded_loss": False,
+            "wf_net_median_sharpe_retains_80pct_long_only": False,
+            "wf_hedged_dd_improves_half_folds": True,
+        },
+    }
+    seed = select_rescue_seeds([sample])[0]
+
+    neighbors = generate_rescue_neighbors(seed, budget=18)
+
+    two_gene = [neighbor for neighbor in neighbors if len(neighbor["changed_genes"]) == 2]
+    hedge_neighbors = [neighbor for neighbor in neighbors if "hedge_ratio" in neighbor["changed_genes"]]
+    assert neighbors[0]["mutation_bias"] == "walk_forward_plateau"
+    assert neighbors[0]["changed_gene"] == "rebalance_h"
+    assert neighbors[0]["to"] == 72
+    assert any(neighbor["changed_gene"] == "rebalance_h+lookback_h" for neighbor in two_gene)
+    assert hedge_neighbors
+    assert hedge_neighbors[0]["config"]["hedge_ratio"] == 0.3
 
 
 def test_generate_rescue_neighbors_prefers_less_restrictive_repairs_when_activity_fails() -> None:
