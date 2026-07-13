@@ -293,6 +293,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_wf_hostile_hedged"]).preset == "hq_wf_hostile_hedged"
     assert parser.parse_args(["--preset", "hq_wf_hostile_regime_hedged"]).preset == "hq_wf_hostile_regime_hedged"
     assert parser.parse_args(["--preset", "hq_wf_tail_defense"]).preset == "hq_wf_tail_defense"
+    assert parser.parse_args(["--preset", "hq_short_reversal"]).preset == "hq_short_reversal"
     assert parser.parse_args(["--preset", "hq_wf_hostile_long_short"]).preset == "hq_wf_hostile_long_short"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
     assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
@@ -316,6 +317,46 @@ def test_breakout_presets_sweep_stop_enabled_configs() -> None:
     assert cfg.market_drawdown_limits == (0.25,)
 
 
+def test_short_reversal_preset_is_focused_market_neutral_grid() -> None:
+    cfg = config_for_preset(
+        "hq_short_reversal",
+        cache_dir="cache",
+        train_start="2020-01-01",
+        train_end="2020-12-31",
+        embargo_start="2021-01-01",
+        bootstrap_iterations=10,
+        out_json="out.json",
+        out_md="out.md",
+    )
+
+    total = (
+        len(cfg.lookbacks_h)
+        * len(cfg.skips_h)
+        * len(cfg.rebalances_h)
+        * len(cfg.ks)
+        * len(cfg.score_modes)
+        * len(cfg.market_filters_h)
+        * len(cfg.vol_targets_ann)
+        * len(cfg.n_tranches)
+        * len(cfg.drawdown_stops)
+        * len(cfg.cooldowns_h)
+        * len(cfg.market_confirm_hs)
+        * len(cfg.market_drawdown_limits)
+        * len(cfg.portfolio_modes)
+        * len(cfg.hedge_ratios)
+        * len(cfg.downtrend_hedge_ratios)
+    )
+
+    assert total == 24
+    assert cfg.score_modes == ("risk_adj_reversal",)
+    assert cfg.market_filters_h == (0,)
+    assert cfg.portfolio_modes == ("long_short",)
+    assert cfg.hedge_ratios == (1.0,)
+    assert cfg.drawdown_stops == (0.08,)
+    assert cfg.selection_min_time_in_market_frac == 0.60
+    assert cfg.validation_min_2024h1_periods == 1
+
+
 def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     cfg = OhlcvConfig(lookback_h=4, skip_h=0, rebalance_h=2, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
     mom = score_matrix(close_matrix(), cfg)
@@ -330,6 +371,33 @@ def test_score_matrix_supports_momentum_and_risk_adjusted() -> None:
     vol_breakout = score_matrix(close_matrix(240), vol_breakout_cfg)
     assert set(vol_breakout.columns) == {"AAA", "BBB", "CCC", "DDD"}
     assert vol_breakout.dropna(how="all").shape[0] > 0
+
+
+def test_score_matrix_risk_adjusted_reversal_rewards_recent_losers() -> None:
+    dt = pd.date_range("2020-01-01", periods=120, freq="1h", tz="UTC")
+    data = pd.DataFrame(
+        {
+            "dt": dt,
+            "DUMPED": [100.0 if idx < 96 else 100.0 - (idx - 95) * 1.0 for idx in range(120)],
+            "PUMPED": [100.0 if idx < 96 else 100.0 + (idx - 95) * 1.0 for idx in range(120)],
+            "FLAT": [100.0] * 120,
+            "DRIFT": [100.0 + idx * 0.02 for idx in range(120)],
+        }
+    )
+    cfg = OhlcvConfig(
+        lookback_h=24,
+        skip_h=0,
+        rebalance_h=24,
+        k=2,
+        score_mode="risk_adj_reversal",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+    )
+
+    scores = score_matrix(data, cfg).dropna(how="all").iloc[-1]
+
+    assert scores["DUMPED"] > scores["PUMPED"]
+    assert scores["DUMPED"] > scores["DRIFT"]
 
 
 def test_score_matrix_risk_adjusted_momentum_ensemble_blends_ranked_horizons() -> None:

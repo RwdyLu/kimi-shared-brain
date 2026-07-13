@@ -489,6 +489,28 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_short_reversal":
+        return RunConfig(
+            lookbacks_h=(24, 48, 72),
+            skips_h=(0,),
+            rebalances_h=(24, 72),
+            ks=(2, 3),
+            score_modes=("risk_adj_reversal",),
+            market_filters_h=(0,),
+            vol_targets_ann=(0.04, 0.05),
+            n_tranches=(1,),
+            drawdown_stops=(0.08,),
+            cooldowns_h=(72,),
+            portfolio_modes=("long_short",),
+            hedge_ratios=(1.0,),
+            selection_min_time_in_market_frac=0.60,
+            validation_min_2024h1_periods=1,
+            selection_max_flat_streak_h=45 * 24,
+            validation_min_time_in_market_frac=0.30,
+            validation_max_flat_streak_h=45 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_wf_hostile_long_short":
         return RunConfig(
             lookbacks_h=(336, 504),
@@ -658,6 +680,19 @@ def risk_adjusted_momentum_score(
     return mom / vol.replace(0.0, np.nan)
 
 
+def risk_adjusted_reversal_score(
+    prices: pd.DataFrame,
+    log_ret: pd.DataFrame,
+    lookback_h: int,
+    skip_h: int,
+) -> pd.DataFrame:
+    lookback = max(2, int(lookback_h))
+    min_periods = min(lookback, max(2, lookback // 4))
+    recent_return = prices.shift(skip_h) / prices.shift(skip_h + lookback) - 1.0
+    vol = log_ret.rolling(lookback, min_periods=min_periods).std().shift(skip_h)
+    return -recent_return / vol.replace(0.0, np.nan)
+
+
 def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
     prices = closes.drop(columns=["dt"])
     mom = prices.shift(cfg.skip_h) / prices.shift(cfg.skip_h + cfg.lookback_h) - 1.0
@@ -670,6 +705,8 @@ def score_matrix(closes: pd.DataFrame, cfg: OhlcvConfig) -> pd.DataFrame:
         min_periods = min(cfg.lookback_h, max(2, cfg.lookback_h // 4))
         vol = log_ret.rolling(cfg.lookback_h, min_periods=min_periods).std().shift(cfg.skip_h)
         return mom / vol.replace(0.0, pd.NA)
+    if cfg.score_mode == "risk_adj_reversal":
+        return risk_adjusted_reversal_score(prices, log_ret, cfg.lookback_h, cfg.skip_h)
     if cfg.score_mode == "risk_adj_mom_ensemble":
         horizons = tuple(
             dict.fromkeys(
@@ -2489,6 +2526,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_wf_hostile_hedged",
             "hq_wf_hostile_regime_hedged",
             "hq_wf_tail_defense",
+            "hq_short_reversal",
             "hq_wf_hostile_long_short",
             "hq_cadence_tranche",
             "hq_fast_rebal",
