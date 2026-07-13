@@ -300,6 +300,20 @@ def evaluate_price_aware_carry(
     net_returns = price_detail["net_return"].astype(float)
     price_returns = price_detail["price_return"].astype(float)
     funding_returns = price_detail["funding_return"].astype(float)
+    yearly = (
+        price_detail.assign(year=pd.to_datetime(price_detail["funding_time"], unit="ms", utc=True).dt.year)
+        .groupby("year", as_index=False)
+        .agg(
+            event_count=("net_return", "size"),
+            funding_return=("funding_return", "sum"),
+            price_return=("price_return", "sum"),
+            cost=("cost", "sum"),
+            net_return=("net_return", "sum"),
+        )
+        .sort_values("year")
+    )
+    yearly_rows = yearly.to_dict(orient="records")
+    yearly_net = yearly["net_return"].astype(float)
     metrics = {
         "status": "ok",
         "turnover_cost_bps": float(turnover_cost_bps),
@@ -309,6 +323,11 @@ def evaluate_price_aware_carry(
         "last_evaluated_funding_time_iso": timestamp_ms_to_iso(int(price_detail["funding_time"].max())),
         "average_turnover": float(price_detail["turnover"].mean()),
         "annualized_cost_drag": float(price_detail["cost"].mean()) * EVENTS_PER_YEAR,
+        "yearly": yearly_rows,
+        "net_year_count": int(len(yearly_rows)),
+        "positive_net_year_count": int((yearly_net > 0).sum()),
+        "positive_net_year_fraction": float((yearly_net > 0).mean()),
+        "min_year_net_return": float(yearly_net.min()),
         **summarize_returns(funding_returns, prefix="funding_"),
         **summarize_returns(price_returns, prefix="price_"),
         **summarize_returns(net_returns, prefix="net_"),

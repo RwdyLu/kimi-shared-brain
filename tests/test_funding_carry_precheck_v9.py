@@ -83,6 +83,9 @@ def test_price_aware_carry_uses_close_to_close_returns() -> None:
     assert metrics["net_annualized_return"] == metrics["funding_annualized_return"]
     assert metrics["price_annualized_return"] == 0.0
     assert metrics["passes_price_aware_precheck"] is True
+    assert metrics["net_year_count"] == 1
+    assert metrics["positive_net_year_count"] == 1
+    assert metrics["yearly"][0]["net_return"] > 0
 
 
 def test_evaluate_funding_carry_can_rebalance_less_frequently() -> None:
