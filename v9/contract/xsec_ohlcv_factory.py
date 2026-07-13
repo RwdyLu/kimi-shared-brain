@@ -425,6 +425,29 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_wf_hostile_long_short":
+        return RunConfig(
+            lookbacks_h=(336, 504),
+            skips_h=(0,),
+            rebalances_h=(120, 168),
+            ks=(3, 4),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(0,),
+            vol_targets_ann=(0.04, 0.05),
+            n_tranches=(2,),
+            drawdown_stops=(0.08, 0.10),
+            cooldowns_h=(72,),
+            market_confirm_hs=(0,),
+            market_drawdown_limits=(0.0,),
+            portfolio_modes=("long_short",),
+            hedge_ratios=(0.5, 1.0),
+            selection_min_time_in_market_frac=0.60,
+            selection_max_flat_streak_h=45 * 24,
+            validation_min_time_in_market_frac=0.30,
+            validation_max_flat_streak_h=45 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "breakout_fast":
         return RunConfig(
             lookbacks_h=(168, 240, 336),
@@ -639,11 +662,14 @@ def long_short_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: b
     k = min(int(cfg.k), max(1, len(ranked) // 2))
     longs = ranked[:k]
     shorts = ranked[-k:]
+    short_to_long = float(cfg.hedge_ratio) if float(cfg.hedge_ratio) > 0.0 else 1.0
+    long_gross = 1.0 / (1.0 + short_to_long)
+    short_gross = short_to_long / (1.0 + short_to_long)
     weights = {sym: 0.0 for sym in score_row.index}
     for sym in longs:
-        weights[sym] = 0.5 / k
+        weights[sym] = long_gross / k
     for sym in shorts:
-        weights[sym] = -0.5 / k
+        weights[sym] = -short_gross / k
     return weights
 
 
@@ -2165,6 +2191,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_wf_bridge",
             "hq_wf_hostile_bridge",
             "hq_wf_hostile_hedged",
+            "hq_wf_hostile_long_short",
             "hq_cadence_tranche",
             "hq_fast_rebal",
             "hq_breadth_wide",

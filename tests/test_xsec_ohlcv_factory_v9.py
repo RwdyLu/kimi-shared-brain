@@ -162,6 +162,27 @@ def test_long_short_weights_are_market_neutral_gross_one() -> None:
     assert sum(abs(v) for v in weights.values()) == 1.0
 
 
+def test_long_short_weights_use_hedge_ratio_as_short_to_long_ratio() -> None:
+    row = pd.Series({"AAA": 4.0, "BBB": 3.0, "CCC": 2.0, "DDD": 1.0})
+    cfg = OhlcvConfig(
+        lookback_h=4,
+        skip_h=0,
+        rebalance_h=2,
+        k=1,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        portfolio_mode="long_short",
+        hedge_ratio=0.5,
+    )
+
+    weights = long_short_weights(row, cfg, allow_exposure=True)
+
+    assert weights == {"AAA": 2.0 / 3.0, "BBB": 0.0, "CCC": 0.0, "DDD": -1.0 / 3.0}
+    assert sum(weights.values()) == 1.0 / 3.0
+    assert sum(abs(v) for v in weights.values()) == 1.0
+
+
 def test_hedged_long_weights_short_single_btc_overlay() -> None:
     row = pd.Series({"ADAUSDT": 4.0, "BTCUSDT": 3.0, "ETHUSDT": 2.0, "XRPUSDT": 1.0})
     cfg = OhlcvConfig(
@@ -245,6 +266,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_bridge"]).preset == "hq_wf_hostile_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_hedged"]).preset == "hq_wf_hostile_hedged"
+    assert parser.parse_args(["--preset", "hq_wf_hostile_long_short"]).preset == "hq_wf_hostile_long_short"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
     assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
 
@@ -1147,6 +1169,9 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_wf_hostile_hedged = config_for_preset(
         "hq_wf_hostile_hedged", "cache", "start", "end", "embargo", 10, "hwh.json", "hwh.md"
     )
+    hq_wf_hostile_long_short = config_for_preset(
+        "hq_wf_hostile_long_short", "cache", "start", "end", "embargo", 10, "hwls.json", "hwls.md"
+    )
     hq_cadence = config_for_preset("hq_cadence_tranche", "cache", "start", "end", "embargo", 10, "t.json", "t.md")
     hq_fast = config_for_preset("hq_fast_rebal", "cache", "start", "end", "embargo", 10, "f.json", "f.md")
     hq_breadth = config_for_preset("hq_breadth_wide", "cache", "start", "end", "embargo", 10, "g.json", "g.md")
@@ -1344,6 +1369,38 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile_hedged.portfolio_modes)
         * len(hq_wf_hostile_hedged.hedge_ratios)
         == 192
+    )
+    assert hq_wf_hostile_long_short.lookbacks_h == (336, 504)
+    assert hq_wf_hostile_long_short.rebalances_h == (120, 168)
+    assert hq_wf_hostile_long_short.ks == (3, 4)
+    assert hq_wf_hostile_long_short.score_modes == ("risk_adj_mom",)
+    assert hq_wf_hostile_long_short.market_filters_h == (0,)
+    assert hq_wf_hostile_long_short.vol_targets_ann == (0.04, 0.05)
+    assert hq_wf_hostile_long_short.n_tranches == (2,)
+    assert hq_wf_hostile_long_short.drawdown_stops == (0.08, 0.10)
+    assert hq_wf_hostile_long_short.cooldowns_h == (72,)
+    assert hq_wf_hostile_long_short.market_confirm_hs == (0,)
+    assert hq_wf_hostile_long_short.market_drawdown_limits == (0.0,)
+    assert hq_wf_hostile_long_short.portfolio_modes == ("long_short",)
+    assert hq_wf_hostile_long_short.hedge_ratios == (0.5, 1.0)
+    assert hq_wf_hostile_long_short.selection_min_time_in_market_frac == 0.60
+    assert hq_wf_hostile_long_short.selection_max_flat_streak_h == 45 * 24
+    assert hq_wf_hostile_long_short.validation_min_time_in_market_frac == 0.30
+    assert hq_wf_hostile_long_short.validation_max_flat_streak_h == 45 * 24
+    assert (
+        len(hq_wf_hostile_long_short.lookbacks_h)
+        * len(hq_wf_hostile_long_short.rebalances_h)
+        * len(hq_wf_hostile_long_short.ks)
+        * len(hq_wf_hostile_long_short.score_modes)
+        * len(hq_wf_hostile_long_short.market_filters_h)
+        * len(hq_wf_hostile_long_short.vol_targets_ann)
+        * len(hq_wf_hostile_long_short.n_tranches)
+        * len(hq_wf_hostile_long_short.drawdown_stops)
+        * len(hq_wf_hostile_long_short.market_confirm_hs)
+        * len(hq_wf_hostile_long_short.market_drawdown_limits)
+        * len(hq_wf_hostile_long_short.portfolio_modes)
+        * len(hq_wf_hostile_long_short.hedge_ratios)
+        == 64
     )
     assert hq_plateau.validate_all_rows is True
     assert hq_plateau.plateau_center_config["lookback_h"] == 504
