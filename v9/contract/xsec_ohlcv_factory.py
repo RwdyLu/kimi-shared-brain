@@ -21,7 +21,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v10_wf_hedged_overlay_gate"
+ROW_CACHE_VERSION = "selection_validation_v11_prefilter_skip_telemetry"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -1873,6 +1873,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "enabled": True,
             "passed": bool(selection_prefilter_passed),
             "skipped_bootstrap": not bool(selection_prefilter_passed),
+            "bootstrap_check_skipped": not bool(selection_prefilter_passed),
             "failed_checks": sorted(name for name, passed in selection_checks.items() if not passed),
             "note": "Cheap train-only selection gates run before bootstrap, walk-forward, and validation.",
         }
@@ -1899,8 +1900,6 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
                 max_flat_streak_h=cfg.selection_max_flat_streak_h,
             )
-        else:
-            selection_checks["bootstrap_p5_ge_adjusted_min"] = False
         if all(selection_checks.values()):
             cost20 = simulate(
                 selection_closes,

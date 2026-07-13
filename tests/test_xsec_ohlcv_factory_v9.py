@@ -1280,8 +1280,9 @@ def test_run_grid_prefilter_skips_bootstrap_when_cheap_selection_gate_fails(monk
     assert all(call["bootstrap_confirm_iterations"] == 0 for call in calls)
     assert row["selection_prefilter"]["passed"] is False
     assert row["selection_prefilter"]["skipped_bootstrap"] is True
+    assert row["selection_prefilter"]["bootstrap_check_skipped"] is True
     assert row["selection"]["checks"]["positive_3_of_4_years"] is False
-    assert row["selection"]["checks"]["bootstrap_p5_ge_adjusted_min"] is False
+    assert "bootstrap_p5_ge_adjusted_min" not in row["selection"]["checks"]
     assert row["validation"]["checks"]["selection_passed_before_validation"] is False
     assert row["advance_passed"] is False
     assert payload["selection_validation"]["selection_prefilter_enabled"] is True
