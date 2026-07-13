@@ -57,6 +57,7 @@ def run_queue(
     parent: Path,
     *,
     fingerprint: str = "abc123",
+    prior_trials: str = "10",
     extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = {
@@ -87,7 +88,7 @@ def run_queue(
             "--fingerprint",
             fingerprint,
             "--prior-trials",
-            "10",
+            prior_trials,
             "--max-parallel-factory",
             "999",
             *(extra or []),
@@ -166,3 +167,45 @@ def test_queue_refreshes_rescue_configs_from_parent_before_run(tmp_path) -> None
     assert "refreshed_rescue_from_parent configs=configs.json plan=artifacts/refresh_plan.json" in result.stdout
     assert json.loads((tmp_path / "configs.json").read_text()) == [{"refreshed": True, "budget": "9"}]
     assert json.loads((tmp_path / "artifacts" / "refresh_plan.json").read_text())["top_k"] == "7"
+
+
+def test_queue_auto_prior_trials_uses_parent_effective_trials(tmp_path) -> None:
+    write_fake_scripts(tmp_path)
+    parent = tmp_path / "parent.json"
+    parent.write_text(
+        json.dumps(
+            {
+                "summary": {"accepted_train_only": False},
+                "selection_validation": {
+                    "prior_trials": 100,
+                    "n_configs_tested": 25,
+                    "effective_trials": 4321,
+                },
+            }
+        )
+    )
+
+    result = run_queue(tmp_path, parent, prior_trials="auto")
+
+    assert result.returncode == 0, result.stderr
+    assert "rescue_prior_trials=4321" in result.stdout
+    assert "--prior-trials 4321" in (tmp_path / "ingest.txt").read_text()
+
+
+def test_queue_auto_prior_trials_falls_back_to_parent_prior_plus_rows(tmp_path) -> None:
+    write_fake_scripts(tmp_path)
+    parent = tmp_path / "parent.json"
+    parent.write_text(
+        json.dumps(
+            {
+                "summary": {"accepted_train_only": False, "rows": 12},
+                "selection_validation": {"prior_trials": 200},
+            }
+        )
+    )
+
+    result = run_queue(tmp_path, parent, prior_trials="auto")
+
+    assert result.returncode == 0, result.stderr
+    assert "rescue_prior_trials=212" in result.stdout
+    assert "--prior-trials 212" in (tmp_path / "ingest.txt").read_text()

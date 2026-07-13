@@ -29,7 +29,7 @@ usage() {
 usage: queue_xsec_rescue_after_parent.sh \
   --parent-output-json PATH --output-json PATH --output-md PATH --report-json PATH \
   --config-list-json PATH --data-snapshot PATH --task-name NAME --preset PRESET \
-  --fingerprint SHA1|auto --prior-trials N [--train-start DATE] [--train-end TS] \
+  --fingerprint SHA1|auto --prior-trials N|auto [--train-start DATE] [--train-end TS] \
   [--embargo-start DATE] [--bootstrap-iterations N] [--max-parallel-factory N] \
   [--refresh-before-run] [--refresh-plan-json PATH] [--refresh-top-k N] \
   [--refresh-budget-per-seed N]
@@ -139,6 +139,35 @@ print(hashlib.sha1(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
 PY
 }
 
+parent_effective_trials() {
+  python3 - "$PARENT_OUTPUT_JSON" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as handle:
+    payload = json.load(handle)
+
+selection_validation = payload.get("selection_validation") or {}
+summary = payload.get("summary") or {}
+for value in (
+    selection_validation.get("effective_trials"),
+    payload.get("effective_trials"),
+    summary.get("effective_trials"),
+):
+    if value is not None:
+        print(max(1, int(value or 0)))
+        raise SystemExit
+
+prior = selection_validation.get("prior_trials")
+n_configs = selection_validation.get("n_configs_tested") or selection_validation.get("n_configs")
+if prior is None:
+    prior = payload.get("prior_trials") or summary.get("prior_trials")
+if n_configs is None:
+    n_configs = payload.get("n_configs_tested") or summary.get("n_configs_tested") or summary.get("rows")
+print(max(1, int(prior or 0) + int(n_configs or 0)))
+PY
+}
+
 refresh_rescue_configs_from_parent() {
   local plan_json="$REFRESH_PLAN_JSON"
   if [[ -z "$plan_json" ]]; then
@@ -186,6 +215,12 @@ if [[ "$EFFECTIVE_FINGERPRINT" == "auto" ]]; then
 fi
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) rescue_fingerprint=$EFFECTIVE_FINGERPRINT"
 
+EFFECTIVE_PRIOR_TRIALS="$PRIOR_TRIALS"
+if [[ "$EFFECTIVE_PRIOR_TRIALS" == "auto" ]]; then
+  EFFECTIVE_PRIOR_TRIALS="$(parent_effective_trials)"
+fi
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) rescue_prior_trials=$EFFECTIVE_PRIOR_TRIALS"
+
 TRAIN_ONLY_ARTIFACT_COMMAND_TIMEOUT_SEC="${TRAIN_ONLY_ARTIFACT_COMMAND_TIMEOUT_SEC:-14400}" \
 TRAIN_ONLY_ARTIFACT_MAX_RUNTIME_SEC="${TRAIN_ONLY_ARTIFACT_MAX_RUNTIME_SEC:-57600}" \
 TRAIN_ONLY_ARTIFACT_POLL_SEC="${TRAIN_ONLY_ARTIFACT_POLL_SEC:-60}" \
@@ -198,7 +233,7 @@ TRAIN_ONLY_ARTIFACT_POLL_SEC="${TRAIN_ONLY_ARTIFACT_POLL_SEC:-60}" \
     --train-end "$TRAIN_END" \
     --embargo-start "$EMBARGO_START" \
     --bootstrap-iterations "$BOOTSTRAP_ITERATIONS" \
-    --prior-trials "$PRIOR_TRIALS" \
+    --prior-trials "$EFFECTIVE_PRIOR_TRIALS" \
     --out-json "$OUTPUT_JSON" \
     --out-md "$OUTPUT_MD"
 
@@ -210,7 +245,7 @@ python3 scripts/v9_ingest_train_only_artifact.py \
   --train-end "$TRAIN_END" \
   --embargo-start "$EMBARGO_START" \
   --bootstrap-iterations "$BOOTSTRAP_ITERATIONS" \
-  --prior-trials "$PRIOR_TRIALS" \
+  --prior-trials "$EFFECTIVE_PRIOR_TRIALS" \
   --output-json "$OUTPUT_JSON" \
   --output-md "$OUTPUT_MD" \
   --report-json "$REPORT_JSON" \
