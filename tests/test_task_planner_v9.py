@@ -14,8 +14,11 @@ from v9.research.task_planner import (  # noqa: E402
     append_explored_record,
     cumulative_trials,
     candidate_quality,
+    focus_presets_for_mode,
     load_explored_fingerprints,
     ordered_presets_by_quality,
+    preset_family,
+    preset_module,
     propose_tasks,
     proposed_search_space,
     task_fingerprint,
@@ -73,6 +76,7 @@ def test_task_planner_outputs_train_only_commands_before_embargo() -> None:
         "hq_wf_hostile_regime_hedged",
         "hq_wf_tail_defense",
         "hq_wf_hostile_long_short",
+        "funding_anticarry_top30",
         "breakout_fast",
         "breakout_slow",
         "hq_fast_rebal",
@@ -257,6 +261,16 @@ def test_xsec_first_preset_mode_prioritizes_xsec_without_disabling_tsmom() -> No
         "tsmom_defensive_regime",
     ]
     assert all(task.module == "v9.contract.tsmom_factory" for task in first[30:31])
+
+
+def test_funding_anticarry_preset_maps_to_funding_factory() -> None:
+    assert preset_module("funding_anticarry_top30") == "v9.contract.funding_anticarry_factory"
+    assert preset_family("funding_anticarry_top30") == "funding_anticarry"
+    assert "funding_anticarry_top30" in focus_presets_for_mode("balanced")
+    planned = [task for task in proposed_search_space() if task.preset == "funding_anticarry_top30"][0]
+    assert planned.module == "v9.contract.funding_anticarry_factory"
+    assert planned.cli_preset == "top30_anti_carry"
+    assert planned.name.startswith("funding_anticarry_cont_")
 
 
 def test_propose_tasks_uses_quality_aware_preset_order(tmp_path) -> None:

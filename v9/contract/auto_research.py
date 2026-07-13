@@ -42,7 +42,11 @@ from v9.research.task_planner import (
 )
 
 
-TRAIN_ONLY_MODULES = ("v9.contract.xsec_ohlcv_factory", "v9.contract.tsmom_factory")
+TRAIN_ONLY_MODULES = (
+    "v9.contract.xsec_ohlcv_factory",
+    "v9.contract.tsmom_factory",
+    "v9.contract.funding_anticarry_factory",
+)
 DEFAULT_TRAIN_END = "2024-06-30 23:59:59"
 DEFAULT_EMBARGO_START = "2024-07-01"
 MAX_AUTO_RESCUE_CONFIGS = 150

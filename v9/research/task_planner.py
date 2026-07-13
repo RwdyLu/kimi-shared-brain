@@ -14,6 +14,8 @@ from v9.research.candidate_dedupe import candidate_is_quarantined, dedupe_candid
 
 DEFAULT_TRAIN_MODULE = "v9.contract.xsec_ohlcv_factory"
 MODULE_BY_PRESET = {
+    "funding_anticarry_top30": "v9.contract.funding_anticarry_factory",
+    "funding_anticarry_top30_scan": "v9.contract.funding_anticarry_factory",
     "tsmom_bear_short_medium": "v9.contract.tsmom_factory",
     "tsmom_bear_short_medium_neighbor": "v9.contract.tsmom_factory",
     "tsmom_bear_short_medium_risk": "v9.contract.tsmom_factory",
@@ -28,6 +30,8 @@ MODULE_BY_PRESET = {
     "tsmom_trend_ensemble": "v9.contract.tsmom_factory",
 }
 CLI_PRESET_BY_PRESET = {
+    "funding_anticarry_top30": "top30_anti_carry",
+    "funding_anticarry_top30_scan": "top30_anti_carry_scan",
     "tsmom_bear_short_medium": "bear_short_medium",
     "tsmom_bear_short_medium_neighbor": "bear_short_medium_neighbor",
     "tsmom_bear_short_medium_risk": "bear_short_medium_risk",
@@ -70,6 +74,7 @@ FOCUS_PRESETS = (
     "hq_wf_hostile_regime_hedged",
     "hq_wf_tail_defense",
     "hq_short_reversal",
+    "funding_anticarry_top30",
     "hq_wf_hostile_long_short",
     "hq_dd_plateau",
     "hq_dd_long",
@@ -114,6 +119,8 @@ PRESETS = (
     "hq_wf_hostile_regime_hedged",
     "hq_wf_tail_defense",
     "hq_short_reversal",
+    "funding_anticarry_top30",
+    "funding_anticarry_top30_scan",
     "hq_wf_hostile_long_short",
     "breakout_fast",
     "breakout_slow",
@@ -140,7 +147,12 @@ def preset_module(preset: str) -> str:
 
 
 def preset_family(preset: str) -> str:
-    return "tsmom" if preset_module(preset) == "v9.contract.tsmom_factory" else "xsec_ohlcv"
+    module = preset_module(preset)
+    if module == "v9.contract.tsmom_factory":
+        return "tsmom"
+    if module == "v9.contract.funding_anticarry_factory":
+        return "funding_anticarry"
+    return "xsec_ohlcv"
 
 
 XSEC_FIRST_FOCUS_PRESETS = (
@@ -221,6 +233,8 @@ EVALUATION_VERSION_BY_PRESET = {
     "hq_wf_hostile_regime_hedged": "selection_validation_v2_xsec_hq_walkforward_hostile_regime_hedged",
     "hq_wf_tail_defense": "selection_validation_v1_xsec_hq_walkforward_tail_defense_ensemble",
     "hq_short_reversal": "selection_validation_v1_xsec_hq_short_reversal",
+    "funding_anticarry_top30": "selection_validation_v1_funding_anticarry_top30",
+    "funding_anticarry_top30_scan": "selection_validation_v1_funding_anticarry_top30_scan",
     "hq_wf_hostile_long_short": "selection_validation_v1_xsec_hq_walkforward_hostile_long_short",
     "hq_hedged_long": "selection_validation_v1_xsec_hq_hedged_long",
     "hq_market_neutral": "selection_validation_v1_xsec_hq_market_neutral",
@@ -500,7 +514,7 @@ def proposed_search_space(
             short = fingerprint[:12]
             module = MODULE_BY_PRESET.get(preset, DEFAULT_TRAIN_MODULE)
             cli_preset = CLI_PRESET_BY_PRESET.get(preset)
-            family = "tsmom" if module == "v9.contract.tsmom_factory" else "xsec_ohlcv"
+            family = preset_family(preset)
             name = f"{family}_cont_{window_label}_{preset}_{short}"
             output_json = f"artifacts/v9/contract_lab/{name}.json"
             output_md = f"artifacts/v9/contract_lab/{name}.md"

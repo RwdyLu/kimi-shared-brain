@@ -208,6 +208,32 @@ def test_auto_research_accepts_train_only_tsmom_module(tmp_path) -> None:
     auto_research.validate_train_only_task(task)
 
 
+def test_auto_research_accepts_train_only_funding_anticarry_module(tmp_path) -> None:
+    out_json = tmp_path / "funding.json"
+    task = ResearchTask(
+        name="funding",
+        command=(
+            "python3",
+            "-m",
+            "v9.contract.funding_anticarry_factory",
+            "--preset",
+            "top30_anti_carry",
+            "--train-end",
+            "2026-06-30",
+            "--embargo-start",
+            "2026-07-01",
+            "--out-json",
+            str(out_json),
+            "--out-md",
+            str(tmp_path / "funding.md"),
+        ),
+        output_json=str(out_json),
+        output_md=str(tmp_path / "funding.md"),
+        timeout_sec=1,
+    )
+    auto_research.validate_train_only_task(task)
+
+
 def test_trial_metadata_carries_data_fingerprint() -> None:
     metadata = auto_research.trial_metadata(
         {
