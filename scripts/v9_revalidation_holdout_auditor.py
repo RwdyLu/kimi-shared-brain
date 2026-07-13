@@ -124,7 +124,10 @@ def verdict_path_for(output_json: str) -> Path:
 
 
 def has_group_verdict(group: dict[str, Any]) -> bool:
-    existing = read_json(verdict_path_for(str(group.get("output_json") or "")))
+    try:
+        existing = read_json(verdict_path_for(str(group.get("output_json") or "")))
+    except OSError:
+        return False
     return existing.get("kind") == GROUP_VERDICT_KIND
 
 
@@ -378,11 +381,13 @@ def build_audit_report(
         include_processes=True,
     )
     groups = list(status.get("groups") or [])
-    missing_verdict_groups = [
-        group
-        for group in groups
-        if group.get("status") == "completed_accepted" and not has_group_verdict(group)
-    ]
+    missing_verdict_groups = []
+    if missing_verdicts_first and not targeted:
+        missing_verdict_groups = [
+            group
+            for group in groups
+            if group.get("status") == "completed_accepted" and not has_group_verdict(group)
+        ]
     if targeted:
         groups_for_audit = groups
     elif missing_verdicts_first and missing_verdict_groups:
