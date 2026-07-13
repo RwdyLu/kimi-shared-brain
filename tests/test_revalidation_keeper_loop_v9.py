@@ -24,3 +24,10 @@ def test_keeper_defaults_allow_holdout_while_parallel_search_runs() -> None:
         'HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY="${REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY:-5}"'
         in text
     )
+
+
+def test_keeper_defaults_audit_full_candidate_plan_window() -> None:
+    text = SCRIPT.read_text()
+
+    assert 'STATUS_GROUPS="${REVALIDATION_KEEPER_STATUS_GROUPS:-25}"' in text
+    assert 'HOLDOUT_AUDITOR_MAX_GROUPS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_GROUPS:-25}"' in text
