@@ -21,6 +21,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     data_fingerprint,
     data_snapshot_path_for,
     leave_one_symbol_summary,
+    gate_alignment_summary,
     load_explicit_configs,
     hedged_long_weights,
     long_only_weights,
@@ -28,6 +29,7 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     market_filter,
     plateau_stability_summary,
     append_progress_row,
+    progress_row_sort_key,
     progress_meta_path_for,
     progress_path_for,
     read_data_snapshot,
@@ -886,6 +888,60 @@ def test_progress_meta_records_prior_and_effective_trials(tmp_path) -> None:
     assert payload["diagnostics"]["best_passed_so_far"]["config"] == {"lookback_h": 48}
 
 
+def test_gate_alignment_prefers_near_gate_rows_over_raw_sharpe() -> None:
+    near20 = passing_gate_result()
+    near20["max_flat_streak_h"] = 12
+    near40 = json.loads(json.dumps(near20))
+    near40["sharpe"] = 1.1
+    near_checks = advance_checks(near20, near40, bootstrap_p5_min=0.25, max_flat_streak_h=48)
+    near_checks["walk_forward_robust"] = False
+    near_row = {
+        "advance_passed": False,
+        "cost20": near20,
+        "cost40": near40,
+        "validation": {"cost20": near20, "cost40": near40},
+        "walk_forward": {"q25_sharpe": -0.10},
+        "advance_checks": near_checks,
+    }
+
+    weak20 = passing_gate_result()
+    weak20.update(
+        {
+            "sharpe": 4.0,
+            "max_drawdown": 0.48,
+            "yearly_positive_count": 1,
+            "bootstrap_30d_sharpe_p5": 0.05,
+            "top_positive_symbol_share": 0.92,
+            "max_flat_streak_h": 300,
+        }
+    )
+    weak20["yearly"]["2024H1"]["net_return"] = -0.08
+    weak20["equal_weight_benchmark"] = {"sharpe_excess": -0.20, "drawdown_ratio": 1.40}
+    weak40 = json.loads(json.dumps(weak20))
+    weak40.update(
+        {
+            "sharpe": 0.20,
+            "active_rebalance_event_count": 1,
+            "time_in_market_frac": 0.01,
+            "max_flat_streak_h": 300,
+        }
+    )
+    weak_checks = advance_checks(weak20, weak40, bootstrap_p5_min=0.25, max_flat_streak_h=48)
+    weak_checks["walk_forward_robust"] = False
+    weak_row = {
+        "advance_passed": False,
+        "cost20": weak20,
+        "cost40": weak40,
+        "validation": {"cost20": weak20, "cost40": weak40},
+        "walk_forward": {"q25_sharpe": 0.90},
+        "advance_checks": weak_checks,
+    }
+
+    assert weak20["sharpe"] > near20["sharpe"]
+    assert gate_alignment_summary(near_row)["score"] > gate_alignment_summary(weak_row)["score"]
+    assert progress_row_sort_key(near_row) > progress_row_sort_key(weak_row)
+
+
 def test_bootstrap_seed_is_stable_and_segment_specific() -> None:
     cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=48, vol_target_ann=0.0)
     first = bootstrap_seed(cfg, 20.0, "selection", "2020-01-01", "2021-01-01")
@@ -1451,6 +1507,90 @@ def test_run_grid_requires_acceptance_level_validation_activity(monkeypatch, tmp
     assert payload["summary"]["accepted_activity_ok"] is False
     assert payload["summary"]["accepted_train_only"] is False
     assert payload["selection_validation"]["accepted_min_validation_active_rebalances"] == 50
+
+
+def test_run_grid_sorts_top_rows_by_gate_alignment_before_raw_sharpe(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.load_close_matrix", lambda *args: close_matrix(1600))
+
+    def fake_simulate(
+        closes,
+        cfg,
+        cost_bps,
+        bootstrap_iterations=500,
+        bootstrap_seed_value=20260707,
+        bootstrap_confirm_iterations=0,
+        bootstrap_confirm_seed_value=None,
+    ):
+        if cfg.k == 2:
+            result = passing_gate_result(active_rebalance_event_count=1, time_in_market_frac=0.01)
+            result.update(
+                {
+                    "sharpe": 4.0,
+                    "max_drawdown": 0.48,
+                    "yearly_positive_count": 1,
+                    "bootstrap_30d_sharpe_p5": 0.05,
+                    "top_positive_symbol_share": 0.92,
+                    "max_flat_streak_h": 300,
+                }
+            )
+            result["yearly"]["2024H1"]["net_return"] = -0.08
+            result["equal_weight_benchmark"] = {"sharpe_excess": -0.20, "drawdown_ratio": 1.40}
+        else:
+            result = passing_gate_result(active_rebalance_event_count=20, time_in_market_frac=0.80)
+            result.update({"sharpe": 1.4, "max_flat_streak_h": 12})
+        result["config"] = {
+            "lookback_h": cfg.lookback_h,
+            "skip_h": cfg.skip_h,
+            "rebalance_h": cfg.rebalance_h,
+            "k": cfg.k,
+            "score_mode": cfg.score_mode,
+            "market_filter_h": cfg.market_filter_h,
+            "vol_target_ann": cfg.vol_target_ann,
+        }
+        result["cost_bps"] = float(cost_bps)
+        result["bootstrap_seed"] = int(bootstrap_seed_value)
+        result["bootstrap_iterations"] = int(bootstrap_iterations)
+        result["legs"] = {
+            "long_gross_return": 0.20,
+            "long_gross_sharpe": 1.4,
+            "short_gross_return": 0.0,
+            "short_gross_sharpe": 0.0,
+            "avg_long_exposure": 1.0,
+            "avg_short_exposure": 0.0,
+        }
+        if bootstrap_confirm_iterations:
+            result["bootstrap_30d_sharpe_p5_confirm"] = result["bootstrap_30d_sharpe_p5"]
+            result["bootstrap_confirm_seed"] = int(bootstrap_confirm_seed_value)
+            result["bootstrap_confirm_iterations"] = int(bootstrap_confirm_iterations)
+        return result
+
+    def fake_walk_forward(closes, cfg, cost_bps=40.0, **kwargs):
+        if cfg.k == 3:
+            return {"enabled": True, "passed": False, "folds": [], "q25_sharpe": -0.10}
+        return {"enabled": True, "passed": False, "folds": [], "q25_sharpe": 0.90}
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.walk_forward_summary", fake_walk_forward)
+    cfg = RunConfig(
+        symbols=("AAA", "BBB", "CCC", "DDD"),
+        lookbacks_h=(24,),
+        skips_h=(0,),
+        rebalances_h=(12,),
+        ks=(2, 3),
+        score_modes=("mom",),
+        market_filters_h=(0,),
+        vol_targets_ann=(0.0,),
+        bootstrap_iterations=10,
+        validate_all_rows=True,
+        out_json=str(tmp_path / "out.json"),
+        out_md="",
+    )
+
+    payload = run_grid(cfg)
+
+    assert payload["rows"][0]["config"]["k"] == 3
+    assert payload["rows"][0]["cost20"]["sharpe"] < payload["rows"][1]["cost20"]["sharpe"]
+    assert payload["rows"][0]["gate_alignment"]["score"] > payload["rows"][1]["gate_alignment"]["score"]
 
 
 def test_presets_select_distinct_search_spaces() -> None:

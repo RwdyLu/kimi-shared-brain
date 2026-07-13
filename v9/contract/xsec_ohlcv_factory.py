@@ -1032,12 +1032,113 @@ def progress_float(value: Any) -> float | None:
     return None
 
 
-def progress_row_sort_key(row: dict[str, Any]) -> tuple[bool, float, float, float, float]:
+GATE_ALIGNMENT_CONTROL_CHECKS = {
+    "selection_passed_before_validation",
+    "validation_usable",
+}
+
+
+def bounded_score(value: Any, floor: float, target: float) -> float:
+    numeric = progress_float(value)
+    if numeric is None or target <= floor:
+        return 0.0
+    return max(0.0, min(1.0, (numeric - floor) / (target - floor)))
+
+
+def inverse_bounded_score(value: Any, target_or_better: float, fail_at_or_worse: float) -> float:
+    numeric = progress_float(value)
+    if numeric is None or fail_at_or_worse <= target_or_better:
+        return 0.0
+    if numeric <= target_or_better:
+        return 1.0
+    if numeric >= fail_at_or_worse:
+        return 0.0
+    return (fail_at_or_worse - numeric) / (fail_at_or_worse - target_or_better)
+
+
+def gate_alignment_summary(row: dict[str, Any]) -> dict[str, Any]:
+    checks = row.get("advance_checks") or {}
+    scored_checks = {
+        str(key): bool(value)
+        for key, value in checks.items()
+        if str(key) not in GATE_ALIGNMENT_CONTROL_CHECKS
+    }
+    passed_checks = sum(1 for value in scored_checks.values() if value)
+    scored_check_count = len(scored_checks)
+    pass_fraction = passed_checks / scored_check_count if scored_check_count else 0.0
+    failed_checks = sorted(key for key, value in scored_checks.items() if not value)
+
+    cost20 = row.get("cost20") or {}
+    cost40 = row.get("cost40") or {}
+    validation20 = ((row.get("validation") or {}).get("cost20") or {})
+    validation40 = ((row.get("validation") or {}).get("cost40") or {})
+    walk_forward = row.get("walk_forward") or {}
+    benchmark = cost20.get("equal_weight_benchmark") or {}
+
+    components = {
+        "check_pass_fraction": pass_fraction,
+        "selection_sharpe20": bounded_score(cost20.get("sharpe"), 0.0, 1.2),
+        "selection_sharpe40": bounded_score(cost40.get("sharpe"), 0.0, 1.0),
+        "validation_sharpe20": bounded_score(validation20.get("sharpe"), 0.0, 1.0),
+        "walk_forward_q25": bounded_score(walk_forward.get("q25_sharpe"), -0.25, 0.75),
+        "yearly_positive": bounded_score(cost20.get("yearly_positive_count"), 0.0, 3.0),
+        "bootstrap_p5": bounded_score(cost20.get("bootstrap_30d_sharpe_p5"), 0.0, 0.45),
+        "benchmark_excess": bounded_score(benchmark.get("sharpe_excess"), -0.10, 0.10),
+        "drawdown": inverse_bounded_score(cost20.get("max_drawdown"), 0.25, 0.50),
+        "drawdown_ratio": inverse_bounded_score(benchmark.get("drawdown_ratio"), 0.80, 1.20),
+        "flat_streak": inverse_bounded_score(cost40.get("max_flat_streak_h"), 48.0, 240.0),
+        "selection_activity": bounded_score(cost40.get("active_rebalance_event_count"), 0.0, 12.0),
+        "selection_time_in_market": bounded_score(cost40.get("time_in_market_frac"), 0.0, 0.05),
+        "validation_activity": bounded_score(validation40.get("active_rebalance_event_count"), 0.0, 4.0),
+        "validation_time_in_market": bounded_score(validation40.get("time_in_market_frac"), 0.0, 0.03),
+        "symbol_breadth": inverse_bounded_score(cost20.get("top_positive_symbol_share"), 0.60, 0.80),
+    }
+    weights = {
+        "check_pass_fraction": 4.0,
+        "selection_sharpe20": 1.5,
+        "selection_sharpe40": 1.0,
+        "validation_sharpe20": 2.0,
+        "walk_forward_q25": 2.0,
+        "yearly_positive": 2.0,
+        "bootstrap_p5": 1.0,
+        "benchmark_excess": 2.0,
+        "drawdown": 1.5,
+        "drawdown_ratio": 1.5,
+        "flat_streak": 1.0,
+        "selection_activity": 1.0,
+        "selection_time_in_market": 1.0,
+        "validation_activity": 1.0,
+        "validation_time_in_market": 1.0,
+        "symbol_breadth": 1.0,
+    }
+    total_weight = sum(weights.values())
+    weighted = sum(components[name] * weights[name] for name in weights)
+    return {
+        "score": round(100.0 * weighted / total_weight, 6) if total_weight else 0.0,
+        "passed_checks": int(passed_checks),
+        "scored_checks": int(scored_check_count),
+        "pass_fraction": round(pass_fraction, 6),
+        "failed_checks": failed_checks,
+        "components": {name: round(float(value), 6) for name, value in components.items()},
+    }
+
+
+def gate_alignment_score(row: dict[str, Any]) -> float:
+    existing = row.get("gate_alignment")
+    if isinstance(existing, dict):
+        score = progress_float(existing.get("score"))
+        if score is not None:
+            return score
+    return float(gate_alignment_summary(row)["score"])
+
+
+def progress_row_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
     cost20 = row.get("cost20") or {}
     validation20 = ((row.get("validation") or {}).get("cost20") or {})
     walk_forward = row.get("walk_forward") or {}
     return (
         bool(row.get("advance_passed")),
+        gate_alignment_score(row),
         progress_float(walk_forward.get("q25_sharpe")) or -999.0,
         progress_float(validation20.get("sharpe")) or -999.0,
         progress_float(cost20.get("sharpe")) or -999.0,
@@ -1050,9 +1151,14 @@ def progress_row_summary(row: dict[str, Any]) -> dict[str, Any]:
     validation20 = ((row.get("validation") or {}).get("cost20") or {})
     walk_forward = row.get("walk_forward") or {}
     checks = row.get("advance_checks") or {}
+    gate_alignment = row.get("gate_alignment")
+    if not isinstance(gate_alignment, dict):
+        gate_alignment = gate_alignment_summary(row)
     return {
         "advance_passed": bool(row.get("advance_passed")),
         "config": row.get("config") or {},
+        "gate_alignment_score": progress_float(gate_alignment.get("score")),
+        "gate_alignment_pass_fraction": progress_float(gate_alignment.get("pass_fraction")),
         "cost20_sharpe": progress_float(cost20.get("sharpe")),
         "cost20_return": progress_float(cost20.get("total_return")),
         "cost20_max_drawdown": progress_float(cost20.get("max_drawdown")),
@@ -2103,6 +2209,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             "advance_checks": checks,
             "advance_passed": all(checks.values()),
         }
+        row["gate_alignment"] = gate_alignment_summary(row)
         append_progress_row(progress_path, cache_key, row)
         progress_rows[cache_key] = row
         write_progress_meta(
@@ -2117,13 +2224,10 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             progress_rows=progress_rows.values(),
         )
         rows.append(row)
+    for row in rows:
+        row["gate_alignment"] = gate_alignment_summary(row)
     rows.sort(
-        key=lambda row: (
-            bool(row["advance_passed"]),
-            float((row.get("walk_forward") or {}).get("q25_sharpe", -999.0) or -999.0),
-            float(row["cost20"]["sharpe"]),
-            -float(row["cost20"]["max_drawdown"]),
-        ),
+        key=progress_row_sort_key,
         reverse=True,
     )
     pass_rows = [row for row in rows if row["advance_passed"]]
@@ -2251,8 +2355,8 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
             "",
             "## Top Rows",
             "",
-            "| cfg | pass | sel 20bps sh | wf q25 40bps | diag wf q25 | val 20bps sh | val ret | val DD | sel boot p5 | EW excess | DD ratio | top sym | loo min sh |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| cfg | pass | gate | sel 20bps sh | wf q25 40bps | diag wf q25 | val 20bps sh | val ret | val DD | sel boot p5 | EW excess | DD ratio | top sym | loo min sh |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in payload["top"]:
@@ -2262,6 +2366,9 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         walk_forward = row.get("walk_forward", {}) or {}
         diagnostic_walk_forward = row.get("diagnostic_walk_forward", {}) or {}
         leave_one_symbol = row.get("leave_one_symbol", {}) or {}
+        gate_alignment = row.get("gate_alignment")
+        if not isinstance(gate_alignment, dict):
+            gate_alignment = gate_alignment_summary(row)
         bench = c20["equal_weight_benchmark"]
         label = (
             "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_"
@@ -2270,9 +2377,10 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
             "PM{portfolio_mode}_HR{hedge_ratio}_DHR{downtrend_hedge_ratio}"
         ).format(**cfg)
         lines.append(
-            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
+            "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
                 label,
                 row["advance_passed"],
+                float(gate_alignment.get("score", 0.0) or 0.0),
                 c20["sharpe"],
                 float(walk_forward.get("q25_sharpe", 0.0) or 0.0),
                 float(diagnostic_walk_forward.get("q25_sharpe", 0.0) or 0.0),
