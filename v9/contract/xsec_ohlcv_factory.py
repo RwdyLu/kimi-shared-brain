@@ -8,7 +8,7 @@ import math
 import random
 import time
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -21,7 +21,7 @@ from .simulator import utc_ts
 from .xsec_momentum import SYMBOLS, load_close_matrix, sharpe
 
 
-ROW_CACHE_VERSION = "selection_validation_v9_wf_bounded_loss_regime_attr"
+ROW_CACHE_VERSION = "selection_validation_v10_wf_hedged_overlay_gate"
 ACTIVE_EXPOSURE_THRESHOLD = 0.01
 SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
@@ -1362,6 +1362,8 @@ def walk_forward_summary(
 ) -> dict[str, Any]:
     min_rows = min_rows_for_config(cfg)
     usable_folds = max(1, min(int(folds), len(closes) // min_rows))
+    hedged_overlay = cfg.portfolio_mode == "hedged_long" and float(cfg.hedge_ratio) > 0.0
+    unhedged_cfg = replace(cfg, portfolio_mode="long_only", hedge_ratio=0.0) if hedged_overlay else None
     rows = []
     if usable_folds < 2:
         return {
@@ -1378,27 +1380,35 @@ def walk_forward_summary(
         if len(frame) < min_rows:
             continue
         result = simulate(frame, cfg, cost_bps, bootstrap_iterations=0)
+        unhedged_result = simulate(frame, unhedged_cfg, cost_bps, bootstrap_iterations=0) if unhedged_cfg else None
         legs = result.get("legs", {}) or {}
         attribution = result.get("regime_attribution", {}) or {}
-        rows.append(
-            {
-                "fold": int(fold),
-                "start": frame["dt"].iloc[0].isoformat(),
-                "end": frame["dt"].iloc[-1].isoformat(),
-                "rows": int(len(frame)),
-                "sharpe": float(result["sharpe"]),
-                "total_return": float(result["total_return"]),
-                "max_drawdown": float(result["max_drawdown"]),
-                "daily_turnover": float(result["daily_turnover"]),
-                "long_gross_sharpe": float(legs.get("long_gross_sharpe", 0.0) or 0.0),
-                "short_gross_sharpe": float(legs.get("short_gross_sharpe", 0.0) or 0.0),
-                "long_gross_return": float(legs.get("long_gross_return", 0.0) or 0.0),
-                "short_gross_return": float(legs.get("short_gross_return", 0.0) or 0.0),
-                "avg_long_exposure": float(legs.get("avg_long_exposure", 0.0) or 0.0),
-                "avg_short_exposure": float(legs.get("avg_short_exposure", 0.0) or 0.0),
-                "regime_attribution": attribution,
-            }
-        )
+        row = {
+            "fold": int(fold),
+            "start": frame["dt"].iloc[0].isoformat(),
+            "end": frame["dt"].iloc[-1].isoformat(),
+            "rows": int(len(frame)),
+            "sharpe": float(result["sharpe"]),
+            "total_return": float(result["total_return"]),
+            "max_drawdown": float(result["max_drawdown"]),
+            "daily_turnover": float(result["daily_turnover"]),
+            "long_gross_sharpe": float(legs.get("long_gross_sharpe", 0.0) or 0.0),
+            "short_gross_sharpe": float(legs.get("short_gross_sharpe", 0.0) or 0.0),
+            "long_gross_return": float(legs.get("long_gross_return", 0.0) or 0.0),
+            "short_gross_return": float(legs.get("short_gross_return", 0.0) or 0.0),
+            "avg_long_exposure": float(legs.get("avg_long_exposure", 0.0) or 0.0),
+            "avg_short_exposure": float(legs.get("avg_short_exposure", 0.0) or 0.0),
+            "regime_attribution": attribution,
+        }
+        if unhedged_result is not None:
+            row.update(
+                {
+                    "unhedged_long_only_sharpe": float(unhedged_result["sharpe"]),
+                    "unhedged_long_only_total_return": float(unhedged_result["total_return"]),
+                    "unhedged_long_only_max_drawdown": float(unhedged_result["max_drawdown"]),
+                }
+            )
+        rows.append(row)
     if not rows:
         return {
             "enabled": True,
@@ -1417,6 +1427,7 @@ def walk_forward_summary(
     short_active = [row for row in rows if row["avg_short_exposure"] > 0.01]
     median_long_sharpe = float(np.median([row["long_gross_sharpe"] for row in long_active])) if long_active else 0.0
     median_short_sharpe = float(np.median([row["short_gross_sharpe"] for row in short_active])) if short_active else 0.0
+    median_net_sharpe = float(np.median(sharpes))
     strict_consistency = sign_consistency >= min_sign_consistency and positive_return_fraction >= min_sign_consistency
     bounded_loss_consistency = (
         sign_consistency >= min_bounded_loss_consistency
@@ -1424,12 +1435,42 @@ def walk_forward_summary(
         and worst_fold_return >= -max_bounded_loss_return
         and worst_fold_drawdown <= max_bounded_loss_drawdown
     )
+    unhedged_rows = [row for row in rows if "unhedged_long_only_max_drawdown" in row]
+    if unhedged_rows:
+        unhedged_median_sharpe = float(np.median([row["unhedged_long_only_sharpe"] for row in unhedged_rows]))
+        hedged_dd_improvement_fraction = float(
+            sum(
+                1
+                for row in unhedged_rows
+                if row["max_drawdown"] <= row["unhedged_long_only_max_drawdown"] * 0.90
+            )
+            / len(unhedged_rows)
+        )
+    else:
+        unhedged_median_sharpe = None
+        hedged_dd_improvement_fraction = None
     checks = {
         "wf_q25_sharpe_ge_min": q25 >= min_q25_sharpe,
         "wf_consistency_ge_min_or_bounded_loss": strict_consistency or bounded_loss_consistency,
         "wf_median_long_leg_sharpe_ge_0": median_long_sharpe >= 0.0,
-        "wf_median_short_leg_sharpe_ge_0": median_short_sharpe >= 0.0,
     }
+    if hedged_overlay:
+        retained_sharpe_floor = (unhedged_median_sharpe or 0.0) * 0.80
+        checks.update(
+            {
+                "wf_hedge_ratio_between_0_20_and_1_00": 0.20 <= float(cfg.hedge_ratio) <= 1.00,
+                "wf_net_worst_fold_return_ge_minus_5pct": worst_fold_return >= -max_bounded_loss_return,
+                "wf_net_worst_fold_dd_le_20pct": worst_fold_drawdown <= max_bounded_loss_drawdown,
+                "wf_net_median_sharpe_retains_80pct_long_only": bool(
+                    unhedged_median_sharpe is not None and median_net_sharpe >= retained_sharpe_floor
+                ),
+                "wf_hedged_dd_improves_half_folds": bool(
+                    hedged_dd_improvement_fraction is not None and hedged_dd_improvement_fraction >= 0.50
+                ),
+            }
+        )
+    else:
+        checks["wf_median_short_leg_sharpe_ge_0"] = median_short_sharpe >= 0.0
     return {
         "enabled": True,
         "passed": all(checks.values()),
@@ -1445,8 +1486,11 @@ def walk_forward_summary(
         "positive_return_fraction": positive_return_fraction,
         "worst_fold_return": worst_fold_return,
         "worst_fold_max_drawdown": worst_fold_drawdown,
+        "median_net_sharpe": median_net_sharpe,
         "median_long_gross_sharpe": median_long_sharpe,
         "median_short_gross_sharpe": median_short_sharpe,
+        "unhedged_long_only_median_sharpe": unhedged_median_sharpe,
+        "hedged_dd_improvement_fraction": hedged_dd_improvement_fraction,
         "strict_consistency_passed": strict_consistency,
         "bounded_loss_consistency_passed": bounded_loss_consistency,
         "checks": checks,

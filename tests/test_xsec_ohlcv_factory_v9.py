@@ -639,6 +639,68 @@ def test_walk_forward_summary_rejects_unbounded_fold_loss(monkeypatch) -> None:
     assert summary["passed"] is False
 
 
+def test_walk_forward_summary_uses_overlay_gate_for_hedged_long(monkeypatch) -> None:
+    cfg = OhlcvConfig(
+        lookback_h=24,
+        skip_h=0,
+        rebalance_h=12,
+        k=2,
+        score_mode="mom",
+        market_filter_h=0,
+        vol_target_ann=0.0,
+        portfolio_mode="hedged_long",
+        hedge_ratio=0.5,
+    )
+    hedged_results = [
+        {"sharpe": 3.0, "total_return": 0.20, "max_drawdown": 0.07},
+        {"sharpe": 2.0, "total_return": 0.20, "max_drawdown": 0.08},
+        {"sharpe": 0.5, "total_return": 0.03, "max_drawdown": 0.10},
+        {"sharpe": -0.1, "total_return": -0.004, "max_drawdown": 0.06},
+        {"sharpe": 0.5, "total_return": 0.02, "max_drawdown": 0.05},
+        {"sharpe": 1.0, "total_return": 0.10, "max_drawdown": 0.08},
+    ]
+    unhedged_results = [
+        {"sharpe": 4.0, "total_return": 0.40, "max_drawdown": 0.06},
+        {"sharpe": 0.2, "total_return": 0.02, "max_drawdown": 0.10},
+        {"sharpe": 0.2, "total_return": 0.01, "max_drawdown": 0.11},
+        {"sharpe": -0.1, "total_return": -0.008, "max_drawdown": 0.09},
+        {"sharpe": 0.5, "total_return": 0.03, "max_drawdown": 0.07},
+        {"sharpe": 1.4, "total_return": 0.26, "max_drawdown": 0.10},
+    ]
+    fold_results = iter(value for pair in zip(hedged_results, unhedged_results) for value in pair)
+
+    def fake_simulate(frame, cfg, cost_bps, bootstrap_iterations=0):
+        row = dict(next(fold_results))
+        row["daily_turnover"] = 0.02
+        if cfg.portfolio_mode == "hedged_long":
+            row["legs"] = {
+                "long_gross_sharpe": 1.0,
+                "short_gross_sharpe": -0.2,
+                "long_gross_return": 0.1,
+                "short_gross_return": -0.01,
+                "avg_long_exposure": 1.0,
+                "avg_short_exposure": 0.5,
+            }
+        else:
+            row["legs"] = {
+                "long_gross_sharpe": row["sharpe"],
+                "short_gross_sharpe": 0.0,
+                "long_gross_return": row["total_return"],
+                "short_gross_return": 0.0,
+                "avg_long_exposure": 1.0,
+                "avg_short_exposure": 0.0,
+            }
+        return row
+
+    monkeypatch.setattr("v9.contract.xsec_ohlcv_factory.simulate", fake_simulate)
+    summary = walk_forward_summary(close_matrix(1440), cfg, folds=6)
+    assert summary["median_short_gross_sharpe"] < 0.0
+    assert "wf_median_short_leg_sharpe_ge_0" not in summary["checks"]
+    assert summary["checks"]["wf_hedged_dd_improves_half_folds"] is True
+    assert summary["checks"]["wf_net_median_sharpe_retains_80pct_long_only"] is True
+    assert summary["passed"] is True
+
+
 def test_leave_one_symbol_summary_reports_each_symbol_drop() -> None:
     cfg = OhlcvConfig(lookback_h=24, skip_h=0, rebalance_h=12, k=2, score_mode="mom", market_filter_h=0, vol_target_ann=0.0)
     summary = leave_one_symbol_summary(close_matrix(600), cfg, cost_bps=0.0, min_sharpe=-99.0)
