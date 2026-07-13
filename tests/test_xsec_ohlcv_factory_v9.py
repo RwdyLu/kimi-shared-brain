@@ -203,6 +203,27 @@ def test_hedged_long_weights_short_single_btc_overlay() -> None:
     assert sum(max(v, 0.0) for v in weights.values()) == 0.5
 
 
+def test_hedged_long_can_hold_downtrend_btc_short_when_market_filter_blocks() -> None:
+    row = pd.Series({"ADAUSDT": 4.0, "BTCUSDT": 3.0, "ETHUSDT": 2.0, "XRPUSDT": 1.0})
+    cfg = OhlcvConfig(
+        lookback_h=4,
+        skip_h=0,
+        rebalance_h=2,
+        k=2,
+        score_mode="mom",
+        market_filter_h=4,
+        vol_target_ann=0.0,
+        portfolio_mode="hedged_long",
+        hedge_ratio=0.5,
+        downtrend_hedge_ratio=0.25,
+    )
+
+    weights = hedged_long_weights(row, cfg, allow_exposure=False)
+
+    assert weights == {"ADAUSDT": 0.0, "BTCUSDT": -0.25, "ETHUSDT": 0.0, "XRPUSDT": 0.0}
+    assert sum(weights.values()) == -0.25
+
+
 def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
     path = tmp_path / "configs.json"
     path.write_text(
@@ -223,7 +244,8 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
               "market_confirm_h": 336,
               "market_drawdown_limit": 0.25,
               "portfolio_mode": "long_short",
-              "hedge_ratio": 0.5
+              "hedge_ratio": 0.5,
+              "downtrend_hedge_ratio": 0.25
             }
           ]
         }
@@ -248,6 +270,7 @@ def test_load_explicit_configs_accepts_rescue_plan_configs(tmp_path) -> None:
             market_drawdown_limit=0.25,
             portfolio_mode="long_short",
             hedge_ratio=0.5,
+            downtrend_hedge_ratio=0.25,
         ),
     )
 
@@ -266,6 +289,7 @@ def test_cli_accepts_breakout_presets() -> None:
     assert parser.parse_args(["--preset", "hq_wf_bridge"]).preset == "hq_wf_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_bridge"]).preset == "hq_wf_hostile_bridge"
     assert parser.parse_args(["--preset", "hq_wf_hostile_hedged"]).preset == "hq_wf_hostile_hedged"
+    assert parser.parse_args(["--preset", "hq_wf_hostile_regime_hedged"]).preset == "hq_wf_hostile_regime_hedged"
     assert parser.parse_args(["--preset", "hq_wf_hostile_long_short"]).preset == "hq_wf_hostile_long_short"
     assert parser.parse_args(["--preset", "hq_market_neutral"]).preset == "hq_market_neutral"
     assert parser.parse_args(["--preset", "hq_hedged_long"]).preset == "hq_hedged_long"
@@ -417,6 +441,27 @@ def test_selection_and_validation_gates_reject_insufficient_activity() -> None:
     assert selection["time_in_market40_ge_min"] is False
     assert validation["validation_active_rebalances40_ge_min"] is False
     assert validation["validation_time_in_market40_ge_min"] is False
+
+
+def test_selection_gate_can_require_2022_return_floor() -> None:
+    weak_2022 = passing_gate_result()
+    weak_2022["yearly"]["2022"]["net_return"] = -0.05
+    strong_2022 = passing_gate_result()
+    strong_2022["yearly"]["2022"]["net_return"] = 0.01
+
+    assert "return_2022_ge_min" not in advance_checks(weak_2022, weak_2022, bootstrap_p5_min=0.25)
+    assert advance_checks(
+        weak_2022,
+        weak_2022,
+        bootstrap_p5_min=0.25,
+        min_2022_return=-0.02,
+    )["return_2022_ge_min"] is False
+    assert advance_checks(
+        strong_2022,
+        strong_2022,
+        bootstrap_p5_min=0.25,
+        min_2022_return=-0.02,
+    )["return_2022_ge_min"] is True
 
 
 def test_activity_gates_can_reject_long_flat_streaks() -> None:
@@ -1399,6 +1444,16 @@ def test_presets_select_distinct_search_spaces() -> None:
     hq_wf_hostile_hedged = config_for_preset(
         "hq_wf_hostile_hedged", "cache", "start", "end", "embargo", 10, "hwh.json", "hwh.md"
     )
+    hq_wf_hostile_regime_hedged = config_for_preset(
+        "hq_wf_hostile_regime_hedged",
+        "cache",
+        "start",
+        "end",
+        "embargo",
+        10,
+        "hwrh.json",
+        "hwrh.md",
+    )
     hq_wf_hostile_long_short = config_for_preset(
         "hq_wf_hostile_long_short", "cache", "start", "end", "embargo", 10, "hwls.json", "hwls.md"
     )
@@ -1581,6 +1636,7 @@ def test_presets_select_distinct_search_spaces() -> None:
     assert hq_wf_hostile_hedged.market_drawdown_limits == (0.0, 0.15, 0.20)
     assert hq_wf_hostile_hedged.portfolio_modes == ("hedged_long",)
     assert hq_wf_hostile_hedged.hedge_ratios == (0.5, 1.0)
+    assert hq_wf_hostile_hedged.downtrend_hedge_ratios == (0.0,)
     assert hq_wf_hostile_hedged.selection_min_time_in_market_frac == 0.15
     assert hq_wf_hostile_hedged.selection_max_flat_streak_h == 180 * 24
     assert hq_wf_hostile_hedged.validation_min_time_in_market_frac == 0.10
@@ -1598,7 +1654,28 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile_hedged.market_drawdown_limits)
         * len(hq_wf_hostile_hedged.portfolio_modes)
         * len(hq_wf_hostile_hedged.hedge_ratios)
+        * len(hq_wf_hostile_hedged.downtrend_hedge_ratios)
         == 192
+    )
+    assert hq_wf_hostile_regime_hedged.lookbacks_h == hq_wf_hostile_hedged.lookbacks_h
+    assert hq_wf_hostile_regime_hedged.portfolio_modes == ("hedged_long",)
+    assert hq_wf_hostile_regime_hedged.downtrend_hedge_ratios == (0.25, 0.50)
+    assert hq_wf_hostile_regime_hedged.selection_min_2022_return == -0.02
+    assert (
+        len(hq_wf_hostile_regime_hedged.lookbacks_h)
+        * len(hq_wf_hostile_regime_hedged.rebalances_h)
+        * len(hq_wf_hostile_regime_hedged.ks)
+        * len(hq_wf_hostile_regime_hedged.score_modes)
+        * len(hq_wf_hostile_regime_hedged.market_filters_h)
+        * len(hq_wf_hostile_regime_hedged.vol_targets_ann)
+        * len(hq_wf_hostile_regime_hedged.n_tranches)
+        * len(hq_wf_hostile_regime_hedged.drawdown_stops)
+        * len(hq_wf_hostile_regime_hedged.market_confirm_hs)
+        * len(hq_wf_hostile_regime_hedged.market_drawdown_limits)
+        * len(hq_wf_hostile_regime_hedged.portfolio_modes)
+        * len(hq_wf_hostile_regime_hedged.hedge_ratios)
+        * len(hq_wf_hostile_regime_hedged.downtrend_hedge_ratios)
+        == 384
     )
     assert hq_wf_hostile_long_short.lookbacks_h == (336, 504)
     assert hq_wf_hostile_long_short.rebalances_h == (120, 168)
@@ -1630,6 +1707,7 @@ def test_presets_select_distinct_search_spaces() -> None:
         * len(hq_wf_hostile_long_short.market_drawdown_limits)
         * len(hq_wf_hostile_long_short.portfolio_modes)
         * len(hq_wf_hostile_long_short.hedge_ratios)
+        * len(hq_wf_hostile_long_short.downtrend_hedge_ratios)
         == 128
     )
     assert hq_plateau.validate_all_rows is True

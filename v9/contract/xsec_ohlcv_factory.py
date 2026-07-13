@@ -47,6 +47,7 @@ class OhlcvConfig:
     market_drawdown_limit: float = 0.0
     portfolio_mode: str = "long_only"
     hedge_ratio: float = 0.0
+    downtrend_hedge_ratio: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class RunConfig:
     market_drawdown_limits: tuple[float, ...] = (0.0,)
     portfolio_modes: tuple[str, ...] = ("long_only",)
     hedge_ratios: tuple[float, ...] = (0.0,)
+    downtrend_hedge_ratios: tuple[float, ...] = (0.0,)
     costs_bps: tuple[float, ...] = (20.0, 40.0)
     stress_costs_bps: tuple[float, ...] = ()
     validate_all_rows: bool = False
@@ -76,6 +78,7 @@ class RunConfig:
     validation_min_time_in_market_frac: float = VALIDATION_MIN_TIME_IN_MARKET_FRAC
     validation_max_flat_streak_h: int = 0
     accepted_min_validation_active_rebalances: int = ACCEPTANCE_MIN_VALIDATION_ACTIVE_REBALANCES
+    selection_min_2022_return: float | None = None
     plateau_center_config: dict[str, Any] | None = None
     plateau_validation_sharpe_min: float = 1.0
     plateau_neighbor_pass_fraction_min: float = 0.70
@@ -427,6 +430,31 @@ def config_for_preset(
             stress_costs_bps=(30.0, 40.0),
             **base,
         )
+    if preset == "hq_wf_hostile_regime_hedged":
+        return RunConfig(
+            lookbacks_h=(336, 504),
+            skips_h=(0,),
+            rebalances_h=(120, 168),
+            ks=(3, 4),
+            score_modes=("risk_adj_mom",),
+            market_filters_h=(720, 1008),
+            vol_targets_ann=(0.04, 0.05),
+            n_tranches=(2,),
+            drawdown_stops=(0.08,),
+            cooldowns_h=(72,),
+            market_confirm_hs=(168,),
+            market_drawdown_limits=(0.0, 0.15, 0.20),
+            portfolio_modes=("hedged_long",),
+            hedge_ratios=(0.5, 1.0),
+            downtrend_hedge_ratios=(0.25, 0.50),
+            selection_min_2022_return=-0.02,
+            selection_min_time_in_market_frac=0.15,
+            selection_max_flat_streak_h=180 * 24,
+            validation_min_time_in_market_frac=0.10,
+            validation_max_flat_streak_h=180 * 24,
+            stress_costs_bps=(30.0, 40.0),
+            **base,
+        )
     if preset == "hq_wf_hostile_long_short":
         return RunConfig(
             lookbacks_h=(336, 504),
@@ -557,6 +585,7 @@ def ohlcv_config_from_dict(raw: dict[str, Any]) -> OhlcvConfig:
         market_drawdown_limit=float(raw.get("market_drawdown_limit", 0.0)),
         portfolio_mode=str(raw.get("portfolio_mode", "long_only")),
         hedge_ratio=float(raw.get("hedge_ratio", 0.0)),
+        downtrend_hedge_ratio=float(raw.get("downtrend_hedge_ratio", 0.0)),
     )
 
 
@@ -687,9 +716,11 @@ def hedged_long_weights(score_row: pd.Series, cfg: OhlcvConfig, allow_exposure: 
     weights = long_only_weights(score_row, cfg, allow_exposure)
     if weights is None:
         return None
-    if not allow_exposure:
-        return weights
     hedge_symbol = "BTCUSDT" if "BTCUSDT" in weights else sorted(weights)[0]
+    if not allow_exposure:
+        if float(cfg.downtrend_hedge_ratio) > 0.0:
+            weights[hedge_symbol] = -float(cfg.downtrend_hedge_ratio)
+        return weights
     long_gross = sum(max(v, 0.0) for v in weights.values())
     weights[hedge_symbol] = weights.get(hedge_symbol, 0.0) - float(cfg.hedge_ratio) * long_gross
     return weights
@@ -944,6 +975,8 @@ def row_cache_key(
             "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
             "portfolio_modes": list(cfg.portfolio_modes),
             "hedge_ratios": list(cfg.hedge_ratios),
+            "downtrend_hedge_ratios": list(cfg.downtrend_hedge_ratios),
+            "selection_min_2022_return": cfg.selection_min_2022_return,
         },
         sort_keys=True,
     )
@@ -1091,6 +1124,8 @@ def write_progress_meta(
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         "portfolio_modes": list(cfg.portfolio_modes),
         "hedge_ratios": list(cfg.hedge_ratios),
+        "downtrend_hedge_ratios": list(cfg.downtrend_hedge_ratios),
+        "selection_min_2022_return": cfg.selection_min_2022_return,
     }
     if progress_rows is not None:
         payload["diagnostics"] = progress_diagnostics(progress_rows)
@@ -1375,6 +1410,7 @@ def advance_checks(
     min_time_in_market_frac: float = SELECTION_MIN_TIME_IN_MARKET_FRAC,
     max_flat_streak_h: int = 0,
     require_bootstrap: bool = True,
+    min_2022_return: float | None = None,
 ) -> dict[str, bool]:
     benchmark = cost20["equal_weight_benchmark"]
     checks = {
@@ -1394,6 +1430,8 @@ def advance_checks(
         checks["bootstrap_p5_ge_adjusted_min"] = float(cost20["bootstrap_30d_sharpe_p5"]) >= bootstrap_p5_min
     if max_flat_streak_h > 0:
         checks["max_flat_streak40_le_limit"] = metric_float(cost40, "max_flat_streak_h") <= max_flat_streak_h
+    if min_2022_return is not None:
+        checks["return_2022_ge_min"] = float(cost20["yearly"]["2022"]["net_return"]) >= float(min_2022_return)
     return checks
 
 
@@ -1445,7 +1483,11 @@ def walk_forward_summary(
     min_rows = min_rows_for_config(cfg)
     usable_folds = max(1, min(int(folds), len(closes) // min_rows))
     hedged_overlay = cfg.portfolio_mode == "hedged_long" and float(cfg.hedge_ratio) > 0.0
-    unhedged_cfg = replace(cfg, portfolio_mode="long_only", hedge_ratio=0.0) if hedged_overlay else None
+    unhedged_cfg = (
+        replace(cfg, portfolio_mode="long_only", hedge_ratio=0.0, downtrend_hedge_ratio=0.0)
+        if hedged_overlay
+        else None
+    )
     rows = []
     if usable_folds < 2:
         return {
@@ -1615,6 +1657,7 @@ def leave_one_symbol_summary(
             market_drawdown_limit=cfg.market_drawdown_limit,
             portfolio_mode=cfg.portfolio_mode,
             hedge_ratio=cfg.hedge_ratio,
+            downtrend_hedge_ratio=cfg.downtrend_hedge_ratio,
         )
         result = simulate(frame, test_cfg, cost_bps, bootstrap_iterations=0)
         rows.append(
@@ -1800,8 +1843,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         grid = list(dict.fromkeys(cfg.explicit_configs))
     else:
         grid = [
-            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr)
-            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr in itertools.product(
+            OhlcvConfig(l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr, dhr)
+            for l, s, r, k, mode, mf, vt, nt, dd, cd, mc, mdl, pm, hr, dhr in itertools.product(
                 cfg.lookbacks_h,
                 cfg.skips_h,
                 cfg.rebalances_h,
@@ -1816,6 +1859,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 cfg.market_drawdown_limits,
                 cfg.portfolio_modes,
                 cfg.hedge_ratios,
+                cfg.downtrend_hedge_ratios,
             )
         ]
     n_trials = len(grid)
@@ -1867,6 +1911,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
             min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
             max_flat_streak_h=cfg.selection_max_flat_streak_h,
             require_bootstrap=False,
+            min_2022_return=cfg.selection_min_2022_return,
         )
         selection_prefilter_passed = all(selection_checks.values())
         selection_prefilter = {
@@ -1899,6 +1944,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 min_active_rebalances=cfg.selection_min_active_rebalances,
                 min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
                 max_flat_streak_h=cfg.selection_max_flat_streak_h,
+                min_2022_return=cfg.selection_min_2022_return,
             )
         if all(selection_checks.values()):
             cost20 = simulate(
@@ -1917,6 +1963,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
                 min_active_rebalances=cfg.selection_min_active_rebalances,
                 min_time_in_market_frac=cfg.selection_min_time_in_market_frac,
                 max_flat_streak_h=cfg.selection_max_flat_streak_h,
+                min_2022_return=cfg.selection_min_2022_return,
             )
             selection_checks["bootstrap_p5_confirm_ge_adjusted_min"] = (
                 float(cost20["bootstrap_30d_sharpe_p5_confirm"]) >= bootstrap_p5_min
@@ -2093,6 +2140,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
         "accepted_min_validation_active_rebalances": int(cfg.accepted_min_validation_active_rebalances),
+        "selection_min_2022_return": cfg.selection_min_2022_return,
         "validate_all_rows": bool(cfg.validate_all_rows),
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
         "explicit_config_list": bool(cfg.explicit_configs),
@@ -2200,7 +2248,8 @@ def write_markdown(payload: dict[str, Any], path: Path) -> None:
         label = (
             "L{lookback_h}_S{skip_h}_R{rebalance_h}_K{k}_{score_mode}_"
             "MF{market_filter_h}_MC{market_confirm_h}_MD{market_drawdown_limit}_"
-            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}_PM{portfolio_mode}_HR{hedge_ratio}"
+            "VT{vol_target_ann}_NT{n_tranches}_DD{drawdown_stop}_CD{cooldown_h}_"
+            "PM{portfolio_mode}_HR{hedge_ratio}_DHR{downtrend_hedge_ratio}"
         ).format(**cfg)
         lines.append(
             "| `{}` | `{}` | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |".format(
@@ -2251,6 +2300,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "hq_wf_bridge",
             "hq_wf_hostile_bridge",
             "hq_wf_hostile_hedged",
+            "hq_wf_hostile_regime_hedged",
             "hq_wf_hostile_long_short",
             "hq_cadence_tranche",
             "hq_fast_rebal",
@@ -2302,9 +2352,11 @@ def main() -> None:
             market_drawdown_limits=cfg.market_drawdown_limits,
             portfolio_modes=cfg.portfolio_modes,
             hedge_ratios=cfg.hedge_ratios,
+            downtrend_hedge_ratios=cfg.downtrend_hedge_ratios,
             costs_bps=cfg.costs_bps,
             stress_costs_bps=cfg.stress_costs_bps,
             validate_all_rows=cfg.validate_all_rows,
+            selection_min_2022_return=cfg.selection_min_2022_return,
             plateau_center_config=None,
             plateau_validation_sharpe_min=cfg.plateau_validation_sharpe_min,
             plateau_neighbor_pass_fraction_min=cfg.plateau_neighbor_pass_fraction_min,
