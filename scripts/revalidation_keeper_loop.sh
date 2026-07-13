@@ -12,6 +12,7 @@ HOLDOUT_AUDITOR_TIMEOUT_SEC="${REVALIDATION_HOLDOUT_AUDITOR_TIMEOUT_SEC:-900}"
 HOLDOUT_AUDITOR_MAX_GROUPS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_GROUPS:-10}"
 HOLDOUT_AUDITOR_MAX_CONFIGS="${REVALIDATION_HOLDOUT_AUDITOR_MAX_CONFIGS:-25}"
 HOLDOUT_AUDITOR_RECENT_DAYS="${REVALIDATION_HOLDOUT_AUDITOR_RECENT_DAYS:-45}"
+HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY="${REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY:-1}"
 PLAN="${REVALIDATION_PLAN:-artifacts/v9/revalidation/v9_candidate_revalidation_plan.json}"
 RUNNER_STATE="${REVALIDATION_RUNNER_STATE:-artifacts/v9/revalidation/runner_state.json}"
 STATUS_JSON="${REVALIDATION_KEEPER_STATUS_JSON:-artifacts/v9/revalidation/keeper_status_report.json}"
@@ -37,6 +38,11 @@ fi
 
 if ! [[ "$HOLDOUT_AUDITOR_TIMEOUT_SEC" =~ ^[0-9]+$ ]] || [[ "$HOLDOUT_AUDITOR_TIMEOUT_SEC" -lt 60 ]]; then
   echo "REVALIDATION_HOLDOUT_AUDITOR_TIMEOUT_SEC must be an integer >= 60" >&2
+  exit 2
+fi
+
+if ! [[ "$HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY" =~ ^[0-9]+$ ]]; then
+  echo "REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY must be a non-negative integer" >&2
   exit 2
 fi
 
@@ -68,6 +74,10 @@ write_heartbeat() {
 }
 JSON
   mv "$tmp" "$HEARTBEAT_JSON"
+}
+
+python_factory_count() {
+  ps -eo comm,args | awk '$1=="python3" && $0 ~ /-m v9.contract.xsec_ohlcv_factory/ {count++} END {print count + 0}'
 }
 
 sleep_with_stop_poll() {
@@ -117,18 +127,23 @@ while true; do
   fi
 
   if [[ "$HOLDOUT_AUDITOR_ENABLED" == "1" && ! -e "$CONTROL_DIR/STOP" ]]; then
-    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) auditing accepted revalidation holdouts"
-    if ! run_with_timeout "$HOLDOUT_AUDITOR_TIMEOUT_SEC" python3 "$ROOT/scripts/v9_revalidation_holdout_auditor.py" \
-      --plan "$PLAN" \
-      --runner-state "$RUNNER_STATE" \
-      --holdout-authorized \
-      --skip-existing-any-key \
-      --max-groups "$HOLDOUT_AUDITOR_MAX_GROUPS" \
-      --max-configs "$HOLDOUT_AUDITOR_MAX_CONFIGS" \
-      --recent-days "$HOLDOUT_AUDITOR_RECENT_DAYS" \
-      --out-json "$HOLDOUT_AUDITOR_JSON" \
-      --format text; then
-      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) holdout auditor failed"
+    active_factory_count="$(python_factory_count)"
+    if [[ "$active_factory_count" -gt "$HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY" ]]; then
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) skipping holdout auditor active_python_factory=$active_factory_count max=$HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY"
+    else
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) auditing accepted revalidation holdouts active_python_factory=$active_factory_count"
+      if ! run_with_timeout "$HOLDOUT_AUDITOR_TIMEOUT_SEC" python3 "$ROOT/scripts/v9_revalidation_holdout_auditor.py" \
+        --plan "$PLAN" \
+        --runner-state "$RUNNER_STATE" \
+        --holdout-authorized \
+        --skip-existing-any-key \
+        --max-groups "$HOLDOUT_AUDITOR_MAX_GROUPS" \
+        --max-configs "$HOLDOUT_AUDITOR_MAX_CONFIGS" \
+        --recent-days "$HOLDOUT_AUDITOR_RECENT_DAYS" \
+        --out-json "$HOLDOUT_AUDITOR_JSON" \
+        --format text; then
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) holdout auditor failed"
+      fi
     fi
   fi
 
