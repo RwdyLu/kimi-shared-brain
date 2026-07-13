@@ -27,6 +27,7 @@ SELECTION_MIN_ACTIVE_REBALANCES = 12
 SELECTION_MIN_TIME_IN_MARKET_FRAC = 0.05
 VALIDATION_MIN_ACTIVE_REBALANCES = 4
 VALIDATION_MIN_TIME_IN_MARKET_FRAC = 0.03
+ACCEPTANCE_MIN_VALIDATION_ACTIVE_REBALANCES = 50
 DATA_SNAPSHOT_KIND = "xsec_ohlcv_data_snapshot_v1"
 
 
@@ -74,6 +75,7 @@ class RunConfig:
     validation_min_active_rebalances: int = VALIDATION_MIN_ACTIVE_REBALANCES
     validation_min_time_in_market_frac: float = VALIDATION_MIN_TIME_IN_MARKET_FRAC
     validation_max_flat_streak_h: int = 0
+    accepted_min_validation_active_rebalances: int = ACCEPTANCE_MIN_VALIDATION_ACTIVE_REBALANCES
     plateau_center_config: dict[str, Any] | None = None
     plateau_validation_sharpe_min: float = 1.0
     plateau_neighbor_pass_fraction_min: float = 0.70
@@ -2018,7 +2020,17 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
     )
     pass_rows = [row for row in rows if row["advance_passed"]]
     stability = plateau_stability_summary(rows, cfg)
-    accepted = len(pass_rows) >= 3
+    accepted_max_validation_active_rebalances = max(
+        (
+            metric_float(((row.get("validation") or {}).get("cost40") or {}), "active_rebalance_event_count")
+            for row in pass_rows
+        ),
+        default=0.0,
+    )
+    accepted_activity_ok = (
+        accepted_max_validation_active_rebalances >= int(cfg.accepted_min_validation_active_rebalances)
+    )
+    accepted = len(pass_rows) >= 3 and accepted_activity_ok
     if stability:
         accepted = accepted and bool(stability["passed"])
     selection_validation = {
@@ -2036,6 +2048,7 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "validation_min_active_rebalances": int(cfg.validation_min_active_rebalances),
         "validation_min_time_in_market_frac": float(cfg.validation_min_time_in_market_frac),
         "validation_max_flat_streak_h": int(cfg.validation_max_flat_streak_h),
+        "accepted_min_validation_active_rebalances": int(cfg.accepted_min_validation_active_rebalances),
         "validate_all_rows": bool(cfg.validate_all_rows),
         "stress_costs_bps": [float(v) for v in cfg.stress_costs_bps],
         "explicit_config_list": bool(cfg.explicit_configs),
@@ -2051,6 +2064,8 @@ def run_grid(cfg: RunConfig) -> dict[str, Any]:
         "rows": len(rows),
         "pass_count": len(pass_rows),
         "accepted_train_only": accepted,
+        "accepted_activity_ok": accepted_activity_ok,
+        "accepted_max_validation_active_rebalances": int(accepted_max_validation_active_rebalances),
         "holdout_authorized": False,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
