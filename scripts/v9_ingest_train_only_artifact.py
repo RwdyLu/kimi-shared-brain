@@ -159,6 +159,63 @@ def rebuild_plan(
     return plan
 
 
+def _same_artifact_path(left: str, right: str) -> bool:
+    if not left or not right:
+        return False
+    left_path = Path(left)
+    right_path = Path(right)
+    if left_path.as_posix().rstrip("/") == right_path.as_posix().rstrip("/"):
+        return True
+    try:
+        return left_path.resolve() == right_path.resolve()
+    except OSError:
+        return False
+
+
+def plateau_audit_override_metadata(
+    plateau_audit_json: Path | None,
+    *,
+    expected_artifact: str,
+    min_neighbors: int = 2,
+) -> dict[str, Any]:
+    if plateau_audit_json is None:
+        return {}
+    if not plateau_audit_json.exists():
+        raise FileNotFoundError(f"plateau audit missing: {plateau_audit_json}")
+
+    audit = json.loads(plateau_audit_json.read_text())
+    centers = [row for row in audit.get("centers", []) if isinstance(row, dict)]
+    passed_centers = [row for row in centers if row.get("plateau_passed")]
+    max_neighbors = max(
+        (int(row.get("neighbor_validation_pass_count") or 0) for row in passed_centers),
+        default=0,
+    )
+    audit_artifact = str(audit.get("artifact") or "")
+    artifact_match = not audit_artifact or _same_artifact_path(audit_artifact, expected_artifact)
+    plateau_passed = bool(audit.get("plateau_passed") or passed_centers)
+    advance_pass_count = int(audit.get("advance_pass_count") or 0)
+    decision = (
+        "manual_review_required"
+        if plateau_passed and artifact_match and advance_pass_count > 0 and max_neighbors >= min_neighbors
+        else "ignored"
+    )
+    return {
+        "policy": "plateau_audit_multiplicity_override_v1",
+        "audit_json": str(plateau_audit_json),
+        "audit_artifact": audit_artifact,
+        "artifact_match": artifact_match,
+        "plateau_passed": plateau_passed,
+        "advance_pass_count": advance_pass_count,
+        "passed_center_count": len(passed_centers),
+        "max_neighbor_validation_pass_count": max_neighbors,
+        "required_min_neighbors": int(min_neighbors),
+        "decision": decision,
+        "holdout_authorized": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
 def ingest_train_only_artifact(
     *,
     planned: PlannedTask,
@@ -169,6 +226,8 @@ def ingest_train_only_artifact(
     report_json: Path,
     revalidation_out_dir: Path,
     revalidation_out_json: Path,
+    plateau_audit_json: Path | None = None,
+    plateau_min_neighbors: int = 2,
     rebuild_revalidation_plan: bool = True,
     force: bool = False,
 ) -> dict[str, Any]:
@@ -198,22 +257,40 @@ def ingest_train_only_artifact(
     candidate_added = False
     candidate_status = None
     record = None
+    plateau_override = plateau_audit_override_metadata(
+        plateau_audit_json,
+        expected_artifact=planned.output_json,
+        min_neighbors=plateau_min_neighbors,
+    )
 
     if result["status"] == "accepted_train_only_candidate_found":
-        candidate_status = (
+        candidate_status_before_multiplicity = (
             "quarantined_data_drift"
             if has_data_drift(drift_history_from_explored(explored_path) + task_results, result)
             else "manual_review_required"
         )
+        candidate_status = candidate_status_before_multiplicity
         multiplicity_metadata = candidate_multiplicity_metadata(
             result,
             len(dedupe_candidates([*candidates_found, *supplemental_candidates])) + 1,
         )
         result.update(multiplicity_metadata)
         candidate_status = status_after_multiplicity(candidate_status, multiplicity_metadata)
+        if plateau_override:
+            result["plateau_multiplicity_override"] = plateau_override
+        if (
+            candidate_status_before_multiplicity == "manual_review_required"
+            and candidate_status == "rejected_multiplicity"
+            and plateau_override.get("decision") == "manual_review_required"
+        ):
+            candidate_status = "manual_review_required"
+            result["candidate_status_before_plateau_override"] = "rejected_multiplicity"
+            result["candidate_status_override_policy"] = plateau_override["policy"]
         record = candidate_record(task, result, status=candidate_status)
         record["source"] = "supplemental_ingest_v1"
         record["created_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        if plateau_override:
+            record["plateau_multiplicity_override"] = plateau_override
         candidate_added = append_jsonl_once(
             supplemental_candidates_path,
             record,
@@ -247,6 +324,7 @@ def ingest_train_only_artifact(
         "candidate_added": candidate_added,
         "output_json": planned.output_json,
         "supplemental_candidates": str(supplemental_candidates_path),
+        "plateau_multiplicity_override": plateau_override,
         "revalidation_plan": str(revalidation_out_json) if rebuild_revalidation_plan else "",
         "revalidation_group_count": plan.get("group_count"),
         "revalidation_config_count": plan.get("config_count"),
@@ -279,6 +357,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report-json", default="state/v9_last_ingested_train_only_artifact.json")
     parser.add_argument("--revalidation-out-dir", default="artifacts/v9/revalidation")
     parser.add_argument("--revalidation-out-json", default="artifacts/v9/revalidation/v9_candidate_revalidation_plan.json")
+    parser.add_argument(
+        "--plateau-audit-json",
+        default="",
+        help="Optional basin plateau audit; passing audits can move a rejected_multiplicity candidate back to manual review only.",
+    )
+    parser.add_argument("--plateau-min-neighbors", type=int, default=2)
     parser.add_argument("--no-rebuild-revalidation-plan", action="store_true")
     parser.add_argument("--force", action="store_true")
     return parser
@@ -296,6 +380,8 @@ def main() -> None:
         report_json=Path(args.report_json),
         revalidation_out_dir=Path(args.revalidation_out_dir),
         revalidation_out_json=Path(args.revalidation_out_json),
+        plateau_audit_json=Path(args.plateau_audit_json) if args.plateau_audit_json else None,
+        plateau_min_neighbors=args.plateau_min_neighbors,
         rebuild_revalidation_plan=not args.no_rebuild_revalidation_plan,
         force=args.force,
     )
