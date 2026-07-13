@@ -110,6 +110,34 @@ def stopped_config() -> dict[str, Any]:
     }
 
 
+def hedged_long_matrix(periods: int = 40) -> pd.DataFrame:
+    dt = pd.date_range("2020-01-01", periods=periods, freq="1h", tz="UTC")
+    return pd.DataFrame(
+        {
+            "dt": dt,
+            "BTCUSDT": [100.0 + idx * 0.1 for idx in range(periods)],
+            "ETHUSDT": [100.0 + idx * 2.0 for idx in range(periods)],
+            "ADAUSDT": [100.0 - idx * 0.1 for idx in range(periods)],
+        }
+    )
+
+
+def hedged_long_config() -> dict[str, Any]:
+    return {
+        "lookback_h": 4,
+        "skip_h": 0,
+        "rebalance_h": 4,
+        "k": 1,
+        "score_mode": "mom",
+        "market_filter_h": 0,
+        "vol_target_ann": 0.0,
+        "drawdown_stop": 0.0,
+        "cooldown_h": 0,
+        "portfolio_mode": "hedged_long",
+        "hedge_ratio": 0.5,
+    }
+
+
 def test_paper_candidate_from_batch_selects_best_decay() -> None:
     batch = {
         "holdout_results": [
@@ -271,6 +299,21 @@ def test_shadow_oos_report_applies_drawdown_stop_and_cooldown() -> None:
     assert cost40["risk_stop_exit_turnover"] > 0.0
     assert "active_rebalance_event_count" in cost40
     assert "time_in_market_frac" in cost40
+
+
+def test_shadow_oos_report_uses_hedged_long_target_weights() -> None:
+    report = gate_mod.shadow_oos_report(
+        closes=hedged_long_matrix(),
+        config=hedged_long_config(),
+        evaluation_start=pd.Timestamp("2020-01-01", tz="UTC"),
+        costs_bps=(40.0,),
+    )
+
+    latest_weights = report["latest_weights"]
+
+    assert latest_weights["ETHUSDT"] > 0.0
+    assert latest_weights["BTCUSDT"] < 0.0
+    assert report["latest_gross_exposure"] > 1.0
 
 
 def test_shadow_oos_report_matches_backtest_on_full_window() -> None:

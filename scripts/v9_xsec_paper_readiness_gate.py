@@ -21,11 +21,11 @@ from v9.contract.xsec_ohlcv_factory import (  # noqa: E402
     ACTIVE_EXPOSURE_THRESHOLD,
     data_fingerprint,
     exposure_scale,
-    long_only_weights,
     market_filter,
     max_drawdown_from_returns,
     ohlcv_config_from_dict,
     score_matrix,
+    target_weights,
 )
 
 
@@ -150,7 +150,7 @@ def shadow_oos_report(
                     target = (
                         {sym: 0.0 for sym in symbols}
                         if risk_off
-                        else long_only_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
+                        else target_weights(scores.iloc[idx], cfg, bool(allowed.iloc[idx]))
                     )
                     if target is not None:
                         scale = exposure_scale(past_net_returns, cfg.vol_target_ann)
