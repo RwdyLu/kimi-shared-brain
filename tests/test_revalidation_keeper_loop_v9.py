@@ -21,6 +21,6 @@ def test_keeper_defaults_allow_holdout_while_parallel_search_runs() -> None:
 
     assert 'RUNNER_MAX_PYTHON_FACTORY="${REVALIDATION_RUNNER_MAX_PYTHON_FACTORY:-4}"' in text
     assert (
-        'HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY="${REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY:-4}"'
+        'HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY="${REVALIDATION_HOLDOUT_AUDITOR_MAX_PYTHON_FACTORY:-5}"'
         in text
     )
