@@ -258,6 +258,15 @@ def walk_forward_metric(row: dict[str, Any], key: str, default: float = 0.0) -> 
     return safe_float((row.get("walk_forward") or {}).get(key), default)
 
 
+def walk_forward_failure_priority(row: dict[str, Any]) -> float:
+    failures = set(rescue_relevant_failures(row))
+    if failures == WALK_FORWARD_FAILURES:
+        return 2.0
+    if failures.intersection(WALK_FORWARD_FAILURES):
+        return 1.0
+    return 0.0
+
+
 def is_rescue_seed(
     row: dict[str, Any],
     diagnostic_q25_min: float = 0.50,
@@ -325,6 +334,11 @@ def near_miss_sort_key(row: dict[str, Any]) -> tuple[float, ...]:
     failures = rescue_relevant_failures(row)
     return (
         -float(len(failures)),
+        walk_forward_failure_priority(row),
+        walk_forward_metric(row, "q25_sharpe", -999.0),
+        walk_forward_metric(row, "worst_fold_return", -999.0),
+        -walk_forward_metric(row, "worst_fold_max_drawdown", 999.0),
+        walk_forward_metric(row, "hedged_dd_improvement_fraction", -1.0),
         float(positive_year_count(row)),
         worst_year_return(row),
         selection_bootstrap_p5(row),
@@ -366,6 +380,7 @@ def seed_record(row: dict[str, Any], source_index: int, seed_type: str = "diagno
         "worst_year": worst_year(row),
         "worst_year_return": worst_year_return(row),
         "walk_forward_checks": walk_forward_checks(row),
+        "walk_forward_failure_priority": walk_forward_failure_priority(row),
         "walk_forward_q25_sharpe": walk_forward_metric(row, "q25_sharpe"),
         "walk_forward_worst_fold_return": walk_forward_metric(row, "worst_fold_return"),
         "walk_forward_worst_fold_max_drawdown": walk_forward_metric(row, "worst_fold_max_drawdown"),

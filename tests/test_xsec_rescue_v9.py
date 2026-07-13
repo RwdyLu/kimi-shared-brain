@@ -320,6 +320,38 @@ def test_select_rescue_seeds_prefers_more_rescueable_year_profile() -> None:
     assert seeds[0]["positive_year_count"] == 3
 
 
+def test_select_rescue_seeds_prioritizes_walk_forward_only_near_miss() -> None:
+    wf_only = row(
+        diagnostic_triggered=False,
+        failed_checks=("walk_forward_robust",),
+        selection_sharpe=1.45,
+        bootstrap_p5=0.40,
+        yearly={"2021": 0.08, "2022": 0.02, "2023": 0.06, "2024H1": 0.01},
+    )
+    wf_only["walk_forward"] = {
+        "q25_sharpe": -0.02,
+        "worst_fold_return": -0.03,
+        "worst_fold_max_drawdown": 0.08,
+        "hedged_dd_improvement_fraction": 0.50,
+        "checks": {"wf_q25_sharpe_ge_min": False},
+    }
+    higher_sharpe_benchmark_fail = row(
+        diagnostic_triggered=False,
+        failed_checks=("benchmark_sharpe_excess_ge_0_10",),
+        selection_sharpe=2.80,
+        bootstrap_p5=1.10,
+        benchmark_excess=-0.02,
+        yearly={"2021": 0.08, "2022": 0.02, "2023": 0.06, "2024H1": 0.01},
+    )
+
+    seeds = select_rescue_seeds([higher_sharpe_benchmark_fail, wf_only], top_k=1)
+
+    assert seeds[0]["rescue_seed_type"] == "near_miss_gate"
+    assert seeds[0]["rescue_relevant_failures"] == ["walk_forward_robust"]
+    assert seeds[0]["selection_sharpe20"] == 1.45
+    assert seeds[0]["walk_forward_failure_priority"] == 2.0
+
+
 def test_rescue_gene_order_targets_robustness_and_benchmark_failures() -> None:
     robustness_order = rescue_gene_order(["positive_3_of_4_years", "bootstrap_p5_ge_adjusted_min"])
     benchmark_order = rescue_gene_order(["benchmark_sharpe_excess_ge_0_10", "sharpe40_ge_1"])
