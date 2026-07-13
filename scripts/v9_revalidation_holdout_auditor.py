@@ -123,6 +123,35 @@ def verdict_path_for(output_json: str) -> Path:
     return path.with_suffix(path.suffix + ".holdout_verdict.json")
 
 
+def normalized_target_path(raw: str) -> str:
+    return str(Path(str(raw).strip()))
+
+
+def output_json_matches_target(output_json: str, targets: set[str]) -> bool:
+    if not targets:
+        return False
+    current = normalized_target_path(output_json)
+    for target in targets:
+        if current == target:
+            return True
+        if current.endswith("/" + target) or target.endswith("/" + current):
+            return True
+    return False
+
+
+def group_matches_targets(
+    group: dict[str, Any],
+    *,
+    target_group_ids: set[str],
+    target_output_jsons: set[str],
+) -> bool:
+    if not target_group_ids and not target_output_jsons:
+        return True
+    if str(group.get("group_id") or "") in target_group_ids:
+        return True
+    return output_json_matches_target(str(group.get("output_json") or ""), target_output_jsons)
+
+
 def top_reason(results: list[dict[str, Any]]) -> str:
     if any(row.get("promotion_decision") == "paper_candidate_manual_review_required" for row in results):
         return "paper_candidate_manual_review_required"
@@ -323,17 +352,32 @@ def build_audit_report(
     force: bool,
     skip_existing_any_key: bool,
     stop_path: Path,
+    target_group_ids: tuple[str, ...] = (),
+    target_output_jsons: tuple[str, ...] = (),
 ) -> dict[str, Any]:
+    target_group_id_set = {str(item).strip() for item in target_group_ids if str(item).strip()}
+    target_output_json_set = {
+        normalized_target_path(item)
+        for item in target_output_jsons
+        if str(item).strip()
+    }
+    targeted = bool(target_group_id_set or target_output_json_set)
     status = build_revalidation_status(
         plan_path,
         runner_state_path=runner_state_path,
-        max_groups=max_groups,
+        max_groups=0 if targeted else max_groups,
         include_processes=True,
     )
     verdicts = []
     for group in status.get("groups") or []:
         if stop_path.exists():
             break
+        if not group_matches_targets(
+            group,
+            target_group_ids=target_group_id_set,
+            target_output_jsons=target_output_json_set,
+        ):
+            continue
         if group.get("status") != "completed_accepted":
             continue
         verdicts.append(
@@ -365,10 +409,22 @@ def build_audit_report(
             "plan": str(plan_path),
             "runner_state": str(runner_state_path),
             "status_counts": status.get("status_counts") or {},
+            "target_group_ids": sorted(target_group_id_set),
+            "target_output_jsons": sorted(target_output_json_set),
         },
         "summary": {
             "accepted_groups_seen": sum(1 for row in status.get("groups") or [] if row.get("status") == "completed_accepted"),
             "verdict_count": len(verdicts),
+            "targeted": targeted,
+            "target_matched_count": sum(
+                1
+                for row in status.get("groups") or []
+                if group_matches_targets(
+                    row,
+                    target_group_ids=target_group_id_set,
+                    target_output_jsons=target_output_json_set,
+                )
+            ),
             "paper_candidate_group_count": len(paper_candidates),
             "reason_counts": {
                 reason: sum(1 for row in verdicts if row.get("reason") == reason)
@@ -441,6 +497,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--holdout-authorized", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--skip-existing-any-key", action="store_true")
+    parser.add_argument("--target-group-id", action="append", default=[])
+    parser.add_argument("--target-output-json", action="append", default=[])
     parser.add_argument("--stop-path", default="control/STOP")
     parser.add_argument("--out-json", default="artifacts/v9/revalidation/holdout_auditor_report.json")
     parser.add_argument("--state-dir", default="state")
@@ -489,6 +547,8 @@ def main() -> None:
         force=bool(args.force),
         skip_existing_any_key=bool(args.skip_existing_any_key),
         stop_path=Path(args.stop_path),
+        target_group_ids=tuple(args.target_group_id or ()),
+        target_output_jsons=tuple(args.target_output_json or ()),
     )
     write_json(report, Path(args.out_json))
     write_validated_marker(report, Path(args.state_dir))

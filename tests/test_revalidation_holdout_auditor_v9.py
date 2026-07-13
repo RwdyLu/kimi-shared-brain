@@ -225,3 +225,111 @@ def test_write_validated_marker_leaves_state_unchanged_without_candidate(tmp_pat
     auditor.write_validated_marker({"verdicts": [{"paper_candidate_count": 0}]}, tmp_path)
 
     assert not (tmp_path / "FOUND_VALIDATED_CANDIDATE.txt").exists()
+
+
+def test_build_audit_report_filters_target_group_id(tmp_path, monkeypatch) -> None:
+    def fake_status(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs["max_groups"] == 0
+        return {
+            "status_counts": {"completed_accepted": 2, "running": 1},
+            "groups": [
+                {"group_id": "group-a", "status": "completed_accepted", "output_json": "artifacts/a.json"},
+                {"group_id": "group-b", "status": "completed_accepted", "output_json": "artifacts/b.json"},
+                {"group_id": "group-c", "status": "running", "output_json": "artifacts/c.json"},
+            ],
+        }
+
+    seen: list[str] = []
+
+    def fake_audit_group(group: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        seen.append(str(group["group_id"]))
+        return {
+            "group_id": group["group_id"],
+            "paper_candidate_count": 0,
+            "reason": "holdout_failed",
+        }
+
+    monkeypatch.setattr(auditor, "build_revalidation_status", fake_status)
+    monkeypatch.setattr(auditor, "audit_group", fake_audit_group)
+
+    report = auditor.build_audit_report(
+        plan_path=tmp_path / "plan.json",
+        runner_state_path=tmp_path / "runner.json",
+        cache_dir=tmp_path,
+        holdout_start="2024-07-01",
+        holdout_end="2026-07-12 01:00:00",
+        recent_start="2026-06-01",
+        costs_bps=(40.0,),
+        bootstrap_iterations=0,
+        max_groups=1,
+        max_configs=2,
+        min_decay_ratio=0.5,
+        min_recent_active_rebalances=1,
+        min_recent_time_in_market=0.0,
+        holdout_authorized=True,
+        force=False,
+        skip_existing_any_key=False,
+        stop_path=tmp_path / "STOP",
+        target_group_ids=("group-b",),
+    )
+
+    assert seen == ["group-b"]
+    assert report["summary"]["targeted"] is True
+    assert report["summary"]["target_matched_count"] == 1
+    assert report["summary"]["verdict_count"] == 1
+
+
+def test_build_audit_report_filters_target_output_json_suffix(tmp_path, monkeypatch) -> None:
+    def fake_status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "status_counts": {"completed_accepted": 2},
+            "groups": [
+                {
+                    "group_id": "group-a",
+                    "status": "completed_accepted",
+                    "output_json": "/root/project/artifacts/v9/contract_lab/a.json",
+                },
+                {
+                    "group_id": "group-b",
+                    "status": "completed_accepted",
+                    "output_json": "/root/project/artifacts/v9/contract_lab/b.json",
+                },
+            ],
+        }
+
+    seen: list[str] = []
+
+    def fake_audit_group(group: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        seen.append(str(group["group_id"]))
+        return {
+            "group_id": group["group_id"],
+            "paper_candidate_count": 0,
+            "reason": "holdout_failed",
+        }
+
+    monkeypatch.setattr(auditor, "build_revalidation_status", fake_status)
+    monkeypatch.setattr(auditor, "audit_group", fake_audit_group)
+
+    report = auditor.build_audit_report(
+        plan_path=tmp_path / "plan.json",
+        runner_state_path=tmp_path / "runner.json",
+        cache_dir=tmp_path,
+        holdout_start="2024-07-01",
+        holdout_end="2026-07-12 01:00:00",
+        recent_start="2026-06-01",
+        costs_bps=(40.0,),
+        bootstrap_iterations=0,
+        max_groups=10,
+        max_configs=2,
+        min_decay_ratio=0.5,
+        min_recent_active_rebalances=1,
+        min_recent_time_in_market=0.0,
+        holdout_authorized=True,
+        force=False,
+        skip_existing_any_key=False,
+        stop_path=tmp_path / "STOP",
+        target_output_jsons=("artifacts/v9/contract_lab/b.json",),
+    )
+
+    assert seen == ["group-b"]
+    assert report["summary"]["target_matched_count"] == 1
