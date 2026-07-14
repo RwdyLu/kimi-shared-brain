@@ -46,6 +46,8 @@ def base_args(tmp_path: Path, funding_dir: Path) -> Namespace:
         universe_json="",
         top_n=4,
         symbols="AAAUSDT,BBBUSDT,CCCUSDT,DDDUSDT",
+        start="2025-01-01",
+        end="",
         lookback_events_grid="5,9",
         max_positions_grid="1,2",
         min_trailing_funding_bps_grid="1.0,2.0",

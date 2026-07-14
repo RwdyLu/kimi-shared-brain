@@ -91,6 +91,19 @@ def load_funding_cache(cache_dir: Path, symbols: tuple[str, ...]) -> pd.DataFram
     return normalize_funding_frame(pd.concat(frames, ignore_index=True))
 
 
+def filter_funding_window(frame: pd.DataFrame, *, start: str, end: str) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    out = frame
+    if start:
+        start_ms = int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
+        out = out[out["funding_time"] >= start_ms]
+    if end:
+        end_ms = int(pd.Timestamp(end, tz="UTC").timestamp() * 1000)
+        out = out[out["funding_time"] <= end_ms]
+    return out.copy()
+
+
 def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -> tuple[str, ...]:
     if not path:
         return fallback[:top_n]
@@ -216,7 +229,6 @@ def build_event_detail(
         rows.append(
             {
                 "funding_time": int(funding_time),
-                "funding_time_iso": timestamp_ms_to_iso(int(funding_time)),
                 "short_perp_symbols": selected,
                 "long_spot_symbols": selected,
                 "position_count": int(len(selected)),
@@ -401,6 +413,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     fallback = parse_symbols(args.symbols) or DEFAULT_SYMBOLS
     symbols = parse_symbols(args.symbols) or symbols_from_universe(args.universe_json, top_n=args.top_n, fallback=fallback)
     frame = load_funding_cache(Path(args.cache_dir), symbols)
+    frame = filter_funding_window(frame, start=args.start, end=args.end)
     rows = [
         evaluate_config(
             frame,
@@ -425,6 +438,8 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "data": {
             "first_funding_time": timestamp_ms_to_iso(int(frame["funding_time"].min())) if len(frame) else None,
             "last_funding_time": timestamp_ms_to_iso(int(frame["funding_time"].max())) if len(frame) else None,
+            "start": args.start,
+            "end": args.end,
         },
         "gate": {
             "selection_frac": float(args.selection_frac),
@@ -556,6 +571,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--universe-json", default="artifacts/v9/universe/binance_usdm_top30_volume_snapshot.json")
     parser.add_argument("--top-n", type=int, default=12)
     parser.add_argument("--symbols", default="")
+    parser.add_argument("--start", default="2024-01-01")
+    parser.add_argument("--end", default="")
     parser.add_argument("--lookback-events-grid", default="21,63,90")
     parser.add_argument("--max-positions-grid", default="1,2,3")
     parser.add_argument("--min-trailing-funding-bps-grid", default="1.0,1.5,2.0")
