@@ -198,51 +198,42 @@ def build_event_detail(
     if clean.empty:
         return pd.DataFrame()
     pivot = clean.pivot_table(index="funding_time", columns="symbol", values="funding_rate", aggfunc="last").sort_index()
-    trailing = trailing_mean_by_symbol(pivot, cfg.lookback_events)
-    previous_weights = pd.Series(dtype=float)
-    rows: list[dict[str, Any]] = []
-    for funding_time in pivot.index:
-        scores = trailing.loc[funding_time].dropna()
-        realized = pivot.loc[funding_time].dropna()
-        common_scores = scores.loc[scores.index.intersection(realized.index)]
-        selected = select_from_scores(
-            common_scores,
-            max_positions=cfg.max_positions,
-            min_trailing_funding_rate=cfg.min_trailing_funding_rate,
-        )
-        weights = pd.Series(dtype=float)
-        if selected:
-            weights = pd.Series(1.0 / len(selected), index=selected, dtype=float)
-        all_symbols = previous_weights.index.union(weights.index)
-        turnover = float(
-            (
-                weights.reindex(all_symbols, fill_value=0.0)
-                - previous_weights.reindex(all_symbols, fill_value=0.0)
-            )
-            .abs()
-            .sum()
-        )
-        funding_return = float((weights * realized.reindex(weights.index)).sum()) if selected else 0.0
-        cost = turnover * float(turnover_cost_bps) / 10_000.0
-        net_notional_return = funding_return - cost
-        net_capital_return = net_notional_return / max(float(cfg.capital_multiplier), 1.0)
-        rows.append(
-            {
-                "funding_time": int(funding_time),
-                "short_perp_symbols": selected,
-                "long_spot_symbols": selected,
-                "position_count": int(len(selected)),
-                "mean_trailing_funding_rate": float(common_scores.loc[selected].mean()) if selected else 0.0,
-                "mean_realized_funding_rate": float(realized.loc[selected].mean()) if selected else 0.0,
-                "funding_notional_return": funding_return,
-                "turnover": turnover,
-                "turnover_cost": cost,
-                "net_notional_return": net_notional_return,
-                "net_capital_return": net_capital_return,
-            }
-        )
-        previous_weights = weights
-    return pd.DataFrame(rows)
+    trailing = pivot.rolling(max(1, int(cfg.lookback_events)), min_periods=max(1, int(cfg.lookback_events))).mean().shift(1)
+    eligible = trailing.where(trailing >= float(cfg.min_trailing_funding_rate))
+    ranks = eligible.rank(axis=1, method="first", ascending=False)
+    selected_mask = ranks <= max(1, int(cfg.max_positions))
+    selected_mask = selected_mask & eligible.notna() & pivot.notna()
+    counts = selected_mask.sum(axis=1).astype(float)
+    weights = selected_mask.astype(float).div(counts.where(counts > 0), axis=0).fillna(0.0)
+    funding_return = (weights * pivot.fillna(0.0)).sum(axis=1)
+    turnover = weights.diff().abs().sum(axis=1)
+    if len(weights):
+        turnover.iloc[0] = weights.iloc[0].abs().sum()
+    cost = turnover * float(turnover_cost_bps) / 10_000.0
+    net_notional_return = funding_return - cost
+    capital_multiplier = max(float(cfg.capital_multiplier), 1.0)
+    net_capital_return = net_notional_return / capital_multiplier
+    selected_symbols = [
+        [str(symbol) for symbol, is_selected in selected_mask.loc[funding_time].items() if bool(is_selected)]
+        for funding_time in pivot.index
+    ]
+    mean_trailing = (weights * trailing.fillna(0.0)).sum(axis=1).where(counts > 0, 0.0)
+    mean_realized = (weights * pivot.fillna(0.0)).sum(axis=1).where(counts > 0, 0.0)
+    return pd.DataFrame(
+        {
+            "funding_time": pivot.index.astype("int64"),
+            "short_perp_symbols": selected_symbols,
+            "long_spot_symbols": selected_symbols,
+            "position_count": counts.astype(int).to_numpy(),
+            "mean_trailing_funding_rate": mean_trailing.to_numpy(dtype=float),
+            "mean_realized_funding_rate": mean_realized.to_numpy(dtype=float),
+            "funding_notional_return": funding_return.to_numpy(dtype=float),
+            "turnover": turnover.to_numpy(dtype=float),
+            "turnover_cost": cost.to_numpy(dtype=float),
+            "net_notional_return": net_notional_return.to_numpy(dtype=float),
+            "net_capital_return": net_capital_return.to_numpy(dtype=float),
+        }
+    )
 
 
 def split_detail(detail: pd.DataFrame, *, selection_frac: float) -> tuple[pd.DataFrame, pd.DataFrame]:
