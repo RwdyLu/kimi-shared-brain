@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import json
 from argparse import Namespace
 from pathlib import Path
 
@@ -44,6 +45,8 @@ def base_args(tmp_path: Path, funding_dir: Path) -> Namespace:
     return Namespace(
         cache_dir=str(funding_dir),
         universe_json="",
+        spot_universe_json="",
+        require_spot=False,
         top_n=4,
         symbols="AAAUSDT,BBBUSDT,CCCUSDT,DDDUSDT",
         start="2025-01-01",
@@ -118,3 +121,20 @@ def test_run_screen_writes_paper_watch_marker(tmp_path: Path) -> None:
     assert payload["top"][0]["paper_watch_candidate"] is True
     assert payload["top"][0]["current_signal"]["position_count"] > 0
     assert payload["summary"]["paper_trading_authorized"] is False
+
+
+def test_run_screen_can_require_matching_spot_pair(tmp_path: Path) -> None:
+    symbols = ("AAAUSDT", "BBBUSDT", "CCCUSDT", "DDDUSDT")
+    funding_dir = write_funding_cache(tmp_path, symbols)
+    spot_snapshot = tmp_path / "spot.json"
+    spot_snapshot.write_text(json.dumps({"symbols": ["BBBUSDT", "CCCUSDT", "DDDUSDT"]}))
+    args = base_args(tmp_path, funding_dir)
+    args.spot_universe_json = str(spot_snapshot)
+    args.require_spot = True
+
+    payload = run_screen(args)
+
+    assert payload["require_spot"] is True
+    assert payload["spot_excluded_symbols"] == ("AAAUSDT",)
+    assert "AAAUSDT" not in payload["symbols"]
+    assert payload["top"][0]["current_signal"]["positions"][0]["symbol"] == "BBBUSDT"

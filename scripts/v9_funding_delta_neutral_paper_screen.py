@@ -115,6 +115,30 @@ def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -
     return (symbols or fallback)[:top_n]
 
 
+def symbols_from_snapshot(path: str) -> set[str]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    payload = json.loads(p.read_text())
+    return {str(symbol).upper() for symbol in payload.get("symbols", []) if symbol}
+
+
+def filter_symbols_for_spot(
+    symbols: tuple[str, ...],
+    *,
+    require_spot: bool,
+    spot_universe_json: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if not require_spot:
+        return symbols, ()
+    spot_symbols = symbols_from_snapshot(spot_universe_json)
+    allowed = tuple(symbol for symbol in symbols if symbol in spot_symbols)
+    excluded = tuple(symbol for symbol in symbols if symbol not in spot_symbols)
+    return allowed, excluded
+
+
 def max_drawdown_compounded(returns: pd.Series) -> float:
     if returns.empty:
         return 0.0
@@ -402,7 +426,12 @@ def config_grid(args: argparse.Namespace) -> tuple[DeltaNeutralFundingConfig, ..
 
 def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     fallback = parse_symbols(args.symbols) or DEFAULT_SYMBOLS
-    symbols = parse_symbols(args.symbols) or symbols_from_universe(args.universe_json, top_n=args.top_n, fallback=fallback)
+    raw_symbols = parse_symbols(args.symbols) or symbols_from_universe(args.universe_json, top_n=args.top_n, fallback=fallback)
+    symbols, spot_excluded_symbols = filter_symbols_for_spot(
+        raw_symbols,
+        require_spot=bool(args.require_spot),
+        spot_universe_json=args.spot_universe_json,
+    )
     frame = load_funding_cache(Path(args.cache_dir), symbols)
     frame = filter_funding_window(frame, start=args.start, end=args.end)
     rows = [
@@ -424,6 +453,10 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": now_utc(),
         "cache_dir": args.cache_dir,
         "universe_json": args.universe_json,
+        "spot_universe_json": args.spot_universe_json,
+        "require_spot": bool(args.require_spot),
+        "raw_symbols": raw_symbols,
+        "spot_excluded_symbols": spot_excluded_symbols,
         "symbols": symbols,
         "loaded_rows": int(len(frame)),
         "data": {
@@ -500,6 +533,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- updated_at: `{payload['updated_at']}`",
         f"- loaded_rows: `{payload['loaded_rows']}`",
         f"- symbols: `{len(payload['symbols'])}`",
+        f"- require_spot: `{payload.get('require_spot')}`",
+        f"- spot_excluded_symbols: `{','.join(payload.get('spot_excluded_symbols') or [])}`",
         f"- paper_watch_candidate_found: `{payload['summary']['paper_watch_candidate_found']}`",
         f"- paper_watch_candidate_count: `{payload['summary']['paper_watch_candidate_count']}`",
         "",
@@ -534,6 +569,8 @@ def format_text(payload: dict[str, Any]) -> str:
     lines = [
         f"updated_at={payload['updated_at']}",
         f"loaded_rows={payload['loaded_rows']}",
+        f"require_spot={payload.get('require_spot')}",
+        f"spot_excluded_symbols={','.join(payload.get('spot_excluded_symbols') or [])}",
         f"paper_watch_candidate_found={summary['paper_watch_candidate_found']}",
         f"paper_watch_candidate_count={summary['paper_watch_candidate_count']}",
         "safety=paper_authorized:False live:False",
@@ -560,6 +597,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Paper-watch screen for same-symbol spot/perp funding carry.")
     parser.add_argument("--cache-dir", default="data/binance_funding_cache")
     parser.add_argument("--universe-json", default="artifacts/v9/universe/binance_usdm_top30_volume_snapshot.json")
+    parser.add_argument("--spot-universe-json", default="artifacts/v9/universe/binance_spot_usdt_universe_snapshot.json")
+    parser.add_argument("--require-spot", action="store_true")
     parser.add_argument("--top-n", type=int, default=12)
     parser.add_argument("--symbols", default="")
     parser.add_argument("--start", default="2024-01-01")
