@@ -142,6 +142,12 @@ def test_latest_market_signal_journal_deduplicates_same_candle(tmp_path: Path) -
     assert len(records) == 1
 
 
+def test_timeframe_aware_return_windows_use_real_hours() -> None:
+    assert signal_mod.bars_for_hours("1h", 24.0) == 24
+    assert signal_mod.bars_for_hours("15m", 24.0) == 96
+    assert signal_mod.bars_for_hours("15m", 6.0) == 24
+
+
 def test_latest_market_signal_writes_found_and_no_markers(tmp_path: Path) -> None:
     found_marker = tmp_path / "FOUND.txt"
     no_marker = tmp_path / "NO.txt"

@@ -104,8 +104,33 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     return out if math.isfinite(out) else default
 
 
+def interval_minutes(timeframe: str) -> float:
+    raw = str(timeframe).strip().lower()
+    if len(raw) < 2:
+        raise ValueError(f"unsupported timeframe: {timeframe}")
+    unit = raw[-1]
+    value = float(raw[:-1])
+    if value <= 0:
+        raise ValueError(f"unsupported timeframe: {timeframe}")
+    if unit == "s":
+        return value / 60.0
+    if unit == "m":
+        return value
+    if unit == "h":
+        return value * 60.0
+    if unit == "d":
+        return value * 1440.0
+    raise ValueError(f"unsupported timeframe: {timeframe}")
+
+
+def bars_for_hours(timeframe: str, hours: float) -> int:
+    return max(1, int(round(float(hours) * 60.0 / interval_minutes(timeframe))))
+
+
 def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
     df = frame.copy().sort_values("dt").reset_index(drop=True)
+    ret_6h_bars = bars_for_hours(args.timeframe, 6.0)
+    ret_24h_bars = bars_for_hours(args.timeframe, 24.0)
     df["ema_fast"] = df["close"].ewm(span=args.fast_ema, adjust=False, min_periods=args.fast_ema).mean()
     df["ema_slow"] = df["close"].ewm(span=args.slow_ema, adjust=False, min_periods=args.slow_ema).mean()
     df["atr"] = atr(df, args.atr_n)
@@ -114,8 +139,8 @@ def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.D
     df["low_breakout"] = df["low"].rolling(args.breakout_n, min_periods=args.breakout_n).min().shift(1)
     df["ema_gap"] = df["ema_fast"] / df["ema_slow"] - 1.0
     df["slow_ema_slope"] = df["ema_slow"] / df["ema_slow"].shift(args.slope_n) - 1.0
-    df["ret_6h"] = df["close"] / df["close"].shift(6) - 1.0
-    df["ret_24h"] = df["close"] / df["close"].shift(24) - 1.0
+    df["ret_6h"] = df["close"] / df["close"].shift(ret_6h_bars) - 1.0
+    df["ret_24h"] = df["close"] / df["close"].shift(ret_24h_bars) - 1.0
     df["atr_pct"] = df["atr"] / df["close"]
     breakout_range = (df["high_breakout"] - df["low_breakout"]).replace(0.0, pd.NA)
     df["breakout_pos"] = (df["close"] - df["low_breakout"]) / breakout_range
@@ -337,7 +362,15 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
 
 
 def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: str) -> dict[str, Any]:
-    min_bars = max(args.slow_ema, args.atr_n, args.rsi_n, args.breakout_n, args.slope_n, 25) + 2
+    min_bars = max(
+        args.slow_ema,
+        args.atr_n,
+        args.rsi_n,
+        args.breakout_n,
+        args.slope_n,
+        bars_for_hours(args.timeframe, 24.0),
+        25,
+    ) + 2
     if len(frame) < min_bars:
         return {
             "symbol": symbol,
@@ -428,7 +461,7 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
     analog = historical_analog_evidence(df, args, signal=signal)
     plan = {
         "side": signal,
-        "entry_reference": "latest_closed_1h_close_next_bar_open_simulated",
+        "entry_reference": f"latest_closed_{args.timeframe}_close_next_bar_open_simulated",
         **prices,
         "reward_r": float(args.reward_r),
         "risk_per_trade": float(args.risk_per_trade),
@@ -658,6 +691,8 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "universe_json": args.universe_json,
         "symbols": symbols,
         "config": {
+            "ret_6h_bars": bars_for_hours(args.timeframe, 6.0),
+            "ret_24h_bars": bars_for_hours(args.timeframe, 24.0),
             "fast_ema": int(args.fast_ema),
             "slow_ema": int(args.slow_ema),
             "breakout_n": int(args.breakout_n),
