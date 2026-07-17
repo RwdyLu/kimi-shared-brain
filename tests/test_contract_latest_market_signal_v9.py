@@ -63,10 +63,22 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         reward_r=2.0,
         risk_per_trade=0.005,
         leverage_cap=2.0,
+        analog_top_k=20,
+        analog_horizon_bars=12,
+        min_analog_samples=6,
+        min_analog_hit_rate=0.40,
+        min_analog_profitable_rate=0.55,
+        min_analog_expectancy_r=0.0,
+        paper_outcome_horizon_bars=12,
+        journal_jsonl=str(tmp_path / "journal.jsonl"),
+        journal_record_mode="all_signals",
+        max_journal_records=1000,
         out_json=str(tmp_path / "signal.json"),
         out_md=str(tmp_path / "signal.md"),
         marker=str(tmp_path / "FOUND.txt"),
         no_marker=str(tmp_path / "NO.txt"),
+        analog_marker=str(tmp_path / "FOUND_ANALOG.txt"),
+        analog_no_marker=str(tmp_path / "NO_ANALOG.txt"),
         format="text",
     )
 
@@ -80,9 +92,12 @@ def test_latest_market_signal_builds_long_paper_plan(tmp_path: Path) -> None:
     best = payload["top"][0]
     plan = best["paper_plan"]
     assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["analog_supported_plan_found"] is True
+    assert payload["journal"]["new_records"] == 1
     assert payload["summary"]["paper_trading_authorized"] is False
     assert payload["summary"]["live_trading_authorized"] is False
     assert best["signal"] == "long"
+    assert best["analog_evidence"]["supported"] is True
     assert plan["stop_loss"] < plan["entry_price"] < plan["take_profit"]
     assert plan["order_intent"]["entry"] == "paper_only_no_order"
 
@@ -96,7 +111,9 @@ def test_latest_market_signal_builds_short_paper_plan(tmp_path: Path) -> None:
     best = payload["top"][0]
     plan = best["paper_plan"]
     assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["analog_supported_plan_found"] is True
     assert best["signal"] == "short"
+    assert best["analog_evidence"]["supported"] is True
     assert plan["take_profit"] < plan["entry_price"] < plan["stop_loss"]
 
 
@@ -107,7 +124,22 @@ def test_latest_market_signal_rejects_flat_market(tmp_path: Path) -> None:
     payload = signal_mod.run_screen(base_args(tmp_path, symbols="CCCUSDT"))
 
     assert payload["summary"]["paper_plan_found"] is False
+    assert payload["summary"]["analog_supported_plan_found"] is False
     assert payload["top"][0]["signal"] == "none"
+
+
+def test_latest_market_signal_journal_deduplicates_same_candle(tmp_path: Path) -> None:
+    closes = [100.0 * (1.0015**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+
+    first = signal_mod.run_screen(args)
+    second = signal_mod.run_screen(args)
+
+    assert first["journal"]["new_records"] == 1
+    assert second["journal"]["new_records"] == 0
+    records = (tmp_path / "journal.jsonl").read_text().splitlines()
+    assert len(records) == 1
 
 
 def test_latest_market_signal_writes_found_and_no_markers(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ import pandas as pd
 
 
 DEFAULT_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT", "LINKUSDT")
+ANALOG_FEATURES = ("ema_gap", "slow_ema_slope", "ret_6h", "ret_24h", "atr_pct", "rsi", "breakout_pos")
 
 
 def now_utc() -> str:
@@ -102,6 +104,238 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     return out if math.isfinite(out) else default
 
 
+def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
+    df = frame.copy().sort_values("dt").reset_index(drop=True)
+    df["ema_fast"] = df["close"].ewm(span=args.fast_ema, adjust=False, min_periods=args.fast_ema).mean()
+    df["ema_slow"] = df["close"].ewm(span=args.slow_ema, adjust=False, min_periods=args.slow_ema).mean()
+    df["atr"] = atr(df, args.atr_n)
+    df["rsi"] = rsi(df["close"], args.rsi_n)
+    df["high_breakout"] = df["high"].rolling(args.breakout_n, min_periods=args.breakout_n).max().shift(1)
+    df["low_breakout"] = df["low"].rolling(args.breakout_n, min_periods=args.breakout_n).min().shift(1)
+    df["ema_gap"] = df["ema_fast"] / df["ema_slow"] - 1.0
+    df["slow_ema_slope"] = df["ema_slow"] / df["ema_slow"].shift(args.slope_n) - 1.0
+    df["ret_6h"] = df["close"] / df["close"].shift(6) - 1.0
+    df["ret_24h"] = df["close"] / df["close"].shift(24) - 1.0
+    df["atr_pct"] = df["atr"] / df["close"]
+    breakout_range = (df["high_breakout"] - df["low_breakout"]).replace(0.0, pd.NA)
+    df["breakout_pos"] = (df["close"] - df["low_breakout"]) / breakout_range
+    long_votes = [
+        df["close"] > df["ema_slow"],
+        df["ema_fast"] > df["ema_slow"],
+        df["slow_ema_slope"] > args.min_slope,
+        df["ret_24h"] > args.min_ret_24h,
+        (df["high_breakout"] > 0) & (df["close"] >= df["high_breakout"] * (1.0 - args.breakout_buffer)),
+        df["rsi"] <= args.max_long_rsi,
+    ]
+    short_votes = [
+        df["close"] < df["ema_slow"],
+        df["ema_fast"] < df["ema_slow"],
+        df["slow_ema_slope"] < -args.min_slope,
+        df["ret_24h"] < -args.min_ret_24h,
+        (df["low_breakout"] > 0) & (df["close"] <= df["low_breakout"] * (1.0 + args.breakout_buffer)),
+        df["rsi"] >= args.min_short_rsi,
+    ]
+    df["long_votes"] = sum(v.fillna(False).astype(int) for v in long_votes)
+    df["short_votes"] = sum(v.fillna(False).astype(int) for v in short_votes)
+    return df
+
+
+def plan_prices(row: pd.Series, args: argparse.Namespace, side: str) -> dict[str, float] | None:
+    close = safe_float(row.get("close"))
+    latest_atr = safe_float(row.get("atr"))
+    if close <= 0.0 or latest_atr <= 0.0:
+        return None
+    risk_per_unit = max(latest_atr * float(args.stop_atr_mult), close * float(args.min_stop_pct))
+    if side == "long":
+        stop = close - risk_per_unit
+        take_profit = close + risk_per_unit * float(args.reward_r)
+        if stop <= 0:
+            return None
+    else:
+        stop = close + risk_per_unit
+        take_profit = close - risk_per_unit * float(args.reward_r)
+        if take_profit <= 0:
+            return None
+    return {
+        "entry_price": close,
+        "stop_loss": stop,
+        "take_profit": take_profit,
+        "risk_per_unit": risk_per_unit,
+    }
+
+
+def simulate_outcome(
+    df: pd.DataFrame,
+    *,
+    start_idx: int,
+    side: str,
+    entry: float,
+    stop: float,
+    take_profit: float,
+    horizon_bars: int,
+) -> dict[str, Any]:
+    future = df.iloc[start_idx + 1 : start_idx + 1 + int(horizon_bars)].copy()
+    risk = (entry - stop) if side == "long" else (stop - entry)
+    if future.empty or risk <= 0:
+        return {"status": "pending", "exit_reason": "insufficient_future_bars", "r_multiple": None}
+    for offset, row in enumerate(future.itertuples(index=False), start=1):
+        high = safe_float(getattr(row, "high", 0.0))
+        low = safe_float(getattr(row, "low", 0.0))
+        dt = getattr(row, "dt")
+        if side == "long":
+            hit_stop = low <= stop
+            hit_tp = high >= take_profit
+            if hit_stop:
+                return {
+                    "status": "completed",
+                    "exit_reason": "stop_loss",
+                    "r_multiple": -1.0,
+                    "exit_dt": dt.isoformat(),
+                    "bars_held": offset,
+                }
+            if hit_tp:
+                return {
+                    "status": "completed",
+                    "exit_reason": "take_profit",
+                    "r_multiple": float((take_profit - entry) / risk),
+                    "exit_dt": dt.isoformat(),
+                    "bars_held": offset,
+                }
+        else:
+            hit_stop = high >= stop
+            hit_tp = low <= take_profit
+            if hit_stop:
+                return {
+                    "status": "completed",
+                    "exit_reason": "stop_loss",
+                    "r_multiple": -1.0,
+                    "exit_dt": dt.isoformat(),
+                    "bars_held": offset,
+                }
+            if hit_tp:
+                return {
+                    "status": "completed",
+                    "exit_reason": "take_profit",
+                    "r_multiple": float((entry - take_profit) / risk),
+                    "exit_dt": dt.isoformat(),
+                    "bars_held": offset,
+                }
+    if len(future) < int(horizon_bars):
+        return {"status": "pending", "exit_reason": "waiting_for_horizon", "r_multiple": None}
+    last = future.iloc[-1]
+    exit_price = safe_float(last["close"])
+    r_mult = (exit_price - entry) / risk if side == "long" else (entry - exit_price) / risk
+    return {
+        "status": "completed",
+        "exit_reason": "horizon_close",
+        "r_multiple": float(r_mult),
+        "exit_dt": last["dt"].isoformat(),
+        "bars_held": int(horizon_bars),
+    }
+
+
+def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, signal: str) -> dict[str, Any]:
+    horizon = int(args.analog_horizon_bars)
+    if signal not in {"long", "short"}:
+        return {"enabled": True, "supported": False, "reason": "no_signal"}
+    if len(df) < max(args.slow_ema, args.breakout_n, args.atr_n, args.rsi_n) + horizon + 10:
+        return {"enabled": True, "supported": False, "reason": "insufficient_history"}
+    latest = df.iloc[-1]
+    target = pd.Series({feature: safe_float(latest.get(feature), float("nan")) for feature in ANALOG_FEATURES})
+    if not target.apply(math.isfinite).all():
+        return {"enabled": True, "supported": False, "reason": "invalid_current_features"}
+
+    max_idx = len(df) - 1 - horizon
+    history = df.iloc[:max_idx].copy()
+    if signal == "long":
+        history = history[(history["long_votes"] >= args.min_votes) & (history["long_votes"] > history["short_votes"])]
+    else:
+        history = history[
+            (history["short_votes"] >= args.min_votes)
+            & (history["short_votes"] > history["long_votes"])
+        ]
+    history = history.dropna(subset=list(ANALOG_FEATURES) + ["atr", "close"])
+    if history.empty:
+        return {"enabled": True, "supported": False, "reason": "no_same_side_analogs"}
+
+    features = history.loc[:, ANALOG_FEATURES].astype(float)
+    scales = features.std(ddof=0).replace(0.0, float("nan")).fillna(1.0)
+    distances = (((features - target) / scales) ** 2).mean(axis=1).pow(0.5)
+    nearest = history.assign(analog_distance=distances).nsmallest(int(args.analog_top_k), "analog_distance")
+    outcomes = []
+    for idx, row in nearest.iterrows():
+        prices = plan_prices(row, args, signal)
+        if not prices:
+            continue
+        outcome = simulate_outcome(
+            df,
+            start_idx=int(idx),
+            side=signal,
+            entry=prices["entry_price"],
+            stop=prices["stop_loss"],
+            take_profit=prices["take_profit"],
+            horizon_bars=horizon,
+        )
+        if outcome.get("r_multiple") is None:
+            continue
+        outcomes.append(
+            {
+                "dt": row["dt"].isoformat(),
+                "distance": float(row["analog_distance"]),
+                "entry": float(prices["entry_price"]),
+                "exit_reason": outcome["exit_reason"],
+                "r_multiple": float(outcome["r_multiple"]),
+                "bars_held": int(outcome.get("bars_held") or 0),
+            }
+        )
+    used = len(outcomes)
+    if not outcomes:
+        return {
+            "enabled": True,
+            "supported": False,
+            "reason": "no_completed_analog_outcomes",
+            "candidate_count": int(len(history)),
+            "used_count": 0,
+        }
+    r_values = [float(row["r_multiple"]) for row in outcomes]
+    tp_count = sum(1 for row in outcomes if row["exit_reason"] == "take_profit")
+    stop_count = sum(1 for row in outcomes if row["exit_reason"] == "stop_loss")
+    profitable_count = sum(1 for value in r_values if value > 0.0)
+    hit_rate = tp_count / used
+    profitable_rate = profitable_count / used
+    expectancy = sum(r_values) / used
+    supported = (
+        used >= int(args.min_analog_samples)
+        and (hit_rate >= float(args.min_analog_hit_rate) or profitable_rate >= float(args.min_analog_profitable_rate))
+        and expectancy >= float(args.min_analog_expectancy_r)
+    )
+    return {
+        "enabled": True,
+        "supported": bool(supported),
+        "reason": "analog_support_pass" if supported else "analog_support_fail",
+        "candidate_count": int(len(history)),
+        "used_count": used,
+        "top_k": int(args.analog_top_k),
+        "horizon_bars": horizon,
+        "take_profit_first_count": tp_count,
+        "stop_loss_first_count": stop_count,
+        "profitable_count": profitable_count,
+        "hit_rate": float(hit_rate),
+        "profitable_rate": float(profitable_rate),
+        "expectancy_r": float(expectancy),
+        "median_r": float(pd.Series(r_values).median()),
+        "worst_r": float(min(r_values)),
+        "best_r": float(max(r_values)),
+        "sample": outcomes[:5],
+        "thresholds": {
+            "min_analog_samples": int(args.min_analog_samples),
+            "min_analog_hit_rate": float(args.min_analog_hit_rate),
+            "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
+            "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
+        },
+    }
+
+
 def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: str) -> dict[str, Any]:
     min_bars = max(args.slow_ema, args.atr_n, args.rsi_n, args.breakout_n, args.slope_n, 25) + 2
     if len(frame) < min_bars:
@@ -112,54 +346,63 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
             "reason": f"need_at_least_{min_bars}_bars",
             "paper_plan": None,
         }
-    df = frame.copy()
-    df["ema_fast"] = df["close"].ewm(span=args.fast_ema, adjust=False, min_periods=args.fast_ema).mean()
-    df["ema_slow"] = df["close"].ewm(span=args.slow_ema, adjust=False, min_periods=args.slow_ema).mean()
-    df["atr"] = atr(df, args.atr_n)
-    df["rsi"] = rsi(df["close"], args.rsi_n)
-    df["high_breakout"] = df["high"].rolling(args.breakout_n, min_periods=args.breakout_n).max().shift(1)
-    df["low_breakout"] = df["low"].rolling(args.breakout_n, min_periods=args.breakout_n).min().shift(1)
+    df = prepare_feature_frame(frame, args)
     latest = df.iloc[-1]
     previous = df.iloc[-2]
     close = safe_float(latest["close"])
     latest_atr = safe_float(latest["atr"])
     if close <= 0.0 or latest_atr <= 0.0:
-        return {"symbol": symbol, "status": "insufficient_data", "signal": "none", "reason": "missing_close_or_atr", "paper_plan": None}
-    ema_fast = safe_float(latest["ema_fast"])
-    ema_slow = safe_float(latest["ema_slow"])
-    rsi_value = safe_float(latest["rsi"], 50.0)
-    ema_gap = (ema_fast / ema_slow - 1.0) if ema_slow > 0 else 0.0
-    slope = (safe_float(latest["ema_slow"]) / safe_float(df["ema_slow"].iloc[-args.slope_n]) - 1.0) if safe_float(df["ema_slow"].iloc[-args.slope_n]) > 0 else 0.0
-    ret_24h = close / safe_float(df["close"].iloc[-25]) - 1.0
-    atr_pct = latest_atr / close
-    high_breakout = safe_float(latest["high_breakout"])
-    low_breakout = safe_float(latest["low_breakout"])
+        return {
+            "symbol": symbol,
+            "status": "insufficient_data",
+            "signal": "none",
+            "reason": "missing_close_or_atr",
+            "paper_plan": None,
+        }
+
     long_votes = {
-        "close_above_slow_ema": close > ema_slow,
-        "fast_above_slow_ema": ema_fast > ema_slow,
-        "slow_ema_slope_positive": slope > args.min_slope,
-        "ret_24h_positive": ret_24h > args.min_ret_24h,
-        "near_or_above_breakout": high_breakout > 0 and close >= high_breakout * (1.0 - args.breakout_buffer),
-        "rsi_not_overheated": rsi_value <= args.max_long_rsi,
+        "close_above_slow_ema": close > safe_float(latest["ema_slow"]),
+        "fast_above_slow_ema": safe_float(latest["ema_fast"]) > safe_float(latest["ema_slow"]),
+        "slow_ema_slope_positive": safe_float(latest["slow_ema_slope"]) > args.min_slope,
+        "ret_24h_positive": safe_float(latest["ret_24h"]) > args.min_ret_24h,
+        "near_or_above_breakout": safe_float(latest["high_breakout"]) > 0
+        and close >= safe_float(latest["high_breakout"]) * (1.0 - args.breakout_buffer),
+        "rsi_not_overheated": safe_float(latest["rsi"], 50.0) <= args.max_long_rsi,
     }
     short_votes = {
-        "close_below_slow_ema": close < ema_slow,
-        "fast_below_slow_ema": ema_fast < ema_slow,
-        "slow_ema_slope_negative": slope < -args.min_slope,
-        "ret_24h_negative": ret_24h < -args.min_ret_24h,
-        "near_or_below_breakdown": low_breakout > 0 and close <= low_breakout * (1.0 + args.breakout_buffer),
-        "rsi_not_oversold": rsi_value >= args.min_short_rsi,
+        "close_below_slow_ema": close < safe_float(latest["ema_slow"]),
+        "fast_below_slow_ema": safe_float(latest["ema_fast"]) < safe_float(latest["ema_slow"]),
+        "slow_ema_slope_negative": safe_float(latest["slow_ema_slope"]) < -args.min_slope,
+        "ret_24h_negative": safe_float(latest["ret_24h"]) < -args.min_ret_24h,
+        "near_or_below_breakdown": safe_float(latest["low_breakout"]) > 0
+        and close <= safe_float(latest["low_breakout"]) * (1.0 + args.breakout_buffer),
+        "rsi_not_oversold": safe_float(latest["rsi"], 50.0) >= args.min_short_rsi,
     }
-    long_score = sum(1 for value in long_votes.values() if value)
-    short_score = sum(1 for value in short_votes.values() if value)
+    long_score = int(sum(1 for value in long_votes.values() if value))
+    short_score = int(sum(1 for value in short_votes.values() if value))
     signal = "none"
-    votes = {}
+    votes: dict[str, bool] = {}
     if long_score >= args.min_votes and long_score > short_score:
         signal = "long"
         votes = long_votes
     elif short_score >= args.min_votes and short_score > long_score:
         signal = "short"
         votes = short_votes
+
+    metrics = {
+        "ema_fast": safe_float(latest["ema_fast"]),
+        "ema_slow": safe_float(latest["ema_slow"]),
+        "ema_gap": safe_float(latest["ema_gap"]),
+        "slow_ema_slope": safe_float(latest["slow_ema_slope"]),
+        "ret_6h": safe_float(latest["ret_6h"]),
+        "ret_24h": safe_float(latest["ret_24h"]),
+        "atr": latest_atr,
+        "atr_pct": safe_float(latest["atr_pct"]),
+        "rsi": safe_float(latest["rsi"], 50.0),
+        "breakout_pos": safe_float(latest["breakout_pos"]),
+        "long_votes": long_score,
+        "short_votes": short_score,
+    }
     if signal == "none":
         return {
             "symbol": symbol,
@@ -168,38 +411,29 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
             "reason": f"no_consensus long_votes={long_score} short_votes={short_score}",
             "latest_dt": latest["dt"].isoformat(),
             "close": close,
-            "metrics": {
-                "ema_gap": ema_gap,
-                "slow_ema_slope": slope,
-                "ret_24h": ret_24h,
-                "atr_pct": atr_pct,
-                "rsi": rsi_value,
-                "long_votes": long_score,
-                "short_votes": short_score,
-            },
+            "metrics": metrics,
+            "analog_evidence": {"enabled": True, "supported": False, "reason": "no_signal"},
             "paper_plan": None,
         }
-    risk_per_unit = max(latest_atr * float(args.stop_atr_mult), close * float(args.min_stop_pct))
-    if signal == "long":
-        stop = close - risk_per_unit
-        take_profit = close + risk_per_unit * float(args.reward_r)
-        invalid = stop <= 0
-    else:
-        stop = close + risk_per_unit
-        take_profit = close - risk_per_unit * float(args.reward_r)
-        invalid = take_profit <= 0
-    if invalid:
-        return {"symbol": symbol, "status": "invalid_plan", "signal": "none", "reason": "invalid_stop_or_take_profit", "paper_plan": None}
+
+    prices = plan_prices(latest, args, signal)
+    if not prices:
+        return {
+            "symbol": symbol,
+            "status": "invalid_plan",
+            "signal": "none",
+            "reason": "invalid_stop_or_take_profit",
+            "paper_plan": None,
+        }
+    analog = historical_analog_evidence(df, args, signal=signal)
     plan = {
         "side": signal,
         "entry_reference": "latest_closed_1h_close_next_bar_open_simulated",
-        "entry_price": close,
-        "stop_loss": stop,
-        "take_profit": take_profit,
-        "risk_per_unit": risk_per_unit,
+        **prices,
         "reward_r": float(args.reward_r),
         "risk_per_trade": float(args.risk_per_trade),
         "leverage_cap": float(args.leverage_cap),
+        "historical_analog_supported": bool(analog.get("supported")),
         "order_intent": {
             "entry": "paper_only_no_order",
             "stop": "paper_only_no_order",
@@ -215,19 +449,8 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
         "latest_dt": latest["dt"].isoformat(),
         "previous_dt": previous["dt"].isoformat(),
         "close": close,
-        "metrics": {
-            "ema_fast": ema_fast,
-            "ema_slow": ema_slow,
-            "ema_gap": ema_gap,
-            "slow_ema_slope": slope,
-            "ret_24h": ret_24h,
-            "atr": latest_atr,
-            "atr_pct": atr_pct,
-            "rsi": rsi_value,
-            "long_votes": long_score,
-            "short_votes": short_score,
-            "votes": votes,
-        },
+        "metrics": {**metrics, "votes": votes},
+        "analog_evidence": analog,
         "paper_plan": plan,
     }
 
@@ -235,9 +458,13 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
 def row_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
     plan = row.get("paper_plan") or {}
     metrics = row.get("metrics") or {}
+    analog = row.get("analog_evidence") or {}
     signal = row.get("signal")
     return (
         signal in {"long", "short"},
+        bool(analog.get("supported")),
+        float(analog.get("expectancy_r") or -999.0),
+        float(analog.get("hit_rate") or 0.0),
         max(int(metrics.get("long_votes") or 0), int(metrics.get("short_votes") or 0)),
         abs(float(metrics.get("ema_gap") or 0.0)),
         abs(float(metrics.get("ret_24h") or 0.0)),
@@ -245,17 +472,186 @@ def row_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def signal_id(row: dict[str, Any]) -> str:
+    plan = row.get("paper_plan") or {}
+    raw = "|".join(
+        [
+            str(row.get("symbol")),
+            str(row.get("signal")),
+            str(row.get("latest_dt")),
+            f"{safe_float(plan.get('entry_price')):.10f}",
+            f"{safe_float(plan.get('stop_loss')):.10f}",
+            f"{safe_float(plan.get('take_profit')):.10f}",
+        ]
+    )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def journal_record_from_row(row: dict[str, Any], *, updated_at: str, horizon_bars: int) -> dict[str, Any]:
+    plan = row["paper_plan"]
+    analog = row.get("analog_evidence") or {}
+    return {
+        "kind": "contract_latest_market_signal_paper_journal_v1",
+        "signal_id": signal_id(row),
+        "created_at": updated_at,
+        "updated_at": updated_at,
+        "status": "open",
+        "symbol": row["symbol"],
+        "side": row["signal"],
+        "latest_dt": row["latest_dt"],
+        "entry_price": float(plan["entry_price"]),
+        "stop_loss": float(plan["stop_loss"]),
+        "take_profit": float(plan["take_profit"]),
+        "risk_per_unit": float(plan["risk_per_unit"]),
+        "reward_r": float(plan["reward_r"]),
+        "risk_per_trade": float(plan["risk_per_trade"]),
+        "leverage_cap": float(plan["leverage_cap"]),
+        "signal_reason": row.get("reason"),
+        "analog_supported": bool(analog.get("supported")),
+        "analog_reason": analog.get("reason"),
+        "analog_used_count": int(analog.get("used_count") or 0),
+        "analog_hit_rate": safe_float(analog.get("hit_rate")),
+        "analog_profitable_rate": safe_float(analog.get("profitable_rate")),
+        "analog_expectancy_r": safe_float(analog.get("expectancy_r")),
+        "outcome_horizon_bars": int(horizon_bars),
+        "outcome": None,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
+def read_journal(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def write_journal(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = "\n".join(json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records)
+    path.write_text(text + ("\n" if text else ""))
+
+
+def update_record_outcome(record: dict[str, Any], frame: pd.DataFrame, *, updated_at: str) -> bool:
+    if record.get("status") == "completed":
+        return False
+    if frame.empty:
+        return False
+    signal_dt = pd.Timestamp(record["latest_dt"])
+    if signal_dt.tzinfo is None:
+        signal_dt = pd.Timestamp(record["latest_dt"], tz="UTC")
+    candidates = frame.index[frame["dt"] == signal_dt]
+    if len(candidates) == 0:
+        return False
+    start_idx = int(candidates[-1])
+    outcome = simulate_outcome(
+        frame,
+        start_idx=start_idx,
+        side=str(record["side"]),
+        entry=float(record["entry_price"]),
+        stop=float(record["stop_loss"]),
+        take_profit=float(record["take_profit"]),
+        horizon_bars=int(record.get("outcome_horizon_bars") or 24),
+    )
+    if outcome.get("status") != "completed":
+        return False
+    record["status"] = "completed"
+    record["updated_at"] = updated_at
+    record["outcome"] = outcome
+    return True
+
+
+def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    if args.journal_record_mode == "off":
+        return {"enabled": False}
+    path = Path(args.journal_jsonl)
+    records = read_journal(path)
+    seen = {record.get("signal_id") for record in records}
+    updated = 0
+    by_symbol: dict[str, pd.DataFrame] = {}
+
+    for record in records:
+        if record.get("status") == "completed":
+            continue
+        symbol = str(record.get("symbol", "")).upper()
+        if not symbol:
+            continue
+        if symbol not in by_symbol:
+            by_symbol[symbol] = load_symbol_cache(
+                Path(args.cache_dir),
+                symbol,
+                args.timeframe,
+                lookback_bars=args.lookback_bars,
+            )
+        if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
+            updated += 1
+
+    new_records = []
+    for row in payload["rows"]:
+        if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
+            continue
+        analog = row.get("analog_evidence") or {}
+        if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
+            continue
+        sid = signal_id(row)
+        if sid in seen:
+            continue
+        seen.add(sid)
+        new_records.append(
+            journal_record_from_row(
+                row,
+                updated_at=payload["updated_at"],
+                horizon_bars=args.paper_outcome_horizon_bars,
+            )
+        )
+
+    records.extend(new_records)
+    if args.max_journal_records > 0 and len(records) > args.max_journal_records:
+        records = records[-int(args.max_journal_records) :]
+    write_journal(path, records)
+    completed = sum(1 for record in records if record.get("status") == "completed")
+    analog_supported_open = sum(
+        1
+        for record in records
+        if record.get("status") == "open" and record.get("analog_supported")
+    )
+    return {
+        "enabled": True,
+        "path": str(path),
+        "new_records": len(new_records),
+        "updated_records": updated,
+        "total_records": len(records),
+        "open_records": len(records) - completed,
+        "completed_records": completed,
+        "analog_supported_open_records": analog_supported_open,
+        "record_mode": args.journal_record_mode,
+    }
+
+
 def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     fallback = parse_symbols(args.symbols) or DEFAULT_SYMBOLS
-    symbols = parse_symbols(args.symbols) or symbols_from_universe(args.universe_json, top_n=args.top_n, fallback=fallback)
+    symbols = parse_symbols(args.symbols) or symbols_from_universe(
+        args.universe_json,
+        top_n=args.top_n,
+        fallback=fallback,
+    )
     rows = []
     for symbol in symbols:
         frame = load_symbol_cache(Path(args.cache_dir), symbol, args.timeframe, lookback_bars=args.lookback_bars)
         rows.append(classify_signal(frame, args, symbol=symbol))
     rows.sort(key=row_sort_key, reverse=True)
     signal_rows = [row for row in rows if row.get("signal") in {"long", "short"} and row.get("paper_plan")]
-    return {
-        "kind": "contract_latest_market_signal_v1",
+    analog_supported_rows = [row for row in signal_rows if (row.get("analog_evidence") or {}).get("supported")]
+    payload = {
+        "kind": "contract_latest_market_signal_v2_analog_journal",
         "updated_at": now_utc(),
         "cache_dir": args.cache_dir,
         "timeframe": args.timeframe,
@@ -271,11 +667,20 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "risk_per_trade": float(args.risk_per_trade),
             "leverage_cap": float(args.leverage_cap),
             "reward_r": float(args.reward_r),
+            "analog_top_k": int(args.analog_top_k),
+            "analog_horizon_bars": int(args.analog_horizon_bars),
+            "min_analog_samples": int(args.min_analog_samples),
+            "min_analog_hit_rate": float(args.min_analog_hit_rate),
+            "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
+            "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
+            "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
         },
         "summary": {
             "rows": len(rows),
             "signal_count": len(signal_rows),
             "paper_plan_found": bool(signal_rows),
+            "analog_supported_plan_count": len(analog_supported_rows),
+            "analog_supported_plan_found": bool(analog_supported_rows),
             "paper_trading_authorized": False,
             "live_trading_authorized": False,
         },
@@ -284,6 +689,8 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
+    payload["journal"] = update_journal(payload, args)
+    return payload
 
 
 def write_json(payload: dict[str, Any], path: Path) -> None:
@@ -295,13 +702,17 @@ def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Pat
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     no_marker_path.parent.mkdir(parents=True, exist_ok=True)
     if payload["summary"]["paper_plan_found"]:
-        best = payload["top"][0]
+        best = next((row for row in payload["top"] if row.get("paper_plan")), payload["top"][0])
         plan = best["paper_plan"]
+        analog = best.get("analog_evidence") or {}
         marker_path.write_text(
             "FOUND_CONTRACT_MARKET_PAPER_PLAN "
             f"{payload['updated_at']} "
             f"symbol={best['symbol']} side={best['signal']} "
             f"entry={plan['entry_price']:.8f} stop={plan['stop_loss']:.8f} take_profit={plan['take_profit']:.8f} "
+            f"analog_supported={bool(analog.get('supported'))} "
+            f"analog_hit_rate={safe_float(analog.get('hit_rate')):.4f} "
+            f"analog_expectancy_r={safe_float(analog.get('expectancy_r')):.4f} "
             f"risk_per_trade={plan['risk_per_trade']:.6f} leverage_cap={plan['leverage_cap']:.3f} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )
@@ -317,6 +728,39 @@ def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Pat
             marker_path.unlink()
 
 
+def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Path) -> None:
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    no_marker_path.parent.mkdir(parents=True, exist_ok=True)
+    supported = [
+        row
+        for row in payload["rows"]
+        if row.get("paper_plan") and (row.get("analog_evidence") or {}).get("supported")
+    ]
+    if supported:
+        best = supported[0]
+        plan = best["paper_plan"]
+        analog = best["analog_evidence"]
+        marker_path.write_text(
+            "FOUND_CONTRACT_MARKET_ANALOG_PAPER_PLAN "
+            f"{payload['updated_at']} "
+            f"symbol={best['symbol']} side={best['signal']} "
+            f"entry={plan['entry_price']:.8f} stop={plan['stop_loss']:.8f} take_profit={plan['take_profit']:.8f} "
+            f"analog_used={analog.get('used_count')} hit_rate={safe_float(analog.get('hit_rate')):.4f} "
+            f"expectancy_r={safe_float(analog.get('expectancy_r')):.4f} "
+            "paper_trading_authorized=False live_trading_authorized=False\n"
+        )
+        if no_marker_path.exists():
+            no_marker_path.unlink()
+    else:
+        no_marker_path.write_text(
+            "NO_CONTRACT_MARKET_ANALOG_PAPER_PLAN "
+            f"{payload['updated_at']} signals={payload['summary']['signal_count']} "
+            "paper_trading_authorized=False live_trading_authorized=False\n"
+        )
+        if marker_path.exists():
+            marker_path.unlink()
+
+
 def format_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# Contract Latest Market Signal",
@@ -324,17 +768,22 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- updated_at: `{payload['updated_at']}`",
         f"- timeframe: `{payload['timeframe']}`",
         f"- signal_count: `{payload['summary']['signal_count']}`",
+        f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
+        f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
         "",
-        "| rank | symbol | signal | close | reason | entry | stop | take_profit | rsi | ret_24h |",
-        "| ---: | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| rank | symbol | signal | close | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
+        "| ---: | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for idx, row in enumerate(payload["top"], start=1):
         plan = row.get("paper_plan") or {}
         metrics = row.get("metrics") or {}
+        analog = row.get("analog_evidence") or {}
         lines.append(
             f"| {idx} | {row.get('symbol')} | {row.get('signal')} | {row.get('close', 0.0):.8f} | "
-            f"{row.get('reason')} | {plan.get('entry_price', 0.0):.8f} | {plan.get('stop_loss', 0.0):.8f} | "
+            f"{analog.get('reason')} | {safe_float(analog.get('hit_rate')):.2f} | "
+            f"{safe_float(analog.get('expectancy_r')):.2f} | "
+            f"{plan.get('entry_price', 0.0):.8f} | {plan.get('stop_loss', 0.0):.8f} | "
             f"{plan.get('take_profit', 0.0):.8f} | {metrics.get('rsi', 0.0):.2f} | {metrics.get('ret_24h', 0.0):.4f} |"
         )
     lines.extend(["", "Paper plan only. No order, paper trading, or live trading is authorized."])
@@ -346,28 +795,36 @@ def format_text(payload: dict[str, Any]) -> str:
         f"updated_at={payload['updated_at']}",
         f"timeframe={payload['timeframe']}",
         f"signal_count={payload['summary']['signal_count']}",
+        f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
+        f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
+        f"journal_updated_records={(payload.get('journal') or {}).get('updated_records')}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
         best = payload["top"][0]
         plan = best.get("paper_plan") or {}
+        analog = best.get("analog_evidence") or {}
         lines.append(
             "best "
             f"symbol={best.get('symbol')} signal={best.get('signal')} reason={best.get('reason')} "
+            f"analog={analog.get('reason')} hit_rate={analog.get('hit_rate')} "
+            f"expectancy_r={analog.get('expectancy_r')} "
             f"entry={plan.get('entry_price')} stop={plan.get('stop_loss')} take_profit={plan.get('take_profit')}"
         )
     return "\n".join(lines)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Latest public-market contract signal screen with paper-only TP/SL plan.")
+    parser = argparse.ArgumentParser(
+        description="Latest public-market contract signal screen with paper-only analog evidence and TP/SL journal."
+    )
     parser.add_argument("--cache-dir", default="data/binance_usdm_ohlcv_cache")
     parser.add_argument("--timeframe", default="1h")
     parser.add_argument("--universe-json", default="artifacts/v9/universe/binance_usdm_top20_volume_snapshot.json")
     parser.add_argument("--top-n", type=int, default=20)
     parser.add_argument("--symbols", default="")
-    parser.add_argument("--lookback-bars", type=int, default=240)
+    parser.add_argument("--lookback-bars", type=int, default=20000)
     parser.add_argument("--fast-ema", type=int, default=24)
     parser.add_argument("--slow-ema", type=int, default=96)
     parser.add_argument("--slope-n", type=int, default=12)
@@ -385,10 +842,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--reward-r", type=float, default=2.0)
     parser.add_argument("--risk-per-trade", type=float, default=0.005)
     parser.add_argument("--leverage-cap", type=float, default=2.0)
+    parser.add_argument("--analog-top-k", type=int, default=40)
+    parser.add_argument("--analog-horizon-bars", type=int, default=24)
+    parser.add_argument("--min-analog-samples", type=int, default=12)
+    parser.add_argument("--min-analog-hit-rate", type=float, default=0.42)
+    parser.add_argument("--min-analog-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--min-analog-expectancy-r", type=float, default=0.15)
+    parser.add_argument("--paper-outcome-horizon-bars", type=int, default=24)
+    parser.add_argument("--journal-jsonl", default="state/contract_latest_market_signal_journal.jsonl")
+    parser.add_argument(
+        "--journal-record-mode",
+        choices=("all_signals", "analog_supported", "off"),
+        default="all_signals",
+    )
+    parser.add_argument("--max-journal-records", type=int, default=20000)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.md")
     parser.add_argument("--marker", default="state/FOUND_CONTRACT_MARKET_PAPER_PLAN.txt")
     parser.add_argument("--no-marker", default="state/NO_CONTRACT_MARKET_PAPER_PLAN.txt")
+    parser.add_argument("--analog-marker", default="state/FOUND_CONTRACT_MARKET_ANALOG_PAPER_PLAN.txt")
+    parser.add_argument("--analog-no-marker", default="state/NO_CONTRACT_MARKET_ANALOG_PAPER_PLAN.txt")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -400,6 +873,7 @@ def main() -> None:
     Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_md).write_text(format_markdown(payload))
     write_marker(payload, Path(args.marker), Path(args.no_marker))
+    write_analog_marker(payload, Path(args.analog_marker), Path(args.analog_no_marker))
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
     else:
