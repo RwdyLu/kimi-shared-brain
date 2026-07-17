@@ -50,6 +50,7 @@ fi
 cd "$ROOT"
 python3 scripts/v9_xsec_binance_cache_update.py --help >/dev/null
 python3 scripts/v9_contract_latest_market_signal.py --help >/dev/null
+python3 scripts/v9_contract_paper_signal_report.py --help >/dev/null
 mkdir -p "$LOG_DIR" state artifacts/v9/contract_lab artifacts/v9/watchdog
 
 if tmux has-session -t "=$SESSION" 2>/dev/null; then
@@ -114,7 +115,7 @@ printf -v ANALOG_HORIZON_Q "%q" "$ANALOG_HORIZON_BARS"
 printf -v PAPER_OUTCOME_HORIZON_Q "%q" "$PAPER_OUTCOME_HORIZON_BARS"
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract latest-market signal watch: $SESSION"
 echo "symbols: $SYMBOLS"
