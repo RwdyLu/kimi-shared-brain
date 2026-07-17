@@ -775,6 +775,51 @@ def write_journal(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text(text + ("\n" if text else ""))
 
 
+def migrate_legacy_record_to_realistic(
+    record: dict[str, Any],
+    *,
+    execution_config: dict[str, Any],
+    updated_at: str,
+) -> bool:
+    if record.get("execution_model_version"):
+        return False
+    status = str(record.get("status") or "")
+    if status not in {"open", "completed"}:
+        return False
+    legacy_entry = safe_float(record.get("entry_price"), float("nan"))
+    if pd.isna(legacy_entry) or legacy_entry <= 0.0:
+        return False
+    legacy_risk = safe_float(record.get("risk_per_unit"), float("nan"))
+    record["legacy_status"] = status
+    record["legacy_entry_price"] = float(legacy_entry)
+    if not pd.isna(legacy_risk):
+        record["legacy_risk_per_unit"] = float(legacy_risk)
+    if record.get("outcome") is not None:
+        record["legacy_outcome"] = record.get("outcome")
+    record["updated_at"] = updated_at
+    record["status"] = "pending_entry"
+    record["execution_model_version"] = REALISTIC_EXECUTION_MODEL_VERSION
+    record["paper_execution"] = execution_config
+    record["timeframe"] = str(execution_config.get("timeframe") or record.get("timeframe") or "")
+    record["signal_dt"] = record.get("signal_dt") or record.get("latest_dt")
+    record["planned_entry_price"] = float(legacy_entry)
+    record["entry_price"] = None
+    if not pd.isna(legacy_risk):
+        record["planned_risk_per_unit"] = float(legacy_risk)
+    record["risk_per_unit"] = None
+    record["outcome"] = None
+    for key in [
+        "entry_dt",
+        "entry_reference_price",
+        "entry_bar_index",
+        "entry_drift_bps",
+        "partial_fill_frac",
+        "entry_fee_cost_per_unit",
+    ]:
+        record.pop(key, None)
+    return True
+
+
 def skip_realistic_record(record: dict[str, Any], *, updated_at: str, reason: str, **extra: Any) -> None:
     record["status"] = "skipped"
     record["updated_at"] = updated_at
@@ -927,9 +972,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     seen = {record.get("signal_id") for record in records}
     execution_config = execution_config_from_args(args)
     updated = 0
+    migrated = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
+        migrate_mode = getattr(args, "paper_migrate_legacy_records", "all")
+        should_migrate = (
+            migrate_mode == "all"
+            or (migrate_mode == "active" and record.get("status") == "open")
+        )
+        if should_migrate and migrate_legacy_record_to_realistic(
+            record,
+            execution_config=execution_config,
+            updated_at=payload["updated_at"],
+        ):
+            migrated += 1
         if record.get("status") in {"completed", "skipped"}:
             continue
         symbol = str(record.get("symbol", "")).upper()
@@ -982,6 +1039,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "path": str(path),
         "new_records": len(new_records),
         "updated_records": updated,
+        "migrated_legacy_records": migrated,
         "total_records": len(records),
         "open_records": active,
         "completed_records": completed,
@@ -1159,6 +1217,7 @@ def format_text(payload: dict[str, Any]) -> str:
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
         f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
         f"journal_updated_records={(payload.get('journal') or {}).get('updated_records')}",
+        f"journal_migrated_legacy_records={(payload.get('journal') or {}).get('migrated_legacy_records')}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
@@ -1216,6 +1275,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--paper-funding-bps-per-8h", type=float, default=1.0)
     parser.add_argument("--paper-partial-fill-frac", type=float, default=1.0)
     parser.add_argument("--paper-min-fill-frac", type=float, default=1.0)
+    parser.add_argument(
+        "--paper-migrate-legacy-records",
+        choices=("off", "active", "all"),
+        default="all",
+    )
     parser.add_argument("--journal-jsonl", default="state/contract_latest_market_signal_journal.jsonl")
     parser.add_argument(
         "--journal-record-mode",

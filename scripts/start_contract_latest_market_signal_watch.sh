@@ -59,6 +59,7 @@ PAPER_MAX_ENTRY_DRIFT_BPS="${CONTRACT_MARKET_PAPER_MAX_ENTRY_DRIFT_BPS:-80.0}"
 PAPER_FUNDING_BPS_PER_8H="${CONTRACT_MARKET_PAPER_FUNDING_BPS_PER_8H:-1.0}"
 PAPER_PARTIAL_FILL_FRAC="${CONTRACT_MARKET_PAPER_PARTIAL_FILL_FRAC:-1.0}"
 PAPER_MIN_FILL_FRAC="${CONTRACT_MARKET_PAPER_MIN_FILL_FRAC:-1.0}"
+PAPER_MIGRATE_LEGACY_RECORDS="${CONTRACT_MARKET_PAPER_MIGRATE_LEGACY_RECORDS:-all}"
 
 if [[ "$SESSION" == -* ]]; then
   echo "session name must not start with '-'" >&2
@@ -146,15 +147,16 @@ printf -v PAPER_MAX_ENTRY_DRIFT_Q "%q" "$PAPER_MAX_ENTRY_DRIFT_BPS"
 printf -v PAPER_FUNDING_BPS_Q "%q" "$PAPER_FUNDING_BPS_PER_8H"
 printf -v PAPER_PARTIAL_FILL_Q "%q" "$PAPER_PARTIAL_FILL_FRAC"
 printf -v PAPER_MIN_FILL_Q "%q" "$PAPER_MIN_FILL_FRAC"
+printf -v PAPER_MIGRATE_LEGACY_Q "%q" "$PAPER_MIGRATE_LEGACY_RECORDS"
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract latest-market signal watch: $SESSION"
 echo "symbols: $SYMBOLS"
 echo "timeframe: $TIMEFRAME"
 echo "sleep_sec: $SLEEP_SEC"
 echo "analog_horizon_bars: $ANALOG_HORIZON_BARS"
-echo "paper_execution: fee_bps=$PAPER_FEE_BPS slippage_bps=$PAPER_SLIPPAGE_BPS latency_bars=$PAPER_ENTRY_LATENCY_BARS funding_bps_per_8h=$PAPER_FUNDING_BPS_PER_8H"
+echo "paper_execution: fee_bps=$PAPER_FEE_BPS slippage_bps=$PAPER_SLIPPAGE_BPS latency_bars=$PAPER_ENTRY_LATENCY_BARS funding_bps_per_8h=$PAPER_FUNDING_BPS_PER_8H migrate_legacy=$PAPER_MIGRATE_LEGACY_RECORDS"
 echo "journal: $JOURNAL_JSONL"
 echo "log: $LOG"
