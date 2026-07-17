@@ -14,6 +14,7 @@ import pandas as pd
 
 DEFAULT_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT", "LINKUSDT")
 ANALOG_FEATURES = ("ema_gap", "slow_ema_slope", "ret_6h", "ret_24h", "atr_pct", "rsi", "breakout_pos")
+REALISTIC_EXECUTION_MODEL_VERSION = "realistic_v1"
 
 
 def now_utc() -> str:
@@ -102,6 +103,13 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     return out if math.isfinite(out) else default
+
+
+def parse_utc_timestamp(value: Any) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    if ts.tzinfo is None:
+        return ts.tz_localize("UTC")
+    return ts.tz_convert("UTC")
 
 
 def interval_minutes(timeframe: str) -> float:
@@ -257,6 +265,186 @@ def simulate_outcome(
         "exit_dt": last["dt"].isoformat(),
         "bars_held": int(horizon_bars),
     }
+
+
+def execution_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "model": REALISTIC_EXECUTION_MODEL_VERSION,
+        "timeframe": str(getattr(args, "timeframe", "1h")),
+        "fee_bps_per_side": float(getattr(args, "paper_fee_bps", 5.0)),
+        "slippage_bps": float(getattr(args, "paper_slippage_bps", 2.0)),
+        "entry_latency_bars": int(getattr(args, "paper_entry_latency_bars", 1)),
+        "max_entry_drift_bps": float(getattr(args, "paper_max_entry_drift_bps", 80.0)),
+        "funding_bps_per_8h": float(getattr(args, "paper_funding_bps_per_8h", 1.0)),
+        "partial_fill_frac": float(getattr(args, "paper_partial_fill_frac", 1.0)),
+        "min_fill_frac": float(getattr(args, "paper_min_fill_frac", 1.0)),
+    }
+
+
+def execution_config_from_record(record: dict[str, Any]) -> dict[str, Any]:
+    config = dict(record.get("paper_execution") or {})
+    defaults = {
+        "fee_bps_per_side": 5.0,
+        "slippage_bps": 2.0,
+        "entry_latency_bars": 1,
+        "max_entry_drift_bps": 80.0,
+        "funding_bps_per_8h": 1.0,
+        "partial_fill_frac": 1.0,
+        "min_fill_frac": 1.0,
+    }
+    for key, value in defaults.items():
+        if isinstance(value, float):
+            config[key] = safe_float(config.get(key), value)
+        else:
+            config[key] = int(safe_float(config.get(key), float(value)))
+    return config
+
+
+def rate_from_bps(value: Any) -> float:
+    return safe_float(value) / 10000.0
+
+
+def adverse_entry_fill(side: str, reference_price: float, slippage_bps: float) -> float:
+    slip = rate_from_bps(slippage_bps)
+    if side == "long":
+        return reference_price * (1.0 + slip)
+    return reference_price * (1.0 - slip)
+
+
+def adverse_exit_fill(side: str, reference_price: float, slippage_bps: float) -> float:
+    slip = rate_from_bps(slippage_bps)
+    if side == "long":
+        return reference_price * (1.0 - slip)
+    return reference_price * (1.0 + slip)
+
+
+def completed_realistic_outcome(
+    *,
+    side: str,
+    entry_fill: float,
+    exit_reference: float,
+    exit_reason: str,
+    exit_dt: pd.Timestamp,
+    bars_held: int,
+    risk_per_unit: float,
+    config: dict[str, Any],
+    timeframe: str,
+) -> dict[str, Any]:
+    slippage_bps = safe_float(config.get("slippage_bps"), 2.0)
+    fee_bps = safe_float(config.get("fee_bps_per_side"), 5.0)
+    funding_bps = safe_float(config.get("funding_bps_per_8h"), 1.0)
+    exit_fill = adverse_exit_fill(side, exit_reference, slippage_bps)
+    gross_pnl = exit_fill - entry_fill if side == "long" else entry_fill - exit_fill
+    gross_r = gross_pnl / risk_per_unit if risk_per_unit > 0.0 else 0.0
+    fee_cost = (abs(entry_fill) + abs(exit_fill)) * rate_from_bps(fee_bps)
+    hold_hours = max(0.0, float(bars_held) * interval_minutes(timeframe) / 60.0)
+    funding_cost = abs(entry_fill) * rate_from_bps(funding_bps) * (hold_hours / 8.0)
+    net_pnl = gross_pnl - fee_cost - funding_cost
+    net_r = net_pnl / risk_per_unit if risk_per_unit > 0.0 else 0.0
+    return {
+        "status": "completed",
+        "exit_reason": exit_reason,
+        "r_multiple": float(net_r),
+        "gross_r_multiple": float(gross_r),
+        "exit_dt": exit_dt.isoformat(),
+        "bars_held": int(bars_held),
+        "entry_fill_price": float(entry_fill),
+        "exit_reference_price": float(exit_reference),
+        "exit_fill_price": float(exit_fill),
+        "fee_bps_per_side": float(fee_bps),
+        "fee_cost_per_unit": float(fee_cost),
+        "slippage_bps": float(slippage_bps),
+        "funding_bps_per_8h": float(funding_bps),
+        "funding_cost_per_unit": float(funding_cost),
+        "net_pnl_per_unit": float(net_pnl),
+        "gross_pnl_per_unit": float(gross_pnl),
+    }
+
+
+def simulate_realistic_exit(
+    df: pd.DataFrame,
+    *,
+    entry_idx: int,
+    side: str,
+    entry_fill: float,
+    stop: float,
+    take_profit: float,
+    horizon_bars: int,
+    config: dict[str, Any],
+    timeframe: str,
+) -> dict[str, Any]:
+    future = df.iloc[entry_idx + 1 : entry_idx + 1 + int(horizon_bars)].copy()
+    risk = (entry_fill - stop) if side == "long" else (stop - entry_fill)
+    if future.empty or risk <= 0:
+        return {"status": "pending", "exit_reason": "insufficient_future_bars", "r_multiple": None}
+    for offset, row in enumerate(future.itertuples(index=False), start=1):
+        high = safe_float(getattr(row, "high", 0.0))
+        low = safe_float(getattr(row, "low", 0.0))
+        dt = getattr(row, "dt")
+        if side == "long":
+            if low <= stop:
+                return completed_realistic_outcome(
+                    side=side,
+                    entry_fill=entry_fill,
+                    exit_reference=stop,
+                    exit_reason="stop_loss",
+                    exit_dt=dt,
+                    bars_held=offset,
+                    risk_per_unit=risk,
+                    config=config,
+                    timeframe=timeframe,
+                )
+            if high >= take_profit:
+                return completed_realistic_outcome(
+                    side=side,
+                    entry_fill=entry_fill,
+                    exit_reference=take_profit,
+                    exit_reason="take_profit",
+                    exit_dt=dt,
+                    bars_held=offset,
+                    risk_per_unit=risk,
+                    config=config,
+                    timeframe=timeframe,
+                )
+        else:
+            if high >= stop:
+                return completed_realistic_outcome(
+                    side=side,
+                    entry_fill=entry_fill,
+                    exit_reference=stop,
+                    exit_reason="stop_loss",
+                    exit_dt=dt,
+                    bars_held=offset,
+                    risk_per_unit=risk,
+                    config=config,
+                    timeframe=timeframe,
+                )
+            if low <= take_profit:
+                return completed_realistic_outcome(
+                    side=side,
+                    entry_fill=entry_fill,
+                    exit_reference=take_profit,
+                    exit_reason="take_profit",
+                    exit_dt=dt,
+                    bars_held=offset,
+                    risk_per_unit=risk,
+                    config=config,
+                    timeframe=timeframe,
+                )
+    if len(future) < int(horizon_bars):
+        return {"status": "pending", "exit_reason": "waiting_for_horizon", "r_multiple": None}
+    last = future.iloc[-1]
+    return completed_realistic_outcome(
+        side=side,
+        entry_fill=entry_fill,
+        exit_reference=safe_float(last["close"]),
+        exit_reason="horizon_close",
+        exit_dt=last["dt"],
+        bars_held=int(horizon_bars),
+        risk_per_unit=risk,
+        config=config,
+        timeframe=timeframe,
+    )
 
 
 def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, signal: str) -> dict[str, Any]:
@@ -520,22 +708,36 @@ def signal_id(row: dict[str, Any]) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
 
 
-def journal_record_from_row(row: dict[str, Any], *, updated_at: str, horizon_bars: int) -> dict[str, Any]:
+def journal_record_from_row(
+    row: dict[str, Any],
+    *,
+    updated_at: str,
+    horizon_bars: int,
+    execution_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     plan = row["paper_plan"]
     analog = row.get("analog_evidence") or {}
+    config = execution_config or {}
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
         "signal_id": signal_id(row),
         "created_at": updated_at,
         "updated_at": updated_at,
-        "status": "open",
+        "status": "pending_entry",
+        "execution_model_version": REALISTIC_EXECUTION_MODEL_VERSION,
+        "paper_execution": config,
         "symbol": row["symbol"],
         "side": row["signal"],
+        "timeframe": str(config.get("timeframe") or ""),
+        "signal_dt": row["latest_dt"],
         "latest_dt": row["latest_dt"],
-        "entry_price": float(plan["entry_price"]),
+        "planned_entry_price": float(plan["entry_price"]),
+        "entry_price": None,
+        "entry_reference": plan.get("entry_reference"),
         "stop_loss": float(plan["stop_loss"]),
         "take_profit": float(plan["take_profit"]),
-        "risk_per_unit": float(plan["risk_per_unit"]),
+        "planned_risk_per_unit": float(plan["risk_per_unit"]),
+        "risk_per_unit": None,
         "reward_r": float(plan["reward_r"]),
         "risk_per_trade": float(plan["risk_per_trade"]),
         "leverage_cap": float(plan["leverage_cap"]),
@@ -573,14 +775,129 @@ def write_journal(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text(text + ("\n" if text else ""))
 
 
-def update_record_outcome(record: dict[str, Any], frame: pd.DataFrame, *, updated_at: str) -> bool:
-    if record.get("status") == "completed":
+def skip_realistic_record(record: dict[str, Any], *, updated_at: str, reason: str, **extra: Any) -> None:
+    record["status"] = "skipped"
+    record["updated_at"] = updated_at
+    record["outcome"] = {
+        "status": "skipped",
+        "exit_reason": reason,
+        "r_multiple": None,
+        **extra,
+    }
+
+
+def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame, *, updated_at: str) -> bool:
+    if record.get("status") in {"completed", "skipped"}:
         return False
     if frame.empty:
         return False
-    signal_dt = pd.Timestamp(record["latest_dt"])
-    if signal_dt.tzinfo is None:
-        signal_dt = pd.Timestamp(record["latest_dt"], tz="UTC")
+
+    signal_dt = parse_utc_timestamp(record.get("signal_dt") or record.get("latest_dt"))
+    candidates = frame.index[frame["dt"] == signal_dt]
+    if len(candidates) == 0:
+        return False
+
+    config = execution_config_from_record(record)
+    side = str(record.get("side"))
+    signal_idx = int(candidates[-1])
+    entry_latency = max(0, int(config.get("entry_latency_bars") or 0))
+    entry_idx = signal_idx + entry_latency
+    if entry_idx >= len(frame):
+        return False
+
+    modified = False
+    if record.get("status") == "pending_entry":
+        partial_fill_frac = safe_float(config.get("partial_fill_frac"), 1.0)
+        min_fill_frac = safe_float(config.get("min_fill_frac"), 1.0)
+        if partial_fill_frac < min_fill_frac:
+            skip_realistic_record(
+                record,
+                updated_at=updated_at,
+                reason="partial_fill_reject",
+                partial_fill_frac=float(partial_fill_frac),
+                min_fill_frac=float(min_fill_frac),
+            )
+            return True
+
+        entry_row = frame.iloc[entry_idx]
+        entry_reference = safe_float(entry_row.get("open"))
+        planned_entry = safe_float(record.get("planned_entry_price") or record.get("entry_price"))
+        if entry_reference <= 0.0 or planned_entry <= 0.0:
+            skip_realistic_record(record, updated_at=updated_at, reason="invalid_entry_reference")
+            return True
+
+        entry_fill = adverse_entry_fill(side, entry_reference, safe_float(config.get("slippage_bps"), 2.0))
+        drift_bps = abs(entry_fill / planned_entry - 1.0) * 10000.0
+        max_drift_bps = safe_float(config.get("max_entry_drift_bps"), 80.0)
+        if max_drift_bps > 0.0 and drift_bps > max_drift_bps:
+            skip_realistic_record(
+                record,
+                updated_at=updated_at,
+                reason="entry_drift_reject",
+                planned_entry_price=float(planned_entry),
+                entry_reference_price=float(entry_reference),
+                entry_fill_price=float(entry_fill),
+                entry_drift_bps=float(drift_bps),
+                max_entry_drift_bps=float(max_drift_bps),
+            )
+            return True
+
+        stop = safe_float(record.get("stop_loss"))
+        risk = entry_fill - stop if side == "long" else stop - entry_fill
+        if risk <= 0.0:
+            skip_realistic_record(
+                record,
+                updated_at=updated_at,
+                reason="invalid_post_fill_risk",
+                entry_fill_price=float(entry_fill),
+                stop_loss=float(stop),
+            )
+            return True
+
+        entry_dt = entry_row["dt"]
+        record["status"] = "open"
+        record["updated_at"] = updated_at
+        record["entry_price"] = float(entry_fill)
+        record["entry_dt"] = entry_dt.isoformat()
+        record["entry_reference_price"] = float(entry_reference)
+        record["entry_bar_index"] = int(entry_idx)
+        record["entry_drift_bps"] = float(drift_bps)
+        record["risk_per_unit"] = float(risk)
+        record["partial_fill_frac"] = float(partial_fill_frac)
+        record["entry_fee_cost_per_unit"] = float(abs(entry_fill) * rate_from_bps(config.get("fee_bps_per_side")))
+        modified = True
+
+    if record.get("status") != "open":
+        return modified
+
+    entry_idx = int(record.get("entry_bar_index") or entry_idx)
+    outcome = simulate_realistic_exit(
+        frame,
+        entry_idx=entry_idx,
+        side=side,
+        entry_fill=float(record["entry_price"]),
+        stop=float(record["stop_loss"]),
+        take_profit=float(record["take_profit"]),
+        horizon_bars=int(record.get("outcome_horizon_bars") or 24),
+        config=config,
+        timeframe=str(record.get("timeframe") or config.get("timeframe") or "1h"),
+    )
+    if outcome.get("status") != "completed":
+        return modified
+    record["status"] = "completed"
+    record["updated_at"] = updated_at
+    record["outcome"] = outcome
+    return True
+
+
+def update_record_outcome(record: dict[str, Any], frame: pd.DataFrame, *, updated_at: str) -> bool:
+    if record.get("execution_model_version") == REALISTIC_EXECUTION_MODEL_VERSION:
+        return update_realistic_record_outcome(record, frame, updated_at=updated_at)
+    if record.get("status") in {"completed", "skipped"}:
+        return False
+    if frame.empty:
+        return False
+    signal_dt = parse_utc_timestamp(record["latest_dt"])
     candidates = frame.index[frame["dt"] == signal_dt]
     if len(candidates) == 0:
         return False
@@ -608,11 +925,12 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     path = Path(args.journal_jsonl)
     records = read_journal(path)
     seen = {record.get("signal_id") for record in records}
+    execution_config = execution_config_from_args(args)
     updated = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
-        if record.get("status") == "completed":
+        if record.get("status") in {"completed", "skipped"}:
             continue
         symbol = str(record.get("symbol", "")).upper()
         if not symbol:
@@ -643,6 +961,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 row,
                 updated_at=payload["updated_at"],
                 horizon_bars=args.paper_outcome_horizon_bars,
+                execution_config=execution_config,
             )
         )
 
@@ -651,10 +970,12 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         records = records[-int(args.max_journal_records) :]
     write_journal(path, records)
     completed = sum(1 for record in records if record.get("status") == "completed")
+    skipped = sum(1 for record in records if record.get("status") == "skipped")
+    active = sum(1 for record in records if record.get("status") in {"pending_entry", "open"})
     analog_supported_open = sum(
         1
         for record in records
-        if record.get("status") == "open" and record.get("analog_supported")
+        if record.get("status") in {"pending_entry", "open"} and record.get("analog_supported")
     )
     return {
         "enabled": True,
@@ -662,10 +983,13 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "new_records": len(new_records),
         "updated_records": updated,
         "total_records": len(records),
-        "open_records": len(records) - completed,
+        "open_records": active,
         "completed_records": completed,
+        "skipped_records": skipped,
         "analog_supported_open_records": analog_supported_open,
         "record_mode": args.journal_record_mode,
+        "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
+        "paper_execution": execution_config,
     }
 
 
@@ -709,6 +1033,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
+            "paper_execution": execution_config_from_args(args),
         },
         "summary": {
             "rows": len(rows),
@@ -884,6 +1209,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-analog-profitable-rate", type=float, default=0.55)
     parser.add_argument("--min-analog-expectancy-r", type=float, default=0.15)
     parser.add_argument("--paper-outcome-horizon-bars", type=int, default=24)
+    parser.add_argument("--paper-fee-bps", type=float, default=5.0)
+    parser.add_argument("--paper-slippage-bps", type=float, default=2.0)
+    parser.add_argument("--paper-entry-latency-bars", type=int, default=1)
+    parser.add_argument("--paper-max-entry-drift-bps", type=float, default=80.0)
+    parser.add_argument("--paper-funding-bps-per-8h", type=float, default=1.0)
+    parser.add_argument("--paper-partial-fill-frac", type=float, default=1.0)
+    parser.add_argument("--paper-min-fill-frac", type=float, default=1.0)
     parser.add_argument("--journal-jsonl", default="state/contract_latest_market_signal_journal.jsonl")
     parser.add_argument(
         "--journal-record-mode",

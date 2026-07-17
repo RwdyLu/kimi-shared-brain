@@ -70,8 +70,10 @@ def current_r_multiple(record: dict[str, Any], latest: float | None) -> float | 
     if latest is None:
         return None
     side = str(record.get("side"))
-    entry = safe_float(record.get("entry_price"))
+    entry = safe_float(record.get("entry_price"), float("nan"))
     stop = safe_float(record.get("stop_loss"))
+    if pd.isna(entry):
+        return None
     risk = entry - stop if side == "long" else stop - entry
     if risk <= 0:
         return None
@@ -86,11 +88,18 @@ def current_directional_pct(record: dict[str, Any], latest: float | None) -> flo
     if latest is None:
         return None
     side = str(record.get("side"))
-    entry = safe_float(record.get("entry_price"))
-    if entry <= 0:
+    entry = safe_float(record.get("entry_price"), float("nan"))
+    if pd.isna(entry) or entry <= 0:
         return None
     raw = latest / entry - 1.0
     return float(raw if side == "long" else -raw)
+
+
+def optional_float(value: Any) -> float | None:
+    number = safe_float(value, float("nan"))
+    if pd.isna(number):
+        return None
+    return float(number)
 
 
 def enrich_record(
@@ -110,20 +119,34 @@ def enrich_record(
     outcome = record.get("outcome") or {}
     current_r = current_r_multiple(record, latest_price)
     current_pct = current_directional_pct(record, latest_price)
+    filled_entry = optional_float(record.get("entry_price"))
+    planned_entry = optional_float(record.get("planned_entry_price"))
     return {
         **record,
         "timeframe": timeframe,
         "latest_close": latest_price,
         "latest_dt": latest.get("latest_dt"),
+        "display_entry_price": filled_entry if filled_entry is not None else planned_entry,
+        "planned_entry_price": planned_entry,
         "current_r_multiple": current_r,
         "current_directional_pct": current_pct,
         "completed_r_multiple": outcome.get("r_multiple"),
+        "completed_gross_r_multiple": outcome.get("gross_r_multiple"),
+        "fee_cost_per_unit": outcome.get("fee_cost_per_unit"),
+        "funding_cost_per_unit": outcome.get("funding_cost_per_unit"),
+        "slippage_bps": outcome.get("slippage_bps") or (record.get("paper_execution") or {}).get("slippage_bps"),
         "exit_reason": outcome.get("exit_reason"),
         "exit_dt": outcome.get("exit_dt"),
+        "execution_model": record.get("execution_model_version") or "legacy_v1",
     }
 
 
 def outcome_label(row: dict[str, Any]) -> str:
+    if row.get("status") == "pending_entry":
+        return "pending_entry"
+    if row.get("status") == "skipped":
+        reason = row.get("exit_reason") or (row.get("outcome") or {}).get("exit_reason")
+        return f"skipped:{reason}" if reason else "skipped"
     if row.get("status") != "completed":
         value = row.get("current_r_multiple")
         if value is None:
@@ -188,8 +211,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 )
             )
     records.sort(key=lambda row: str(row.get("created_at", "")), reverse=True)
+    active_rows = [row for row in records if row.get("status") in {"pending_entry", "open"}]
+    pending_rows = [row for row in records if row.get("status") == "pending_entry"]
     open_rows = [row for row in records if row.get("status") == "open"]
     completed_rows = [row for row in records if row.get("status") == "completed"]
+    skipped_rows = [row for row in records if row.get("status") == "skipped"]
     wins = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) > 0]
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
     payload = {
@@ -200,13 +226,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "summary": {
             "records": len(records),
             "open": len(open_rows),
+            "pending_entry": len(pending_rows),
+            "active": len(active_rows),
             "completed": len(completed_rows),
+            "skipped": len(skipped_rows),
             "wins": len(wins),
             "losses": len(losses),
-            "analog_supported_open": sum(1 for row in open_rows if row.get("analog_supported")),
+            "analog_supported_open": sum(1 for row in active_rows if row.get("analog_supported")),
         },
-        "open": open_rows[: args.max_rows],
+        "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
+        "skipped": skipped_rows[: args.max_rows],
         "records": records,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -226,21 +256,23 @@ def format_markdown(payload: dict[str, Any]) -> str:
         "",
         f"- updated_at: `{payload['updated_at']}`",
         f"- records: `{summary['records']}`",
-        f"- open: `{summary['open']}`",
+        f"- active/open/pending: `{summary['active']}/{summary['open']}/{summary['pending_entry']}`",
         f"- completed: `{summary['completed']}`",
+        f"- skipped: `{summary['skipped']}`",
         f"- wins/losses: `{summary['wins']}/{summary['losses']}`",
         f"- analog_supported_open: `{summary['analog_supported_open']}`",
         "",
-        "## Open Paper Signals",
+        "## Active Paper Signals",
         "",
-        "| timeframe | created_at | symbol | side | analog | entry | latest | stop | "
+        "| timeframe | created_at | symbol | side | model | analog | planned_entry | fill_entry | latest | stop | "
         "take_profit | current_R | current_% | status |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for row in payload["open"]:
         lines.append(
             f"| {row.get('timeframe')} | {row.get('created_at')} | {row.get('symbol')} | {row.get('side')} | "
-            f"{row.get('analog_supported')} | {fmt_num(row.get('entry_price'))} | "
+            f"{row.get('execution_model')} | {row.get('analog_supported')} | "
+            f"{fmt_num(row.get('planned_entry_price'))} | {fmt_num(row.get('entry_price'))} | "
             f"{fmt_num(row.get('latest_close'))} | "
             f"{fmt_num(row.get('stop_loss'))} | {fmt_num(row.get('take_profit'))} | "
             f"{fmt_num(row.get('current_r_multiple'), 3)} | {fmt_pct(row.get('current_directional_pct'))} | "
@@ -251,17 +283,35 @@ def format_markdown(payload: dict[str, Any]) -> str:
             "",
             "## Completed Paper Signals",
             "",
-            "| timeframe | created_at | symbol | side | analog | entry | stop | "
-            "take_profit | exit_reason | R | result |",
-            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- |",
+            "| timeframe | created_at | symbol | side | model | analog | entry | stop | "
+            "take_profit | exit_reason | net_R | gross_R | fees | funding | result |",
+            "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["completed"]:
         lines.append(
             f"| {row.get('timeframe')} | {row.get('created_at')} | {row.get('symbol')} | {row.get('side')} | "
-            f"{row.get('analog_supported')} | {fmt_num(row.get('entry_price'))} | {fmt_num(row.get('stop_loss'))} | "
+            f"{row.get('execution_model')} | {row.get('analog_supported')} | "
+            f"{fmt_num(row.get('entry_price'))} | {fmt_num(row.get('stop_loss'))} | "
             f"{fmt_num(row.get('take_profit'))} | {row.get('exit_reason')} | "
-            f"{fmt_num(row.get('completed_r_multiple'), 3)} | {outcome_label(row)} |"
+            f"{fmt_num(row.get('completed_r_multiple'), 3)} | "
+            f"{fmt_num(row.get('completed_gross_r_multiple'), 3)} | "
+            f"{fmt_num(row.get('fee_cost_per_unit'))} | {fmt_num(row.get('funding_cost_per_unit'))} | "
+            f"{outcome_label(row)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Skipped Paper Signals",
+            "",
+            "| timeframe | created_at | symbol | side | model | planned_entry | reason |",
+            "| --- | --- | --- | --- | --- | ---: | --- |",
+        ]
+    )
+    for row in payload["skipped"]:
+        lines.append(
+            f"| {row.get('timeframe')} | {row.get('created_at')} | {row.get('symbol')} | {row.get('side')} | "
+            f"{row.get('execution_model')} | {fmt_num(row.get('planned_entry_price'))} | {outcome_label(row)} |"
         )
     lines.extend(["", "Paper report only. No live trading is authorized."])
     return "\n".join(lines) + "\n"
@@ -271,14 +321,17 @@ def format_text(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     lines = [
         f"updated_at={payload['updated_at']}",
-        f"records={summary['records']} open={summary['open']} completed={summary['completed']}",
-        f"wins={summary['wins']} losses={summary['losses']} analog_supported_open={summary['analog_supported_open']}",
+        f"records={summary['records']} active={summary['active']} open={summary['open']} "
+        f"pending={summary['pending_entry']} completed={summary['completed']} skipped={summary['skipped']}",
+        f"wins={summary['wins']} losses={summary['losses']} analog_supported_active={summary['analog_supported_open']}",
         "safety=paper_authorized:False live:False",
     ]
     for row in payload["open"][:10]:
         lines.append(
             f"{row.get('timeframe')} {row.get('symbol')} {row.get('side')} "
-            f"entry={fmt_num(row.get('entry_price'))} latest={fmt_num(row.get('latest_close'))} "
+            f"model={row.get('execution_model')} status={row.get('status')} "
+            f"planned={fmt_num(row.get('planned_entry_price'))} entry={fmt_num(row.get('entry_price'))} "
+            f"latest={fmt_num(row.get('latest_close'))} "
             f"stop={fmt_num(row.get('stop_loss'))} tp={fmt_num(row.get('take_profit'))} "
             f"R={fmt_num(row.get('current_r_multiple'), 3)} result={outcome_label(row)}"
         )

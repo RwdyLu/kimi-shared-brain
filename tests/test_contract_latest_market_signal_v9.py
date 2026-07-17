@@ -70,6 +70,13 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         min_analog_profitable_rate=0.55,
         min_analog_expectancy_r=0.0,
         paper_outcome_horizon_bars=12,
+        paper_fee_bps=5.0,
+        paper_slippage_bps=2.0,
+        paper_entry_latency_bars=1,
+        paper_max_entry_drift_bps=80.0,
+        paper_funding_bps_per_8h=1.0,
+        paper_partial_fill_frac=1.0,
+        paper_min_fill_frac=1.0,
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_record_mode="all_signals",
         max_journal_records=1000,
@@ -140,6 +147,71 @@ def test_latest_market_signal_journal_deduplicates_same_candle(tmp_path: Path) -
     assert second["journal"]["new_records"] == 0
     records = (tmp_path / "journal.jsonl").read_text().splitlines()
     assert len(records) == 1
+
+
+def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "dt": pd.Timestamp("2026-01-01T00:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+            },
+            {
+                "dt": pd.Timestamp("2026-01-01T01:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+            },
+            {
+                "dt": pd.Timestamp("2026-01-01T02:00:00Z"),
+                "open": 100.5,
+                "high": 105.0,
+                "low": 100.0,
+                "close": 104.0,
+            },
+        ]
+    )
+    record = {
+        "status": "pending_entry",
+        "execution_model_version": signal_mod.REALISTIC_EXECUTION_MODEL_VERSION,
+        "symbol": "AAAUSDT",
+        "side": "long",
+        "timeframe": "1h",
+        "signal_dt": "2026-01-01T00:00:00+00:00",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "planned_entry_price": 100.0,
+        "entry_price": None,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "outcome_horizon_bars": 4,
+        "paper_execution": {
+            "timeframe": "1h",
+            "fee_bps_per_side": 5.0,
+            "slippage_bps": 2.0,
+            "entry_latency_bars": 1,
+            "max_entry_drift_bps": 100.0,
+            "funding_bps_per_8h": 1.0,
+            "partial_fill_frac": 1.0,
+            "min_fill_frac": 1.0,
+        },
+    }
+
+    assert signal_mod.update_record_outcome(record, frame.iloc[:1], updated_at="now") is False
+    assert record["status"] == "pending_entry"
+
+    assert signal_mod.update_record_outcome(record, frame, updated_at="later") is True
+
+    outcome = record["outcome"]
+    assert record["status"] == "completed"
+    assert record["entry_price"] > 100.0
+    assert outcome["exit_reason"] == "take_profit"
+    assert outcome["gross_r_multiple"] > outcome["r_multiple"]
+    assert outcome["fee_cost_per_unit"] > 0
+    assert outcome["funding_cost_per_unit"] > 0
 
 
 def test_timeframe_aware_return_windows_use_real_hours() -> None:
