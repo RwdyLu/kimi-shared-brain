@@ -26,6 +26,22 @@ def parse_symbols(raw: str) -> tuple[str, ...]:
     return tuple(symbols)
 
 
+def parse_symbol_side_pairs(raw: str) -> set[tuple[str, str]]:
+    pairs: set[tuple[str, str]] = set()
+    for part in raw.replace(";", ",").split(","):
+        item = part.strip()
+        if not item:
+            continue
+        if ":" not in item:
+            raise ValueError(f"journal allowed pair must be SYMBOL:SIDE, got {item!r}")
+        symbol, side = item.split(":", 1)
+        side = side.strip().lower()
+        if side not in {"long", "short"}:
+            raise ValueError(f"journal allowed side must be long or short, got {side!r}")
+        pairs.add((symbol.strip().upper(), side))
+    return pairs
+
+
 def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -> tuple[str, ...]:
     if not path:
         return fallback[:top_n]
@@ -971,6 +987,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     records = read_journal(path)
     seen = {record.get("signal_id") for record in records}
     execution_config = execution_config_from_args(args)
+    allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     updated = 0
     migrated = 0
     by_symbol: dict[str, pd.DataFrame] = {}
@@ -1005,6 +1022,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     new_records = []
     for row in payload["rows"]:
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
+            continue
+        if allowed_pairs and (str(row.get("symbol", "")).upper(), str(row.get("signal"))) not in allowed_pairs:
             continue
         analog = row.get("analog_evidence") or {}
         if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
@@ -1046,6 +1065,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "skipped_records": skipped,
         "analog_supported_open_records": analog_supported_open,
         "record_mode": args.journal_record_mode,
+        "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "paper_execution": execution_config,
     }
@@ -1092,6 +1112,9 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
             "paper_execution": execution_config_from_args(args),
+            "journal_allowed_pairs": sorted(
+                f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
+            ),
         },
         "summary": {
             "rows": len(rows),
@@ -1281,6 +1304,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="all",
     )
     parser.add_argument("--journal-jsonl", default="state/contract_latest_market_signal_journal.jsonl")
+    parser.add_argument(
+        "--journal-allowed-pairs",
+        default="",
+        help="Optional comma list of SYMBOL:long or SYMBOL:short pairs to record in the paper journal.",
+    )
     parser.add_argument(
         "--journal-record-mode",
         choices=("all_signals", "analog_supported", "off"),

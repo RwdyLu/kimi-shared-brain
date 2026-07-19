@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -77,7 +78,9 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_funding_bps_per_8h=1.0,
         paper_partial_fill_frac=1.0,
         paper_min_fill_frac=1.0,
+        paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
+        journal_allowed_pairs="",
         journal_record_mode="all_signals",
         max_journal_records=1000,
         out_json=str(tmp_path / "signal.json"),
@@ -147,6 +150,55 @@ def test_latest_market_signal_journal_deduplicates_same_candle(tmp_path: Path) -
     assert second["journal"]["new_records"] == 0
     records = (tmp_path / "journal.jsonl").read_text().splitlines()
     assert len(records) == 1
+
+
+def test_latest_market_signal_journal_filters_allowed_pairs(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    args.journal_allowed_pairs = "BBBUSDT:short"
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert rows[0]["symbol"] == "BBBUSDT"
+    assert rows[0]["side"] == "short"
 
 
 def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None:
