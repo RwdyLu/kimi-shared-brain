@@ -257,6 +257,139 @@ def active_unrealized_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def interval_minutes(timeframe: str) -> float | None:
+    raw = str(timeframe).strip().lower()
+    if len(raw) < 2:
+        return None
+    try:
+        value = float(raw[:-1])
+    except ValueError:
+        return None
+    if value <= 0.0:
+        return None
+    unit = raw[-1]
+    if unit == "s":
+        return value / 60.0
+    if unit == "m":
+        return value
+    if unit == "h":
+        return value * 60.0
+    if unit == "d":
+        return value * 1440.0
+    return None
+
+
+def parse_timestamp(value: Any) -> pd.Timestamp | None:
+    if value is None:
+        return None
+    try:
+        return pd.Timestamp(value).tz_convert("UTC")
+    except TypeError:
+        try:
+            return pd.Timestamp(value).tz_localize("UTC")
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+def percentile(values: list[float], pct: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    idx = min(len(ordered) - 1, max(0, int(round((len(ordered) - 1) * pct))))
+    return float(ordered[idx])
+
+
+def active_drain_item(row: dict[str, Any]) -> dict[str, Any]:
+    timeframe = str(row.get("timeframe") or "").lower()
+    minutes = interval_minutes(timeframe)
+    latest_dt = parse_timestamp(row.get("latest_dt"))
+    status = str(row.get("status") or "")
+    reference_value = row.get("entry_dt") if status == "open" else row.get("signal_dt") or row.get("created_at")
+    reference_dt = parse_timestamp(reference_value)
+    horizon_bars = int(row.get("outcome_horizon_bars") or 24)
+    config = row.get("paper_execution") or {}
+    entry_latency_bars = int(config.get("entry_latency_bars") or 0)
+    stale_grace_bars = int(config.get("stale_grace_bars") or 0)
+    required_bars = entry_latency_bars if status == "pending_entry" else horizon_bars
+    elapsed_bars = None
+    age_hours = None
+    remaining_bars = None
+    remaining_hours = None
+    stale_after_bars = required_bars + stale_grace_bars
+    past_stale_after = False
+    if latest_dt is not None and reference_dt is not None and minutes is not None:
+        elapsed_minutes = max(0.0, (latest_dt - reference_dt).total_seconds() / 60.0)
+        elapsed_bars = int(elapsed_minutes // minutes)
+        age_hours = float(elapsed_minutes / 60.0)
+        remaining_bars = max(0, required_bars - elapsed_bars)
+        remaining_hours = float(remaining_bars * minutes / 60.0)
+        past_stale_after = elapsed_bars >= stale_after_bars
+    return {
+        "timeframe": timeframe,
+        "symbol": row.get("symbol"),
+        "side": row.get("side"),
+        "status": status,
+        "latest_dt": latest_dt.isoformat() if latest_dt is not None else None,
+        "reference_dt": reference_dt.isoformat() if reference_dt is not None else None,
+        "age_hours": age_hours,
+        "elapsed_bars": elapsed_bars,
+        "required_bars": required_bars,
+        "remaining_bars_to_horizon": remaining_bars,
+        "remaining_hours_to_horizon": remaining_hours,
+        "stale_after_bars": stale_after_bars,
+        "past_stale_after": past_stale_after,
+    }
+
+
+def build_portfolio_drain(active_rows: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
+    max_active = int(arg_value(args, "portfolio_max_active", 12))
+    items = [active_drain_item(row) for row in active_rows]
+    known_remaining = [
+        value for item in items if (value := optional_float(item.get("remaining_hours_to_horizon"))) is not None
+    ]
+    known_ages = [value for item in items if (value := optional_float(item.get("age_hours"))) is not None]
+    active_excess = max(0, len(active_rows) - max_active) if max_active > 0 else 0
+    eta_to_cap = None
+    if active_excess > 0 and known_remaining:
+        ordered_remaining = sorted(known_remaining)
+        if len(ordered_remaining) >= active_excess:
+            eta_to_cap = float(ordered_remaining[active_excess - 1])
+    by_timeframe: dict[str, Any] = {}
+    for timeframe in sorted({str(item.get("timeframe") or "") for item in items}):
+        group = [item for item in items if item.get("timeframe") == timeframe]
+        remaining = [
+            value for item in group if (value := optional_float(item.get("remaining_hours_to_horizon"))) is not None
+        ]
+        ages = [value for item in group if (value := optional_float(item.get("age_hours"))) is not None]
+        by_timeframe[timeframe] = {
+            "active": len(group),
+            "past_stale_after": sum(1 for item in group if item.get("past_stale_after")),
+            "age_hours_min": min(ages) if ages else None,
+            "age_hours_median": percentile(ages, 0.5),
+            "age_hours_max": max(ages) if ages else None,
+            "remaining_hours_to_horizon_min": min(remaining) if remaining else None,
+            "remaining_hours_to_horizon_median": percentile(remaining, 0.5),
+            "remaining_hours_to_horizon_max": max(remaining) if remaining else None,
+        }
+    return {
+        "active": len(active_rows),
+        "max_active": max_active,
+        "active_excess": active_excess,
+        "known_remaining": len(known_remaining),
+        "past_stale_after": sum(1 for item in items if item.get("past_stale_after")),
+        "age_hours_min": min(known_ages) if known_ages else None,
+        "age_hours_median": percentile(known_ages, 0.5),
+        "age_hours_max": max(known_ages) if known_ages else None,
+        "remaining_hours_to_horizon_min": min(known_remaining) if known_remaining else None,
+        "remaining_hours_to_horizon_median": percentile(known_remaining, 0.5),
+        "remaining_hours_to_horizon_max": max(known_remaining) if known_remaining else None,
+        "eta_to_active_cap_hours_upper_bound": eta_to_cap,
+        "by_timeframe": by_timeframe,
+    }
+
+
 def build_portfolio_risk(
     completed_rows: list[dict[str, Any]],
     active_rows: list[dict[str, Any]],
@@ -748,9 +881,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
     regime_scoreboard = build_regime_scoreboard(completed_rows, args)
+    portfolio_drain = build_portfolio_drain(active_rows, args)
     portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
     portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
     portfolio_risk["segment_risk"] = portfolio_segment_risk
+    portfolio_risk["drain"] = portfolio_drain
     portfolio_risk["blocked_sides"] = portfolio_segment_risk["blocked_sides"]
     portfolio_risk["side_reason_codes"] = portfolio_segment_risk["reason_codes"]
     actions = build_action_plan(scoreboard, updated_at=updated_at, args=args, portfolio_risk=portfolio_risk)
@@ -779,8 +914,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "portfolio_risk_status": portfolio_risk["status"],
             "portfolio_block_new_focus": bool(portfolio_risk["block_new_focus"]),
             "portfolio_blocked_sides": portfolio_segment_risk["blocked_sides"],
+            "portfolio_eta_to_active_cap_hours_upper_bound": portfolio_drain[
+                "eta_to_active_cap_hours_upper_bound"
+            ],
+            "portfolio_active_past_stale_after": portfolio_drain["past_stale_after"],
         },
         "portfolio_risk": portfolio_risk,
+        "portfolio_drain": portfolio_drain,
         "portfolio_segment_risk": portfolio_segment_risk,
         "actions": actions,
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
@@ -825,6 +965,9 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"active_loss_rate=`{fmt_pct(portfolio.get('active_loss_rate'))}`",
         f"- portfolio_reason_codes: `{','.join(portfolio.get('reason_codes') or [])}`",
         f"- portfolio_blocked_sides: `{','.join(portfolio.get('blocked_sides') or [])}`",
+        f"- portfolio_drain_eta_to_cap_h: "
+        f"`{fmt_num((portfolio.get('drain') or {}).get('eta_to_active_cap_hours_upper_bound'), 2)}` "
+        f"past_stale=`{(portfolio.get('drain') or {}).get('past_stale_after')}`",
         "",
         "## Regime Scoreboard",
         "",
@@ -933,6 +1076,13 @@ def format_text(payload: dict[str, Any]) -> str:
         f"active_loss_rate={fmt_pct(portfolio.get('active_loss_rate'))} "
         f"reasons={','.join(portfolio.get('reason_codes') or [])} "
         f"blocked_sides={','.join(portfolio.get('blocked_sides') or [])}",
+        f"portfolio_drain active={summary['active']} excess={portfolio.get('active_excess')} "
+        f"eta_to_cap_h={fmt_num((portfolio.get('drain') or {}).get('eta_to_active_cap_hours_upper_bound'), 2)} "
+        f"remaining_h_min/med/max="
+        f"{fmt_num((portfolio.get('drain') or {}).get('remaining_hours_to_horizon_min'), 2)}/"
+        f"{fmt_num((portfolio.get('drain') or {}).get('remaining_hours_to_horizon_median'), 2)}/"
+        f"{fmt_num((portfolio.get('drain') or {}).get('remaining_hours_to_horizon_max'), 2)} "
+        f"past_stale={(portfolio.get('drain') or {}).get('past_stale_after')}",
         (
             f"scoreboard_groups={summary['scoreboard_groups']} "
             f"regime_groups={summary['regime_scoreboard_groups']} "

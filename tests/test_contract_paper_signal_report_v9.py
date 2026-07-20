@@ -111,6 +111,63 @@ def test_paper_report_surfaces_portfolio_overexposure_in_actions(tmp_path: Path)
     assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
 
 
+def test_paper_report_projects_active_drain_eta() -> None:
+    args = Namespace(portfolio_max_active=2)
+    rows = [
+        {
+            "timeframe": "1h",
+            "status": "open",
+            "symbol": "AAAUSDT",
+            "side": "long",
+            "latest_dt": "2026-01-02T00:00:00+00:00",
+            "entry_dt": "2026-01-01T00:00:00+00:00",
+            "outcome_horizon_bars": 24,
+            "paper_execution": {"stale_grace_bars": 4},
+        },
+        {
+            "timeframe": "1h",
+            "status": "open",
+            "symbol": "BBBUSDT",
+            "side": "long",
+            "latest_dt": "2026-01-02T00:00:00+00:00",
+            "entry_dt": "2026-01-01T12:00:00+00:00",
+            "outcome_horizon_bars": 24,
+            "paper_execution": {"stale_grace_bars": 4},
+        },
+        {
+            "timeframe": "1h",
+            "status": "open",
+            "symbol": "CCCUSDT",
+            "side": "short",
+            "latest_dt": "2026-01-02T00:00:00+00:00",
+            "entry_dt": "2026-01-01T20:00:00+00:00",
+            "outcome_horizon_bars": 24,
+            "paper_execution": {"stale_grace_bars": 4},
+        },
+        {
+            "timeframe": "15m",
+            "status": "open",
+            "symbol": "DDDUSDT",
+            "side": "short",
+            "latest_dt": "2026-01-02T00:00:00+00:00",
+            "entry_dt": "2026-01-01T19:00:00+00:00",
+            "outcome_horizon_bars": 96,
+            "paper_execution": {"stale_grace_bars": 4},
+        },
+    ]
+
+    drain = report_mod.build_portfolio_drain(rows, args)
+
+    assert drain["active"] == 4
+    assert drain["active_excess"] == 2
+    assert drain["remaining_hours_to_horizon_min"] == 0.0
+    assert drain["eta_to_active_cap_hours_upper_bound"] == 12.0
+    assert drain["remaining_hours_to_horizon_max"] == 20.0
+    assert drain["past_stale_after"] == 0
+    assert drain["by_timeframe"]["1h"]["active"] == 3
+    assert drain["by_timeframe"]["15m"]["active"] == 1
+
+
 def test_paper_report_surfaces_portfolio_side_risk_without_global_block(tmp_path: Path) -> None:
     journal = tmp_path / "journal.jsonl"
     rows = []
