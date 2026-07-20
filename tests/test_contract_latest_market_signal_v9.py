@@ -470,6 +470,123 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert rows == []
 
 
+def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "active": 12,
+                    "active_excess": 0,
+                    "reason_codes": [],
+                    "blocked_sides": [],
+                    "thresholds": {"portfolio_max_active": 12},
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+
+    assert summary["new_records"] == 0
+    assert summary["journal_global_portfolio_active"] == 12
+    assert summary["journal_global_portfolio_max_active"] == 12
+    assert summary["journal_global_active_cap_blocked_candidate_rows"] == 1
+    assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 0
+    assert rows == []
+
+
+def test_latest_market_signal_journal_allows_one_until_global_portfolio_cap(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "active": 11,
+                    "active_excess": 0,
+                    "reason_codes": [],
+                    "blocked_sides": [],
+                    "thresholds": {"portfolio_max_active": 12},
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 200.0,
+                    "stop_loss": 196.0,
+                    "take_profit": 208.0,
+                    "risk_per_unit": 4.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_global_active_cap_blocked_candidate_rows"] == 1
+    assert rows[0]["symbol"] == "AAAUSDT"
+
+
 def test_latest_market_signal_journal_allows_portfolio_drawdown_recovery_probe(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT")
     actions = tmp_path / "actions.json"

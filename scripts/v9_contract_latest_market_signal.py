@@ -123,6 +123,7 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
     blocked_sides = set(str(side).lower() for side in (portfolio.get("blocked_sides") or []))
     blocked_sides.update(str(side).lower() for side in (segment_risk.get("blocked_sides") or []))
     segments = segment_risk.get("segments") if isinstance(segment_risk.get("segments"), dict) else {}
+    thresholds = portfolio.get("thresholds") if isinstance(portfolio.get("thresholds"), dict) else {}
     return {
         "enabled": True,
         "path": path,
@@ -130,6 +131,7 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
         "block_new_focus": bool(portfolio.get("block_new_focus")),
         "active": int(portfolio.get("active") or 0),
         "active_excess": int(portfolio.get("active_excess") or 0),
+        "max_active": int(thresholds.get("portfolio_max_active") or 0),
         "reason_codes": portfolio.get("reason_codes") or [],
         "blocked_sides": sorted(side for side in blocked_sides if side in {"long", "short"}),
         "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
@@ -1437,6 +1439,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     risk_controls = journal_risk_controls(args)
     blocked_sides = set(risk_controls.get("blocked_sides") or [])
     respect_portfolio_risk = bool(getattr(args, "journal_respect_portfolio_risk", True))
+    respect_global_active_cap = bool(getattr(args, "journal_respect_global_portfolio_active_cap", True))
     respect_portfolio_side_risk = bool(getattr(args, "journal_respect_portfolio_side_risk", True))
     max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
     max_active_total = int(getattr(args, "journal_max_active_total", 0) or 0)
@@ -1447,6 +1450,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     portfolio_drawdown_recovery_candidates = 0
     portfolio_side_blocked_candidates = 0
     portfolio_side_recovery_candidates = 0
+    global_active_cap_blocked_candidates = 0
+    global_active_added = 0
     active_total_cap_blocked_candidates = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
@@ -1513,6 +1518,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             else:
                 portfolio_side_blocked_candidates += 1
                 continue
+        global_max_active = int(risk_controls.get("max_active") or 0)
+        global_active = int(risk_controls.get("active") or 0)
+        if respect_global_active_cap and global_max_active > 0 and global_active + global_active_added >= global_max_active:
+            global_active_cap_blocked_candidates += 1
+            continue
         if max_active_total > 0 and active_total >= max_active_total:
             active_total_cap_blocked_candidates += 1
             continue
@@ -1543,6 +1553,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         new_records.append(record)
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
         active_total += 1
+        global_active_added += 1
 
     records.extend(new_records)
     if args.max_journal_records > 0 and len(records) > args.max_journal_records:
@@ -1583,6 +1594,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_portfolio_side_recovery_candidate_rows": portfolio_side_recovery_candidates,
         "journal_portfolio_reason_codes": risk_controls.get("reason_codes") or [],
         "journal_portfolio_side_reason_codes": risk_controls.get("side_reason_codes") or [],
+        "journal_global_portfolio_max_active": int(risk_controls.get("max_active") or 0),
+        "journal_global_portfolio_active": int(risk_controls.get("active") or 0),
+        "journal_global_active_cap_blocked_candidate_rows": global_active_cap_blocked_candidates,
         "journal_max_active_per_pair": max_active_per_pair,
         "journal_max_active_total": max_active_total,
         "journal_active_total_cap_blocked_candidate_rows": active_total_cap_blocked_candidates,
@@ -1657,6 +1671,9 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
+            "journal_respect_global_portfolio_active_cap": bool(
+                getattr(args, "journal_respect_global_portfolio_active_cap", True)
+            ),
             "journal_allow_portfolio_drawdown_recovery_probes": bool(
                 getattr(args, "journal_allow_portfolio_drawdown_recovery_probes", True)
             ),
@@ -1842,6 +1859,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"journal_max_active_total={(payload.get('journal') or {}).get('journal_max_active_total')}",
         "journal_active_total_cap_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
+        "journal_global_active_cap_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_global_active_cap_blocked_candidate_rows')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="
@@ -1963,6 +1982,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Optional actions JSON with portfolio_risk and blocked_sides used to stop new paper journal records.",
     )
     parser.add_argument("--journal-respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-respect-global-portfolio-active-cap", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-allow-portfolio-drawdown-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-portfolio-recovery-max-active", type=int, default=12)
     parser.add_argument("--journal-portfolio-recovery-max-active-excess", type=int, default=0)
