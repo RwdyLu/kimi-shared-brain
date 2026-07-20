@@ -1133,6 +1133,136 @@ def fmt_pct(value: Any) -> str:
     return f"{safe_float(value) * 100:.2f}%"
 
 
+def build_current_policy_shadow_readiness(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = payload.get("summary") or {}
+    actions = payload.get("actions") or {}
+    grade_counts = actions.get("current_policy_shadow_active_grade_counts") or {}
+    promote = actions.get("current_policy_shadow_promote_candidates") or []
+    active_queue = actions.get("current_policy_shadow_active_queue") or []
+
+    completed = int(summary.get("current_policy_shadow_completed") or 0)
+    active = int(summary.get("current_policy_shadow_active") or 0)
+    groups = int(summary.get("current_policy_shadow_scoreboard_groups") or 0)
+    promising = int(grade_counts.get("promising_active") or 0)
+    positive = int(grade_counts.get("positive_active") or 0)
+    wait_entry = int(grade_counts.get("wait_entry") or 0)
+    negative = int(grade_counts.get("negative_active") or 0)
+    risk = int(grade_counts.get("risk_active") or 0)
+
+    if promote:
+        status = "promote_ready"
+        severity = "ready"
+        next_action = "manual_review_before_paper_canary"
+    elif risk > 0:
+        status = "risk_watch"
+        severity = "risk"
+        next_action = "do_not_promote_wait_for_exit"
+    elif promising > 0:
+        status = "active_promising"
+        severity = "watch"
+        next_action = "await_completion_for_scoreboard"
+    elif positive > 0:
+        status = "active_positive"
+        severity = "watch"
+        next_action = "await_completion"
+    elif wait_entry > 0:
+        status = "entry_collecting"
+        severity = "collecting"
+        next_action = "await_entry_fill"
+    elif negative > 0:
+        status = "active_negative"
+        severity = "risk_watch"
+        next_action = "await_completion_risk_watch"
+    elif active > 0:
+        status = "active_collecting"
+        severity = "collecting"
+        next_action = "await_price_refresh"
+    elif completed > 0 or groups > 0:
+        status = "completed_no_candidate"
+        severity = "collecting"
+        next_action = "keep_collecting_or_review_stops"
+    else:
+        status = "no_shadow_evidence"
+        severity = "collecting"
+        next_action = "keep_collecting_shadow_samples"
+
+    top_active = []
+    for row in active_queue[:5]:
+        top_active.append(
+            {
+                "timeframe": row.get("timeframe"),
+                "symbol": row.get("symbol"),
+                "side": row.get("side"),
+                "status": row.get("status"),
+                "active_grade": row.get("active_grade"),
+                "current_r_multiple": row.get("current_r_multiple"),
+                "analog_expectancy_r": row.get("analog_expectancy_r"),
+                "next_action": row.get("next_action"),
+            }
+        )
+
+    return {
+        "status": status,
+        "severity": severity,
+        "next_action": next_action,
+        "decision_policy_version": summary.get("current_decision_policy_version"),
+        "records": summary.get("current_policy_shadow_records"),
+        "completed": completed,
+        "active": active,
+        "scoreboard_groups": groups,
+        "promote_candidates": len(promote),
+        "active_grade_counts": grade_counts,
+        "top_active": top_active,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
+def attach_current_policy_shadow_readiness(payload: dict[str, Any]) -> None:
+    readiness = build_current_policy_shadow_readiness(payload)
+    payload.setdefault("actions", {})["current_policy_shadow_readiness"] = readiness
+    payload.setdefault("actions", {}).setdefault("summary", {})[
+        "current_policy_shadow_readiness_status"
+    ] = readiness["status"]
+    payload["actions"]["summary"]["current_policy_shadow_readiness_severity"] = readiness["severity"]
+    payload.setdefault("summary", {})["current_policy_shadow_readiness_status"] = readiness["status"]
+    payload["summary"]["current_policy_shadow_readiness_severity"] = readiness["severity"]
+    payload["summary"]["current_policy_shadow_readiness_next_action"] = readiness["next_action"]
+
+
+def write_current_policy_shadow_readiness_marker(payload: dict[str, Any], path: Path) -> None:
+    readiness = (
+        (payload.get("actions") or {}).get("current_policy_shadow_readiness")
+        or build_current_policy_shadow_readiness(payload)
+    )
+    counts = readiness.get("active_grade_counts") or {}
+    top = readiness.get("top_active") or []
+    top_text = "none"
+    if top:
+        first = top[0]
+        top_text = (
+            f"{first.get('timeframe')}:{first.get('symbol')}:{first.get('side')}:"
+            f"{first.get('active_grade')}:R={fmt_num(first.get('current_r_multiple'), 3)}"
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "CURRENT_POLICY_SHADOW_READINESS "
+        f"{payload.get('updated_at')} "
+        f"status={readiness.get('status')} "
+        f"severity={readiness.get('severity')} "
+        f"next_action={readiness.get('next_action')} "
+        f"policy={readiness.get('decision_policy_version')} "
+        f"records={readiness.get('records')} "
+        f"completed={readiness.get('completed')} "
+        f"active={readiness.get('active')} "
+        f"promote={readiness.get('promote_candidates')} "
+        f"grades={counts.get('promising_active', 0)}/{counts.get('positive_active', 0)}/"
+        f"{counts.get('wait_entry', 0)}/{counts.get('negative_active', 0)}/{counts.get('risk_active', 0)} "
+        f"top={top_text} "
+        "paper_trading_authorized=False live_trading_authorized=False\n"
+    )
+
+
 def write_current_policy_shadow_promote_marker(
     payload: dict[str, Any],
     found_marker: Path,
@@ -1400,6 +1530,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
+    attach_current_policy_shadow_readiness(payload)
     return payload
 
 
@@ -1468,6 +1599,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_shadow_active_wait_entry']}/"
             f"{summary['current_policy_shadow_active_negative']}/"
             f"{summary['current_policy_shadow_active_risk']}`"
+        ),
+        (
+            f"- current_policy_shadow readiness/action: "
+            f"`{summary['current_policy_shadow_readiness_status']}/"
+            f"{summary['current_policy_shadow_readiness_next_action']}`"
         ),
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
@@ -1732,7 +1868,9 @@ def format_text(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_shadow_active_positive']}/"
             f"{summary['current_policy_shadow_active_wait_entry']}/"
             f"{summary['current_policy_shadow_active_negative']}/"
-            f"{summary['current_policy_shadow_active_risk']}"
+            f"{summary['current_policy_shadow_active_risk']} "
+            f"readiness={summary['current_policy_shadow_readiness_status']} "
+            f"action={summary['current_policy_shadow_readiness_next_action']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
@@ -1860,6 +1998,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-blocked-pairs-json", default="")
     parser.add_argument("--out-current-policy-shadow-promote-marker", default="")
     parser.add_argument("--out-current-policy-shadow-no-promote-marker", default="")
+    parser.add_argument("--out-current-policy-shadow-readiness-marker", default="")
+    parser.add_argument("--out-current-policy-shadow-readiness-json", default="")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -1895,6 +2035,16 @@ def main() -> None:
             no_marker,
             report_json=args.out_json,
             actions_json=args.out_actions_json,
+        )
+    if args.out_current_policy_shadow_readiness_marker:
+        write_current_policy_shadow_readiness_marker(
+            payload,
+            Path(args.out_current_policy_shadow_readiness_marker),
+        )
+    if args.out_current_policy_shadow_readiness_json:
+        write_json(
+            payload["actions"]["current_policy_shadow_readiness"],
+            Path(args.out_current_policy_shadow_readiness_json),
         )
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), flush=True)

@@ -387,6 +387,8 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["summary"]["current_policy_shadow_active_promising"] == 1
     assert payload["summary"]["current_policy_shadow_active_positive"] == 0
     assert payload["summary"]["current_policy_shadow_active_risk"] == 0
+    assert payload["summary"]["current_policy_shadow_readiness_status"] == "promote_ready"
+    assert payload["summary"]["current_policy_shadow_readiness_severity"] == "ready"
     assert payload["summary"]["current_policy_shadow_scoreboard_groups"] == 1
     assert payload["summary"]["current_policy_shadow_promote_candidates"] == 1
     assert payload["current_policy_shadow_scoreboard"][0]["symbol"] == "SHADOWUSDT"
@@ -394,12 +396,17 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["actions"]["current_policy_shadow_summary"]["promote_candidates"] == 1
     assert payload["actions"]["current_policy_shadow_summary"]["active_watchlist"] == 1
     assert payload["actions"]["current_policy_shadow_summary"]["active_grade_counts"]["promising_active"] == 1
+    assert payload["actions"]["current_policy_shadow_readiness"]["status"] == "promote_ready"
+    assert payload["actions"]["current_policy_shadow_readiness"]["next_action"] == "manual_review_before_paper_canary"
     assert payload["actions"]["current_policy_shadow_promote_candidates"][0]["symbol"] == "SHADOWUSDT"
     assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["current_r_multiple"] == 0.5
     assert payload["actions"]["current_policy_shadow_active_queue"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_shadow_active_queue"][0]["active_grade"] == "promising_active"
-    assert payload["actions"]["current_policy_shadow_active_queue"][0]["next_action"] == "await_completion_for_scoreboard"
+    assert (
+        payload["actions"]["current_policy_shadow_active_queue"][0]["next_action"]
+        == "await_completion_for_scoreboard"
+    )
     assert payload["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
     assert payload["current_policy_shadow_active_queue"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_promote_candidates"] == []
@@ -505,6 +512,85 @@ def test_paper_report_grades_current_policy_shadow_active_queue() -> None:
     assert counts["promising_active"] == 1
     assert counts["wait_entry"] == 1
     assert counts["risk_active"] == 1
+
+
+def test_paper_report_writes_current_policy_shadow_readiness_marker(tmp_path: Path) -> None:
+    payload = {
+        "updated_at": "2026-01-04T00:00:00+00:00",
+        "summary": {
+            "current_decision_policy_version": "policy_v2",
+            "current_policy_shadow_records": 3,
+            "current_policy_shadow_completed": 0,
+            "current_policy_shadow_active": 3,
+            "current_policy_shadow_scoreboard_groups": 0,
+        },
+        "actions": {
+            "current_policy_shadow_promote_candidates": [],
+            "current_policy_shadow_active_grade_counts": {
+                "promising_active": 0,
+                "positive_active": 1,
+                "wait_entry": 1,
+                "negative_active": 1,
+                "risk_active": 0,
+            },
+            "current_policy_shadow_active_queue": [
+                {
+                    "timeframe": "1h",
+                    "symbol": "GOODUSDT",
+                    "side": "long",
+                    "status": "open",
+                    "active_grade": "positive_active",
+                    "current_r_multiple": 0.25,
+                    "analog_expectancy_r": 0.3,
+                    "next_action": "await_completion",
+                }
+            ],
+        },
+    }
+    report_mod.attach_current_policy_shadow_readiness(payload)
+    marker = tmp_path / "CURRENT_POLICY_SHADOW_READINESS.txt"
+
+    report_mod.write_current_policy_shadow_readiness_marker(payload, marker)
+
+    text = marker.read_text()
+    assert text.startswith("CURRENT_POLICY_SHADOW_READINESS ")
+    assert "status=active_positive" in text
+    assert "severity=watch" in text
+    assert "next_action=await_completion" in text
+    assert "grades=0/1/1/1/0" in text
+    assert "top=1h:GOODUSDT:long:positive_active:R=0.250" in text
+    assert "paper_trading_authorized=False" in text
+    assert "live_trading_authorized=False" in text
+
+
+def test_paper_report_shadow_readiness_risk_takes_priority() -> None:
+    payload = {
+        "updated_at": "2026-01-04T00:00:00+00:00",
+        "summary": {
+            "current_decision_policy_version": "policy_v2",
+            "current_policy_shadow_records": 2,
+            "current_policy_shadow_completed": 0,
+            "current_policy_shadow_active": 2,
+            "current_policy_shadow_scoreboard_groups": 0,
+        },
+        "actions": {
+            "current_policy_shadow_promote_candidates": [],
+            "current_policy_shadow_active_grade_counts": {
+                "promising_active": 1,
+                "positive_active": 0,
+                "wait_entry": 0,
+                "negative_active": 0,
+                "risk_active": 1,
+            },
+            "current_policy_shadow_active_queue": [],
+        },
+    }
+
+    readiness = report_mod.build_current_policy_shadow_readiness(payload)
+
+    assert readiness["status"] == "risk_watch"
+    assert readiness["severity"] == "risk"
+    assert readiness["next_action"] == "do_not_promote_wait_for_exit"
 
 
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
