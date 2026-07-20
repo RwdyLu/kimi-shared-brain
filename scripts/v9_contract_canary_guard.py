@@ -31,6 +31,14 @@ def completed_r(record: dict[str, Any]) -> float | None:
     return out if math.isfinite(out) else None
 
 
+def optional_float(value: Any) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if math.isfinite(out) else None
+
+
 def record_time_key(record: dict[str, Any]) -> str:
     outcome = record.get("outcome") or {}
     return str(outcome.get("exit_dt") or record.get("exit_dt") or record.get("created_at") or "")
@@ -71,6 +79,26 @@ def active_pair_counts(records: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def active_unrealized_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
+    active = [record for record in records if record.get("status") in {"pending_entry", "open"}]
+    values = [value for record in active if (value := optional_float(record.get("current_r_multiple"))) is not None]
+    total = float(sum(values))
+    known = len(values)
+    wins = sum(1 for value in values if value > 0.0)
+    losses = sum(1 for value in values if value < 0.0)
+    return {
+        "active": len(active),
+        "active_r_known": known,
+        "active_profit": wins,
+        "active_loss": losses,
+        "active_loss_rate": float(losses / known) if known else 0.0,
+        "active_sum_r": total,
+        "active_avg_r": float(total / known) if known else 0.0,
+        "active_min_r": min(values) if values else None,
+        "active_max_r": max(values) if values else None,
+    }
+
+
 def build_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     completed = sorted(
         [record for record in records if record.get("status") == "completed"],
@@ -94,7 +122,26 @@ def build_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
         "trailing_losses": trailing_losses(values),
         "best_r": max(values) if values else None,
         "worst_r": min(values) if values else None,
+        **active_unrealized_stats(records),
     }
+
+
+def active_risk_reasons(stats: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    if int(stats.get("active_r_known") or 0) < int(args.active_risk_min_known):
+        return []
+
+    reasons: list[str] = []
+    active_sum_r = safe_float(stats.get("active_sum_r"))
+    active_avg_r = safe_float(stats.get("active_avg_r"))
+    active_loss_rate = safe_float(stats.get("active_loss_rate"))
+    max_sum_r = float(args.active_risk_max_sum_r)
+    max_loss_rate = float(args.active_risk_max_loss_rate)
+    max_avg_r = float(args.active_risk_max_avg_r)
+    if active_sum_r <= max_sum_r:
+        reasons.append(f"active_unrealized_sum_r<={max_sum_r:.2f}")
+    if active_loss_rate >= max_loss_rate and active_avg_r <= max_avg_r:
+        reasons.append(f"active_unrealized_loss_rate>={max_loss_rate:.2f}_avg_r<={max_avg_r:.2f}")
+    return reasons
 
 
 def decide(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[str]]:
@@ -111,6 +158,10 @@ def decide(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[s
         reasons.append(f"trailing_losses>={int(args.fail_consecutive_losses)}")
     if reasons:
         return "failed", reasons
+
+    active_reasons = active_risk_reasons(stats, args)
+    if active_reasons:
+        return "watch_active_risk", active_reasons
 
     promote_reasons = [
         completed >= int(args.promote_min_completed),
@@ -160,6 +211,10 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "promote_profit_factor": float(args.promote_profit_factor),
             "promote_max_drawdown_r": float(args.promote_max_drawdown_r),
             "max_active_per_pair": int(args.max_active_per_pair),
+            "active_risk_min_known": int(args.active_risk_min_known),
+            "active_risk_max_sum_r": float(args.active_risk_max_sum_r),
+            "active_risk_max_loss_rate": float(args.active_risk_max_loss_rate),
+            "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
         },
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -195,13 +250,14 @@ def format_markdown(payload: dict[str, Any]) -> str:
         "",
         "## Stats",
         "",
-        "| completed | wins | losses | win_rate | sum_R | avg_R | profit_factor | max_DD_R | trailing_losses |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| completed | wins | losses | win_rate | sum_R | avg_R | profit_factor | max_DD_R | trailing_losses | active | active_R | active_w/l |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         (
             f"| {stats['completed']} | {stats['wins']} | {stats['losses']} | "
             f"{fmt_num(stats['win_rate'])} | {fmt_num(stats['sum_r'])} | {fmt_num(stats['avg_r'])} | "
             f"{fmt_num(stats['profit_factor'])} | {fmt_num(stats['max_drawdown_r'])} | "
-            f"{stats['trailing_losses']} |"
+            f"{stats['trailing_losses']} | {stats['active']} | {fmt_num(stats['active_sum_r'])} | "
+            f"{stats['active_profit']}/{stats['active_loss']} |"
         ),
         "",
         "## Thresholds",
@@ -217,6 +273,12 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"sum_R >= `{thresholds['promote_sum_r']}`, "
             f"profit_factor >= `{thresholds['promote_profit_factor']}`, "
             f"max_DD_R <= `{thresholds['promote_max_drawdown_r']}`"
+        ),
+        (
+            f"- hold promotion if active known >= `{thresholds['active_risk_min_known']}` and any of: "
+            f"active_R <= `{thresholds['active_risk_max_sum_r']}`, "
+            f"active loss rate >= `{thresholds['active_risk_max_loss_rate']}` "
+            f"with avg_R <= `{thresholds['active_risk_max_avg_r']}`"
         ),
         "",
         "## Active Overlap",
@@ -240,7 +302,9 @@ def format_text(payload: dict[str, Any]) -> str:
         f"completed={stats['completed']} wins={stats['wins']} losses={stats['losses']} "
         f"sum_R={fmt_num(stats['sum_r'])} avg_R={fmt_num(stats['avg_r'])} "
         f"pf={fmt_num(stats['profit_factor'])} max_dd_R={fmt_num(stats['max_drawdown_r'])} "
-        f"trailing_losses={stats['trailing_losses']}\n"
+        f"trailing_losses={stats['trailing_losses']} "
+        f"active={stats['active']} active_R={fmt_num(stats['active_sum_r'])} "
+        f"active_wl={stats['active_profit']}/{stats['active_loss']}\n"
         "safety=paper_authorized:False live:False"
     )
 
@@ -259,6 +323,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--promote-profit-factor", type=float, default=1.2)
     parser.add_argument("--promote-max-drawdown-r", type=float, default=5.0)
     parser.add_argument("--max-active-per-pair", type=int, default=1)
+    parser.add_argument("--active-risk-min-known", type=int, default=3)
+    parser.add_argument("--active-risk-max-sum-r", type=float, default=-2.0)
+    parser.add_argument("--active-risk-max-loss-rate", type=float, default=0.67)
+    parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 

@@ -30,6 +30,10 @@ def args_for(report_json: Path) -> Namespace:
         promote_profit_factor=1.2,
         promote_max_drawdown_r=3.0,
         max_active_per_pair=1,
+        active_risk_min_known=3,
+        active_risk_max_sum_r=-2.0,
+        active_risk_max_loss_rate=0.67,
+        active_risk_max_avg_r=-0.25,
         format="text",
     )
 
@@ -55,6 +59,16 @@ def completed_record(r_multiple: float, idx: int) -> dict:
             "r_multiple": r_multiple,
             "exit_dt": f"2026-01-01T0{idx}:30:00+00:00",
         },
+    }
+
+
+def active_record(r_multiple: float, idx: int) -> dict:
+    return {
+        "status": "open",
+        "symbol": "AAAUSDT",
+        "side": "short",
+        "created_at": f"2026-01-01T1{idx}:00:00+00:00",
+        "current_r_multiple": r_multiple,
     }
 
 
@@ -105,3 +119,49 @@ def test_canary_guard_promotes_positive_canary(tmp_path: Path) -> None:
 
     assert payload["status"] == "promote_candidate"
     assert payload["stats"]["sum_r"] == 4.2
+
+
+def test_canary_guard_holds_promotion_on_bad_active_risk(tmp_path: Path) -> None:
+    report = tmp_path / "report.json"
+    write_report(
+        report,
+        [
+            completed_record(1.5, 1),
+            completed_record(1.2, 2),
+            completed_record(-0.5, 3),
+            completed_record(2.0, 4),
+            active_record(-0.8, 1),
+            active_record(-0.9, 2),
+            active_record(-0.7, 3),
+        ],
+    )
+
+    payload = guard_mod.build_payload(args_for(report))
+
+    assert payload["status"] == "watch_active_risk"
+    assert "active_unrealized_sum_r<=-2.00" in payload["reason_codes"]
+    assert "active_unrealized_loss_rate>=0.67_avg_r<=-0.25" in payload["reason_codes"]
+    assert payload["stats"]["active_r_known"] == 3
+    assert payload["stats"]["active_loss"] == 3
+
+
+def test_canary_guard_promotes_when_active_risk_is_healthy(tmp_path: Path) -> None:
+    report = tmp_path / "report.json"
+    write_report(
+        report,
+        [
+            completed_record(1.5, 1),
+            completed_record(1.2, 2),
+            completed_record(-0.5, 3),
+            completed_record(2.0, 4),
+            active_record(0.6, 1),
+            active_record(0.4, 2),
+            active_record(-0.2, 3),
+        ],
+    )
+
+    payload = guard_mod.build_payload(args_for(report))
+
+    assert payload["status"] == "promote_candidate"
+    assert payload["stats"]["active_r_known"] == 3
+    assert abs(payload["stats"]["active_sum_r"] - 0.8) < 1e-9
