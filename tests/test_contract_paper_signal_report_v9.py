@@ -711,6 +711,137 @@ def test_paper_report_audits_active_market_quality_gate_too_strict_watch() -> No
     assert too_strict[0]["live_trading_authorized"] is False
 
 
+def test_paper_report_builds_trend_alignment_scoreboard() -> None:
+    args = Namespace(
+        scoreboard_recent_trades=50,
+        trend_audit_min_completed=5,
+        trend_audit_positive_sum_r=2.0,
+        trend_audit_positive_profit_factor=1.2,
+        trend_audit_negative_sum_r=-2.0,
+        trend_audit_negative_profit_factor=0.8,
+        trend_audit_active_min_known=3,
+        trend_audit_active_positive_sum_r=1.0,
+        trend_audit_active_negative_sum_r=-1.0,
+        trend_audit_active_profit_rate=0.67,
+        trend_audit_active_loss_rate=0.67,
+    )
+    aligned_rows = [
+        {
+            "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+            "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+            "status": "completed",
+            "symbol": "ALIGNEDUSDT",
+            "side": "long",
+            "timeframe": "15m",
+            "market_trend_state": "uptrend",
+            "market_direction_score": 8,
+            "completed_r_multiple": 0.5,
+            "exit_dt": f"2026-01-02T0{idx}:30:00+00:00",
+        }
+        for idx in range(5)
+    ]
+    countertrend_rows = [
+        {
+            "created_at": f"2026-01-03T0{idx}:00:00+00:00",
+            "updated_at": f"2026-01-03T0{idx}:00:00+00:00",
+            "status": "completed",
+            "symbol": "COUNTERUSDT",
+            "side": "long",
+            "timeframe": "15m",
+            "market_trend_state": "downtrend",
+            "market_direction_score": -8,
+            "completed_r_multiple": -0.5,
+            "exit_dt": f"2026-01-03T0{idx}:30:00+00:00",
+        }
+        for idx in range(5)
+    ]
+
+    scoreboard = report_mod.build_trend_alignment_scoreboard(
+        aligned_rows + countertrend_rows,
+        [],
+        args,
+    )
+    supported, risk, watch = report_mod.trend_alignment_action_rows(scoreboard)
+    by_bucket = {row["trend_alignment_bucket"]: row for row in scoreboard}
+
+    assert by_bucket["trend_aligned"]["status"] == "trend_following_supported"
+    assert by_bucket["trend_aligned"]["recent_sum_r"] == 2.5
+    assert by_bucket["countertrend"]["status"] == "countertrend_block_supported"
+    assert by_bucket["countertrend"]["recent_sum_r"] == -2.5
+    assert len(supported) == 2
+    assert risk == []
+    assert watch == []
+    assert supported[0]["paper_trading_authorized"] is False
+    assert supported[0]["live_trading_authorized"] is False
+
+
+def test_paper_report_exports_trend_alignment_actions(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    shadow = tmp_path / "shadow.jsonl"
+    fast_shadow = tmp_path / "fast_shadow.jsonl"
+    shadow.write_text("")
+    fast_shadow.write_text("")
+    rows = []
+    for idx in range(5):
+        rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "TRENDUSDT",
+                "side": "long",
+                "timeframe": "15m",
+                "decision_policy_version": "policy_v2",
+                "market_trend_state": "uptrend",
+                "market_direction_score": 8,
+                "regime_confirmation_mode": "block_conflict",
+                "regime_confirmation_allowed": True,
+                "regime_confirmation_timeframes": ["1h"],
+                "regime_confirmation_regime_ids": ["uptrend_normal_vol"],
+                "regime_confirmation_filters": [
+                    {
+                        "timeframe": "1h",
+                        "allowed": True,
+                        "reason": "regime_aligned",
+                        "regime_id": "uptrend_normal_vol",
+                    }
+                ],
+                "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"15m:{journal}",
+        shadow_sources=f"15m:{shadow}",
+        fast_shadow_sources=f"15m:{fast_shadow}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_recent_trades=50,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+        trend_audit_min_completed=5,
+        trend_audit_positive_sum_r=2.0,
+        trend_audit_positive_profit_factor=1.2,
+        trend_audit_negative_sum_r=-2.0,
+        trend_audit_negative_profit_factor=0.8,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["current_policy_trend_alignment_scoreboard_groups"] == 1
+    assert payload["summary"]["current_policy_trend_alignment_supported"] == 1
+    assert payload["summary"]["current_policy_trend_alignment_risk"] == 0
+    row = payload["current_policy_trend_alignment_scoreboard"][0]
+    assert row["status"] == "trend_following_supported"
+    assert row["trend_alignment_bucket"] == "trend_aligned"
+    action = payload["actions"]["current_policy_trend_alignment_supported"][0]
+    assert action["confirmation_bucket"] == "confirmed_aligned"
+    assert action["paper_trading_authorized"] is False
+    assert action["live_trading_authorized"] is False
+
+
 def test_paper_report_writes_current_policy_shadow_promote_marker(tmp_path: Path) -> None:
     payload = {
         "updated_at": "2026-01-04T00:00:00+00:00",

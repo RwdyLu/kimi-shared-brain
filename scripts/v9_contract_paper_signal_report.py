@@ -1191,6 +1191,231 @@ def build_market_quality_scoreboard(rows: list[dict[str, Any]], args: argparse.N
     return out
 
 
+def trend_alignment_bucket(row: dict[str, Any]) -> str:
+    trend = str(row.get("market_trend_state") or "unknown").strip().lower()
+    side = str(row.get("side") or "").strip().lower()
+    if side not in {"long", "short"}:
+        return "no_direction"
+    if trend == "uptrend":
+        return "trend_aligned" if side == "long" else "countertrend"
+    if trend == "downtrend":
+        return "trend_aligned" if side == "short" else "countertrend"
+    if trend == "range":
+        return "range"
+    return "trend_unknown"
+
+
+def trend_alignment_group_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("side") or "").lower(),
+        str(row.get("market_trend_state") or "unknown").lower(),
+        trend_alignment_bucket(row),
+        confirmation_bucket(row),
+    )
+
+
+def decide_trend_alignment_status(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[str]]:
+    min_completed = int(arg_value(args, "trend_audit_min_completed", 5))
+    positive_sum_r = float(arg_value(args, "trend_audit_positive_sum_r", 2.0))
+    positive_profit_factor = float(arg_value(args, "trend_audit_positive_profit_factor", 1.2))
+    negative_sum_r = float(arg_value(args, "trend_audit_negative_sum_r", -2.0))
+    negative_profit_factor = float(arg_value(args, "trend_audit_negative_profit_factor", 0.8))
+    active_min_known = int(arg_value(args, "trend_audit_active_min_known", 3))
+    active_positive_sum_r = float(arg_value(args, "trend_audit_active_positive_sum_r", 1.0))
+    active_negative_sum_r = float(arg_value(args, "trend_audit_active_negative_sum_r", -1.0))
+    active_profit_rate_threshold = float(arg_value(args, "trend_audit_active_profit_rate", 0.67))
+    active_loss_rate_threshold = float(arg_value(args, "trend_audit_active_loss_rate", 0.67))
+
+    bucket = str(stats.get("trend_alignment_bucket") or "")
+    recent_completed = int(stats.get("recent_completed") or 0)
+    recent_sum_r = safe_float(stats.get("recent_sum_r"))
+    recent_profit_factor = compare_profit_factor(stats.get("recent_profit_factor"))
+    positive_completed = recent_sum_r >= positive_sum_r and recent_profit_factor >= positive_profit_factor
+    negative_completed = recent_sum_r <= negative_sum_r or recent_profit_factor < negative_profit_factor
+
+    if recent_completed >= min_completed:
+        if bucket == "trend_aligned" and positive_completed:
+            return "trend_following_supported", [
+                f"trend_recent_sum_r>={positive_sum_r:g}",
+                f"trend_recent_profit_factor>={positive_profit_factor:g}",
+            ]
+        if bucket == "trend_aligned" and negative_completed:
+            return "trend_following_weak", [
+                f"trend_recent_sum_r<={negative_sum_r:g}"
+                if recent_sum_r <= negative_sum_r
+                else f"trend_recent_profit_factor<{negative_profit_factor:g}"
+            ]
+        if bucket == "countertrend" and negative_completed:
+            return "countertrend_block_supported", [
+                f"countertrend_recent_sum_r<={negative_sum_r:g}"
+                if recent_sum_r <= negative_sum_r
+                else f"countertrend_recent_profit_factor<{negative_profit_factor:g}"
+            ]
+        if bucket == "countertrend" and positive_completed:
+            return "countertrend_opportunity_watch", [
+                f"countertrend_recent_sum_r>={positive_sum_r:g}",
+                f"countertrend_recent_profit_factor>={positive_profit_factor:g}",
+            ]
+        if bucket == "range" and negative_completed:
+            return "range_risk", ["range_recent_result_negative"]
+        if bucket == "range" and positive_completed:
+            return "range_opportunity_watch", ["range_recent_result_positive"]
+        return "watch", ["completed_not_decisive"]
+
+    active_r_known = int(stats.get("active_r_known") or 0)
+    active_sum_r = safe_float(stats.get("active_sum_r"))
+    active_profit_rate = safe_float(stats.get("active_profit_rate"))
+    active_loss_rate = safe_float(stats.get("active_loss_rate"))
+    if active_r_known >= active_min_known:
+        positive_active = active_sum_r >= active_positive_sum_r and active_profit_rate >= active_profit_rate_threshold
+        negative_active = active_sum_r <= active_negative_sum_r and active_loss_rate >= active_loss_rate_threshold
+        if bucket == "trend_aligned" and positive_active:
+            return "active_trend_following_supported", [
+                f"trend_active_sum_r>={active_positive_sum_r:g}",
+                f"trend_active_profit_rate>={active_profit_rate_threshold:g}",
+            ]
+        if bucket == "trend_aligned" and negative_active:
+            return "active_trend_following_weak", [
+                f"trend_active_sum_r<={active_negative_sum_r:g}",
+                f"trend_active_loss_rate>={active_loss_rate_threshold:g}",
+            ]
+        if bucket == "countertrend" and negative_active:
+            return "active_countertrend_block_supported", [
+                f"countertrend_active_sum_r<={active_negative_sum_r:g}",
+                f"countertrend_active_loss_rate>={active_loss_rate_threshold:g}",
+            ]
+        if bucket == "countertrend" and positive_active:
+            return "active_countertrend_opportunity_watch", [
+                f"countertrend_active_sum_r>={active_positive_sum_r:g}",
+                f"countertrend_active_profit_rate>={active_profit_rate_threshold:g}",
+            ]
+        if bucket == "range" and negative_active:
+            return "active_range_risk", ["range_active_result_negative"]
+        if bucket == "range" and positive_active:
+            return "active_range_opportunity_watch", ["range_active_result_positive"]
+        return "active_collecting", ["active_not_decisive"]
+
+    return "collecting", [
+        f"recent_completed<{min_completed}",
+        f"active_r_known<{active_min_known}",
+    ]
+
+
+def build_trend_alignment_scoreboard(
+    completed_rows: list[dict[str, Any]],
+    active_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = {}
+    active_grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = {}
+    for row in completed_rows:
+        value = completed_r(row)
+        if value is None:
+            continue
+        grouped.setdefault(trend_alignment_group_key(row), []).append(row)
+    for row in active_rows:
+        active_grouped.setdefault(trend_alignment_group_key(row), []).append(row)
+
+    rows = []
+    recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
+    for key in sorted(set(grouped) | set(active_grouped)):
+        timeframe, side, trend_state, bucket, confirm_bucket = key
+        group = grouped.get(key, [])
+        active_group = active_grouped.get(key, [])
+        ordered = sorted(group, key=record_time_key)
+        values = [value for row in ordered if (value := completed_r(row)) is not None]
+        recent_values = values[-recent_n:] if recent_n > 0 else values
+        all_stats = summarize_values(values)
+        recent_stats = summarize_values(recent_values)
+        active_stats = active_unrealized_stats(active_group)
+        active_known = int(active_stats["active_r_known"])
+        active_profit_rate = (
+            float(active_stats["active_profit"] / active_known) if active_known else 0.0
+        )
+        active_loss_rate = float(active_stats["active_loss"] / active_known) if active_known else 0.0
+        direction_scores = [
+            value
+            for row in [*ordered, *active_group]
+            if (value := optional_float(row.get("market_direction_score"))) is not None
+        ]
+        stats = {
+            "timeframe": timeframe,
+            "side": side,
+            "market_trend_state": trend_state,
+            "trend_alignment_bucket": bucket,
+            "confirmation_bucket": confirm_bucket,
+            "records": len(group) + len(active_group),
+            "completed": all_stats["completed"],
+            "wins": all_stats["wins"],
+            "losses": all_stats["losses"],
+            "win_rate": all_stats["win_rate"],
+            "sum_r": all_stats["sum_r"],
+            "avg_r": all_stats["avg_r"],
+            "profit_factor": all_stats["profit_factor"],
+            "max_drawdown_r": all_stats["max_drawdown_r"],
+            "trailing_losses": all_stats["trailing_losses"],
+            "recent_completed": recent_stats["completed"],
+            "recent_win_rate": recent_stats["win_rate"],
+            "recent_sum_r": recent_stats["sum_r"],
+            "recent_profit_factor": recent_stats["profit_factor"],
+            "recent_max_drawdown_r": recent_stats["max_drawdown_r"],
+            "recent_trailing_losses": recent_stats["trailing_losses"],
+            "active": len(active_group),
+            "active_r_known": active_stats["active_r_known"],
+            "active_profit": active_stats["active_profit"],
+            "active_loss": active_stats["active_loss"],
+            "active_profit_rate": active_profit_rate,
+            "active_loss_rate": active_loss_rate,
+            "active_sum_r": active_stats["active_sum_r"],
+            "active_avg_r": active_stats["active_avg_r"],
+            "active_min_r": active_stats["active_min_r"],
+            "active_max_r": active_stats["active_max_r"],
+            "avg_market_direction_score": (
+                float(sum(direction_scores) / len(direction_scores)) if direction_scores else None
+            ),
+            "latest_completed_at": record_time_key(ordered[-1]) if ordered else None,
+            "latest_active_at": max(
+                (str(row.get("updated_at") or row.get("created_at") or "") for row in active_group),
+                default=None,
+            ),
+            "paper_trading_authorized": False,
+            "live_trading_authorized": False,
+        }
+        status, reasons = decide_trend_alignment_status(stats, args)
+        edge_score = safe_float(stats["recent_sum_r"]) + safe_float(stats["active_sum_r"])
+        rows.append({**stats, "status": status, "reason_codes": reasons, "edge_score": float(edge_score)})
+
+    priority = {
+        "trend_following_supported": 0,
+        "active_trend_following_supported": 1,
+        "countertrend_block_supported": 2,
+        "active_countertrend_block_supported": 3,
+        "trend_following_weak": 4,
+        "active_trend_following_weak": 5,
+        "countertrend_opportunity_watch": 6,
+        "active_countertrend_opportunity_watch": 7,
+        "range_risk": 8,
+        "active_range_risk": 9,
+        "range_opportunity_watch": 10,
+        "active_range_opportunity_watch": 11,
+        "watch": 12,
+        "active_collecting": 13,
+        "collecting": 14,
+    }
+    rows.sort(
+        key=lambda row: (
+            priority.get(str(row.get("status")), 99),
+            -safe_float(row.get("edge_score")),
+            str(row.get("timeframe")),
+            str(row.get("side")),
+            str(row.get("market_trend_state")),
+            str(row.get("confirmation_bucket")),
+        )
+    )
+    return rows
+
+
 def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "timeframe": row.get("timeframe"),
@@ -1336,6 +1561,50 @@ def compact_market_quality_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]
         "latest_completed_at": row.get("latest_completed_at"),
         "latest_active_at": row.get("latest_active_at"),
         "promotion_eligible": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
+def compact_trend_alignment_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "timeframe": row.get("timeframe"),
+        "side": row.get("side"),
+        "market_trend_state": row.get("market_trend_state"),
+        "trend_alignment_bucket": row.get("trend_alignment_bucket"),
+        "confirmation_bucket": row.get("confirmation_bucket"),
+        "status": row.get("status"),
+        "reason_codes": row.get("reason_codes") or [],
+        "records": row.get("records"),
+        "completed": row.get("completed"),
+        "wins": row.get("wins"),
+        "losses": row.get("losses"),
+        "win_rate": row.get("win_rate"),
+        "sum_r": row.get("sum_r"),
+        "avg_r": row.get("avg_r"),
+        "profit_factor": row.get("profit_factor"),
+        "max_drawdown_r": row.get("max_drawdown_r"),
+        "trailing_losses": row.get("trailing_losses"),
+        "recent_completed": row.get("recent_completed"),
+        "recent_win_rate": row.get("recent_win_rate"),
+        "recent_sum_r": row.get("recent_sum_r"),
+        "recent_profit_factor": row.get("recent_profit_factor"),
+        "recent_max_drawdown_r": row.get("recent_max_drawdown_r"),
+        "recent_trailing_losses": row.get("recent_trailing_losses"),
+        "active": row.get("active"),
+        "active_r_known": row.get("active_r_known"),
+        "active_profit": row.get("active_profit"),
+        "active_loss": row.get("active_loss"),
+        "active_profit_rate": row.get("active_profit_rate"),
+        "active_loss_rate": row.get("active_loss_rate"),
+        "active_sum_r": row.get("active_sum_r"),
+        "active_avg_r": row.get("active_avg_r"),
+        "active_min_r": row.get("active_min_r"),
+        "active_max_r": row.get("active_max_r"),
+        "avg_market_direction_score": row.get("avg_market_direction_score"),
+        "edge_score": row.get("edge_score"),
+        "latest_completed_at": row.get("latest_completed_at"),
+        "latest_active_at": row.get("latest_active_at"),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
@@ -1546,6 +1815,41 @@ def market_quality_action_rows(
     return supported, too_strict, watch
 
 
+def trend_alignment_action_rows(
+    scoreboard: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    supported_statuses = {
+        "trend_following_supported",
+        "active_trend_following_supported",
+        "countertrend_block_supported",
+        "active_countertrend_block_supported",
+    }
+    risk_statuses = {
+        "trend_following_weak",
+        "active_trend_following_weak",
+        "countertrend_opportunity_watch",
+        "active_countertrend_opportunity_watch",
+        "range_risk",
+        "active_range_risk",
+    }
+    supported = [
+        compact_trend_alignment_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") in supported_statuses
+    ]
+    risk = [
+        compact_trend_alignment_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") in risk_statuses
+    ]
+    watch = [
+        compact_trend_alignment_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") not in supported_statuses | risk_statuses
+    ]
+    return supported, risk, watch
+
+
 def regime_cohort_action_rows(
     scoreboard: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -1675,13 +1979,16 @@ def build_action_plan(
     current_policy_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_regime_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_confirmation_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_trend_alignment_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_market_quality_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_shadow_trend_alignment_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_regime_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_active_regime_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_market_quality_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_fast_shadow_trend_alignment_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_active_rows: list[dict[str, Any]] | None = None,
     current_decision_policy_version: str = "",
 ) -> dict[str, Any]:
@@ -1713,6 +2020,12 @@ def build_action_plan(
         current_policy_promote_confirmation,
         current_policy_watch_confirmation,
     ) = confirmation_cohort_action_rows(current_policy_confirmation_scoreboard)
+    current_policy_trend_alignment_scoreboard = current_policy_trend_alignment_scoreboard or []
+    (
+        current_policy_trend_alignment_supported,
+        current_policy_trend_alignment_risk,
+        current_policy_trend_alignment_watch,
+    ) = trend_alignment_action_rows(current_policy_trend_alignment_scoreboard)
     current_policy_shadow_confirmation_scoreboard = current_policy_shadow_confirmation_scoreboard or []
     (
         current_policy_shadow_blocked_confirmation,
@@ -1725,6 +2038,12 @@ def build_action_plan(
         current_policy_shadow_market_quality_too_strict,
         current_policy_shadow_market_quality_watch,
     ) = market_quality_action_rows(current_policy_shadow_market_quality_scoreboard)
+    current_policy_shadow_trend_alignment_scoreboard = current_policy_shadow_trend_alignment_scoreboard or []
+    (
+        current_policy_shadow_trend_alignment_supported,
+        current_policy_shadow_trend_alignment_risk,
+        current_policy_shadow_trend_alignment_watch,
+    ) = trend_alignment_action_rows(current_policy_shadow_trend_alignment_scoreboard)
     current_policy_fast_shadow_confirmation_scoreboard = current_policy_fast_shadow_confirmation_scoreboard or []
     current_policy_fast_shadow_regime_scoreboard = current_policy_fast_shadow_regime_scoreboard or []
     (
@@ -1747,6 +2066,14 @@ def build_action_plan(
         current_policy_fast_shadow_market_quality_too_strict,
         current_policy_fast_shadow_market_quality_watch,
     ) = market_quality_action_rows(current_policy_fast_shadow_market_quality_scoreboard)
+    current_policy_fast_shadow_trend_alignment_scoreboard = (
+        current_policy_fast_shadow_trend_alignment_scoreboard or []
+    )
+    (
+        current_policy_fast_shadow_trend_alignment_supported,
+        current_policy_fast_shadow_trend_alignment_risk,
+        current_policy_fast_shadow_trend_alignment_watch,
+    ) = trend_alignment_action_rows(current_policy_fast_shadow_trend_alignment_scoreboard)
     current_policy_shadow_active_queue_all = active_shadow_queue(
         current_policy_shadow_active_rows or [],
         args,
@@ -1772,6 +2099,9 @@ def build_action_plan(
         "current_policy_blocked_confirmation_cohorts": current_policy_blocked_confirmation[:max_rows],
         "current_policy_promote_confirmation_cohorts": current_policy_promote_confirmation[:max_rows],
         "current_policy_confirmation_watchlist": current_policy_watch_confirmation[:max_rows],
+        "current_policy_trend_alignment_supported": current_policy_trend_alignment_supported[:max_rows],
+        "current_policy_trend_alignment_risk": current_policy_trend_alignment_risk[:max_rows],
+        "current_policy_trend_alignment_watchlist": current_policy_trend_alignment_watch[:max_rows],
         "current_policy_shadow_blocked_pairs": current_policy_shadow_blocked[:max_rows],
         "current_policy_shadow_fresh_analog_veto_pairs": current_policy_shadow_fresh_veto[:max_rows],
         "current_policy_shadow_promote_candidates": current_policy_shadow_promote[:max_rows],
@@ -1786,6 +2116,11 @@ def build_action_plan(
             :max_rows
         ],
         "current_policy_shadow_market_quality_watchlist": current_policy_shadow_market_quality_watch[:max_rows],
+        "current_policy_shadow_trend_alignment_supported": current_policy_shadow_trend_alignment_supported[
+            :max_rows
+        ],
+        "current_policy_shadow_trend_alignment_risk": current_policy_shadow_trend_alignment_risk[:max_rows],
+        "current_policy_shadow_trend_alignment_watchlist": current_policy_shadow_trend_alignment_watch[:max_rows],
         "current_policy_fast_shadow_blocked_confirmation_cohorts": current_policy_fast_shadow_blocked_confirmation[
             :max_rows
         ],
@@ -1810,6 +2145,15 @@ def build_action_plan(
         "current_policy_fast_shadow_market_quality_watchlist": current_policy_fast_shadow_market_quality_watch[
             :max_rows
         ],
+        "current_policy_fast_shadow_trend_alignment_supported": (
+            current_policy_fast_shadow_trend_alignment_supported[:max_rows]
+        ),
+        "current_policy_fast_shadow_trend_alignment_risk": current_policy_fast_shadow_trend_alignment_risk[
+            :max_rows
+        ],
+        "current_policy_fast_shadow_trend_alignment_watchlist": current_policy_fast_shadow_trend_alignment_watch[
+            :max_rows
+        ],
         "current_policy_shadow_active_watchlist": active_watchlist(current_policy_shadow_active_rows or [], max_rows),
         "current_policy_shadow_active_queue": current_policy_shadow_active_queue_all[:max_rows],
         "current_policy_shadow_active_grade_counts": current_policy_shadow_active_grade_counts,
@@ -1831,6 +2175,9 @@ def build_action_plan(
             "current_policy_blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
             "current_policy_promote_confirmation_cohorts": len(current_policy_promote_confirmation),
             "current_policy_confirmation_watchlist": len(current_policy_watch_confirmation),
+            "current_policy_trend_alignment_supported": len(current_policy_trend_alignment_supported),
+            "current_policy_trend_alignment_risk": len(current_policy_trend_alignment_risk),
+            "current_policy_trend_alignment_watchlist": len(current_policy_trend_alignment_watch),
             "current_policy_shadow_blocked_pairs": len(current_policy_shadow_blocked),
             "current_policy_shadow_fresh_analog_veto_pairs": len(current_policy_shadow_fresh_veto),
             "current_policy_shadow_promote_candidates": len(current_policy_shadow_promote),
@@ -1845,6 +2192,13 @@ def build_action_plan(
                 current_policy_shadow_market_quality_too_strict
             ),
             "current_policy_shadow_market_quality_watchlist": len(current_policy_shadow_market_quality_watch),
+            "current_policy_shadow_trend_alignment_supported": len(
+                current_policy_shadow_trend_alignment_supported
+            ),
+            "current_policy_shadow_trend_alignment_risk": len(current_policy_shadow_trend_alignment_risk),
+            "current_policy_shadow_trend_alignment_watchlist": len(
+                current_policy_shadow_trend_alignment_watch
+            ),
             "current_policy_fast_shadow_blocked_confirmation_cohorts": len(
                 current_policy_fast_shadow_blocked_confirmation
             ),
@@ -1868,6 +2222,15 @@ def build_action_plan(
             ),
             "current_policy_fast_shadow_market_quality_watchlist": len(
                 current_policy_fast_shadow_market_quality_watch
+            ),
+            "current_policy_fast_shadow_trend_alignment_supported": len(
+                current_policy_fast_shadow_trend_alignment_supported
+            ),
+            "current_policy_fast_shadow_trend_alignment_risk": len(
+                current_policy_fast_shadow_trend_alignment_risk
+            ),
+            "current_policy_fast_shadow_trend_alignment_watchlist": len(
+                current_policy_fast_shadow_trend_alignment_watch
             ),
             "current_policy_shadow_active_watchlist": len(current_policy_shadow_active_rows or []),
             "current_policy_shadow_active_promising": current_policy_shadow_active_grade_counts.get(
@@ -1901,6 +2264,9 @@ def build_action_plan(
             "blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
             "promote_confirmation_cohorts": len(current_policy_promote_confirmation),
             "confirmation_watchlist": len(current_policy_watch_confirmation),
+            "trend_alignment_supported": len(current_policy_trend_alignment_supported),
+            "trend_alignment_risk": len(current_policy_trend_alignment_risk),
+            "trend_alignment_watchlist": len(current_policy_trend_alignment_watch),
         },
         "current_policy_shadow_summary": {
             "decision_policy_version": current_decision_policy_version,
@@ -1915,6 +2281,9 @@ def build_action_plan(
             "market_quality_gate_supported": len(current_policy_shadow_market_quality_supported),
             "market_quality_gate_too_strict": len(current_policy_shadow_market_quality_too_strict),
             "market_quality_watchlist": len(current_policy_shadow_market_quality_watch),
+            "trend_alignment_supported": len(current_policy_shadow_trend_alignment_supported),
+            "trend_alignment_risk": len(current_policy_shadow_trend_alignment_risk),
+            "trend_alignment_watchlist": len(current_policy_shadow_trend_alignment_watch),
             "active_watchlist": len(current_policy_shadow_active_rows or []),
             "active_grade_counts": current_policy_shadow_active_grade_counts,
         },
@@ -2596,6 +2965,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_active_rows,
         args,
     )
+    current_policy_trend_alignment_scoreboard = build_trend_alignment_scoreboard(
+        current_policy_completed_rows,
+        current_policy_active_rows,
+        args,
+    )
     shadow_active_rows = [row for row in shadow_records if row.get("status") in {"pending_entry", "open"}]
     shadow_completed_rows = [row for row in shadow_records if row.get("status") == "completed"]
     shadow_scoreboard = build_scoreboard(shadow_completed_rows, shadow_active_rows, args)
@@ -2627,6 +3001,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_shadow_records,
         args,
     )
+    current_policy_shadow_trend_alignment_scoreboard = build_trend_alignment_scoreboard(
+        current_policy_shadow_completed_rows,
+        current_policy_shadow_active_rows,
+        args,
+    )
     current_policy_fast_shadow_records = rows_for_decision_policy(fast_shadow_records, current_policy_version)
     current_policy_fast_shadow_completed_rows = rows_for_decision_policy(
         fast_shadow_completed_rows,
@@ -2656,6 +3035,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     )
     current_policy_fast_shadow_market_quality_scoreboard = build_market_quality_scoreboard(
         current_policy_fast_shadow_records,
+        args,
+    )
+    current_policy_fast_shadow_trend_alignment_scoreboard = build_trend_alignment_scoreboard(
+        current_policy_fast_shadow_completed_rows,
+        current_policy_fast_shadow_active_rows,
         args,
     )
     shadow_active_stats = active_unrealized_stats(shadow_active_rows)
@@ -2695,13 +3079,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_scoreboard=current_policy_scoreboard,
         current_policy_regime_scoreboard=current_policy_regime_scoreboard,
         current_policy_confirmation_scoreboard=current_policy_confirmation_scoreboard,
+        current_policy_trend_alignment_scoreboard=current_policy_trend_alignment_scoreboard,
         current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
         current_policy_shadow_confirmation_scoreboard=current_policy_shadow_confirmation_scoreboard,
         current_policy_shadow_market_quality_scoreboard=current_policy_shadow_market_quality_scoreboard,
+        current_policy_shadow_trend_alignment_scoreboard=current_policy_shadow_trend_alignment_scoreboard,
         current_policy_fast_shadow_regime_scoreboard=current_policy_fast_shadow_regime_scoreboard,
         current_policy_fast_shadow_active_regime_scoreboard=current_policy_fast_shadow_active_regime_scoreboard,
         current_policy_fast_shadow_confirmation_scoreboard=current_policy_fast_shadow_confirmation_scoreboard,
         current_policy_fast_shadow_market_quality_scoreboard=current_policy_fast_shadow_market_quality_scoreboard,
+        current_policy_fast_shadow_trend_alignment_scoreboard=(
+            current_policy_fast_shadow_trend_alignment_scoreboard
+        ),
         current_policy_shadow_active_rows=current_policy_shadow_active_rows,
         current_decision_policy_version=current_policy_version,
     )
@@ -2765,6 +3154,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 "current_policy_blocked_confirmation_cohorts"
             ],
             "current_policy_confirmation_watchlist": actions["summary"]["current_policy_confirmation_watchlist"],
+            "current_policy_trend_alignment_scoreboard_groups": len(current_policy_trend_alignment_scoreboard),
+            "current_policy_trend_alignment_supported": actions["summary"][
+                "current_policy_trend_alignment_supported"
+            ],
+            "current_policy_trend_alignment_risk": actions["summary"]["current_policy_trend_alignment_risk"],
+            "current_policy_trend_alignment_watchlist": actions["summary"][
+                "current_policy_trend_alignment_watchlist"
+            ],
             "current_policy_shadow_records": len(current_policy_shadow_records),
             "current_policy_shadow_completed": len(current_policy_shadow_completed_rows),
             "current_policy_shadow_active": len(current_policy_shadow_active_rows),
@@ -2799,6 +3196,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "current_policy_shadow_market_quality_watchlist": actions["summary"][
                 "current_policy_shadow_market_quality_watchlist"
+            ],
+            "current_policy_shadow_trend_alignment_scoreboard_groups": len(
+                current_policy_shadow_trend_alignment_scoreboard
+            ),
+            "current_policy_shadow_trend_alignment_supported": actions["summary"][
+                "current_policy_shadow_trend_alignment_supported"
+            ],
+            "current_policy_shadow_trend_alignment_risk": actions["summary"][
+                "current_policy_shadow_trend_alignment_risk"
+            ],
+            "current_policy_shadow_trend_alignment_watchlist": actions["summary"][
+                "current_policy_shadow_trend_alignment_watchlist"
             ],
             "current_policy_shadow_blocked_confirmation_cohorts": actions["summary"][
                 "current_policy_shadow_blocked_confirmation_cohorts"
@@ -2856,6 +3265,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_fast_shadow_market_quality_watchlist": actions["summary"][
                 "current_policy_fast_shadow_market_quality_watchlist"
             ],
+            "current_policy_fast_shadow_trend_alignment_scoreboard_groups": len(
+                current_policy_fast_shadow_trend_alignment_scoreboard
+            ),
+            "current_policy_fast_shadow_trend_alignment_supported": actions["summary"][
+                "current_policy_fast_shadow_trend_alignment_supported"
+            ],
+            "current_policy_fast_shadow_trend_alignment_risk": actions["summary"][
+                "current_policy_fast_shadow_trend_alignment_risk"
+            ],
+            "current_policy_fast_shadow_trend_alignment_watchlist": actions["summary"][
+                "current_policy_fast_shadow_trend_alignment_watchlist"
+            ],
             "current_policy_fast_shadow_blocked_confirmation_cohorts": actions["summary"][
                 "current_policy_fast_shadow_blocked_confirmation_cohorts"
             ],
@@ -2908,6 +3329,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "current_policy_confirmation_scoreboard": current_policy_confirmation_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
+        "current_policy_trend_alignment_scoreboard": current_policy_trend_alignment_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "shadow_scoreboard": shadow_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "fast_shadow_scoreboard": fast_shadow_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "shadow_confirmation_scoreboard": shadow_confirmation_scoreboard[
@@ -2925,6 +3349,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "current_policy_shadow_market_quality_scoreboard": current_policy_shadow_market_quality_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
+        "current_policy_shadow_trend_alignment_scoreboard": current_policy_shadow_trend_alignment_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "current_policy_fast_shadow_scoreboard": current_policy_fast_shadow_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
@@ -2940,6 +3367,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "current_policy_fast_shadow_market_quality_scoreboard": current_policy_fast_shadow_market_quality_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
+        "current_policy_fast_shadow_trend_alignment_scoreboard": (
+            current_policy_fast_shadow_trend_alignment_scoreboard[
+                : int(arg_value(args, "scoreboard_max_rows", 40))
+            ]
+        ),
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
         "skipped": skipped_rows[: args.max_rows],
@@ -2998,6 +3430,13 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"- current_policy confirmation blocked/watch: "
             f"`{summary['current_policy_blocked_confirmation_cohorts']}/"
             f"{summary['current_policy_confirmation_watchlist']}`"
+        ),
+        (
+            f"- current_policy trend_alignment groups/supported/risk/watch: "
+            f"`{summary['current_policy_trend_alignment_scoreboard_groups']}/"
+            f"{summary['current_policy_trend_alignment_supported']}/"
+            f"{summary['current_policy_trend_alignment_risk']}/"
+            f"{summary['current_policy_trend_alignment_watchlist']}`"
         ),
         (
             f"- shadow records/completed/active/groups: "
@@ -3065,6 +3504,13 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_shadow_market_quality_watchlist']}`"
         ),
         (
+            f"- current_policy_shadow trend_alignment groups/supported/risk/watch: "
+            f"`{summary['current_policy_shadow_trend_alignment_scoreboard_groups']}/"
+            f"{summary['current_policy_shadow_trend_alignment_supported']}/"
+            f"{summary['current_policy_shadow_trend_alignment_risk']}/"
+            f"{summary['current_policy_shadow_trend_alignment_watchlist']}`"
+        ),
+        (
             f"- current_policy_fast_shadow records/completed/active/groups/retest/stop: "
             f"`{summary['current_policy_fast_shadow_records']}/"
             f"{summary['current_policy_fast_shadow_completed']}/"
@@ -3091,6 +3537,13 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_fast_shadow_market_quality_gate_supported']}/"
             f"{summary['current_policy_fast_shadow_market_quality_gate_too_strict']}/"
             f"{summary['current_policy_fast_shadow_market_quality_watchlist']}`"
+        ),
+        (
+            f"- current_policy_fast_shadow trend_alignment groups/supported/risk/watch: "
+            f"`{summary['current_policy_fast_shadow_trend_alignment_scoreboard_groups']}/"
+            f"{summary['current_policy_fast_shadow_trend_alignment_supported']}/"
+            f"{summary['current_policy_fast_shadow_trend_alignment_risk']}/"
+            f"{summary['current_policy_fast_shadow_trend_alignment_watchlist']}`"
         ),
         (
             f"- current_policy_fast_shadow retest/action: "
@@ -3165,6 +3618,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Current Policy Trend Alignment Audit",
+            "",
+            "| status | timeframe | side | trend | bucket | confirmation | records | recent_n | recent_sum_R | "
+            "recent_pf | active | active_R | active_w/l | avg_dir | reasons |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_trend_alignment_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('market_trend_state')} | {row.get('trend_alignment_bucket')} | "
+            f"{row.get('confirmation_bucket')} | {row.get('records')} | {row.get('recent_completed')} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | "
+            f"{fmt_num(row.get('avg_market_direction_score'), 2)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
             "## Current Policy Shadow Confirmation Scoreboard",
             "",
             "| status | timeframe | side | confirmation | confirm_tf | confirm_regime | recent_n | "
@@ -3224,6 +3698,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Current Policy Shadow Trend Alignment Audit",
+            "",
+            "| status | timeframe | side | trend | bucket | confirmation | records | recent_n | recent_sum_R | "
+            "recent_pf | active | active_R | active_w/l | avg_dir | reasons |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_shadow_trend_alignment_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('market_trend_state')} | {row.get('trend_alignment_bucket')} | "
+            f"{row.get('confirmation_bucket')} | {row.get('records')} | {row.get('recent_completed')} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | "
+            f"{fmt_num(row.get('avg_market_direction_score'), 2)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
             "## Current Policy Fast Shadow Scoreboard",
             "",
             "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
@@ -3258,6 +3753,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{row.get('recent_completed')} | {fmt_num(row.get('recent_sum_r'), 3)} | "
             f"{fmt_num(row.get('recent_profit_factor'), 3)} | {row.get('active')} | "
             f"{fmt_num(row.get('active_sum_r'), 3)} | {row.get('active_profit')}/{row.get('active_loss')} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Current Policy Fast Shadow Trend Alignment Audit",
+            "",
+            "| status | timeframe | side | trend | bucket | confirmation | records | recent_n | recent_sum_R | "
+            "recent_pf | active | active_R | active_w/l | avg_dir | reasons |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_fast_shadow_trend_alignment_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('market_trend_state')} | {row.get('trend_alignment_bucket')} | "
+            f"{row.get('confirmation_bucket')} | {row.get('records')} | {row.get('recent_completed')} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | "
+            f"{fmt_num(row.get('avg_market_direction_score'), 2)} | "
             f"{', '.join(row.get('reason_codes') or [])} |"
         )
     lines.extend(
@@ -3453,6 +3969,13 @@ def format_text(payload: dict[str, Any]) -> str:
             f"watch={summary['current_policy_regime_watchlist']}"
         ),
         (
+            f"current_policy_trend_alignment "
+            f"groups={summary['current_policy_trend_alignment_scoreboard_groups']} "
+            f"supported={summary['current_policy_trend_alignment_supported']} "
+            f"risk={summary['current_policy_trend_alignment_risk']} "
+            f"watch={summary['current_policy_trend_alignment_watchlist']}"
+        ),
+        (
             f"current_policy_shadow records={summary['current_policy_shadow_records']} "
             f"completed={summary['current_policy_shadow_completed']} "
             f"active={summary['current_policy_shadow_active']} "
@@ -3479,6 +4002,13 @@ def format_text(payload: dict[str, Any]) -> str:
             f"supported={summary['current_policy_shadow_market_quality_gate_supported']} "
             f"too_strict={summary['current_policy_shadow_market_quality_gate_too_strict']} "
             f"watch={summary['current_policy_shadow_market_quality_watchlist']}"
+        ),
+        (
+            f"current_policy_shadow_trend_alignment "
+            f"groups={summary['current_policy_shadow_trend_alignment_scoreboard_groups']} "
+            f"supported={summary['current_policy_shadow_trend_alignment_supported']} "
+            f"risk={summary['current_policy_shadow_trend_alignment_risk']} "
+            f"watch={summary['current_policy_shadow_trend_alignment_watchlist']}"
         ),
         (
             f"fast_shadow records={summary['fast_shadow_records']} "
@@ -3522,6 +4052,13 @@ def format_text(payload: dict[str, Any]) -> str:
             f"too_strict={summary['current_policy_fast_shadow_market_quality_gate_too_strict']} "
             f"watch={summary['current_policy_fast_shadow_market_quality_watchlist']}"
         ),
+        (
+            f"current_policy_fast_shadow_trend_alignment "
+            f"groups={summary['current_policy_fast_shadow_trend_alignment_scoreboard_groups']} "
+            f"supported={summary['current_policy_fast_shadow_trend_alignment_supported']} "
+            f"risk={summary['current_policy_fast_shadow_trend_alignment_risk']} "
+            f"watch={summary['current_policy_fast_shadow_trend_alignment_watchlist']}"
+        ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']} "
         f"confirm_blocked={summary['current_policy_blocked_confirmation_cohorts']} "
@@ -3556,6 +4093,18 @@ def format_text(payload: dict[str, Any]) -> str:
             f"active={row.get('active')} active_R={fmt_num(row.get('active_sum_r'), 3)} "
             f"score={fmt_num(row.get('edge_score'), 3)}"
         )
+    for row in payload["current_policy_trend_alignment_scoreboard"][:5]:
+        lines.append(
+            f"current_policy_trend_alignment {row.get('status')} {row.get('timeframe')} "
+            f"{row.get('side')} trend={row.get('market_trend_state')} "
+            f"bucket={row.get('trend_alignment_bucket')} confirm={row.get('confirmation_bucket')} "
+            f"records={row.get('records')} recent_n={row.get('recent_completed')} "
+            f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} active={row.get('active')} "
+            f"active_R={fmt_num(row.get('active_sum_r'), 3)} active_wl={row.get('active_profit')}/"
+            f"{row.get('active_loss')} avg_dir={fmt_num(row.get('avg_market_direction_score'), 2)} "
+            f"reasons={','.join(row.get('reason_codes') or [])}"
+        )
     for row in payload["current_policy_shadow_market_quality_scoreboard"][:5]:
         lines.append(
             f"current_policy_shadow_market_quality {row.get('status')} {row.get('timeframe')} "
@@ -3565,6 +4114,18 @@ def format_text(payload: dict[str, Any]) -> str:
             f"active_R={fmt_num(row.get('active_sum_r'), 3)} active_wl={row.get('active_profit')}/"
             f"{row.get('active_loss')} reasons={','.join(row.get('reason_codes') or [])}"
         )
+    for row in payload["current_policy_shadow_trend_alignment_scoreboard"][:5]:
+        lines.append(
+            f"current_policy_shadow_trend_alignment {row.get('status')} {row.get('timeframe')} "
+            f"{row.get('side')} trend={row.get('market_trend_state')} "
+            f"bucket={row.get('trend_alignment_bucket')} confirm={row.get('confirmation_bucket')} "
+            f"records={row.get('records')} recent_n={row.get('recent_completed')} "
+            f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} active={row.get('active')} "
+            f"active_R={fmt_num(row.get('active_sum_r'), 3)} active_wl={row.get('active_profit')}/"
+            f"{row.get('active_loss')} avg_dir={fmt_num(row.get('avg_market_direction_score'), 2)} "
+            f"reasons={','.join(row.get('reason_codes') or [])}"
+        )
     for row in payload["current_policy_fast_shadow_market_quality_scoreboard"][:5]:
         lines.append(
             f"current_policy_fast_shadow_market_quality {row.get('status')} {row.get('timeframe')} "
@@ -3573,6 +4134,18 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} active={row.get('active')} "
             f"active_R={fmt_num(row.get('active_sum_r'), 3)} active_wl={row.get('active_profit')}/"
             f"{row.get('active_loss')} reasons={','.join(row.get('reason_codes') or [])}"
+        )
+    for row in payload["current_policy_fast_shadow_trend_alignment_scoreboard"][:5]:
+        lines.append(
+            f"current_policy_fast_shadow_trend_alignment {row.get('status')} {row.get('timeframe')} "
+            f"{row.get('side')} trend={row.get('market_trend_state')} "
+            f"bucket={row.get('trend_alignment_bucket')} confirm={row.get('confirmation_bucket')} "
+            f"records={row.get('records')} recent_n={row.get('recent_completed')} "
+            f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} active={row.get('active')} "
+            f"active_R={fmt_num(row.get('active_sum_r'), 3)} active_wl={row.get('active_profit')}/"
+            f"{row.get('active_loss')} avg_dir={fmt_num(row.get('avg_market_direction_score'), 2)} "
+            f"reasons={','.join(row.get('reason_codes') or [])}"
         )
     for row in payload["current_policy_shadow_active_watchlist"][:5]:
         lines.append(
@@ -3663,6 +4236,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--market-quality-audit-active-positive-sum-r", type=float, default=1.0)
     parser.add_argument("--market-quality-audit-active-loss-rate", type=float, default=0.67)
     parser.add_argument("--market-quality-audit-active-profit-rate", type=float, default=0.67)
+    parser.add_argument("--trend-audit-min-completed", type=int, default=5)
+    parser.add_argument("--trend-audit-positive-sum-r", type=float, default=2.0)
+    parser.add_argument("--trend-audit-positive-profit-factor", type=float, default=1.2)
+    parser.add_argument("--trend-audit-negative-sum-r", type=float, default=-2.0)
+    parser.add_argument("--trend-audit-negative-profit-factor", type=float, default=0.8)
+    parser.add_argument("--trend-audit-active-min-known", type=int, default=3)
+    parser.add_argument("--trend-audit-active-positive-sum-r", type=float, default=1.0)
+    parser.add_argument("--trend-audit-active-negative-sum-r", type=float, default=-1.0)
+    parser.add_argument("--trend-audit-active-profit-rate", type=float, default=0.67)
+    parser.add_argument("--trend-audit-active-loss-rate", type=float, default=0.67)
     parser.add_argument("--shadow-active-promising-r", type=float, default=0.50)
     parser.add_argument("--shadow-active-risk-r", type=float, default=-0.50)
     parser.add_argument("--shadow-active-min-promising-expectancy-r", type=float, default=0.15)
