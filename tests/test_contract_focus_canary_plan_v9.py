@@ -47,6 +47,7 @@ def args_for(actions_json: Path) -> Namespace:
         active_risk_max_loss_rate=0.67,
         active_risk_max_avg_r=-0.25,
         respect_portfolio_risk=True,
+        respect_portfolio_side_risk=True,
         allow_blocked=False,
         out_json=str(actions_json.with_suffix(".plan.json")),
         out_md=str(actions_json.with_suffix(".plan.md")),
@@ -193,6 +194,39 @@ def test_focus_plan_blocks_new_launches_on_portfolio_risk(tmp_path: Path) -> Non
     row = payload["rejected_candidates"][0]
     assert row["symbol"] == "SOLUSDT"
     assert "portfolio_overexposed" in row["rejection_reasons"]
+
+
+def test_focus_plan_blocks_only_frozen_side_when_portfolio_is_normal(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "reason_codes": [],
+                    "blocked_sides": ["short"],
+                    "segment_risk": {"blocked_sides": ["short"]},
+                },
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate("SHORTUSDT", "short", recent_sum_r=8.0, edge_score=9.0),
+                    candidate("LONGUSDT", "long", recent_sum_r=4.0, edge_score=3.0),
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["portfolio_blocked_sides"] == ["short"]
+    assert payload["summary"]["rejection_reason_counts"]["portfolio_side_short_blocked"] == 1
+    assert payload["candidates"][0]["symbol"] == "LONGUSDT"
+    rejected = payload["rejected_candidates"][0]
+    assert rejected["symbol"] == "SHORTUSDT"
+    assert rejected["rejection_reasons"] == ["portfolio_side_short_blocked"]
 
 
 def write_signal_json(path: Path) -> None:

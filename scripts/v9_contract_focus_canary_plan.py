@@ -115,6 +115,21 @@ def portfolio_risk_rejection_reasons(actions: dict[str, Any], args: argparse.Nam
     return reasons
 
 
+def portfolio_side_risk_rejection_reasons(row: dict[str, Any], actions: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    if not bool(args.respect_portfolio_side_risk):
+        return []
+    side = str(row.get("side") or "").lower()
+    if not side:
+        return []
+    portfolio = actions.get("portfolio_risk") or {}
+    segment_risk = portfolio.get("segment_risk") or {}
+    blocked_sides = set(str(value).lower() for value in (portfolio.get("blocked_sides") or []))
+    blocked_sides.update(str(value).lower() for value in (segment_risk.get("blocked_sides") or []))
+    if side not in blocked_sides:
+        return []
+    return [f"portfolio_side_{side}_blocked"]
+
+
 def candidate_sort_key(row: dict[str, Any]) -> tuple[float, float, int]:
     return (
         safe_float(row.get("edge_score")),
@@ -484,6 +499,7 @@ def build_paper_probe_candidates(
     args: argparse.Namespace,
     used: set[tuple[str, str, str]],
     portfolio_reasons: list[str],
+    actions: dict[str, Any],
 ) -> list[dict[str, Any]]:
     if not bool(args.include_near_miss_paper_probes):
         return []
@@ -495,6 +511,8 @@ def build_paper_probe_candidates(
             continue
         key = pair_key(row)
         if key in used:
+            continue
+        if portfolio_side_risk_rejection_reasons(row, actions, args):
             continue
         rows.append(build_candidate_config(row, source="near_miss_probe"))
         used.add(key)
@@ -530,6 +548,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                 continue
             reasons: list[str] = []
             reasons.extend(portfolio_reasons)
+            reasons.extend(portfolio_side_risk_rejection_reasons(row, actions, args))
             if key in blocked and not args.allow_blocked:
                 reasons.append("blocked_pair")
             reasons.extend(active_risk_rejection_reasons(row, args))
@@ -556,6 +575,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             continue
         reasons = []
         reasons.extend(portfolio_reasons)
+        reasons.extend(portfolio_side_risk_rejection_reasons(row, actions, args))
         if key in blocked and not args.allow_blocked:
             reasons.append("blocked_pair")
         if key in fresh_veto and not args.allow_fresh_veto:
@@ -570,7 +590,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     rejection_reason_counts = reason_counts(rejected)
     near_miss = build_near_miss_queue(rejected, args)
-    paper_probe_candidates = build_paper_probe_candidates(near_miss, args, used, portfolio_reasons)
+    paper_probe_candidates = build_paper_probe_candidates(near_miss, args, used, portfolio_reasons, actions)
 
     return {
         "kind": "contract_focus_canary_plan_v1",
@@ -605,6 +625,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "active_risk_max_loss_rate": float(args.active_risk_max_loss_rate),
             "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
             "respect_portfolio_risk": bool(args.respect_portfolio_risk),
+            "respect_portfolio_side_risk": bool(args.respect_portfolio_side_risk),
             "allow_blocked": bool(args.allow_blocked),
         },
         "summary": {
@@ -621,6 +642,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "rejection_reason_counts": rejection_reason_counts,
             "portfolio_risk_status": (actions.get("portfolio_risk") or {}).get("status"),
             "portfolio_block_new_focus": bool((actions.get("portfolio_risk") or {}).get("block_new_focus")),
+            "portfolio_blocked_sides": (actions.get("portfolio_risk") or {}).get("blocked_sides") or [],
         },
         "portfolio_risk": actions.get("portfolio_risk") or {},
         "candidates": selected,
@@ -660,6 +682,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}`",
+        f"- portfolio_blocked_sides: `{','.join(portfolio.get('blocked_sides') or [])}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | active_R | trailing_loss | session |",
         "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
@@ -764,7 +787,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"near_miss={summary.get('near_miss_candidates', 0)} "
         f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
         f"portfolio_risk={portfolio.get('status')} block_new_focus={portfolio.get('block_new_focus')} "
-        f"reasons={','.join(portfolio.get('reason_codes') or [])}",
+        f"reasons={','.join(portfolio.get('reason_codes') or [])} "
+        f"blocked_sides={','.join(portfolio.get('blocked_sides') or [])}",
         f"reject_reasons={json.dumps(summary.get('rejection_reason_counts', {}), sort_keys=True)}",
         "safety=paper_authorized:False live:False",
     ]
@@ -850,6 +874,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--active-risk-max-loss-rate", type=float, default=0.67)
     parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
     parser.add_argument("--respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--allow-blocked", action="store_true")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.md")

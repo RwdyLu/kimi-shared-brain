@@ -111,6 +111,56 @@ def test_paper_report_surfaces_portfolio_overexposure_in_actions(tmp_path: Path)
     assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
 
 
+def test_paper_report_surfaces_portfolio_side_risk_without_global_block(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = []
+    for idx in range(20):
+        rows.append(
+            {
+                "created_at": f"2026-01-01T{idx:02d}:00:00+00:00",
+                "updated_at": f"2026-01-01T{idx:02d}:00:00+00:00",
+                "status": "completed",
+                "symbol": "SHORTUSDT",
+                "side": "short",
+                "analog_supported": True,
+                "outcome": {"r_multiple": -1.0, "exit_dt": f"2026-01-01T{idx:02d}:30:00+00:00"},
+            }
+        )
+        rows.append(
+            {
+                "created_at": f"2026-01-02T{idx:02d}:00:00+00:00",
+                "updated_at": f"2026-01-02T{idx:02d}:00:00+00:00",
+                "status": "completed",
+                "symbol": "LONGUSDT",
+                "side": "long",
+                "analog_supported": True,
+                "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-02T{idx:02d}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["portfolio_risk"]["status"] == "normal"
+    assert payload["portfolio_risk"]["block_new_focus"] is False
+    assert payload["portfolio_risk"]["blocked_sides"] == ["short"]
+    assert payload["portfolio_segment_risk"]["blocked_sides"] == ["short"]
+    short = payload["portfolio_segment_risk"]["segments"]["short"]
+    long = payload["portfolio_segment_risk"]["segments"]["long"]
+    assert short["status"] == "blocked"
+    assert long["status"] == "normal"
+    assert "portfolio_side_recent_sum_R<=-20.00" in short["reason_codes"]
+    assert "portfolio_side_loss_rate>=0.70" in short["reason_codes"]
+    assert payload["actions"]["portfolio_risk"]["blocked_sides"] == ["short"]
+    assert payload["actions"]["summary"]["portfolio_blocked_sides"] == ["short"]
+
+
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     pd.DataFrame(
         {

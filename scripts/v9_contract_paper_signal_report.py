@@ -329,6 +329,75 @@ def build_portfolio_risk(
     }
 
 
+def build_portfolio_segment_risk(
+    completed_rows: list[dict[str, Any]],
+    active_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    recent_n = int(arg_value(args, "portfolio_segment_recent_trades", 100))
+    min_completed = int(arg_value(args, "portfolio_segment_min_completed", 20))
+    fail_sum_r = float(arg_value(args, "portfolio_segment_fail_sum_r", -20.0))
+    max_drawdown_r_threshold = float(arg_value(args, "portfolio_segment_max_drawdown_r", 20.0))
+    max_loss_rate = float(arg_value(args, "portfolio_segment_max_loss_rate", 0.70))
+
+    sides = sorted(
+        {
+            str(row.get("side") or "").lower()
+            for row in [*completed_rows, *active_rows]
+            if str(row.get("side") or "").lower()
+        }
+    )
+    segments: dict[str, Any] = {}
+    blocked_sides: list[str] = []
+    reason_codes: list[str] = []
+    for side in sides:
+        completed_side_rows = [
+            row for row in completed_rows if str(row.get("side") or "").lower() == side and completed_r(row) is not None
+        ]
+        ordered = sorted(completed_side_rows, key=record_time_key)
+        values = [value for row in ordered if (value := completed_r(row)) is not None]
+        recent_values = values[-recent_n:] if recent_n > 0 else values
+        recent_stats = summarize_values(recent_values)
+        loss_rate = float(recent_stats["losses"] / recent_stats["completed"]) if recent_stats["completed"] else 0.0
+        active_side_rows = [row for row in active_rows if str(row.get("side") or "").lower() == side]
+        active_stats = active_unrealized_stats(active_side_rows)
+
+        segment_reasons: list[str] = []
+        if recent_stats["completed"] >= min_completed:
+            if safe_float(recent_stats.get("sum_r")) <= fail_sum_r:
+                segment_reasons.append(f"portfolio_side_recent_sum_R<={fail_sum_r:.2f}")
+            if safe_float(recent_stats.get("max_drawdown_r")) >= max_drawdown_r_threshold:
+                segment_reasons.append(f"portfolio_side_recent_drawdown_R>={max_drawdown_r_threshold:.2f}")
+            if loss_rate >= max_loss_rate:
+                segment_reasons.append(f"portfolio_side_loss_rate>={max_loss_rate:.2f}")
+
+        status = "blocked" if segment_reasons else "normal"
+        if segment_reasons:
+            blocked_sides.append(side)
+            reason_codes.extend(f"{side}:{reason}" for reason in segment_reasons)
+        segments[side] = {
+            "status": status,
+            "reason_codes": segment_reasons,
+            "recent": {**recent_stats, "loss_rate": loss_rate},
+            "completed": summarize_values(values),
+            "active": len(active_side_rows),
+            **active_stats,
+        }
+
+    return {
+        "segments": segments,
+        "blocked_sides": sorted(blocked_sides),
+        "reason_codes": reason_codes,
+        "thresholds": {
+            "portfolio_segment_recent_trades": recent_n,
+            "portfolio_segment_min_completed": min_completed,
+            "portfolio_segment_fail_sum_r": fail_sum_r,
+            "portfolio_segment_max_drawdown_r": max_drawdown_r_threshold,
+            "portfolio_segment_max_loss_rate": max_loss_rate,
+        },
+    }
+
+
 def group_key(row: dict[str, Any]) -> tuple[str, str, str]:
     return (
         str(row.get("timeframe") or "").lower(),
@@ -617,6 +686,7 @@ def build_action_plan(
             "positive_watchlist": len(watch),
             "portfolio_risk_status": portfolio_risk.get("status"),
             "portfolio_block_new_focus": bool(portfolio_risk.get("block_new_focus")),
+            "portfolio_blocked_sides": portfolio_risk.get("blocked_sides") or [],
         },
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -678,7 +748,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
     regime_scoreboard = build_regime_scoreboard(completed_rows, args)
+    portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
     portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
+    portfolio_risk["segment_risk"] = portfolio_segment_risk
+    portfolio_risk["blocked_sides"] = portfolio_segment_risk["blocked_sides"]
+    portfolio_risk["side_reason_codes"] = portfolio_segment_risk["reason_codes"]
     actions = build_action_plan(scoreboard, updated_at=updated_at, args=args, portfolio_risk=portfolio_risk)
     payload = {
         "kind": "contract_paper_signal_report_v1",
@@ -704,8 +778,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "positive_watchlist": len(actions["positive_watchlist"]),
             "portfolio_risk_status": portfolio_risk["status"],
             "portfolio_block_new_focus": bool(portfolio_risk["block_new_focus"]),
+            "portfolio_blocked_sides": portfolio_segment_risk["blocked_sides"],
         },
         "portfolio_risk": portfolio_risk,
+        "portfolio_segment_risk": portfolio_segment_risk,
         "actions": actions,
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
@@ -748,6 +824,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"active=`{portfolio.get('active')}` active_R=`{fmt_num(portfolio.get('active_sum_r'), 3)}` "
         f"active_loss_rate=`{fmt_pct(portfolio.get('active_loss_rate'))}`",
         f"- portfolio_reason_codes: `{','.join(portfolio.get('reason_codes') or [])}`",
+        f"- portfolio_blocked_sides: `{','.join(portfolio.get('blocked_sides') or [])}`",
         "",
         "## Regime Scoreboard",
         "",
@@ -854,7 +931,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"active={portfolio.get('active')} active_excess={portfolio.get('active_excess')} "
         f"active_R={fmt_num(portfolio.get('active_sum_r'), 3)} "
         f"active_loss_rate={fmt_pct(portfolio.get('active_loss_rate'))} "
-        f"reasons={','.join(portfolio.get('reason_codes') or [])}",
+        f"reasons={','.join(portfolio.get('reason_codes') or [])} "
+        f"blocked_sides={','.join(portfolio.get('blocked_sides') or [])}",
         (
             f"scoreboard_groups={summary['scoreboard_groups']} "
             f"regime_groups={summary['regime_scoreboard_groups']} "
@@ -923,6 +1001,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--portfolio-recent-fail-sum-r", type=float, default=-20.0)
     parser.add_argument("--portfolio-recent-max-drawdown-r", type=float, default=30.0)
     parser.add_argument("--portfolio-block-new-focus-on-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--portfolio-segment-recent-trades", type=int, default=100)
+    parser.add_argument("--portfolio-segment-min-completed", type=int, default=20)
+    parser.add_argument("--portfolio-segment-fail-sum-r", type=float, default=-20.0)
+    parser.add_argument("--portfolio-segment-max-drawdown-r", type=float, default=20.0)
+    parser.add_argument("--portfolio-segment-max-loss-rate", type=float, default=0.70)
     parser.add_argument("--actions-max-rows", type=int, default=80)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")
