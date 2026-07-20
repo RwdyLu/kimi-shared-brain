@@ -252,16 +252,35 @@ def test_paper_report_builds_decision_policy_scoreboard(tmp_path: Path) -> None:
         lookback_bars=20,
         max_rows=20,
         scoreboard_max_rows=20,
+        scoreboard_min_trades=5,
         scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-2.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=6,
+        scoreboard_promote_sum_r=2.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=1.0,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
     )
 
     payload = report_mod.build_report(args)
 
     assert payload["summary"]["policy_scoreboard_groups"] == 2
+    assert payload["summary"]["current_decision_policy_version"] == "policy_v2"
+    assert payload["summary"]["current_policy_records"] == 5
+    assert payload["summary"]["current_policy_completed"] == 5
+    assert payload["summary"]["current_policy_active"] == 0
+    assert payload["summary"]["current_policy_scoreboard_groups"] == 1
     by_policy = {row["decision_policy_version"]: row for row in payload["policy_scoreboard"]}
     assert by_policy["policy_v2"]["recent_sum_r"] == 2.5
     assert by_policy["policy_v2"]["recent_completed"] == 5
     assert by_policy["legacy_unknown"]["recent_sum_r"] == -2.5
+    assert payload["current_policy_scoreboard"][0]["symbol"] == "NEWUSDT"
+    assert payload["current_policy_scoreboard"][0]["status"] == "promote_candidate"
+    assert payload["actions"]["current_policy_summary"]["promote_candidates"] == 1
+    assert payload["actions"]["current_policy_promote_candidates"][0]["symbol"] == "NEWUSDT"
+    assert all(row.get("symbol") != "OLDUSDT" for row in payload["actions"]["current_policy_promote_candidates"])
     assert payload["records"][0]["decision_policy_version"] == "legacy_unknown"
 
 

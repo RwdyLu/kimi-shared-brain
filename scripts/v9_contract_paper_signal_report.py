@@ -13,7 +13,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.v9_contract_latest_market_signal import load_symbol_cache, safe_float
+from scripts.v9_contract_latest_market_signal import DECISION_POLICY_VERSION, load_symbol_cache, safe_float
 
 
 DEFAULT_SOURCES = (
@@ -183,6 +183,10 @@ def record_time_key(row: dict[str, Any]) -> str:
 def decision_policy_version(row: dict[str, Any]) -> str:
     value = row.get("decision_policy_version") or (row.get("paper_execution") or {}).get("decision_policy_version")
     return str(value or LEGACY_DECISION_POLICY_VERSION)
+
+
+def rows_for_decision_policy(rows: list[dict[str, Any]], policy_version: str) -> list[dict[str, Any]]:
+    return [row for row in rows if decision_policy_version(row) == policy_version]
 
 
 def max_drawdown_r(values: list[float]) -> float:
@@ -856,14 +860,10 @@ def fresh_analog_veto_reasons(row: dict[str, Any], args: argparse.Namespace) -> 
     return reasons
 
 
-def build_action_plan(
+def scoreboard_action_rows(
     scoreboard: list[dict[str, Any]],
-    *,
-    updated_at: str,
     args: argparse.Namespace,
-    portfolio_risk: dict[str, Any],
-) -> dict[str, Any]:
-    max_rows = int(arg_value(args, "actions_max_rows", 80))
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     blocked = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "stop_candidate"]
     promote = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "promote_candidate"]
     watch = [
@@ -878,6 +878,27 @@ def build_action_plan(
             compact = compact_scoreboard_row(row)
             compact["fresh_veto_reason_codes"] = reasons
             fresh_veto.append(compact)
+    return blocked, fresh_veto, promote, watch
+
+
+def build_action_plan(
+    scoreboard: list[dict[str, Any]],
+    *,
+    updated_at: str,
+    args: argparse.Namespace,
+    portfolio_risk: dict[str, Any],
+    current_policy_scoreboard: list[dict[str, Any]] | None = None,
+    current_decision_policy_version: str = "",
+) -> dict[str, Any]:
+    max_rows = int(arg_value(args, "actions_max_rows", 80))
+    blocked, fresh_veto, promote, watch = scoreboard_action_rows(scoreboard, args)
+    current_policy_scoreboard = current_policy_scoreboard or []
+    (
+        current_policy_blocked,
+        current_policy_fresh_veto,
+        current_policy_promote,
+        current_policy_watch,
+    ) = scoreboard_action_rows(current_policy_scoreboard, args)
     return {
         "kind": "contract_paper_strategy_actions_v1",
         "updated_at": updated_at,
@@ -885,15 +906,33 @@ def build_action_plan(
         "fresh_analog_veto_pairs": fresh_veto[:max_rows],
         "promote_candidates": promote[:max_rows],
         "positive_watchlist": watch[:max_rows],
+        "current_decision_policy_version": current_decision_policy_version,
+        "current_policy_blocked_pairs": current_policy_blocked[:max_rows],
+        "current_policy_fresh_analog_veto_pairs": current_policy_fresh_veto[:max_rows],
+        "current_policy_promote_candidates": current_policy_promote[:max_rows],
+        "current_policy_positive_watchlist": current_policy_watch[:max_rows],
         "portfolio_risk": portfolio_risk,
         "summary": {
             "blocked_pairs": len(blocked),
             "fresh_analog_veto_pairs": len(fresh_veto),
             "promote_candidates": len(promote),
             "positive_watchlist": len(watch),
+            "current_decision_policy_version": current_decision_policy_version,
+            "current_policy_blocked_pairs": len(current_policy_blocked),
+            "current_policy_fresh_analog_veto_pairs": len(current_policy_fresh_veto),
+            "current_policy_promote_candidates": len(current_policy_promote),
+            "current_policy_positive_watchlist": len(current_policy_watch),
             "portfolio_risk_status": portfolio_risk.get("status"),
             "portfolio_block_new_focus": bool(portfolio_risk.get("block_new_focus")),
             "portfolio_blocked_sides": portfolio_risk.get("blocked_sides") or [],
+        },
+        "current_policy_summary": {
+            "decision_policy_version": current_decision_policy_version,
+            "scoreboard_groups": len(current_policy_scoreboard),
+            "blocked_pairs": len(current_policy_blocked),
+            "fresh_analog_veto_pairs": len(current_policy_fresh_veto),
+            "promote_candidates": len(current_policy_promote),
+            "positive_watchlist": len(current_policy_watch),
         },
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -922,6 +961,9 @@ def fmt_pct(value: Any) -> str:
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     sources = parse_sources(args.sources)
     updated_at = now_utc()
+    current_policy_version = str(
+        arg_value(args, "current_decision_policy_version", DECISION_POLICY_VERSION) or DECISION_POLICY_VERSION
+    )
     latest_cache: dict[tuple[str, str], dict[str, Any]] = {}
     records = []
     source_summaries = []
@@ -956,6 +998,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
     regime_scoreboard = build_regime_scoreboard(completed_rows, args)
     policy_scoreboard = build_policy_scoreboard(completed_rows, args)
+    current_policy_records = rows_for_decision_policy(records, current_policy_version)
+    current_policy_completed_rows = rows_for_decision_policy(completed_rows, current_policy_version)
+    current_policy_active_rows = rows_for_decision_policy(active_rows, current_policy_version)
+    current_policy_scoreboard = build_scoreboard(current_policy_completed_rows, current_policy_active_rows, args)
     portfolio_drain = build_portfolio_drain(active_rows, args)
     portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
     portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
@@ -963,7 +1009,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     portfolio_risk["drain"] = portfolio_drain
     portfolio_risk["blocked_sides"] = portfolio_segment_risk["blocked_sides"]
     portfolio_risk["side_reason_codes"] = portfolio_segment_risk["reason_codes"]
-    actions = build_action_plan(scoreboard, updated_at=updated_at, args=args, portfolio_risk=portfolio_risk)
+    actions = build_action_plan(
+        scoreboard,
+        updated_at=updated_at,
+        args=args,
+        portfolio_risk=portfolio_risk,
+        current_policy_scoreboard=current_policy_scoreboard,
+        current_decision_policy_version=current_policy_version,
+    )
     payload = {
         "kind": "contract_paper_signal_report_v1",
         "updated_at": updated_at,
@@ -982,6 +1035,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scoreboard_groups": len(scoreboard),
             "regime_scoreboard_groups": len(regime_scoreboard),
             "policy_scoreboard_groups": len(policy_scoreboard),
+            "current_decision_policy_version": current_policy_version,
+            "current_policy_records": len(current_policy_records),
+            "current_policy_completed": len(current_policy_completed_rows),
+            "current_policy_active": len(current_policy_active_rows),
+            "current_policy_scoreboard_groups": len(current_policy_scoreboard),
+            "current_policy_promote_candidates": sum(
+                1 for row in current_policy_scoreboard if row.get("status") == "promote_candidate"
+            ),
+            "current_policy_stop_candidates": sum(
+                1 for row in current_policy_scoreboard if row.get("status") == "stop_candidate"
+            ),
             "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
             "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
             "blocked_pairs": len(actions["blocked_pairs"]),
@@ -1002,6 +1066,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "policy_scoreboard": policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "current_policy_scoreboard": current_policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
         "skipped": skipped_rows[: args.max_rows],
@@ -1036,6 +1101,13 @@ def format_markdown(payload: dict[str, Any]) -> str:
         ),
         f"- regime_scoreboard_groups: `{summary['regime_scoreboard_groups']}`",
         f"- policy_scoreboard_groups: `{summary['policy_scoreboard_groups']}`",
+        (
+            f"- current_policy `{summary['current_decision_policy_version']}` "
+            f"records/completed/active/groups/promote/stop: "
+            f"`{summary['current_policy_records']}/{summary['current_policy_completed']}/"
+            f"{summary['current_policy_active']}/{summary['current_policy_scoreboard_groups']}/"
+            f"{summary['current_policy_promote_candidates']}/{summary['current_policy_stop_candidates']}`"
+        ),
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
         f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}` "
@@ -1059,6 +1131,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
             f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
             f"{fmt_num(row.get('sum_r'), 3)} | {fmt_num(row.get('edge_score'), 3)} |"
+        )
+    lines.extend(
+        [
+        "",
+        "## Current Policy Strategy Scoreboard",
+        "",
+        "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
+        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('symbol')} | {row.get('side')} | "
+            f"{row.get('recent_completed')} | {row.get('recent_analog_supported')} | "
+            f"{fmt_pct(row.get('recent_analog_supported_rate'))} | {fmt_pct(row.get('recent_win_rate'))} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
+            f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
         )
     lines.extend(
         [
@@ -1184,6 +1277,15 @@ def format_text(payload: dict[str, Any]) -> str:
             f"policy_groups={summary['policy_scoreboard_groups']} "
             f"promote={summary['promote_candidates']} stop={summary['stop_candidates']}"
         ),
+        (
+            f"current_policy version={summary['current_decision_policy_version']} "
+            f"records={summary['current_policy_records']} "
+            f"completed={summary['current_policy_completed']} "
+            f"active={summary['current_policy_active']} "
+            f"groups={summary['current_policy_scoreboard_groups']} "
+            f"promote={summary['current_policy_promote_candidates']} "
+            f"stop={summary['current_policy_stop_candidates']}"
+        ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
         "safety=paper_authorized:False live:False",
@@ -1194,6 +1296,16 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_n={row.get('recent_completed')} recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
             f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
             f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
+            f"score={fmt_num(row.get('edge_score'), 3)}"
+        )
+    for row in payload["current_policy_scoreboard"][:5]:
+        lines.append(
+            f"current_policy_scoreboard {row.get('status')} {row.get('timeframe')} {row.get('symbol')} "
+            f"{row.get('side')} recent_n={row.get('recent_completed')} "
+            f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
+            f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
+            f"active={row.get('active')} active_R={fmt_num(row.get('active_sum_r'), 3)} "
             f"score={fmt_num(row.get('edge_score'), 3)}"
         )
     for row in payload["regime_scoreboard"][:5]:
@@ -1261,6 +1373,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--portfolio-segment-max-drawdown-r", type=float, default=20.0)
     parser.add_argument("--portfolio-segment-max-loss-rate", type=float, default=0.70)
     parser.add_argument("--actions-max-rows", type=int, default=80)
+    parser.add_argument("--current-decision-policy-version", default=DECISION_POLICY_VERSION)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")
     parser.add_argument("--out-actions-json", default="")
