@@ -591,6 +591,32 @@ def policy_group_key(row: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def confirmation_bucket(row: dict[str, Any]) -> str:
+    filters = row.get("regime_confirmation_filters") or []
+    if not filters:
+        if row.get("regime_confirmation_mode"):
+            return "confirmation_context_missing"
+        return "untracked"
+    allowed = row.get("regime_confirmation_allowed")
+    if allowed is True:
+        return "confirmed_aligned"
+    if allowed is False:
+        return "confirmation_conflict"
+    return "confirmation_unknown"
+
+
+def confirmation_group_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    timeframes = ",".join(str(value) for value in (row.get("regime_confirmation_timeframes") or []) if value)
+    regime_ids = ",".join(str(value) for value in (row.get("regime_confirmation_regime_ids") or []) if value)
+    return (
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("side") or "").lower(),
+        confirmation_bucket(row),
+        timeframes or "none",
+        regime_ids or "none",
+    )
+
+
 def decide_group_status(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[str]]:
     min_trades = int(arg_value(args, "scoreboard_min_trades", 20))
     fail_sum_r = float(arg_value(args, "scoreboard_fail_sum_r", -5.0))
@@ -830,6 +856,86 @@ def build_policy_scoreboard(completed_rows: list[dict[str, Any]], args: argparse
             str(row.get("decision_policy_version")),
             str(row.get("timeframe")),
             str(row.get("side")),
+        )
+    )
+    return rows
+
+
+def build_confirmation_scoreboard(
+    completed_rows: list[dict[str, Any]],
+    active_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = {}
+    active_grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = {}
+    for row in completed_rows:
+        value = completed_r(row)
+        if value is None:
+            continue
+        grouped.setdefault(confirmation_group_key(row), []).append(row)
+    for row in active_rows:
+        active_grouped.setdefault(confirmation_group_key(row), []).append(row)
+
+    rows = []
+    recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
+    for key, group in grouped.items():
+        timeframe, side, bucket, confirmation_timeframes, confirmation_regime_ids = key
+        ordered = sorted(group, key=record_time_key)
+        values = [value for row in ordered if (value := completed_r(row)) is not None]
+        if not values:
+            continue
+        recent_values = values[-recent_n:] if recent_n > 0 else values
+        all_stats = summarize_values(values)
+        recent_stats = summarize_values(recent_values)
+        active_group = active_grouped.get(key, [])
+        active_stats = active_unrealized_stats(active_group)
+        stats = {
+            "timeframe": timeframe,
+            "side": side,
+            "confirmation_bucket": bucket,
+            "confirmation_timeframes": [] if confirmation_timeframes == "none" else confirmation_timeframes.split(","),
+            "confirmation_regime_ids": [] if confirmation_regime_ids == "none" else confirmation_regime_ids.split(","),
+            "completed": all_stats["completed"],
+            "wins": all_stats["wins"],
+            "losses": all_stats["losses"],
+            "win_rate": all_stats["win_rate"],
+            "sum_r": all_stats["sum_r"],
+            "profit_factor": all_stats["profit_factor"],
+            "max_drawdown_r": all_stats["max_drawdown_r"],
+            "trailing_losses": all_stats["trailing_losses"],
+            "recent_completed": recent_stats["completed"],
+            "recent_win_rate": recent_stats["win_rate"],
+            "recent_sum_r": recent_stats["sum_r"],
+            "recent_profit_factor": recent_stats["profit_factor"],
+            "recent_max_drawdown_r": recent_stats["max_drawdown_r"],
+            "recent_trailing_losses": recent_stats["trailing_losses"],
+            "active": len(active_group),
+            "active_r_known": active_stats["active_r_known"],
+            "active_profit": active_stats["active_profit"],
+            "active_loss": active_stats["active_loss"],
+            "active_sum_r": active_stats["active_sum_r"],
+            "active_avg_r": active_stats["active_avg_r"],
+            "active_min_r": active_stats["active_min_r"],
+            "active_max_r": active_stats["active_max_r"],
+            "latest_completed_at": record_time_key(ordered[-1]),
+        }
+        status, reasons = decide_group_status(stats, args)
+        edge_score = (
+            safe_float(stats["recent_sum_r"])
+            - safe_float(stats["recent_max_drawdown_r"])
+            - 0.25 * float(stats["recent_trailing_losses"])
+        )
+        rows.append({**stats, "status": status, "reason_codes": reasons, "edge_score": float(edge_score)})
+
+    priority = {"promote_candidate": 0, "watch": 1, "collecting": 2, "stop_candidate": 3}
+    rows.sort(
+        key=lambda row: (
+            priority.get(str(row.get("status")), 9),
+            -safe_float(row.get("edge_score")),
+            -int(row.get("recent_completed") or 0),
+            str(row.get("timeframe")),
+            str(row.get("side")),
+            str(row.get("confirmation_bucket")),
         )
     )
     return rows
@@ -1632,22 +1738,39 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
     regime_scoreboard = build_regime_scoreboard(completed_rows, args)
     policy_scoreboard = build_policy_scoreboard(completed_rows, args)
+    confirmation_scoreboard = build_confirmation_scoreboard(completed_rows, active_rows, args)
     current_policy_records = rows_for_decision_policy(records, current_policy_version)
     current_policy_completed_rows = rows_for_decision_policy(completed_rows, current_policy_version)
     current_policy_active_rows = rows_for_decision_policy(active_rows, current_policy_version)
     current_policy_scoreboard = build_scoreboard(current_policy_completed_rows, current_policy_active_rows, args)
+    current_policy_confirmation_scoreboard = build_confirmation_scoreboard(
+        current_policy_completed_rows,
+        current_policy_active_rows,
+        args,
+    )
     shadow_active_rows = [row for row in shadow_records if row.get("status") in {"pending_entry", "open"}]
     shadow_completed_rows = [row for row in shadow_records if row.get("status") == "completed"]
     shadow_scoreboard = build_scoreboard(shadow_completed_rows, shadow_active_rows, args)
+    shadow_confirmation_scoreboard = build_confirmation_scoreboard(shadow_completed_rows, shadow_active_rows, args)
     fast_shadow_active_rows = [
         row for row in fast_shadow_records if row.get("status") in {"pending_entry", "open"}
     ]
     fast_shadow_completed_rows = [row for row in fast_shadow_records if row.get("status") == "completed"]
     fast_shadow_scoreboard = build_scoreboard(fast_shadow_completed_rows, fast_shadow_active_rows, args)
+    fast_shadow_confirmation_scoreboard = build_confirmation_scoreboard(
+        fast_shadow_completed_rows,
+        fast_shadow_active_rows,
+        args,
+    )
     current_policy_shadow_records = rows_for_decision_policy(shadow_records, current_policy_version)
     current_policy_shadow_completed_rows = rows_for_decision_policy(shadow_completed_rows, current_policy_version)
     current_policy_shadow_active_rows = rows_for_decision_policy(shadow_active_rows, current_policy_version)
     current_policy_shadow_scoreboard = build_scoreboard(
+        current_policy_shadow_completed_rows,
+        current_policy_shadow_active_rows,
+        args,
+    )
+    current_policy_shadow_confirmation_scoreboard = build_confirmation_scoreboard(
         current_policy_shadow_completed_rows,
         current_policy_shadow_active_rows,
         args,
@@ -1662,6 +1785,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_version,
     )
     current_policy_fast_shadow_scoreboard = build_scoreboard(
+        current_policy_fast_shadow_completed_rows,
+        current_policy_fast_shadow_active_rows,
+        args,
+    )
+    current_policy_fast_shadow_confirmation_scoreboard = build_confirmation_scoreboard(
         current_policy_fast_shadow_completed_rows,
         current_policy_fast_shadow_active_rows,
         args,
@@ -1725,6 +1853,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scoreboard_groups": len(scoreboard),
             "regime_scoreboard_groups": len(regime_scoreboard),
             "policy_scoreboard_groups": len(policy_scoreboard),
+            "confirmation_scoreboard_groups": len(confirmation_scoreboard),
             "shadow_records": len(shadow_records),
             "shadow_completed": len(shadow_completed_rows),
             "shadow_active": len(shadow_active_rows),
@@ -1736,6 +1865,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "shadow_active_min_r": shadow_active_stats["active_min_r"],
             "shadow_active_max_r": shadow_active_stats["active_max_r"],
             "shadow_scoreboard_groups": len(shadow_scoreboard),
+            "shadow_confirmation_scoreboard_groups": len(shadow_confirmation_scoreboard),
             "fast_shadow_records": len(fast_shadow_records),
             "fast_shadow_completed": len(fast_shadow_completed_rows),
             "fast_shadow_active": len(fast_shadow_active_rows),
@@ -1747,11 +1877,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "fast_shadow_active_min_r": fast_shadow_active_stats["active_min_r"],
             "fast_shadow_active_max_r": fast_shadow_active_stats["active_max_r"],
             "fast_shadow_scoreboard_groups": len(fast_shadow_scoreboard),
+            "fast_shadow_confirmation_scoreboard_groups": len(fast_shadow_confirmation_scoreboard),
             "current_decision_policy_version": current_policy_version,
             "current_policy_records": len(current_policy_records),
             "current_policy_completed": len(current_policy_completed_rows),
             "current_policy_active": len(current_policy_active_rows),
             "current_policy_scoreboard_groups": len(current_policy_scoreboard),
+            "current_policy_confirmation_scoreboard_groups": len(current_policy_confirmation_scoreboard),
             "current_policy_shadow_records": len(current_policy_shadow_records),
             "current_policy_shadow_completed": len(current_policy_shadow_completed_rows),
             "current_policy_shadow_active": len(current_policy_shadow_active_rows),
@@ -1772,6 +1904,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_shadow_active_negative": actions["summary"]["current_policy_shadow_active_negative"],
             "current_policy_shadow_active_risk": actions["summary"]["current_policy_shadow_active_risk"],
             "current_policy_shadow_scoreboard_groups": len(current_policy_shadow_scoreboard),
+            "current_policy_shadow_confirmation_scoreboard_groups": len(
+                current_policy_shadow_confirmation_scoreboard
+            ),
             "current_policy_shadow_promote_candidates": sum(
                 1 for row in current_policy_shadow_scoreboard if row.get("status") == "promote_candidate"
             ),
@@ -1789,6 +1924,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_fast_shadow_active_min_r": current_policy_fast_shadow_active_stats["active_min_r"],
             "current_policy_fast_shadow_active_max_r": current_policy_fast_shadow_active_stats["active_max_r"],
             "current_policy_fast_shadow_scoreboard_groups": len(current_policy_fast_shadow_scoreboard),
+            "current_policy_fast_shadow_confirmation_scoreboard_groups": len(
+                current_policy_fast_shadow_confirmation_scoreboard
+            ),
             "current_policy_fast_shadow_retest_candidates": sum(
                 1 for row in current_policy_fast_shadow_scoreboard if row.get("status") == "promote_candidate"
             ),
@@ -1827,13 +1965,29 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "policy_scoreboard": policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "confirmation_scoreboard": confirmation_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "current_policy_scoreboard": current_policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "current_policy_confirmation_scoreboard": current_policy_confirmation_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "shadow_scoreboard": shadow_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "fast_shadow_scoreboard": fast_shadow_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "shadow_confirmation_scoreboard": shadow_confirmation_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
+        "fast_shadow_confirmation_scoreboard": fast_shadow_confirmation_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "current_policy_shadow_scoreboard": current_policy_shadow_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
+        "current_policy_shadow_confirmation_scoreboard": current_policy_shadow_confirmation_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "current_policy_fast_shadow_scoreboard": current_policy_fast_shadow_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
+        "current_policy_fast_shadow_confirmation_scoreboard": current_policy_fast_shadow_confirmation_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
         "open": active_rows[: args.max_rows],
@@ -1883,6 +2037,13 @@ def format_markdown(payload: dict[str, Any]) -> str:
         ),
         f"- regime_scoreboard_groups: `{summary['regime_scoreboard_groups']}`",
         f"- policy_scoreboard_groups: `{summary['policy_scoreboard_groups']}`",
+        (
+            f"- confirmation_scoreboard groups/current/shadow/fast_shadow: "
+            f"`{summary['confirmation_scoreboard_groups']}/"
+            f"{summary['current_policy_confirmation_scoreboard_groups']}/"
+            f"{summary['current_policy_shadow_confirmation_scoreboard_groups']}/"
+            f"{summary['current_policy_fast_shadow_confirmation_scoreboard_groups']}`"
+        ),
         (
             f"- shadow records/completed/active/groups: "
             f"`{summary['shadow_records']}/{summary['shadow_completed']}/"
@@ -1992,6 +2153,46 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
             f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
             f"{row.get('active_profit')}/{row.get('active_loss')} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Current Policy Confirmation Scoreboard",
+            "",
+            "| status | timeframe | side | confirmation | confirm_tf | confirm_regime | recent_n | "
+            "recent_win | recent_sum_R | recent_pf | recent_DD_R | active | active_R | score | reasons |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_confirmation_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('confirmation_bucket')} | {','.join(row.get('confirmation_timeframes') or [])} | "
+            f"{','.join(row.get('confirmation_regime_ids') or [])} | {row.get('recent_completed')} | "
+            f"{fmt_pct(row.get('recent_win_rate'))} | {fmt_num(row.get('recent_sum_r'), 3)} | "
+            f"{fmt_num(row.get('recent_profit_factor'), 3)} | {fmt_num(row.get('recent_max_drawdown_r'), 3)} | "
+            f"{row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Current Policy Shadow Confirmation Scoreboard",
+            "",
+            "| status | timeframe | side | confirmation | confirm_tf | confirm_regime | recent_n | "
+            "recent_win | recent_sum_R | recent_pf | recent_DD_R | active | active_R | score | reasons |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_shadow_confirmation_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('confirmation_bucket')} | {','.join(row.get('confirmation_timeframes') or [])} | "
+            f"{','.join(row.get('confirmation_regime_ids') or [])} | {row.get('recent_completed')} | "
+            f"{fmt_pct(row.get('recent_win_rate'))} | {fmt_num(row.get('recent_sum_r'), 3)} | "
+            f"{fmt_num(row.get('recent_profit_factor'), 3)} | {fmt_num(row.get('recent_max_drawdown_r'), 3)} | "
+            f"{row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | {fmt_num(row.get('edge_score'), 3)} | "
             f"{', '.join(row.get('reason_codes') or [])} |"
         )
     lines.extend(
