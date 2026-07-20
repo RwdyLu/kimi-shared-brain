@@ -171,6 +171,54 @@ def read_blocked_confirmation_cohort_refs(
     return refs
 
 
+def blocked_regime_cohort_ref_from_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str] | None:
+    timeframe = str(row.get("timeframe") or default_timeframe).lower()
+    side = str(row.get("side") or "").lower()
+    regime_id = str(row.get("market_regime_id") or row.get("regime_id") or "").strip()
+    if not timeframe or side not in {"long", "short"} or not regime_id:
+        return None
+    return timeframe, side, regime_id
+
+
+def read_blocked_regime_cohort_refs(
+    path: str,
+    *,
+    default_timeframe: str,
+) -> set[tuple[str, str, str]]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return set()
+
+    rows: list[Any] = []
+    if isinstance(payload, list):
+        rows.extend(payload)
+    elif isinstance(payload, dict):
+        rows.extend(payload.get("blocked_regime_cohorts") or [])
+        actions = payload.get("actions") or {}
+        if isinstance(actions, dict):
+            rows.extend(actions.get("current_policy_blocked_regime_cohorts") or [])
+            rows.extend(actions.get("blocked_regime_cohorts") or [])
+
+    refs: set[tuple[str, str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ref = blocked_regime_cohort_ref_from_row(row, default_timeframe=default_timeframe)
+        if ref is not None:
+            refs.add(ref)
+    return refs
+
+
 def read_shadow_retest_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
     if not path:
         return set()
@@ -226,6 +274,13 @@ def journal_blocked_confirmation_cohort_refs(
     args: argparse.Namespace,
 ) -> set[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]]:
     return read_blocked_confirmation_cohort_refs(
+        getattr(args, "journal_blocked_pairs_json", ""),
+        default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+    )
+
+
+def journal_blocked_regime_cohort_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
+    return read_blocked_regime_cohort_refs(
         getattr(args, "journal_blocked_pairs_json", ""),
         default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
     )
@@ -1440,6 +1495,20 @@ def confirmation_cohort_ref_for_signal_row(
     )
 
 
+def regime_cohort_ref_for_signal_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str] | None:
+    market_regime = row.get("market_regime") or {}
+    regime_id = str(row.get("market_regime_id") or market_regime.get("regime_id") or "").strip()
+    side = str(row.get("signal") or row.get("side") or "").lower()
+    timeframe = str(row.get("timeframe") or default_timeframe).lower()
+    if not timeframe or side not in {"long", "short"} or not regime_id:
+        return None
+    return timeframe, side, regime_id
+
+
 def apply_regime_confirmation_to_record(
     record: dict[str, Any],
     row: dict[str, Any],
@@ -1905,6 +1974,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
+    blocked_regime_cohorts = journal_blocked_regime_cohort_refs(args)
     blocked_confirmation_cohorts = journal_blocked_confirmation_cohort_refs(args)
     shadow_retest_pairs = journal_shadow_retest_pair_refs(args)
     shadow_retest_max_new = int(getattr(args, "journal_shadow_retest_max_new", 0) or 0)
@@ -1920,6 +1990,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     updated = 0
     migrated = 0
     blocked_candidates = 0
+    blocked_regime_cohort_candidates = 0
     blocked_confirmation_cohort_candidates = 0
     portfolio_risk_blocked_candidates = 0
     portfolio_drawdown_recovery_candidates = 0
@@ -2115,6 +2186,29 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             continue
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
+            continue
+        regime_ref = regime_cohort_ref_for_signal_row(
+            row,
+            default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+        )
+        if regime_ref in blocked_regime_cohorts:
+            blocked_regime_cohort_candidates += 1
+            add_shadow_record(
+                row,
+                "regime_cohort_block",
+                [
+                    "regime_cohort_stop_candidate",
+                    f"market_regime_id={regime_ref[2]}",
+                ],
+            )
+            add_fast_shadow_record(
+                row,
+                "regime_cohort_block",
+                [
+                    "regime_cohort_stop_candidate",
+                    f"market_regime_id={regime_ref[2]}",
+                ],
+            )
             continue
         confirmation_ref = confirmation_cohort_ref_for_signal_row(
             row,
@@ -2319,6 +2413,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
         "journal_blocked_candidate_rows": blocked_candidates,
+        "journal_blocked_regime_cohorts": sorted(
+            f"{timeframe}:{side}:{regime_id}"
+            for timeframe, side, regime_id in blocked_regime_cohorts
+        ),
+        "journal_blocked_regime_cohort_candidate_rows": blocked_regime_cohort_candidates,
         "journal_blocked_confirmation_cohorts": sorted(
             f"{timeframe}:{side}:{bucket}:{','.join(confirm_timeframes) or 'none'}:"
             f"{','.join(confirm_regime_ids) or 'none'}"
@@ -2594,6 +2693,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
+        f"- journal_regime_cohort_blocked: "
+        f"`{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
@@ -2661,6 +2762,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_global_active_cap_blocked_candidate_rows')}",
         "journal_confirmation_cohort_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_blocked_confirmation_cohort_candidate_rows')}",
+        "journal_regime_cohort_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="
