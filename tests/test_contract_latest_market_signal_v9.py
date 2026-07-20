@@ -245,6 +245,64 @@ def test_journal_record_persists_regime_confirmation_context(tmp_path: Path) -> 
     assert rows[0]["regime_confirmation_filters"][0]["allowed"] is True
 
 
+def test_journal_update_backfills_regime_confirmation_context(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    row = {
+        "symbol": "AAAUSDT",
+        "signal": "long",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "reason": "test",
+        "regime_filter": {"mode": "block_conflict", "reason": "regime_aligned"},
+        "analog_evidence": {"supported": True},
+        "paper_plan": {
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "risk_per_unit": 2.0,
+            "reward_r": 2.0,
+            "risk_per_trade": 0.005,
+            "leverage_cap": 2.0,
+        },
+    }
+    existing = signal_mod.journal_record_from_row(
+        row,
+        updated_at="2026-01-01T00:00:00+00:00",
+        horizon_bars=12,
+        execution_config=signal_mod.execution_config_from_args(args),
+    )
+    signal_mod.write_journal(Path(args.journal_jsonl), [existing])
+    row_with_confirmation = {
+        **row,
+        "regime_filter": {
+            "mode": "block_conflict",
+            "reason": "regime_aligned",
+            "confirmation_mode": "block_conflict",
+            "confirmation_filters": [
+                {
+                    "timeframe": "1h",
+                    "allowed": True,
+                    "mode": "block_conflict",
+                    "reason": "regime_aligned",
+                    "regime_id": "uptrend_normal_vol",
+                    "trend_state": "uptrend",
+                }
+            ],
+        },
+    }
+
+    summary = signal_mod.update_journal(
+        {"updated_at": "2026-01-01T01:00:00+00:00", "rows": [row_with_confirmation]},
+        args,
+    )
+    rows = [json.loads(line) for line in Path(args.journal_jsonl).read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["regime_confirmation_backfilled_records"] == 1
+    assert rows[0]["regime_confirmation_allowed"] is True
+    assert rows[0]["regime_confirmation_timeframes"] == ["1h"]
+    assert rows[0]["regime_confirmation_regime_ids"] == ["uptrend_normal_vol"]
+
+
 def test_latest_market_signal_rejects_flat_market(tmp_path: Path) -> None:
     closes = [100.0 for _ in range(180)]
     write_symbol_cache(tmp_path, "CCCUSDT", closes)

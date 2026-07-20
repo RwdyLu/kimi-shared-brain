@@ -1308,6 +1308,57 @@ def compact_confirmation_filters(regime_filter: dict[str, Any]) -> list[dict[str
     return rows
 
 
+def regime_confirmation_payload(regime_filter: dict[str, Any]) -> dict[str, Any]:
+    confirmation_filters = compact_confirmation_filters(regime_filter)
+    confirmation_allowed = (
+        all(bool(item.get("allowed", True)) for item in confirmation_filters)
+        if confirmation_filters
+        else None
+    )
+    return {
+        "regime_confirmation_mode": regime_filter.get("confirmation_mode"),
+        "regime_confirmation_allowed": confirmation_allowed,
+        "regime_confirmation_timeframes": [
+            item.get("timeframe")
+            for item in confirmation_filters
+            if item.get("timeframe")
+        ],
+        "regime_confirmation_regime_ids": [
+            item.get("regime_id")
+            for item in confirmation_filters
+            if item.get("regime_id")
+        ],
+        "regime_confirmation_reasons": [
+            item.get("reason")
+            for item in confirmation_filters
+            if item.get("reason")
+        ],
+        "regime_confirmation_filters": confirmation_filters,
+    }
+
+
+def apply_regime_confirmation_to_record(
+    record: dict[str, Any],
+    row: dict[str, Any],
+    *,
+    updated_at: str,
+) -> bool:
+    payload = regime_confirmation_payload(row.get("regime_filter") or {})
+    if (
+        not payload["regime_confirmation_filters"]
+        and payload["regime_confirmation_mode"] is None
+    ):
+        return False
+    changed = False
+    for key, value in payload.items():
+        if record.get(key) != value:
+            record[key] = value
+            changed = True
+    if changed:
+        record["updated_at"] = updated_at
+    return changed
+
+
 def journal_record_from_row(
     row: dict[str, Any],
     *,
@@ -1320,12 +1371,7 @@ def journal_record_from_row(
     config = execution_config or {}
     market_regime = row.get("market_regime") or {}
     regime_filter = row.get("regime_filter") or {}
-    confirmation_filters = compact_confirmation_filters(regime_filter)
-    confirmation_allowed = (
-        all(bool(item.get("allowed", True)) for item in confirmation_filters)
-        if confirmation_filters
-        else None
-    )
+    confirmation = regime_confirmation_payload(regime_filter)
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
         "signal_id": signal_id(row),
@@ -1358,24 +1404,7 @@ def journal_record_from_row(
         "market_regime_source_symbols": market_regime.get("source_symbols") or [],
         "regime_filter_mode": regime_filter.get("mode"),
         "regime_filter_reason": regime_filter.get("reason"),
-        "regime_confirmation_mode": regime_filter.get("confirmation_mode"),
-        "regime_confirmation_allowed": confirmation_allowed,
-        "regime_confirmation_timeframes": [
-            item.get("timeframe")
-            for item in confirmation_filters
-            if item.get("timeframe")
-        ],
-        "regime_confirmation_regime_ids": [
-            item.get("regime_id")
-            for item in confirmation_filters
-            if item.get("regime_id")
-        ],
-        "regime_confirmation_reasons": [
-            item.get("reason")
-            for item in confirmation_filters
-            if item.get("reason")
-        ],
-        "regime_confirmation_filters": confirmation_filters,
+        **confirmation,
         "analog_supported": bool(analog.get("supported")),
         "analog_reason": analog.get("reason"),
         "analog_used_count": int(analog.get("used_count") or 0),
@@ -1796,8 +1825,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     active_total_cap_blocked_candidates = 0
     shadow_retest_candidate_rows = 0
     shadow_retest_new_records = 0
+    regime_confirmation_backfilled = 0
     shadow_updated = 0
+    shadow_regime_confirmation_backfilled = 0
     fast_shadow_updated = 0
+    fast_shadow_regime_confirmation_backfilled = 0
     new_shadow_records: list[dict[str, Any]] = []
     new_fast_shadow_records: list[dict[str, Any]] = []
     by_symbol: dict[str, pd.DataFrame] = {}
@@ -1876,6 +1908,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         pair = (str(record.get("symbol", "")).upper(), str(record.get("side", "")).lower())
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
 
+    records_by_signal_id = {
+        record.get("signal_id"): record
+        for record in records
+        if record.get("signal_id")
+    }
+    shadow_records_by_signal_id = {
+        record.get("signal_id"): record
+        for record in shadow_records
+        if record.get("signal_id")
+    }
+    fast_shadow_records_by_signal_id = {
+        record.get("signal_id"): record
+        for record in fast_shadow_records
+        if record.get("signal_id")
+    }
     new_records = []
 
     def add_shadow_record(
@@ -1935,6 +1982,28 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     for row in payload["rows"]:
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
             continue
+        sid = signal_id(row)
+        record = records_by_signal_id.get(sid)
+        if record is not None and apply_regime_confirmation_to_record(
+            record,
+            row,
+            updated_at=payload["updated_at"],
+        ):
+            regime_confirmation_backfilled += 1
+        shadow_record = shadow_records_by_signal_id.get(sid)
+        if shadow_record is not None and apply_regime_confirmation_to_record(
+            shadow_record,
+            row,
+            updated_at=payload["updated_at"],
+        ):
+            shadow_regime_confirmation_backfilled += 1
+        fast_shadow_record = fast_shadow_records_by_signal_id.get(sid)
+        if fast_shadow_record is not None and apply_regime_confirmation_to_record(
+            fast_shadow_record,
+            row,
+            updated_at=payload["updated_at"],
+        ):
+            fast_shadow_regime_confirmation_backfilled += 1
         pair = (str(row.get("symbol", "")).upper(), str(row.get("signal")).lower())
         pair_ref = (str(getattr(args, "timeframe", "") or "").lower(), pair[0], pair[1])
         if allowed_pairs and pair not in allowed_pairs:
@@ -2020,7 +2089,6 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         analog = row.get("analog_evidence") or {}
         if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
             continue
-        sid = signal_id(row)
         if sid in seen:
             continue
         seen.add(sid)
@@ -2081,6 +2149,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "path": str(path),
         "new_records": len(new_records),
         "updated_records": updated,
+        "regime_confirmation_backfilled_records": regime_confirmation_backfilled,
         "migrated_legacy_records": migrated,
         "total_records": len(records),
         "open_records": active,
@@ -2091,6 +2160,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "shadow_path": str(shadow_path) if shadow_path is not None else "",
         "shadow_new_records": len(new_shadow_records),
         "shadow_updated_records": shadow_updated,
+        "shadow_regime_confirmation_backfilled_records": shadow_regime_confirmation_backfilled,
         "shadow_total_records": len(shadow_records),
         "shadow_open_records": shadow_active,
         "shadow_completed_records": shadow_completed,
@@ -2112,6 +2182,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "fast_shadow_outcome_horizon_bars": fast_shadow_horizon,
         "fast_shadow_new_records": len(new_fast_shadow_records),
         "fast_shadow_updated_records": fast_shadow_updated,
+        "fast_shadow_regime_confirmation_backfilled_records": fast_shadow_regime_confirmation_backfilled,
         "fast_shadow_total_records": len(fast_shadow_records),
         "fast_shadow_open_records": fast_shadow_active,
         "fast_shadow_completed_records": fast_shadow_completed,
