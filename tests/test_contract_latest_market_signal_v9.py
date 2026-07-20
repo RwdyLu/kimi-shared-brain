@@ -147,6 +147,25 @@ def test_latest_market_signal_builds_long_paper_plan(tmp_path: Path) -> None:
     assert plan["order_intent"]["entry"] == "paper_only_no_order"
 
 
+def test_analog_evidence_uses_realistic_execution_costs(tmp_path: Path) -> None:
+    closes = [100.0 * (1.0015**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.paper_fee_bps = 1000.0
+    args.min_analog_expectancy_r = 0.0
+
+    payload = signal_mod.run_screen(args)
+
+    analog = payload["top"][0]["analog_evidence"]
+    assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["analog_supported_plan_found"] is False
+    assert analog["execution_model"] == signal_mod.REALISTIC_EXECUTION_MODEL_VERSION
+    assert analog["fee_bps_per_side"] == 1000.0
+    assert analog["used_count"] >= args.min_analog_samples
+    assert analog["expectancy_r"] < 0.0
+    assert analog["supported"] is False
+
+
 def test_latest_market_signal_builds_short_paper_plan(tmp_path: Path) -> None:
     closes = [180.0 * (0.9985**idx) for idx in range(180)]
     write_symbol_cache(tmp_path, "BBBUSDT", closes)

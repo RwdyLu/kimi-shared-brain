@@ -1298,6 +1298,94 @@ def simulate_realistic_exit(
     )
 
 
+def simulate_realistic_analog_outcome(
+    df: pd.DataFrame,
+    *,
+    start_idx: int,
+    side: str,
+    prices: dict[str, float],
+    horizon_bars: int,
+    config: dict[str, Any],
+    timeframe: str,
+) -> dict[str, Any]:
+    entry_latency = max(0, int(config.get("entry_latency_bars") or 0))
+    entry_idx = int(start_idx) + entry_latency
+    if entry_idx >= len(df):
+        return {
+            "status": "pending",
+            "exit_reason": "insufficient_entry_latency_bars",
+            "r_multiple": None,
+        }
+
+    partial_fill_frac = safe_float(config.get("partial_fill_frac"), 1.0)
+    min_fill_frac = safe_float(config.get("min_fill_frac"), 1.0)
+    if partial_fill_frac < min_fill_frac:
+        return {
+            "status": "skipped",
+            "exit_reason": "partial_fill_reject",
+            "r_multiple": None,
+            "partial_fill_frac": float(partial_fill_frac),
+            "min_fill_frac": float(min_fill_frac),
+        }
+
+    entry_row = df.iloc[entry_idx]
+    entry_reference = safe_float(entry_row.get("open"))
+    planned_entry = safe_float(prices.get("entry_price"))
+    if entry_reference <= 0.0 or planned_entry <= 0.0:
+        return {
+            "status": "skipped",
+            "exit_reason": "invalid_entry_reference",
+            "r_multiple": None,
+        }
+
+    entry_fill = adverse_entry_fill(side, entry_reference, safe_float(config.get("slippage_bps"), 2.0))
+    drift_bps = abs(entry_fill / planned_entry - 1.0) * 10000.0
+    max_drift_bps = safe_float(config.get("max_entry_drift_bps"), 80.0)
+    if max_drift_bps > 0.0 and drift_bps > max_drift_bps:
+        return {
+            "status": "skipped",
+            "exit_reason": "entry_drift_reject",
+            "r_multiple": None,
+            "planned_entry_price": float(planned_entry),
+            "entry_reference_price": float(entry_reference),
+            "entry_fill_price": float(entry_fill),
+            "entry_drift_bps": float(drift_bps),
+            "max_entry_drift_bps": float(max_drift_bps),
+        }
+
+    stop = safe_float(prices.get("stop_loss"))
+    risk = entry_fill - stop if side == "long" else stop - entry_fill
+    if risk <= 0.0:
+        return {
+            "status": "skipped",
+            "exit_reason": "invalid_post_fill_risk",
+            "r_multiple": None,
+            "entry_fill_price": float(entry_fill),
+            "stop_loss": float(stop),
+        }
+
+    outcome = simulate_realistic_exit(
+        df,
+        entry_idx=entry_idx,
+        side=side,
+        entry_fill=float(entry_fill),
+        stop=stop,
+        take_profit=safe_float(prices.get("take_profit")),
+        horizon_bars=int(horizon_bars),
+        config=config,
+        timeframe=timeframe,
+    )
+    return {
+        **outcome,
+        "entry_dt": entry_row["dt"].isoformat(),
+        "entry_reference_price": float(entry_reference),
+        "entry_drift_bps": float(drift_bps),
+        "planned_entry_price": float(planned_entry),
+        "risk_per_unit": float(risk),
+        "partial_fill_frac": float(partial_fill_frac),
+    }
+
+
 def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, signal: str) -> dict[str, Any]:
     horizon = int(args.analog_horizon_bars)
     if signal not in {"long", "short"}:
@@ -1309,8 +1397,12 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
     if not target.apply(math.isfinite).all():
         return {"enabled": True, "supported": False, "reason": "invalid_current_features"}
 
-    max_idx = len(df) - 1 - horizon
-    history = df.iloc[:max_idx].copy()
+    config = execution_config_from_args(args)
+    entry_latency = max(0, int(config.get("entry_latency_bars") or 0))
+    max_idx = len(df) - 1 - horizon - entry_latency
+    if max_idx < 0:
+        return {"enabled": True, "supported": False, "reason": "insufficient_realistic_analog_horizon"}
+    history = df.iloc[: max_idx + 1].copy()
     if signal == "long":
         history = history[(history["long_votes"] >= args.min_votes) & (history["long_votes"] > history["short_votes"])]
     else:
@@ -1327,28 +1419,45 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
     distances = (((features - target) / scales) ** 2).mean(axis=1).pow(0.5)
     nearest = history.assign(analog_distance=distances).nsmallest(int(args.analog_top_k), "analog_distance")
     outcomes = []
+    rejected_outcomes = []
+    pending_outcomes = 0
     for idx, row in nearest.iterrows():
         prices = plan_prices(row, args, signal)
         if not prices:
             continue
-        outcome = simulate_outcome(
+        outcome = simulate_realistic_analog_outcome(
             df,
             start_idx=int(idx),
             side=signal,
-            entry=prices["entry_price"],
-            stop=prices["stop_loss"],
-            take_profit=prices["take_profit"],
+            prices=prices,
             horizon_bars=horizon,
+            config=config,
+            timeframe=str(getattr(args, "timeframe", "1h")),
         )
-        if outcome.get("r_multiple") is None:
+        if outcome.get("status") == "skipped":
+            rejected_outcomes.append(
+                {
+                    "dt": row["dt"].isoformat(),
+                    "distance": float(row["analog_distance"]),
+                    "exit_reason": outcome.get("exit_reason"),
+                    "entry_drift_bps": outcome.get("entry_drift_bps"),
+                }
+            )
+            continue
+        if outcome.get("status") != "completed" or outcome.get("r_multiple") is None:
+            pending_outcomes += 1
             continue
         outcomes.append(
             {
                 "dt": row["dt"].isoformat(),
                 "distance": float(row["analog_distance"]),
-                "entry": float(prices["entry_price"]),
+                "planned_entry": float(prices["entry_price"]),
+                "entry_fill": float(outcome.get("entry_fill_price") or 0.0),
                 "exit_reason": outcome["exit_reason"],
                 "r_multiple": float(outcome["r_multiple"]),
+                "gross_r_multiple": safe_float(outcome.get("gross_r_multiple")),
+                "fee_cost_per_unit": safe_float(outcome.get("fee_cost_per_unit")),
+                "funding_cost_per_unit": safe_float(outcome.get("funding_cost_per_unit")),
                 "bars_held": int(outcome.get("bars_held") or 0),
             }
         )
@@ -1357,9 +1466,13 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
         return {
             "enabled": True,
             "supported": False,
-            "reason": "no_completed_analog_outcomes",
+            "reason": "no_completed_realistic_analog_outcomes",
+            "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
             "candidate_count": int(len(history)),
             "used_count": 0,
+            "entry_reject_count": len(rejected_outcomes),
+            "pending_count": int(pending_outcomes),
+            "rejected_sample": rejected_outcomes[:5],
         }
     r_values = [float(row["r_multiple"]) for row in outcomes]
     tp_count = sum(1 for row in outcomes if row["exit_reason"] == "take_profit")
@@ -1377,10 +1490,17 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
         "enabled": True,
         "supported": bool(supported),
         "reason": "analog_support_pass" if supported else "analog_support_fail",
+        "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "candidate_count": int(len(history)),
         "used_count": used,
         "top_k": int(args.analog_top_k),
         "horizon_bars": horizon,
+        "entry_latency_bars": entry_latency,
+        "fee_bps_per_side": float(config.get("fee_bps_per_side") or 0.0),
+        "slippage_bps": float(config.get("slippage_bps") or 0.0),
+        "funding_bps_per_8h": float(config.get("funding_bps_per_8h") or 0.0),
+        "entry_reject_count": len(rejected_outcomes),
+        "pending_count": int(pending_outcomes),
         "take_profit_first_count": tp_count,
         "stop_loss_first_count": stop_count,
         "profitable_count": profitable_count,
@@ -1391,6 +1511,7 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
         "worst_r": float(min(r_values)),
         "best_r": float(max(r_values)),
         "sample": outcomes[:5],
+        "rejected_sample": rejected_outcomes[:5],
         "thresholds": {
             "min_analog_samples": int(args.min_analog_samples),
             "min_analog_hit_rate": float(args.min_analog_hit_rate),
