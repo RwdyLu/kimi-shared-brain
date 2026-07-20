@@ -611,10 +611,72 @@ def test_paper_report_summarizes_fast_shadow_as_retest_not_promotion(tmp_path: P
     assert payload["summary"]["current_policy_fast_shadow_records"] == 20
     assert payload["summary"]["current_policy_fast_shadow_completed"] == 20
     assert payload["summary"]["current_policy_fast_shadow_retest_candidates"] == 1
+    assert payload["summary"]["current_policy_fast_shadow_retest_status"] == "retest_ready"
+    assert payload["summary"]["current_policy_fast_shadow_retest_next_action"] == "run_full_horizon_shadow_retest"
     assert payload["summary"]["current_policy_shadow_promote_candidates"] == 0
+    assert payload["actions"]["current_policy_fast_shadow_retest"]["status"] == "retest_ready"
+    assert len(payload["actions"]["current_policy_fast_shadow_retest_candidates"]) == 1
     assert payload["current_policy_fast_shadow_scoreboard"][0]["status"] == "promote_candidate"
     assert payload["current_policy_fast_shadow_scoreboard"][0]["symbol"] == "FASTUSDT"
     assert "current_policy_fast_shadow_promote_candidates" not in payload["actions"]
+
+
+def test_paper_report_writes_fast_shadow_retest_marker(tmp_path: Path) -> None:
+    payload = {
+        "updated_at": "2026-01-04T00:00:00+00:00",
+        "summary": {
+            "current_decision_policy_version": "policy_v2",
+            "current_policy_fast_shadow_records": 20,
+            "current_policy_fast_shadow_completed": 20,
+            "current_policy_fast_shadow_active": 0,
+            "current_policy_fast_shadow_scoreboard_groups": 1,
+        },
+        "actions": {},
+        "current_policy_fast_shadow_scoreboard": [
+            {
+                "status": "promote_candidate",
+                "timeframe": "1h",
+                "symbol": "FASTUSDT",
+                "side": "long",
+                "recent_completed": 20,
+                "recent_sum_r": 6.0,
+                "recent_profit_factor": 2.0,
+                "recent_max_drawdown_r": 2.0,
+                "edge_score": 4.0,
+            }
+        ],
+    }
+    report_mod.attach_current_policy_fast_shadow_retest(payload)
+    found_marker = tmp_path / "FOUND_CURRENT_POLICY_FAST_SHADOW_RETEST.txt"
+    no_marker = tmp_path / "NO_CURRENT_POLICY_FAST_SHADOW_RETEST.txt"
+
+    report_mod.write_current_policy_fast_shadow_retest_marker(
+        payload,
+        found_marker,
+        no_marker,
+        report_json="report.json",
+        actions_json="actions.json",
+    )
+
+    text = found_marker.read_text()
+    assert text.startswith("FOUND_CURRENT_POLICY_FAST_SHADOW_RETEST ")
+    assert "status=retest_ready" in text
+    assert "next_action=run_full_horizon_shadow_retest" in text
+    assert "symbol=FASTUSDT" in text
+    assert "note=fast_shadow_only_full_horizon_retest_required" in text
+    assert "paper_trading_authorized=False" in text
+    assert "live_trading_authorized=False" in text
+    assert not no_marker.exists()
+
+    payload["current_policy_fast_shadow_scoreboard"] = []
+    report_mod.attach_current_policy_fast_shadow_retest(payload)
+    report_mod.write_current_policy_fast_shadow_retest_marker(payload, found_marker, no_marker)
+
+    assert not found_marker.exists()
+    no_text = no_marker.read_text()
+    assert no_text.startswith("NO_CURRENT_POLICY_FAST_SHADOW_RETEST ")
+    assert "status=completed_no_retest" in no_text
+    assert "paper_trading_authorized=False" in no_text
 
 
 def test_paper_report_shadow_readiness_risk_takes_priority() -> None:

@@ -1273,6 +1273,136 @@ def write_current_policy_shadow_readiness_marker(payload: dict[str, Any], path: 
     )
 
 
+def build_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = payload.get("summary") or {}
+    scoreboard = payload.get("current_policy_fast_shadow_scoreboard") or []
+    retest_candidates = [
+        compact_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") == "promote_candidate"
+    ]
+    stop_candidates = [
+        compact_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") == "stop_candidate"
+    ]
+    completed = int(summary.get("current_policy_fast_shadow_completed") or 0)
+    active = int(summary.get("current_policy_fast_shadow_active") or 0)
+    groups = int(summary.get("current_policy_fast_shadow_scoreboard_groups") or 0)
+
+    if retest_candidates:
+        status = "retest_ready"
+        severity = "ready"
+        next_action = "run_full_horizon_shadow_retest"
+    elif stop_candidates:
+        status = "short_horizon_failed"
+        severity = "risk"
+        next_action = "do_not_retest_keep_collecting"
+    elif active > 0:
+        status = "fast_shadow_collecting"
+        severity = "collecting"
+        next_action = "await_fast_shadow_completion"
+    elif completed > 0 or groups > 0:
+        status = "completed_no_retest"
+        severity = "collecting"
+        next_action = "keep_collecting_fast_shadow"
+    else:
+        status = "no_fast_shadow_evidence"
+        severity = "collecting"
+        next_action = "keep_collecting_fast_shadow"
+
+    return {
+        "status": status,
+        "severity": severity,
+        "next_action": next_action,
+        "decision_policy_version": summary.get("current_decision_policy_version"),
+        "records": summary.get("current_policy_fast_shadow_records"),
+        "completed": completed,
+        "active": active,
+        "scoreboard_groups": groups,
+        "retest_candidates": retest_candidates,
+        "stop_candidates": stop_candidates,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
+def attach_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> None:
+    retest = build_current_policy_fast_shadow_retest(payload)
+    actions = payload.setdefault("actions", {})
+    actions["current_policy_fast_shadow_retest"] = retest
+    actions["current_policy_fast_shadow_retest_candidates"] = retest["retest_candidates"]
+    actions["current_policy_fast_shadow_stop_candidates"] = retest["stop_candidates"]
+    actions.setdefault("summary", {})["current_policy_fast_shadow_retest_status"] = retest["status"]
+    actions["summary"]["current_policy_fast_shadow_retest_severity"] = retest["severity"]
+    actions["summary"]["current_policy_fast_shadow_retest_candidates"] = len(
+        retest["retest_candidates"]
+    )
+    summary = payload.setdefault("summary", {})
+    summary["current_policy_fast_shadow_retest_status"] = retest["status"]
+    summary["current_policy_fast_shadow_retest_severity"] = retest["severity"]
+    summary["current_policy_fast_shadow_retest_next_action"] = retest["next_action"]
+
+
+def write_current_policy_fast_shadow_retest_marker(
+    payload: dict[str, Any],
+    found_marker: Path,
+    no_marker: Path | None = None,
+    *,
+    report_json: str = "",
+    actions_json: str = "",
+) -> None:
+    retest = (
+        (payload.get("actions") or {}).get("current_policy_fast_shadow_retest")
+        or build_current_policy_fast_shadow_retest(payload)
+    )
+    candidates = retest.get("retest_candidates") or []
+    found_marker.parent.mkdir(parents=True, exist_ok=True)
+    if no_marker is not None:
+        no_marker.parent.mkdir(parents=True, exist_ok=True)
+
+    if not candidates:
+        found_marker.unlink(missing_ok=True)
+        if no_marker is not None:
+            no_marker.write_text(
+                "NO_CURRENT_POLICY_FAST_SHADOW_RETEST "
+                f"{payload.get('updated_at')} "
+                f"status={retest.get('status')} "
+                f"next_action={retest.get('next_action')} "
+                f"policy={retest.get('decision_policy_version')} "
+                f"completed={retest.get('completed')} "
+                f"active={retest.get('active')} "
+                f"groups={retest.get('scoreboard_groups')} "
+                "paper_trading_authorized=False live_trading_authorized=False\n"
+            )
+        return
+
+    best = candidates[0]
+    if no_marker is not None:
+        no_marker.unlink(missing_ok=True)
+    fields = [
+        "FOUND_CURRENT_POLICY_FAST_SHADOW_RETEST",
+        str(payload.get("updated_at")),
+        f"status={retest.get('status')}",
+        f"next_action={retest.get('next_action')}",
+        f"policy={retest.get('decision_policy_version')}",
+        f"timeframe={best.get('timeframe')}",
+        f"symbol={best.get('symbol')}",
+        f"side={best.get('side')}",
+        f"recent_n={best.get('recent_completed')}",
+        f"recent_sum_R={fmt_num(best.get('recent_sum_r'), 3)}",
+        f"recent_pf={fmt_num(best.get('recent_profit_factor'), 3)}",
+        f"recent_dd_R={fmt_num(best.get('recent_max_drawdown_r'), 3)}",
+        f"score={fmt_num(best.get('edge_score'), 3)}",
+        f"report_json={report_json}",
+        f"actions_json={actions_json}",
+        "note=fast_shadow_only_full_horizon_retest_required",
+        "paper_trading_authorized=False",
+        "live_trading_authorized=False",
+    ]
+    found_marker.write_text(" ".join(fields) + "\n")
+
+
 def write_current_policy_shadow_promote_marker(
     payload: dict[str, Any],
     found_marker: Path,
@@ -1605,6 +1735,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "live_trading_authorized": False,
     }
     attach_current_policy_shadow_readiness(payload)
+    attach_current_policy_fast_shadow_retest(payload)
     return payload
 
 
@@ -1692,6 +1823,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_fast_shadow_scoreboard_groups']}/"
             f"{summary['current_policy_fast_shadow_retest_candidates']}/"
             f"{summary['current_policy_fast_shadow_stop_candidates']}`"
+        ),
+        (
+            f"- current_policy_fast_shadow retest/action: "
+            f"`{summary['current_policy_fast_shadow_retest_status']}/"
+            f"{summary['current_policy_fast_shadow_retest_next_action']}`"
         ),
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
@@ -2000,7 +2136,9 @@ def format_text(payload: dict[str, Any]) -> str:
             f"active_R_known={summary['current_policy_fast_shadow_active_r_known']} "
             f"active_R={fmt_num(summary['current_policy_fast_shadow_active_sum_r'], 3)} "
             f"active_wl={summary['current_policy_fast_shadow_active_profit']}/"
-            f"{summary['current_policy_fast_shadow_active_loss']}"
+            f"{summary['current_policy_fast_shadow_active_loss']} "
+            f"status={summary['current_policy_fast_shadow_retest_status']} "
+            f"action={summary['current_policy_fast_shadow_retest_next_action']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
@@ -2131,6 +2269,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-current-policy-shadow-no-promote-marker", default="")
     parser.add_argument("--out-current-policy-shadow-readiness-marker", default="")
     parser.add_argument("--out-current-policy-shadow-readiness-json", default="")
+    parser.add_argument("--out-current-policy-fast-shadow-retest-marker", default="")
+    parser.add_argument("--out-current-policy-fast-shadow-no-retest-marker", default="")
+    parser.add_argument("--out-current-policy-fast-shadow-retest-json", default="")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -2176,6 +2317,24 @@ def main() -> None:
         write_json(
             payload["actions"]["current_policy_shadow_readiness"],
             Path(args.out_current_policy_shadow_readiness_json),
+        )
+    if args.out_current_policy_fast_shadow_retest_marker:
+        no_marker = (
+            Path(args.out_current_policy_fast_shadow_no_retest_marker)
+            if args.out_current_policy_fast_shadow_no_retest_marker
+            else None
+        )
+        write_current_policy_fast_shadow_retest_marker(
+            payload,
+            Path(args.out_current_policy_fast_shadow_retest_marker),
+            no_marker,
+            report_json=args.out_json,
+            actions_json=args.out_actions_json,
+        )
+    if args.out_current_policy_fast_shadow_retest_json:
+        write_json(
+            payload["actions"]["current_policy_fast_shadow_retest"],
+            Path(args.out_current_policy_fast_shadow_retest_json),
         )
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
