@@ -44,15 +44,26 @@ def pair_key(row: dict[str, Any]) -> tuple[str, str, str]:
 
 
 def row_passes_probe_thresholds(row: dict[str, Any], args: argparse.Namespace) -> bool:
-    return (
-        safe_int(row.get("recent_completed")) >= int(args.min_probe_completed)
-        and safe_int(row.get("recent_analog_supported")) >= int(args.min_probe_analog_supported)
-        and safe_float(row.get("recent_analog_supported_rate")) >= float(args.min_probe_analog_supported_rate)
-        and safe_float(row.get("recent_sum_r")) >= float(args.min_probe_sum_r)
-        and safe_float(row.get("recent_profit_factor")) >= float(args.min_probe_profit_factor)
-        and safe_float(row.get("recent_max_drawdown_r")) <= float(args.max_probe_drawdown_r)
-        and safe_int(row.get("recent_trailing_losses")) <= int(args.max_probe_trailing_losses)
-    )
+    return not probe_rejection_reasons(row, args)
+
+
+def probe_rejection_reasons(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    reasons: list[str] = []
+    if safe_int(row.get("recent_completed")) < int(args.min_probe_completed):
+        reasons.append(f"recent_completed<{int(args.min_probe_completed)}")
+    if safe_int(row.get("recent_analog_supported")) < int(args.min_probe_analog_supported):
+        reasons.append(f"recent_analog_supported<{int(args.min_probe_analog_supported)}")
+    if safe_float(row.get("recent_analog_supported_rate")) < float(args.min_probe_analog_supported_rate):
+        reasons.append(f"recent_analog_supported_rate<{float(args.min_probe_analog_supported_rate):.2f}")
+    if safe_float(row.get("recent_sum_r")) < float(args.min_probe_sum_r):
+        reasons.append(f"recent_sum_r<{float(args.min_probe_sum_r):.2f}")
+    if safe_float(row.get("recent_profit_factor")) < float(args.min_probe_profit_factor):
+        reasons.append(f"recent_profit_factor<{float(args.min_probe_profit_factor):.2f}")
+    if safe_float(row.get("recent_max_drawdown_r")) > float(args.max_probe_drawdown_r):
+        reasons.append(f"recent_max_drawdown_r>{float(args.max_probe_drawdown_r):.2f}")
+    if safe_int(row.get("recent_trailing_losses")) > int(args.max_probe_trailing_losses):
+        reasons.append(f"recent_trailing_losses>{int(args.max_probe_trailing_losses)}")
+    return reasons
 
 
 def candidate_sort_key(row: dict[str, Any]) -> tuple[float, float, int]:
@@ -210,12 +221,49 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
     }
 
 
+def build_rejection_config(row: dict[str, Any], *, source: str, reasons: list[str]) -> dict[str, Any]:
+    timeframe, symbol, side = pair_key(row)
+    return {
+        "source": source,
+        "timeframe": timeframe,
+        "symbol": symbol,
+        "side": side,
+        "rejection_reasons": reasons,
+        "metrics": {
+            "recent_completed": safe_int(row.get("recent_completed")),
+            "recent_sum_r": safe_float(row.get("recent_sum_r")),
+            "recent_profit_factor": safe_float(row.get("recent_profit_factor")),
+            "recent_max_drawdown_r": safe_float(row.get("recent_max_drawdown_r")),
+            "recent_trailing_losses": safe_int(row.get("recent_trailing_losses")),
+            "recent_analog_supported": safe_int(row.get("recent_analog_supported")),
+            "recent_analog_supported_rate": safe_float(row.get("recent_analog_supported_rate")),
+            "analog_used_count": safe_int(row.get("analog_used_count")),
+            "analog_hit_rate": safe_float(row.get("analog_hit_rate")),
+            "analog_profitable_rate": safe_float(row.get("analog_profitable_rate")),
+            "analog_expectancy_r": safe_float(row.get("analog_expectancy_r")),
+            "active": safe_int(row.get("active")),
+            "edge_score": safe_float(row.get("edge_score")),
+        },
+        "reason_codes": row.get("reason_codes") or [],
+    }
+
+
+def reason_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        for reason in row.get("rejection_reasons", []):
+            counts[reason] = counts.get(reason, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     actions = json.loads(Path(args.actions_json).read_text())
     blocked = {pair_key(row) for row in actions.get("blocked_pairs", [])}
     fresh_veto = {pair_key(row) for row in actions.get("fresh_analog_veto_pairs", [])}
     selected: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     used: set[tuple[str, str, str]] = set()
+    max_rejections = int(args.max_rejections)
 
     promote_rows = sorted(
         actions.get("promote_candidates", []),
@@ -232,9 +280,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             key = pair_key(row)
             if key in used:
                 continue
+            reasons: list[str] = []
             if key in blocked and not args.allow_blocked:
-                continue
-            if source == "positive_watchlist" and not row_passes_probe_thresholds(row, args):
+                reasons.append("blocked_pair")
+            if source == "positive_watchlist":
+                reasons.extend(probe_rejection_reasons(row, args))
+            if reasons:
+                if len(rejected) < max_rejections:
+                    rejected.append(build_rejection_config(row, source=source, reasons=reasons))
                 continue
             selected.append(build_candidate_config(row, source=source))
             used.add(key)
@@ -251,13 +304,20 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         key = pair_key(row)
         if key in used:
             continue
+        reasons = []
         if key in blocked and not args.allow_blocked:
-            continue
+            reasons.append("blocked_pair")
         if key in fresh_veto and not args.allow_fresh_veto:
+            reasons.append("fresh_analog_veto_pair")
+        if reasons:
+            if len(rejected) < max_rejections:
+                rejected.append(build_rejection_config(row, source="fresh_analog_signal", reasons=reasons))
             continue
         selected.append(build_candidate_config(row, source="fresh_analog_signal"))
         used.add(key)
         fresh_added += 1
+
+    rejection_reason_counts = reason_counts(rejected)
 
     return {
         "kind": "contract_focus_canary_plan_v1",
@@ -265,6 +325,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "actions_json": args.actions_json,
         "config": {
             "max_candidates": int(args.max_candidates),
+            "max_rejections": max_rejections,
             "include_fresh_analog": bool(args.include_fresh_analog),
             "signal_jsons": args.signal_jsons,
             "max_fresh_analog_candidates": int(args.max_fresh_analog_candidates),
@@ -290,8 +351,11 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "positive_watchlist_seen": len(actions.get("positive_watchlist", [])),
             "fresh_analog_seen": len(fresh_rows),
             "fresh_analog_added": fresh_added,
+            "rejected_candidates": len(rejected),
+            "rejection_reason_counts": rejection_reason_counts,
         },
         "candidates": selected,
+        "rejected_candidates": rejected,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
@@ -320,6 +384,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"`{summary['promote_candidates_seen']}/{summary['positive_watchlist_seen']}/{summary['blocked_pairs']}`",
         f"- fresh analog veto pairs: `{summary.get('fresh_analog_veto_pairs', 0)}`",
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
+        f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss | session |",
         "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
@@ -334,6 +399,26 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
             f"{metrics['recent_trailing_losses']} | `{row['session']}` |"
         )
+    if payload.get("rejected_candidates"):
+        lines.extend(
+            [
+                "",
+                "## Rejected Candidates",
+                "",
+                "| rank | source | timeframe | symbol | side | reasons | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss |",
+                "| ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for idx, row in enumerate(payload["rejected_candidates"], start=1):
+            metrics = row["metrics"]
+            lines.append(
+                f"| {idx} | {row['source']} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
+                f"{','.join(row['rejection_reasons'])} | "
+                f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
+                f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['analog_expectancy_r'])} | "
+                f"{fmt_num(metrics['recent_sum_r'])} | {fmt_num(metrics['recent_profit_factor'])} | "
+                f"{fmt_num(metrics['recent_max_drawdown_r'])} | {metrics['recent_trailing_losses']} |"
+            )
     lines.extend(["", "## Launch Commands", ""])
     for row in payload["candidates"]:
         lines.extend(["```bash", row["launch_command"], "```", ""])
@@ -348,7 +433,9 @@ def format_text(payload: dict[str, Any]) -> str:
         f"selected={summary['selected']} promote_seen={summary['promote_candidates_seen']} "
         f"positive_seen={summary['positive_watchlist_seen']} blocked_seen={summary['blocked_pairs']} "
         f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
-        f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)}",
+        f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
+        f"rejected={summary.get('rejected_candidates', 0)}",
+        f"reject_reasons={json.dumps(summary.get('rejection_reason_counts', {}), sort_keys=True)}",
         "safety=paper_authorized:False live:False",
     ]
     for row in payload["candidates"]:
@@ -371,6 +458,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="artifacts/v9/contract_lab/contract_paper_strategy_actions_latest.json",
     )
     parser.add_argument("--max-candidates", type=int, default=3)
+    parser.add_argument("--max-rejections", type=int, default=50)
     parser.add_argument("--include-fresh-analog", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--signal-jsons",

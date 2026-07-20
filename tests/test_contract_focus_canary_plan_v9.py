@@ -20,6 +20,7 @@ def args_for(actions_json: Path) -> Namespace:
     return Namespace(
         actions_json=str(actions_json),
         max_candidates=3,
+        max_rejections=50,
         include_fresh_analog=False,
         signal_jsons="",
         max_fresh_analog_candidates=2,
@@ -122,6 +123,10 @@ def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
     payload = plan_mod.build_plan(args_for(actions_json))
 
     assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["rejected_candidates"] == 7
+    assert payload["summary"]["rejection_reason_counts"]["recent_completed<8"] == 1
+    assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported<4"] == 1
+    assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported_rate<0.50"] == 1
     row = payload["candidates"][0]
     assert row["source"] == "positive_watchlist"
     assert row["symbol"] == "FFFUSDT"
@@ -228,6 +233,9 @@ def test_focus_plan_excludes_blocked_fresh_analog_signal(tmp_path: Path) -> None
     assert payload["summary"]["fresh_analog_seen"] == 1
     assert payload["summary"]["fresh_analog_added"] == 0
     assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["rejection_reason_counts"]["blocked_pair"] == 1
+    assert payload["rejected_candidates"][0]["source"] == "fresh_analog_signal"
+    assert payload["rejected_candidates"][0]["rejection_reasons"] == ["blocked_pair"]
 
 
 def test_focus_plan_excludes_fresh_veto_signal(tmp_path: Path) -> None:
@@ -254,3 +262,6 @@ def test_focus_plan_excludes_fresh_veto_signal(tmp_path: Path) -> None:
     assert payload["summary"]["fresh_analog_veto_pairs"] == 1
     assert payload["summary"]["fresh_analog_added"] == 0
     assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["rejection_reason_counts"]["fresh_analog_veto_pair"] == 1
+    assert payload["rejected_candidates"][0]["source"] == "fresh_analog_signal"
+    assert payload["rejected_candidates"][0]["rejection_reasons"] == ["fresh_analog_veto_pair"]
