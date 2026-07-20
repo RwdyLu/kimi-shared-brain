@@ -76,6 +76,7 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
                 "status": "completed",
                 "symbol": "AAAUSDT",
                 "side": "long",
+                "analog_supported": idx < 10,
                 "outcome": {"r_multiple": 0.3, "exit_dt": f"2026-01-01T{idx:02d}:30:00+00:00"},
             }
         )
@@ -86,6 +87,7 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
                 "status": "completed",
                 "symbol": "BBBUSDT",
                 "side": "short",
+                "analog_supported": idx < 4,
                 "outcome": {"r_multiple": -0.3, "exit_dt": f"2026-01-02T{idx:02d}:30:00+00:00"},
             }
         )
@@ -115,8 +117,12 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     assert payload["scoreboard"][0]["symbol"] == "AAAUSDT"
     assert payload["scoreboard"][0]["status"] == "promote_candidate"
     assert abs(payload["scoreboard"][0]["recent_sum_r"] - 6.0) < 1e-9
+    assert payload["scoreboard"][0]["recent_analog_supported"] == 10
+    assert payload["scoreboard"][0]["recent_analog_supported_rate"] == 0.5
     stop = next(row for row in payload["scoreboard"] if row["symbol"] == "BBBUSDT")
     assert stop["status"] == "stop_candidate"
+    assert stop["recent_analog_supported"] == 4
+    assert stop["recent_analog_supported_rate"] == 0.2
     assert "recent_sum_r<=-5" in stop["reason_codes"]
     assert payload["actions"]["summary"]["blocked_pairs"] == 1
     assert payload["actions"]["blocked_pairs"][0]["timeframe"] == "1h"

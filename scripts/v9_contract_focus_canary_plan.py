@@ -46,6 +46,8 @@ def pair_key(row: dict[str, Any]) -> tuple[str, str, str]:
 def row_passes_probe_thresholds(row: dict[str, Any], args: argparse.Namespace) -> bool:
     return (
         safe_int(row.get("recent_completed")) >= int(args.min_probe_completed)
+        and safe_int(row.get("recent_analog_supported")) >= int(args.min_probe_analog_supported)
+        and safe_float(row.get("recent_analog_supported_rate")) >= float(args.min_probe_analog_supported_rate)
         and safe_float(row.get("recent_sum_r")) >= float(args.min_probe_sum_r)
         and safe_float(row.get("recent_profit_factor")) >= float(args.min_probe_profit_factor)
         and safe_float(row.get("recent_max_drawdown_r")) <= float(args.max_probe_drawdown_r)
@@ -104,6 +106,7 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
         "CONTRACT_EDGE_CANARY_ANALOG_MARKER": paths["analog_marker"],
         "CONTRACT_EDGE_CANARY_ANALOG_NO_MARKER": paths["analog_no_marker"],
         "CONTRACT_EDGE_CANARY_JOURNAL_MAX_ACTIVE_PER_PAIR": "1",
+        "CONTRACT_EDGE_CANARY_JOURNAL_RECORD_MODE": "analog_supported",
     }
     return {
         "source": source,
@@ -118,6 +121,8 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
             "recent_profit_factor": safe_float(row.get("recent_profit_factor")),
             "recent_max_drawdown_r": safe_float(row.get("recent_max_drawdown_r")),
             "recent_trailing_losses": safe_int(row.get("recent_trailing_losses")),
+            "recent_analog_supported": safe_int(row.get("recent_analog_supported")),
+            "recent_analog_supported_rate": safe_float(row.get("recent_analog_supported_rate")),
             "active": safe_int(row.get("active")),
             "edge_score": safe_float(row.get("edge_score")),
         },
@@ -167,6 +172,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "config": {
             "max_candidates": int(args.max_candidates),
             "min_probe_completed": int(args.min_probe_completed),
+            "min_probe_analog_supported": int(args.min_probe_analog_supported),
+            "min_probe_analog_supported_rate": float(args.min_probe_analog_supported_rate),
             "min_probe_sum_r": float(args.min_probe_sum_r),
             "min_probe_profit_factor": float(args.min_probe_profit_factor),
             "max_probe_drawdown_r": float(args.max_probe_drawdown_r),
@@ -207,14 +214,15 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- seen promote/positive/blocked: "
         f"`{summary['promote_candidates_seen']}/{summary['positive_watchlist_seen']}/{summary['blocked_pairs']}`",
         "",
-        "| rank | source | timeframe | symbol | side | recent_n | sum_R | pf | max_DD_R | trailing_loss | session |",
-        "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss | session |",
+        "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for idx, row in enumerate(payload["candidates"], start=1):
         metrics = row["metrics"]
         lines.append(
             f"| {idx} | {row['source']} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
-            f"{metrics['recent_completed']} | {fmt_num(metrics['recent_sum_r'])} | "
+            f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
+            f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
             f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
             f"{metrics['recent_trailing_losses']} | `{row['session']}` |"
         )
@@ -239,6 +247,7 @@ def format_text(payload: dict[str, Any]) -> str:
             f"candidate {row['source']} {row['timeframe']} {row['symbol']} {row['side']} "
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
             f"pf={fmt_num(metrics['recent_profit_factor'])} max_dd_R={fmt_num(metrics['recent_max_drawdown_r'])} "
+            f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
             f"trailing_losses={metrics['recent_trailing_losses']} session={row['session']}"
         )
     return "\n".join(lines)
@@ -252,10 +261,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-candidates", type=int, default=3)
     parser.add_argument("--min-probe-completed", type=int, default=8)
+    parser.add_argument("--min-probe-analog-supported", type=int, default=4)
+    parser.add_argument("--min-probe-analog-supported-rate", type=float, default=0.50)
     parser.add_argument("--min-probe-sum-r", type=float, default=2.0)
     parser.add_argument("--min-probe-profit-factor", type=float, default=1.2)
     parser.add_argument("--max-probe-drawdown-r", type=float, default=10.0)
-    parser.add_argument("--max-probe-trailing-losses", type=int, default=8)
+    parser.add_argument("--max-probe-trailing-losses", type=int, default=5)
     parser.add_argument("--allow-blocked", action="store_true")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.md")

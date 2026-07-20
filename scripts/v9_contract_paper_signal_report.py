@@ -234,6 +234,15 @@ def summarize_values(values: list[float]) -> dict[str, Any]:
     }
 
 
+def analog_supported_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    total = len(rows)
+    supported = sum(1 for row in rows if row.get("analog_supported"))
+    return {
+        "analog_supported": supported,
+        "analog_supported_rate": float(supported / total) if total else 0.0,
+    }
+
+
 def group_key(row: dict[str, Any]) -> tuple[str, str, str]:
     return (
         str(row.get("timeframe") or "").lower(),
@@ -310,9 +319,12 @@ def build_scoreboard(
         values = [value for row in ordered if (value := completed_r(row)) is not None]
         if not values:
             continue
-        recent_values = values[-recent_n:] if recent_n > 0 else values
+        recent_rows = ordered[-recent_n:] if recent_n > 0 else ordered
+        recent_values = [value for row in recent_rows if (value := completed_r(row)) is not None]
         all_stats = summarize_values(values)
         recent_stats = summarize_values(recent_values)
+        all_analog = analog_supported_stats(ordered)
+        recent_analog = analog_supported_stats(recent_rows)
         stats = {
             "timeframe": timeframe,
             "symbol": symbol,
@@ -326,6 +338,8 @@ def build_scoreboard(
             "profit_factor": all_stats["profit_factor"],
             "max_drawdown_r": all_stats["max_drawdown_r"],
             "trailing_losses": all_stats["trailing_losses"],
+            "analog_supported": all_analog["analog_supported"],
+            "analog_supported_rate": all_analog["analog_supported_rate"],
             "recent_completed": recent_stats["completed"],
             "recent_wins": recent_stats["wins"],
             "recent_losses": recent_stats["losses"],
@@ -335,6 +349,8 @@ def build_scoreboard(
             "recent_profit_factor": recent_stats["profit_factor"],
             "recent_max_drawdown_r": recent_stats["max_drawdown_r"],
             "recent_trailing_losses": recent_stats["trailing_losses"],
+            "recent_analog_supported": recent_analog["analog_supported"],
+            "recent_analog_supported_rate": recent_analog["analog_supported_rate"],
             "active": active_counts.get(key, 0),
             "latest_completed_at": record_time_key(ordered[-1]),
         }
@@ -432,9 +448,13 @@ def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
         "recent_profit_factor": row.get("recent_profit_factor"),
         "recent_max_drawdown_r": row.get("recent_max_drawdown_r"),
         "recent_trailing_losses": row.get("recent_trailing_losses"),
+        "recent_analog_supported": row.get("recent_analog_supported"),
+        "recent_analog_supported_rate": row.get("recent_analog_supported_rate"),
         "completed": row.get("completed"),
         "sum_r": row.get("sum_r"),
         "profit_factor": row.get("profit_factor"),
+        "analog_supported": row.get("analog_supported"),
+        "analog_supported_rate": row.get("analog_supported_rate"),
         "active": row.get("active"),
         "edge_score": row.get("edge_score"),
         "latest_completed_at": row.get("latest_completed_at"),
@@ -599,15 +619,16 @@ def format_markdown(payload: dict[str, Any]) -> str:
         "",
         "## Strategy Scoreboard",
         "",
-        "| status | timeframe | symbol | side | recent_n | recent_win | recent_sum_R | recent_pf | recent_DD_R | "
-        "recent_trailing_loss | all_sum_R | active | score | reasons |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
+        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | score | reasons |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["scoreboard"]:
         lines.append(
             f"| {row.get('status')} | {row.get('timeframe')} | {row.get('symbol')} | {row.get('side')} | "
-            f"{row.get('recent_completed')} | {fmt_pct(row.get('recent_win_rate'))} | "
+            f"{row.get('recent_completed')} | {row.get('recent_analog_supported')} | "
+            f"{fmt_pct(row.get('recent_analog_supported_rate'))} | {fmt_pct(row.get('recent_win_rate'))} | "
             f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
             f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
             f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('edge_score'), 3)} | "
@@ -700,6 +721,7 @@ def format_text(payload: dict[str, Any]) -> str:
             f"scoreboard {row.get('status')} {row.get('timeframe')} {row.get('symbol')} {row.get('side')} "
             f"recent_n={row.get('recent_completed')} recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
             f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
+            f"recent_analog={row.get('recent_analog_supported')}/{fmt_pct(row.get('recent_analog_supported_rate'))} "
             f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
             f"active={row.get('active')} score={fmt_num(row.get('edge_score'), 3)}"
         )

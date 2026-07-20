@@ -66,6 +66,7 @@ PAPER_PARTIAL_FILL_FRAC="${CONTRACT_MARKET_PAPER_PARTIAL_FILL_FRAC:-1.0}"
 PAPER_MIN_FILL_FRAC="${CONTRACT_MARKET_PAPER_MIN_FILL_FRAC:-1.0}"
 PAPER_MIGRATE_LEGACY_RECORDS="${CONTRACT_MARKET_PAPER_MIGRATE_LEGACY_RECORDS:-all}"
 JOURNAL_MAX_ACTIVE_PER_PAIR="${CONTRACT_MARKET_JOURNAL_MAX_ACTIVE_PER_PAIR:-1}"
+JOURNAL_RECORD_MODE="${CONTRACT_MARKET_JOURNAL_RECORD_MODE:-analog_supported}"
 REGIME_FILTER_MODE="${CONTRACT_MARKET_REGIME_FILTER_MODE:-block_conflict}"
 REGIME_SYMBOLS="${CONTRACT_MARKET_REGIME_SYMBOLS:-BTCUSDT,ETHUSDT}"
 REGIME_MIN_DIRECTION_VOTES="${CONTRACT_MARKET_REGIME_MIN_DIRECTION_VOTES:-2}"
@@ -85,6 +86,13 @@ case "$REGIME_FILTER_MODE" in
   off|annotate|block_conflict|trend_only) ;;
   *)
     echo "CONTRACT_MARKET_REGIME_FILTER_MODE must be off, annotate, block_conflict, or trend_only" >&2
+    exit 2
+    ;;
+esac
+case "$JOURNAL_RECORD_MODE" in
+  all_signals|analog_supported|off) ;;
+  *)
+    echo "CONTRACT_MARKET_JOURNAL_RECORD_MODE must be all_signals, analog_supported, or off" >&2
     exit 2
     ;;
 esac
@@ -175,6 +183,7 @@ printf -v PAPER_PARTIAL_FILL_Q "%q" "$PAPER_PARTIAL_FILL_FRAC"
 printf -v PAPER_MIN_FILL_Q "%q" "$PAPER_MIN_FILL_FRAC"
 printf -v PAPER_MIGRATE_LEGACY_Q "%q" "$PAPER_MIGRATE_LEGACY_RECORDS"
 printf -v JOURNAL_MAX_ACTIVE_Q "%q" "$JOURNAL_MAX_ACTIVE_PER_PAIR"
+printf -v JOURNAL_RECORD_MODE_Q "%q" "$JOURNAL_RECORD_MODE"
 printf -v REGIME_FILTER_MODE_Q "%q" "$REGIME_FILTER_MODE"
 printf -v REGIME_SYMBOLS_Q "%q" "$REGIME_SYMBOLS"
 printf -v REGIME_MIN_DIRECTION_Q "%q" "$REGIME_MIN_DIRECTION_VOTES"
@@ -186,7 +195,7 @@ if [[ "$REGIME_BLOCK_HIGH_VOL" == "1" || "$REGIME_BLOCK_HIGH_VOL" == "true" || "
 fi
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract latest-market signal watch: $SESSION"
 echo "symbols: $SYMBOLS"
@@ -196,6 +205,7 @@ echo "analog_horizon_bars: $ANALOG_HORIZON_BARS"
 echo "paper_execution: fee_bps=$PAPER_FEE_BPS slippage_bps=$PAPER_SLIPPAGE_BPS latency_bars=$PAPER_ENTRY_LATENCY_BARS funding_bps_per_8h=$PAPER_FUNDING_BPS_PER_8H migrate_legacy=$PAPER_MIGRATE_LEGACY_RECORDS"
 echo "regime_filter: mode=$REGIME_FILTER_MODE symbols=$REGIME_SYMBOLS min_direction_votes=$REGIME_MIN_DIRECTION_VOTES high_vol_percentile=$REGIME_HIGH_VOL_PERCENTILE block_high_vol=$REGIME_BLOCK_HIGH_VOL"
 echo "journal_max_active_per_pair: $JOURNAL_MAX_ACTIVE_PER_PAIR"
+echo "journal_record_mode: $JOURNAL_RECORD_MODE"
 echo "blocked_pairs_json: $BLOCKED_PAIRS_JSON"
 echo "actions_json: $ACTIONS_JSON"
 echo "focus_plan_json: $FOCUS_PLAN_JSON"

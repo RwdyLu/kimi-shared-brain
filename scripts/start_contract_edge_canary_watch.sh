@@ -45,6 +45,7 @@ PAPER_ENTRY_LATENCY_BARS="${CONTRACT_EDGE_CANARY_PAPER_ENTRY_LATENCY_BARS:-1}"
 PAPER_MAX_ENTRY_DRIFT_BPS="${CONTRACT_EDGE_CANARY_PAPER_MAX_ENTRY_DRIFT_BPS:-80.0}"
 PAPER_FUNDING_BPS_PER_8H="${CONTRACT_EDGE_CANARY_PAPER_FUNDING_BPS_PER_8H:-1.0}"
 JOURNAL_MAX_ACTIVE_PER_PAIR="${CONTRACT_EDGE_CANARY_JOURNAL_MAX_ACTIVE_PER_PAIR:-1}"
+JOURNAL_RECORD_MODE="${CONTRACT_EDGE_CANARY_JOURNAL_RECORD_MODE:-analog_supported}"
 
 if [[ "$SESSION" == -* ]]; then
   echo "session name must not start with '-'" >&2
@@ -54,6 +55,13 @@ if ! [[ "$SLEEP_SEC" =~ ^[0-9]+$ && "$LOOKBACK_BARS_IF_EMPTY" =~ ^[0-9]+$ && "$A
   echo "sleep, lookback, horizon, and latency values must be integers" >&2
   exit 2
 fi
+case "$JOURNAL_RECORD_MODE" in
+  all_signals|analog_supported|off) ;;
+  *)
+    echo "CONTRACT_EDGE_CANARY_JOURNAL_RECORD_MODE must be all_signals, analog_supported, or off" >&2
+    exit 2
+    ;;
+esac
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux is required" >&2
   exit 2
@@ -102,11 +110,12 @@ printf -v PAPER_ENTRY_LATENCY_Q "%q" "$PAPER_ENTRY_LATENCY_BARS"
 printf -v PAPER_MAX_ENTRY_DRIFT_Q "%q" "$PAPER_MAX_ENTRY_DRIFT_BPS"
 printf -v PAPER_FUNDING_BPS_Q "%q" "$PAPER_FUNDING_BPS_PER_8H"
 printf -v JOURNAL_MAX_ACTIVE_Q "%q" "$JOURNAL_MAX_ACTIVE_PER_PAIR"
+printf -v JOURNAL_RECORD_MODE_Q "%q" "$JOURNAL_RECORD_MODE"
 REPORT_SOURCES="${TIMEFRAME}:${JOURNAL_JSONL}"
 printf -v REPORT_SOURCES_Q "%q" "$REPORT_SOURCES"
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n 3 --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-allowed-pairs $ALLOWED_PAIRS_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-migrate-legacy-records off --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --sources $REPORT_SOURCES_Q --out-json $REPORT_JSON_Q --out-md $REPORT_MD_Q --format text; python3 scripts/v9_contract_canary_guard.py --report-json $REPORT_JSON_Q --out-json $GUARD_JSON_Q --out-md $GUARD_MD_Q --max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n 3 --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-allowed-pairs $ALLOWED_PAIRS_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-migrate-legacy-records off --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --sources $REPORT_SOURCES_Q --out-json $REPORT_JSON_Q --out-md $REPORT_MD_Q --format text; python3 scripts/v9_contract_canary_guard.py --report-json $REPORT_JSON_Q --out-json $GUARD_JSON_Q --out-md $GUARD_MD_Q --max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract edge canary watch: $SESSION"
 echo "symbols: $SYMBOLS"
@@ -114,6 +123,7 @@ echo "allowed_pairs: $ALLOWED_PAIRS"
 echo "timeframe: $TIMEFRAME"
 echo "sleep_sec: $SLEEP_SEC"
 echo "journal_max_active_per_pair: $JOURNAL_MAX_ACTIVE_PER_PAIR"
+echo "journal_record_mode: $JOURNAL_RECORD_MODE"
 echo "journal: $JOURNAL_JSONL"
 echo "report: $REPORT_MD"
 echo "guard: $GUARD_MD"
