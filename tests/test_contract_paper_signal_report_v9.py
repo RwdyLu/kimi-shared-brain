@@ -287,6 +287,19 @@ def test_paper_report_builds_decision_policy_scoreboard(tmp_path: Path) -> None:
 def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path) -> None:
     main_journal = tmp_path / "main.jsonl"
     shadow_journal = tmp_path / "shadow.jsonl"
+    pd.DataFrame(
+        {
+            "open_time": [
+                int(pd.Timestamp("2026-01-03T00:00:00Z").timestamp() * 1000),
+                int(pd.Timestamp("2026-01-03T01:00:00Z").timestamp() * 1000),
+            ],
+            "open": [100.0, 100.0],
+            "high": [101.0, 102.0],
+            "low": [99.0, 100.0],
+            "close": [100.0, 101.0],
+            "volume": [10.0, 11.0],
+        }
+    ).to_parquet(tmp_path / "OPENUSDT_1h_2026-01.parquet", index=False)
     main_journal.write_text(
         json.dumps(
             {
@@ -319,6 +332,23 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
                 "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
             }
         )
+    shadow_rows.append(
+        {
+            "created_at": "2026-01-03T00:00:00+00:00",
+            "updated_at": "2026-01-03T00:00:00+00:00",
+            "status": "open",
+            "symbol": "OPENUSDT",
+            "side": "long",
+            "decision_policy_version": "policy_v2",
+            "shadow_journal": True,
+            "shadow_reason": "portfolio_risk_block",
+            "analog_supported": False,
+            "analog_expectancy_r": 0.25,
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+        }
+    )
     shadow_journal.write_text("\n".join(json.dumps(row) for row in shadow_rows) + "\n")
     args = Namespace(
         cache_dir=str(tmp_path),
@@ -343,16 +373,27 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
 
     assert payload["summary"]["active"] == 1
     assert payload["summary"]["records"] == 1
-    assert payload["summary"]["shadow_records"] == 5
+    assert payload["summary"]["shadow_records"] == 6
     assert payload["summary"]["shadow_completed"] == 5
+    assert payload["summary"]["shadow_active"] == 1
+    assert payload["summary"]["shadow_active_r_known"] == 1
+    assert payload["summary"]["shadow_active_profit"] == 1
+    assert abs(payload["summary"]["shadow_active_sum_r"] - 0.5) < 1e-9
     assert payload["summary"]["current_policy_records"] == 0
-    assert payload["summary"]["current_policy_shadow_records"] == 5
+    assert payload["summary"]["current_policy_shadow_records"] == 6
+    assert payload["summary"]["current_policy_shadow_active"] == 1
+    assert payload["summary"]["current_policy_shadow_active_r_known"] == 1
+    assert abs(payload["summary"]["current_policy_shadow_active_sum_r"] - 0.5) < 1e-9
     assert payload["summary"]["current_policy_shadow_scoreboard_groups"] == 1
     assert payload["summary"]["current_policy_shadow_promote_candidates"] == 1
     assert payload["current_policy_shadow_scoreboard"][0]["symbol"] == "SHADOWUSDT"
     assert payload["actions"]["current_policy_summary"]["promote_candidates"] == 0
     assert payload["actions"]["current_policy_shadow_summary"]["promote_candidates"] == 1
+    assert payload["actions"]["current_policy_shadow_summary"]["active_watchlist"] == 1
     assert payload["actions"]["current_policy_shadow_promote_candidates"][0]["symbol"] == "SHADOWUSDT"
+    assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
+    assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["current_r_multiple"] == 0.5
+    assert payload["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_promote_candidates"] == []
 
 
