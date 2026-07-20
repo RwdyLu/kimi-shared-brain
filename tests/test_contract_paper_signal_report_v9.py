@@ -111,6 +111,39 @@ def test_paper_report_surfaces_portfolio_overexposure_in_actions(tmp_path: Path)
     assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
 
 
+def test_portfolio_risk_blocks_active_loss_concentration_before_hard_sum_limit() -> None:
+    args = Namespace(
+        portfolio_recent_trades=100,
+        portfolio_max_active=20,
+        portfolio_active_risk_min_known=3,
+        portfolio_active_risk_max_sum_r=-2.0,
+        portfolio_active_risk_max_loss_rate=0.67,
+        portfolio_active_risk_max_avg_r=-0.25,
+        portfolio_active_loss_concentration_min_known=8,
+        portfolio_active_loss_concentration_loss_rate=0.80,
+        portfolio_active_loss_concentration_max_avg_r=-0.10,
+        portfolio_active_loss_concentration_max_sum_r=-1.50,
+        portfolio_recent_fail_sum_r=-20.0,
+        portfolio_recent_max_drawdown_r=30.0,
+        portfolio_block_new_focus_on_risk=True,
+    )
+    active_rows = [{"current_r_multiple": value} for value in [-0.2] * 9 + [0.1]]
+
+    risk = report_mod.build_portfolio_risk([], active_rows, args, scope="current_policy")
+
+    assert risk["status"] == "active_risk"
+    assert risk["block_new_focus"] is True
+    assert round(risk["active_sum_r"], 1) == -1.7
+    assert risk["active_loss_rate"] == 0.9
+    assert "portfolio_active_R<=-2.00" not in risk["reason_codes"]
+    assert "portfolio_active_loss_rate>=0.67_avg_R<=-0.25" not in risk["reason_codes"]
+    assert (
+        "portfolio_active_loss_concentration>=0.80_avg_R<=-0.10_sum_R<=-1.50"
+        in risk["reason_codes"]
+    )
+    assert risk["thresholds"]["portfolio_active_loss_concentration_min_known"] == 8
+
+
 def test_paper_report_separates_current_policy_portfolio_risk(tmp_path: Path) -> None:
     journal = tmp_path / "journal.jsonl"
     rows = [

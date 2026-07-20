@@ -443,6 +443,10 @@ def build_portfolio_risk(
     active_risk_max_sum_r = float(arg_value(args, "portfolio_active_risk_max_sum_r", -2.0))
     active_risk_max_loss_rate = float(arg_value(args, "portfolio_active_risk_max_loss_rate", 0.67))
     active_risk_max_avg_r = float(arg_value(args, "portfolio_active_risk_max_avg_r", -0.25))
+    concentration_min_known = int(arg_value(args, "portfolio_active_loss_concentration_min_known", 8))
+    concentration_loss_rate = float(arg_value(args, "portfolio_active_loss_concentration_loss_rate", 0.80))
+    concentration_max_avg_r = float(arg_value(args, "portfolio_active_loss_concentration_max_avg_r", -0.10))
+    concentration_max_sum_r = float(arg_value(args, "portfolio_active_loss_concentration_max_sum_r", -1.50))
     recent_fail_sum_r = float(arg_value(args, "portfolio_recent_fail_sum_r", -20.0))
     recent_max_drawdown_r = float(arg_value(args, "portfolio_recent_max_drawdown_r", 30.0))
 
@@ -468,6 +472,16 @@ def build_portfolio_risk(
             reason_codes.append(
                 f"portfolio_active_loss_rate>={active_risk_max_loss_rate:.2f}_avg_R<={active_risk_max_avg_r:.2f}"
             )
+    if (
+        active_r_known >= concentration_min_known
+        and active_loss_rate >= concentration_loss_rate
+        and safe_float(active_stats.get("active_avg_r")) <= concentration_max_avg_r
+        and safe_float(active_stats.get("active_sum_r")) <= concentration_max_sum_r
+    ):
+        reason_codes.append(
+            f"portfolio_active_loss_concentration>={concentration_loss_rate:.2f}_"
+            f"avg_R<={concentration_max_avg_r:.2f}_sum_R<={concentration_max_sum_r:.2f}"
+        )
     if recent_stats["completed"] > 0 and safe_float(recent_stats.get("sum_r")) <= recent_fail_sum_r:
         reason_codes.append(f"portfolio_recent_sum_R<={recent_fail_sum_r:.2f}")
     if recent_stats["completed"] > 0 and safe_float(recent_stats.get("max_drawdown_r")) >= recent_max_drawdown_r:
@@ -500,6 +514,10 @@ def build_portfolio_risk(
             "portfolio_active_risk_max_sum_r": active_risk_max_sum_r,
             "portfolio_active_risk_max_loss_rate": active_risk_max_loss_rate,
             "portfolio_active_risk_max_avg_r": active_risk_max_avg_r,
+            "portfolio_active_loss_concentration_min_known": concentration_min_known,
+            "portfolio_active_loss_concentration_loss_rate": concentration_loss_rate,
+            "portfolio_active_loss_concentration_max_avg_r": concentration_max_avg_r,
+            "portfolio_active_loss_concentration_max_sum_r": concentration_max_sum_r,
             "portfolio_recent_fail_sum_r": recent_fail_sum_r,
             "portfolio_recent_max_drawdown_r": recent_max_drawdown_r,
         },
@@ -4339,6 +4357,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--portfolio-active-risk-max-sum-r", type=float, default=-2.0)
     parser.add_argument("--portfolio-active-risk-max-loss-rate", type=float, default=0.67)
     parser.add_argument("--portfolio-active-risk-max-avg-r", type=float, default=-0.25)
+    parser.add_argument("--portfolio-active-loss-concentration-min-known", type=int, default=8)
+    parser.add_argument("--portfolio-active-loss-concentration-loss-rate", type=float, default=0.80)
+    parser.add_argument("--portfolio-active-loss-concentration-max-avg-r", type=float, default=-0.10)
+    parser.add_argument("--portfolio-active-loss-concentration-max-sum-r", type=float, default=-1.50)
     parser.add_argument("--portfolio-recent-fail-sum-r", type=float, default=-20.0)
     parser.add_argument("--portfolio-recent-max-drawdown-r", type=float, default=30.0)
     parser.add_argument("--portfolio-block-new-focus-on-risk", action=argparse.BooleanOptionalAction, default=True)
