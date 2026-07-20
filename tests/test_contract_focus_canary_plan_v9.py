@@ -42,6 +42,10 @@ def args_for(actions_json: Path) -> Namespace:
         min_probe_profit_factor=1.2,
         max_probe_drawdown_r=10.0,
         max_probe_trailing_losses=5,
+        active_risk_min_known=3,
+        active_risk_max_sum_r=-2.0,
+        active_risk_max_loss_rate=0.67,
+        active_risk_max_avg_r=-0.25,
         allow_blocked=False,
         out_json=str(actions_json.with_suffix(".plan.json")),
         out_md=str(actions_json.with_suffix(".plan.md")),
@@ -414,3 +418,77 @@ def test_focus_plan_marks_losing_active_near_miss_as_risk_wait(tmp_path: Path) -
     assert near["symbol"] == "RISKUSDT"
     assert near["next_action"] == "await_active_settlement_risk"
     assert near["missing_metrics"]["active_loss_rate"] == 0.75
+
+
+def test_focus_plan_rejects_promote_candidate_with_bad_active_risk(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [
+                    candidate(
+                        "BADACTIVEUSDT",
+                        "long",
+                        recent_completed=20,
+                        recent_sum_r=6.0,
+                        recent_profit_factor=1.4,
+                        recent_max_drawdown_r=3.0,
+                        recent_trailing_losses=1,
+                        active=4,
+                        active_r_known=4,
+                        active_profit=1,
+                        active_loss=3,
+                        active_sum_r=-2.4,
+                        active_avg_r=-0.6,
+                    )
+                ],
+                "positive_watchlist": [],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["rejected_candidates"] == 1
+    row = payload["rejected_candidates"][0]
+    assert row["source"] == "promote_candidate"
+    assert "active_unrealized_sum_r<=-2.00" in row["rejection_reasons"]
+    assert "active_unrealized_loss_rate>=0.67_avg_r<=-0.25" in row["rejection_reasons"]
+
+
+def test_focus_plan_allows_candidate_with_healthy_active_risk(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [
+                    candidate(
+                        "GOODACTIVEUSDT",
+                        "long",
+                        recent_completed=20,
+                        recent_sum_r=6.0,
+                        recent_profit_factor=1.4,
+                        recent_max_drawdown_r=3.0,
+                        recent_trailing_losses=1,
+                        active=4,
+                        active_r_known=4,
+                        active_profit=4,
+                        active_loss=0,
+                        active_sum_r=2.4,
+                        active_avg_r=0.6,
+                    )
+                ],
+                "positive_watchlist": [],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    row = payload["candidates"][0]
+    assert row["symbol"] == "GOODACTIVEUSDT"
+    assert row["metrics"]["active_sum_r"] == 2.4

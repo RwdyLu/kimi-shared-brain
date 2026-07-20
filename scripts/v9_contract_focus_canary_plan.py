@@ -77,6 +77,32 @@ def probe_rejection_reasons(row: dict[str, Any], args: argparse.Namespace) -> li
     return reasons
 
 
+def active_loss_rate(row: dict[str, Any]) -> float:
+    active_r_known = safe_int(row.get("active_r_known"))
+    if active_r_known <= 0:
+        return 0.0
+    return float(safe_int(row.get("active_loss")) / active_r_known)
+
+
+def active_risk_rejection_reasons(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    active_r_known = safe_int(row.get("active_r_known"))
+    if active_r_known < int(args.active_risk_min_known):
+        return []
+
+    reasons: list[str] = []
+    active_sum_r = safe_float(row.get("active_sum_r"))
+    loss_rate = active_loss_rate(row)
+    active_avg_r = safe_float(row.get("active_avg_r"))
+    max_sum_r = float(args.active_risk_max_sum_r)
+    max_loss_rate = float(args.active_risk_max_loss_rate)
+    max_avg_r = float(args.active_risk_max_avg_r)
+    if active_sum_r <= max_sum_r:
+        reasons.append(f"active_unrealized_sum_r<={max_sum_r:.2f}")
+    if loss_rate >= max_loss_rate and active_avg_r <= max_avg_r:
+        reasons.append(f"active_unrealized_loss_rate>={max_loss_rate:.2f}_avg_r<={max_avg_r:.2f}")
+    return reasons
+
+
 def candidate_sort_key(row: dict[str, Any]) -> tuple[float, float, int]:
     return (
         safe_float(row.get("edge_score")),
@@ -447,6 +473,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             reasons: list[str] = []
             if key in blocked and not args.allow_blocked:
                 reasons.append("blocked_pair")
+            reasons.extend(active_risk_rejection_reasons(row, args))
             if source == "positive_watchlist":
                 reasons.extend(probe_rejection_reasons(row, args))
             if reasons:
@@ -513,6 +540,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "min_probe_profit_factor": float(args.min_probe_profit_factor),
             "max_probe_drawdown_r": float(args.max_probe_drawdown_r),
             "max_probe_trailing_losses": int(args.max_probe_trailing_losses),
+            "active_risk_min_known": int(args.active_risk_min_known),
+            "active_risk_max_sum_r": float(args.active_risk_max_sum_r),
+            "active_risk_max_loss_rate": float(args.active_risk_max_loss_rate),
+            "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
             "allow_blocked": bool(args.allow_blocked),
         },
         "summary": {
@@ -737,6 +768,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-probe-profit-factor", type=float, default=1.2)
     parser.add_argument("--max-probe-drawdown-r", type=float, default=10.0)
     parser.add_argument("--max-probe-trailing-losses", type=int, default=5)
+    parser.add_argument("--active-risk-min-known", type=int, default=3)
+    parser.add_argument("--active-risk-max-sum-r", type=float, default=-2.0)
+    parser.add_argument("--active-risk-max-loss-rate", type=float, default=0.67)
+    parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
     parser.add_argument("--allow-blocked", action="store_true")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.md")
