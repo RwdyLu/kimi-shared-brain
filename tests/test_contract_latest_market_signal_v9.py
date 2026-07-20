@@ -141,6 +141,8 @@ def test_latest_market_signal_builds_long_paper_plan(tmp_path: Path) -> None:
     plan = best["paper_plan"]
     assert payload["summary"]["paper_plan_found"] is True
     assert payload["summary"]["analog_supported_plan_found"] is True
+    assert payload["summary"]["paper_actionable_new"] is True
+    assert payload["summary"]["paper_actionability_status"] == "recorded_new_paper"
     assert payload["journal"]["new_records"] == 1
     assert payload["summary"]["paper_trading_authorized"] is False
     assert payload["summary"]["live_trading_authorized"] is False
@@ -1166,6 +1168,38 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 2
     assert summary["journal_portfolio_side_blocked_candidate_rows"] == 0
     assert rows == []
+
+
+def test_latest_market_signal_marks_portfolio_blocked_plan_as_not_actionable(tmp_path: Path) -> None:
+    write_symbol_cache(tmp_path, "AAAUSDT", [100.0 * (1.0015**idx) for idx in range(180)])
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "active_risk",
+                    "block_new_focus": True,
+                    "reason_codes": ["portfolio_active_R<=-2.00"],
+                    "blocked_sides": [],
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+
+    payload = signal_mod.run_screen(args)
+    text = signal_mod.format_text(payload)
+
+    assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["paper_actionable_new"] is False
+    assert payload["summary"]["paper_actionability_status"] == "blocked_by_portfolio_risk"
+    assert payload["summary"]["paper_actionability_reason_codes"] == ["portfolio_active_R<=-2.00"]
+    assert payload["journal"]["new_records"] == 0
+    assert payload["journal"]["journal_portfolio_risk_blocked_candidate_rows"] == 1
+    assert "paper_actionable_new=False" in text
+    assert "paper_actionability_status=blocked_by_portfolio_risk" in text
+    assert (tmp_path / "journal.jsonl").read_text().splitlines() == []
 
 
 def test_latest_market_signal_prefers_current_policy_portfolio_risk_scope(tmp_path: Path) -> None:
@@ -2370,7 +2404,13 @@ def test_latest_market_signal_writes_found_and_no_markers(tmp_path: Path) -> Non
     no_marker = tmp_path / "NO.txt"
     payload = {
         "updated_at": "2026-07-17T00:00:00+00:00",
-        "summary": {"rows": 1, "paper_plan_found": True},
+        "summary": {
+            "rows": 1,
+            "paper_plan_found": True,
+            "paper_actionable_new": True,
+            "paper_actionability_status": "recorded_new_paper",
+            "paper_actionability_reason_codes": [],
+        },
         "top": [
             {
                 "symbol": "AAAUSDT",
@@ -2389,12 +2429,20 @@ def test_latest_market_signal_writes_found_and_no_markers(tmp_path: Path) -> Non
     signal_mod.write_marker(payload, found_marker, no_marker)
 
     assert found_marker.exists()
-    assert "FOUND_CONTRACT_MARKET_PAPER_PLAN" in found_marker.read_text()
+    found_text = found_marker.read_text()
+    assert "FOUND_CONTRACT_MARKET_PAPER_PLAN" in found_text
+    assert "paper_actionable_new=True" in found_text
+    assert "paper_actionability_status=recorded_new_paper" in found_text
     assert not no_marker.exists()
 
     payload["summary"]["paper_plan_found"] = False
+    payload["summary"]["paper_actionable_new"] = False
+    payload["summary"]["paper_actionability_status"] = "no_paper_plan"
     signal_mod.write_marker(payload, found_marker, no_marker)
 
     assert no_marker.exists()
-    assert "NO_CONTRACT_MARKET_PAPER_PLAN" in no_marker.read_text()
+    no_text = no_marker.read_text()
+    assert "NO_CONTRACT_MARKET_PAPER_PLAN" in no_text
+    assert "paper_actionable_new=False" in no_text
+    assert "paper_actionability_status=no_paper_plan" in no_text
     assert not found_marker.exists()

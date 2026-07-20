@@ -3185,6 +3185,67 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     }
 
 
+def annotate_paper_actionability(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = payload.setdefault("summary", {})
+    journal = payload.get("journal") or {}
+    new_records = int(journal.get("new_records") or 0)
+    paper_plan_found = bool(summary.get("paper_plan_found"))
+    reason_codes: list[str] = []
+
+    if new_records > 0:
+        status = "recorded_new_paper"
+        actionable_new = True
+    elif not paper_plan_found:
+        status = "no_paper_plan"
+        actionable_new = False
+    elif journal.get("journal_portfolio_block_new_records"):
+        status = "blocked_by_portfolio_risk"
+        actionable_new = False
+        reason_codes.extend(str(reason) for reason in (journal.get("journal_portfolio_reason_codes") or []))
+    elif int(journal.get("journal_portfolio_side_blocked_candidate_rows") or 0) > 0:
+        status = "blocked_by_portfolio_side_risk"
+        actionable_new = False
+        reason_codes.extend(str(reason) for reason in (journal.get("journal_portfolio_side_reason_codes") or []))
+    elif int(journal.get("journal_global_active_cap_blocked_candidate_rows") or 0) > 0:
+        status = "blocked_by_global_active_cap"
+        actionable_new = False
+        max_active = int(journal.get("journal_global_portfolio_max_active") or 0)
+        if max_active > 0:
+            reason_codes.append(f"global_active>={max_active}")
+    elif int(journal.get("journal_active_total_cap_blocked_candidate_rows") or 0) > 0:
+        status = "blocked_by_journal_active_total_cap"
+        actionable_new = False
+        max_active = int(journal.get("journal_max_active_total") or 0)
+        if max_active > 0:
+            reason_codes.append(f"journal_active_total>={max_active}")
+    elif int(journal.get("journal_blocked_candidate_rows") or 0) > 0:
+        status = "blocked_pair"
+        actionable_new = False
+    elif int(journal.get("journal_blocked_trend_alignment_cohort_candidate_rows") or 0) > 0:
+        status = "blocked_by_trend_alignment_cohort"
+        actionable_new = False
+    elif int(journal.get("journal_blocked_confirmation_cohort_candidate_rows") or 0) > 0:
+        status = "blocked_by_confirmation_cohort"
+        actionable_new = False
+    elif int(journal.get("journal_blocked_regime_cohort_candidate_rows") or 0) > 0:
+        status = "blocked_by_regime_cohort"
+        actionable_new = False
+    elif int(journal.get("analog_robustness_fail_candidate_rows") or 0) > 0:
+        status = "shadow_only_analog_robustness_fail"
+        actionable_new = False
+    elif int(journal.get("market_quality_blocked_candidate_rows") or 0) > 0:
+        status = "shadow_only_market_quality_block"
+        actionable_new = False
+    else:
+        status = "not_new_already_recorded_or_filtered"
+        actionable_new = False
+
+    summary["paper_actionable_new"] = actionable_new
+    summary["paper_actionability_status"] = status
+    summary["paper_actionability_reason_codes"] = sorted(set(reason_codes))
+    return payload
+
+
 def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     screen_updated_at = now_utc()
     if not str(getattr(args, "data_freshness_now", "") or ""):
@@ -3373,6 +3434,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "live_trading_authorized": False,
     }
     payload["journal"] = update_journal(payload, args)
+    annotate_paper_actionability(payload)
     return payload
 
 
@@ -3384,6 +3446,9 @@ def write_json(payload: dict[str, Any], path: Path) -> None:
 def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Path) -> None:
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     no_marker_path.parent.mkdir(parents=True, exist_ok=True)
+    summary = payload.get("summary") or {}
+    actionability = str(summary.get("paper_actionability_status") or "unknown")
+    actionability_reasons = ",".join(str(reason) for reason in (summary.get("paper_actionability_reason_codes") or []))
     if payload["summary"]["paper_plan_found"]:
         best = next((row for row in payload["top"] if row.get("paper_plan")), payload["top"][0])
         plan = best["paper_plan"]
@@ -3397,6 +3462,9 @@ def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Pat
             f"analog_hit_rate={safe_float(analog.get('hit_rate')):.4f} "
             f"analog_expectancy_r={safe_float(analog.get('expectancy_r')):.4f} "
             f"risk_per_trade={plan['risk_per_trade']:.6f} leverage_cap={plan['leverage_cap']:.3f} "
+            f"paper_actionable_new={bool(summary.get('paper_actionable_new'))} "
+            f"paper_actionability_status={actionability} "
+            f"paper_actionability_reasons={actionability_reasons or 'none'} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )
         if no_marker_path.exists():
@@ -3405,6 +3473,9 @@ def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Pat
         no_marker_path.write_text(
             "NO_CONTRACT_MARKET_PAPER_PLAN "
             f"{payload['updated_at']} rows={payload['summary']['rows']} "
+            f"paper_actionable_new={bool(summary.get('paper_actionable_new'))} "
+            f"paper_actionability_status={actionability} "
+            f"paper_actionability_reasons={actionability_reasons or 'none'} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )
         if marker_path.exists():
@@ -3414,6 +3485,9 @@ def write_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Pat
 def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_path: Path) -> None:
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     no_marker_path.parent.mkdir(parents=True, exist_ok=True)
+    summary = payload.get("summary") or {}
+    actionability = str(summary.get("paper_actionability_status") or "unknown")
+    actionability_reasons = ",".join(str(reason) for reason in (summary.get("paper_actionability_reason_codes") or []))
     supported = [
         row
         for row in payload["rows"]
@@ -3430,6 +3504,9 @@ def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_pa
             f"entry={plan['entry_price']:.8f} stop={plan['stop_loss']:.8f} take_profit={plan['take_profit']:.8f} "
             f"analog_used={analog.get('used_count')} hit_rate={safe_float(analog.get('hit_rate')):.4f} "
             f"expectancy_r={safe_float(analog.get('expectancy_r')):.4f} "
+            f"paper_actionable_new={bool(summary.get('paper_actionable_new'))} "
+            f"paper_actionability_status={actionability} "
+            f"paper_actionability_reasons={actionability_reasons or 'none'} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )
         if no_marker_path.exists():
@@ -3438,6 +3515,9 @@ def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_pa
         no_marker_path.write_text(
             "NO_CONTRACT_MARKET_ANALOG_PAPER_PLAN "
             f"{payload['updated_at']} signals={payload['summary']['signal_count']} "
+            f"paper_actionable_new={bool(summary.get('paper_actionable_new'))} "
+            f"paper_actionability_status={actionability} "
+            f"paper_actionability_reasons={actionability_reasons or 'none'} "
             "paper_trading_authorized=False live_trading_authorized=False\n"
         )
         if marker_path.exists():
@@ -3461,6 +3541,10 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- signal_count: `{payload['summary']['signal_count']}`",
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
+        f"- paper_actionable_new: `{payload['summary'].get('paper_actionable_new')}`",
+        f"- paper_actionability_status: `{payload['summary'].get('paper_actionability_status')}`",
+        f"- paper_actionability_reasons: "
+        f"`{','.join(payload['summary'].get('paper_actionability_reason_codes') or [])}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
         f"- journal_regime_cohort_blocked: "
         f"`{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}`",
@@ -3524,6 +3608,10 @@ def format_text(payload: dict[str, Any]) -> str:
         f"market_quality_filtered_count={payload['summary'].get('market_quality_filtered_count')}",
         f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
+        f"paper_actionable_new={payload['summary'].get('paper_actionable_new')}",
+        f"paper_actionability_status={payload['summary'].get('paper_actionability_status')}",
+        "paper_actionability_reason_codes="
+        f"{','.join(payload['summary'].get('paper_actionability_reason_codes') or [])}",
         f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
         f"journal_updated_records={(payload.get('journal') or {}).get('updated_records')}",
         f"journal_migrated_legacy_records={(payload.get('journal') or {}).get('migrated_legacy_records')}",
