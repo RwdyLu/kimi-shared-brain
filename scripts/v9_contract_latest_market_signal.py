@@ -221,6 +221,73 @@ def read_blocked_regime_cohort_refs(
     return refs
 
 
+TREND_ALIGNMENT_BLOCK_STATUSES = {
+    "trend_following_weak",
+    "active_trend_following_weak",
+    "countertrend_block_supported",
+    "active_countertrend_block_supported",
+    "range_risk",
+    "active_range_risk",
+}
+
+
+def blocked_trend_alignment_cohort_ref_from_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str, str, str] | None:
+    timeframe = str(row.get("timeframe") or default_timeframe).lower()
+    side = str(row.get("side") or "").lower()
+    trend_state = str(row.get("market_trend_state") or "unknown").lower()
+    alignment = str(row.get("trend_alignment_bucket") or "trend_unknown").lower()
+    confirmation = str(row.get("confirmation_bucket") or "untracked")
+    if not timeframe or side not in {"long", "short"} or not trend_state or not alignment or not confirmation:
+        return None
+    return timeframe, side, trend_state, alignment, confirmation
+
+
+def read_blocked_trend_alignment_cohort_refs(
+    path: str,
+    *,
+    default_timeframe: str,
+) -> set[tuple[str, str, str, str, str]]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return set()
+
+    rows: list[Any] = []
+    if isinstance(payload, list):
+        rows.extend(payload)
+    elif isinstance(payload, dict):
+        rows.extend(payload.get("blocked_trend_alignment_cohorts") or [])
+        actions = payload.get("actions") or {}
+        if isinstance(actions, dict):
+            for key in (
+                "current_policy_trend_alignment_risk",
+                "current_policy_trend_alignment_supported",
+                "current_policy_shadow_trend_alignment_risk",
+                "current_policy_fast_shadow_trend_alignment_risk",
+            ):
+                for row in actions.get(key) or []:
+                    if isinstance(row, dict) and str(row.get("status") or "") in TREND_ALIGNMENT_BLOCK_STATUSES:
+                        rows.append(row)
+
+    refs: set[tuple[str, str, str, str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ref = blocked_trend_alignment_cohort_ref_from_row(row, default_timeframe=default_timeframe)
+        if ref is not None:
+            refs.add(ref)
+    return refs
+
+
 def read_shadow_retest_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
     if not path:
         return set()
@@ -283,6 +350,13 @@ def journal_blocked_confirmation_cohort_refs(
 
 def journal_blocked_regime_cohort_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
     return read_blocked_regime_cohort_refs(
+        getattr(args, "journal_blocked_pairs_json", ""),
+        default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+    )
+
+
+def journal_blocked_trend_alignment_cohort_refs(args: argparse.Namespace) -> set[tuple[str, str, str, str, str]]:
+    return read_blocked_trend_alignment_cohort_refs(
         getattr(args, "journal_blocked_pairs_json", ""),
         default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
     )
@@ -1616,6 +1690,40 @@ def confirmation_cohort_ref_for_signal_row(
     )
 
 
+def trend_alignment_bucket_for_values(side: str, trend_state: str) -> str:
+    side = str(side or "").lower()
+    trend_state = str(trend_state or "unknown").lower()
+    if side not in {"long", "short"}:
+        return "no_direction"
+    if trend_state == "uptrend":
+        return "trend_aligned" if side == "long" else "countertrend"
+    if trend_state == "downtrend":
+        return "trend_aligned" if side == "short" else "countertrend"
+    if trend_state == "range":
+        return "range"
+    return "trend_unknown"
+
+
+def trend_alignment_cohort_ref_for_signal_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str, str, str] | None:
+    side = str(row.get("signal") or row.get("side") or "").lower()
+    if side not in {"long", "short"}:
+        return None
+    market_regime = row.get("market_regime") or {}
+    trend_state = str(row.get("market_trend_state") or market_regime.get("trend_state") or "unknown").lower()
+    regime_filter = row.get("regime_filter") or {}
+    return (
+        str(row.get("timeframe") or default_timeframe).lower(),
+        side,
+        trend_state,
+        trend_alignment_bucket_for_values(side, trend_state),
+        confirmation_bucket_from_regime_filter(regime_filter),
+    )
+
+
 def regime_cohort_ref_for_signal_row(
     row: dict[str, Any],
     *,
@@ -2123,6 +2231,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     blocked_pairs = journal_blocked_pair_refs(args)
     blocked_regime_cohorts = journal_blocked_regime_cohort_refs(args)
     blocked_confirmation_cohorts = journal_blocked_confirmation_cohort_refs(args)
+    blocked_trend_alignment_cohorts = journal_blocked_trend_alignment_cohort_refs(args)
     shadow_retest_pairs = journal_shadow_retest_pair_refs(args)
     shadow_retest_max_new = int(getattr(args, "journal_shadow_retest_max_new", 0) or 0)
     risk_controls = journal_risk_controls(args)
@@ -2139,6 +2248,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     blocked_candidates = 0
     blocked_regime_cohort_candidates = 0
     blocked_confirmation_cohort_candidates = 0
+    blocked_trend_alignment_cohort_candidates = 0
     portfolio_risk_blocked_candidates = 0
     portfolio_drawdown_recovery_candidates = 0
     portfolio_side_blocked_candidates = 0
@@ -2433,6 +2543,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 ],
             )
             continue
+        trend_alignment_ref = trend_alignment_cohort_ref_for_signal_row(
+            row,
+            default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+        )
+        if trend_alignment_ref in blocked_trend_alignment_cohorts:
+            blocked_trend_alignment_cohort_candidates += 1
+            reason_codes = [
+                "trend_alignment_risk_block",
+                f"market_trend_state={trend_alignment_ref[2]}",
+                f"trend_alignment_bucket={trend_alignment_ref[3]}",
+                f"confirmation_bucket={trend_alignment_ref[4]}",
+            ]
+            add_shadow_record(row, "trend_alignment_cohort_block", reason_codes)
+            add_fast_shadow_record(row, "trend_alignment_cohort_block", reason_codes)
+            continue
         if pair_ref in shadow_retest_pairs:
             shadow_retest_candidate_rows += 1
             if shadow_retest_max_new <= 0 or shadow_retest_new_records < shadow_retest_max_new:
@@ -2627,6 +2752,13 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             for timeframe, side, bucket, confirm_timeframes, confirm_regime_ids in blocked_confirmation_cohorts
         ),
         "journal_blocked_confirmation_cohort_candidate_rows": blocked_confirmation_cohort_candidates,
+        "journal_blocked_trend_alignment_cohorts": sorted(
+            f"{timeframe}:{side}:{trend}:{alignment}:{confirmation}"
+            for timeframe, side, trend, alignment, confirmation in blocked_trend_alignment_cohorts
+        ),
+        "journal_blocked_trend_alignment_cohort_candidate_rows": (
+            blocked_trend_alignment_cohort_candidates
+        ),
         "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
         "journal_risk_scope": risk_controls.get("scope"),
         "journal_risk_source_key": risk_controls.get("source_key"),
@@ -2915,6 +3047,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
         f"- journal_regime_cohort_blocked: "
         f"`{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}`",
+        f"- journal_trend_alignment_blocked: "
+        f"`{(payload.get('journal') or {}).get('journal_blocked_trend_alignment_cohort_candidate_rows')}`",
         f"- journal_market_quality_blocked: "
         f"`{(payload.get('journal') or {}).get('market_quality_blocked_candidate_rows')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
@@ -2989,6 +3123,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_blocked_confirmation_cohort_candidate_rows')}",
         "journal_regime_cohort_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}",
+        "journal_trend_alignment_cohort_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_blocked_trend_alignment_cohort_candidate_rows')}",
         "journal_market_quality_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('market_quality_blocked_candidate_rows')}",
         "journal_market_quality_shadow_new_records="

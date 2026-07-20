@@ -1491,6 +1491,16 @@ def regime_cohort_identity(row: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def trend_alignment_cohort_identity(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("side") or "").lower(),
+        str(row.get("market_trend_state") or "unknown").lower(),
+        str(row.get("trend_alignment_bucket") or "trend_unknown").lower(),
+        str(row.get("confirmation_bucket") or "untracked"),
+    )
+
+
 def compact_confirmation_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "timeframe": row.get("timeframe"),
@@ -2383,6 +2393,66 @@ def blocked_regime_cohorts_for_scope(actions: dict[str, Any], scope: str) -> lis
     return rows
 
 
+TREND_ALIGNMENT_BLOCK_STATUSES = {
+    "trend_following_weak",
+    "active_trend_following_weak",
+    "countertrend_block_supported",
+    "active_countertrend_block_supported",
+    "range_risk",
+    "active_range_risk",
+}
+
+
+def blocked_trend_alignment_cohorts_for_scope(actions: dict[str, Any], scope: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    sources: list[tuple[str, list[Any]]] = []
+    if scope == "current_policy":
+        sources.extend(
+            [
+                ("current_policy_trend_alignment_risk", actions.get("current_policy_trend_alignment_risk") or []),
+                (
+                    "current_policy_trend_alignment_supported",
+                    actions.get("current_policy_trend_alignment_supported") or [],
+                ),
+                (
+                    "current_policy_shadow_trend_alignment_risk",
+                    actions.get("current_policy_shadow_trend_alignment_risk") or [],
+                ),
+                (
+                    "current_policy_fast_shadow_trend_alignment_risk",
+                    actions.get("current_policy_fast_shadow_trend_alignment_risk") or [],
+                ),
+            ]
+        )
+    else:
+        sources.extend(
+            [
+                ("trend_alignment_risk", actions.get("trend_alignment_risk") or []),
+                ("trend_alignment_supported", actions.get("trend_alignment_supported") or []),
+            ]
+        )
+    for source, source_rows in sources:
+        if not isinstance(source_rows, list):
+            continue
+        for row in source_rows:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("status") or "") not in TREND_ALIGNMENT_BLOCK_STATUSES:
+                continue
+            key = trend_alignment_cohort_identity(row)
+            if not all(key) or key in seen:
+                continue
+            seen.add(key)
+            out = dict(row)
+            out.setdefault("block_source", source)
+            out["trend_alignment_block_reason_codes"] = row.get("reason_codes") or []
+            out["paper_trading_authorized"] = False
+            out["live_trading_authorized"] = False
+            rows.append(out)
+    return rows
+
+
 def blocked_pairs_payload(
     payload: dict[str, Any],
     scope: str,
@@ -2404,6 +2474,7 @@ def blocked_pairs_payload(
     if not isinstance(blocked_confirmation_cohorts, list):
         blocked_confirmation_cohorts = []
     blocked_regime_cohorts = blocked_regime_cohorts_for_scope(actions, scope)
+    blocked_trend_alignment_cohorts = blocked_trend_alignment_cohorts_for_scope(actions, scope)
     return {
         "kind": "contract_paper_blocked_pairs_v1",
         "updated_at": payload["updated_at"],
@@ -2412,6 +2483,7 @@ def blocked_pairs_payload(
         "blocked_pairs": blocked_pairs,
         "blocked_regime_cohorts": blocked_regime_cohorts,
         "blocked_confirmation_cohorts": blocked_confirmation_cohorts,
+        "blocked_trend_alignment_cohorts": blocked_trend_alignment_cohorts,
         "global_blocked_pairs_count": len(actions.get("blocked_pairs") or []),
         "global_fresh_analog_veto_pairs_count": len(actions.get("fresh_analog_veto_pairs") or []),
         "global_blocked_regime_cohorts_count": len(actions.get("blocked_regime_cohorts") or []),
@@ -2432,9 +2504,17 @@ def blocked_pairs_payload(
         "current_policy_blocked_confirmation_cohorts_count": len(
             actions.get("current_policy_blocked_confirmation_cohorts") or []
         ),
+        "current_policy_trend_alignment_risk_count": len(actions.get("current_policy_trend_alignment_risk") or []),
+        "current_policy_shadow_trend_alignment_risk_count": len(
+            actions.get("current_policy_shadow_trend_alignment_risk") or []
+        ),
+        "current_policy_fast_shadow_trend_alignment_risk_count": len(
+            actions.get("current_policy_fast_shadow_trend_alignment_risk") or []
+        ),
         "combined_blocked_pairs_count": len(blocked_pairs),
         "combined_blocked_regime_cohorts_count": len(blocked_regime_cohorts),
         "combined_blocked_confirmation_cohorts_count": len(blocked_confirmation_cohorts),
+        "combined_blocked_trend_alignment_cohorts_count": len(blocked_trend_alignment_cohorts),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }

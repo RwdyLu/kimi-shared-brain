@@ -838,6 +838,96 @@ def test_latest_market_signal_journal_blocks_fast_shadow_active_regime_cohorts_f
     assert main_rows == []
 
 
+def test_latest_market_signal_journal_blocks_trend_alignment_risk_cohorts_from_actions_json(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.timeframe = "15m"
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "actions": {
+                    "current_policy_trend_alignment_risk": [
+                        {
+                            "timeframe": "15m",
+                            "side": "long",
+                            "market_trend_state": "uptrend",
+                            "trend_alignment_bucket": "trend_aligned",
+                            "confirmation_bucket": "confirmed_aligned",
+                            "status": "active_trend_following_weak",
+                            "reason_codes": [
+                                "trend_active_sum_r<=-1",
+                                "trend_active_loss_rate>=0.67",
+                            ],
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    args.journal_blocked_pairs_json = str(actions)
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "market_regime": {
+                    "regime_id": "uptrend_normal_vol",
+                    "trend_state": "uptrend",
+                },
+                "regime_filter": {
+                    "mode": "block_conflict",
+                    "allowed": True,
+                    "reason": "regime_aligned",
+                    "confirmation_mode": "block_conflict",
+                    "confirmation_filters": [
+                        {
+                            "timeframe": "1h",
+                            "allowed": True,
+                            "reason": "regime_aligned",
+                            "regime_id": "uptrend_normal_vol",
+                            "trend_state": "uptrend",
+                        }
+                    ],
+                },
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+    fast_shadow_rows = [json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["journal_blocked_trend_alignment_cohort_candidate_rows"] == 1
+    assert summary["journal_blocked_trend_alignment_cohorts"] == [
+        "15m:long:uptrend:trend_aligned:confirmed_aligned"
+    ]
+    assert main_rows == []
+    assert shadow_rows[0]["shadow_reason"] == "trend_alignment_cohort_block"
+    assert "trend_alignment_risk_block" in shadow_rows[0]["shadow_reason_codes"]
+    assert fast_shadow_rows[0]["shadow_reason"] == "trend_alignment_cohort_block"
+    assert fast_shadow_rows[0]["promotion_eligible"] is False
+
+
 def test_latest_market_signal_journal_blocks_side_from_portfolio_actions(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
     actions = tmp_path / "actions.json"
