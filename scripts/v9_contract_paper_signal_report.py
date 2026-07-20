@@ -892,6 +892,84 @@ def active_watchlist(rows: list[dict[str, Any]], max_rows: int) -> list[dict[str
     return [compact_active_record(row) for row in ranked[:max_rows]]
 
 
+def grade_active_shadow_record(row: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    compact = compact_active_record(row)
+    status = str(row.get("status") or "")
+    current_r = optional_float(row.get("current_r_multiple"))
+    expectancy = optional_float(row.get("analog_expectancy_r"))
+    promising_r = float(arg_value(args, "shadow_active_promising_r", 0.50))
+    risk_r = float(arg_value(args, "shadow_active_risk_r", -0.50))
+    min_promising_expectancy = float(arg_value(args, "shadow_active_min_promising_expectancy_r", 0.15))
+
+    if status == "pending_entry":
+        grade = "wait_entry"
+        action = "await_entry_fill"
+    elif current_r is None:
+        grade = "wait_price"
+        action = "await_price_refresh"
+    elif current_r <= risk_r:
+        grade = "risk_active"
+        action = "await_exit_do_not_promote"
+    elif current_r >= promising_r and (expectancy is None or expectancy >= min_promising_expectancy):
+        grade = "promising_active"
+        action = "await_completion_for_scoreboard"
+    elif current_r > 0.0:
+        grade = "positive_active"
+        action = "await_completion"
+    else:
+        grade = "negative_active"
+        action = "await_completion_risk_watch"
+
+    return {
+        **compact,
+        "active_grade": grade,
+        "next_action": action,
+        "active_grade_reason": (
+            f"R={fmt_num(current_r, 3)} "
+            f"expectancy_R={fmt_num(expectancy, 3)} "
+            f"promising_R>={promising_r:g} risk_R<={risk_r:g}"
+        ),
+    }
+
+
+def active_shadow_queue(rows: list[dict[str, Any]], args: argparse.Namespace, max_rows: int) -> list[dict[str, Any]]:
+    graded = [grade_active_shadow_record(row, args) for row in rows]
+    priority = {
+        "promising_active": 0,
+        "positive_active": 1,
+        "wait_entry": 2,
+        "wait_price": 3,
+        "negative_active": 4,
+        "risk_active": 5,
+    }
+    graded.sort(
+        key=lambda row: (
+            priority.get(str(row.get("active_grade")), 9),
+            -safe_float(row.get("current_r_multiple")),
+            -safe_float(row.get("analog_expectancy_r")),
+            str(row.get("created_at") or ""),
+            str(row.get("symbol") or ""),
+        )
+    )
+    return graded[:max_rows]
+
+
+def active_shadow_grade_counts(queue: list[dict[str, Any]]) -> dict[str, int]:
+    grades = [
+        "promising_active",
+        "positive_active",
+        "wait_entry",
+        "wait_price",
+        "negative_active",
+        "risk_active",
+    ]
+    counts = {grade: 0 for grade in grades}
+    for row in queue:
+        grade = str(row.get("active_grade") or "unknown")
+        counts[grade] = counts.get(grade, 0) + 1
+    return counts
+
+
 def fresh_analog_veto_reasons(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
     min_trades = int(arg_value(args, "fresh_veto_min_trades", 3))
     if int(row.get("recent_completed") or 0) < min_trades:
@@ -957,6 +1035,12 @@ def build_action_plan(
         current_policy_shadow_promote,
         current_policy_shadow_watch,
     ) = scoreboard_action_rows(current_policy_shadow_scoreboard, args)
+    current_policy_shadow_active_queue_all = active_shadow_queue(
+        current_policy_shadow_active_rows or [],
+        args,
+        max(len(current_policy_shadow_active_rows or []), max_rows),
+    )
+    current_policy_shadow_active_grade_counts = active_shadow_grade_counts(current_policy_shadow_active_queue_all)
     return {
         "kind": "contract_paper_strategy_actions_v1",
         "updated_at": updated_at,
@@ -974,6 +1058,8 @@ def build_action_plan(
         "current_policy_shadow_promote_candidates": current_policy_shadow_promote[:max_rows],
         "current_policy_shadow_positive_watchlist": current_policy_shadow_watch[:max_rows],
         "current_policy_shadow_active_watchlist": active_watchlist(current_policy_shadow_active_rows or [], max_rows),
+        "current_policy_shadow_active_queue": current_policy_shadow_active_queue_all[:max_rows],
+        "current_policy_shadow_active_grade_counts": current_policy_shadow_active_grade_counts,
         "portfolio_risk": portfolio_risk,
         "summary": {
             "blocked_pairs": len(blocked),
@@ -990,6 +1076,17 @@ def build_action_plan(
             "current_policy_shadow_promote_candidates": len(current_policy_shadow_promote),
             "current_policy_shadow_positive_watchlist": len(current_policy_shadow_watch),
             "current_policy_shadow_active_watchlist": len(current_policy_shadow_active_rows or []),
+            "current_policy_shadow_active_promising": current_policy_shadow_active_grade_counts.get(
+                "promising_active", 0
+            ),
+            "current_policy_shadow_active_positive": current_policy_shadow_active_grade_counts.get(
+                "positive_active", 0
+            ),
+            "current_policy_shadow_active_wait_entry": current_policy_shadow_active_grade_counts.get("wait_entry", 0),
+            "current_policy_shadow_active_negative": current_policy_shadow_active_grade_counts.get(
+                "negative_active", 0
+            ),
+            "current_policy_shadow_active_risk": current_policy_shadow_active_grade_counts.get("risk_active", 0),
             "portfolio_risk_status": portfolio_risk.get("status"),
             "portfolio_block_new_focus": bool(portfolio_risk.get("block_new_focus")),
             "portfolio_blocked_sides": portfolio_risk.get("blocked_sides") or [],
@@ -1010,6 +1107,7 @@ def build_action_plan(
             "promote_candidates": len(current_policy_shadow_promote),
             "positive_watchlist": len(current_policy_shadow_watch),
             "active_watchlist": len(current_policy_shadow_active_rows or []),
+            "active_grade_counts": current_policy_shadow_active_grade_counts,
         },
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -1240,6 +1338,15 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_shadow_active_avg_r": current_policy_shadow_active_stats["active_avg_r"],
             "current_policy_shadow_active_min_r": current_policy_shadow_active_stats["active_min_r"],
             "current_policy_shadow_active_max_r": current_policy_shadow_active_stats["active_max_r"],
+            "current_policy_shadow_active_promising": actions["summary"][
+                "current_policy_shadow_active_promising"
+            ],
+            "current_policy_shadow_active_positive": actions["summary"]["current_policy_shadow_active_positive"],
+            "current_policy_shadow_active_wait_entry": actions["summary"][
+                "current_policy_shadow_active_wait_entry"
+            ],
+            "current_policy_shadow_active_negative": actions["summary"]["current_policy_shadow_active_negative"],
+            "current_policy_shadow_active_risk": actions["summary"]["current_policy_shadow_active_risk"],
             "current_policy_shadow_scoreboard_groups": len(current_policy_shadow_scoreboard),
             "current_policy_shadow_promote_candidates": sum(
                 1 for row in current_policy_shadow_scoreboard if row.get("status") == "promote_candidate"
@@ -1286,6 +1393,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             current_policy_shadow_active_rows,
             int(arg_value(args, "scoreboard_max_rows", 40)),
         ),
+        "current_policy_shadow_active_queue": actions["current_policy_shadow_active_queue"],
         "shadow_completed": shadow_completed_rows[: args.max_rows],
         "records": records,
         "shadow_records": shadow_records,
@@ -1353,6 +1461,14 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_shadow_active_profit']}/"
             f"{summary['current_policy_shadow_active_loss']}`"
         ),
+        (
+            f"- current_policy_shadow active grades promising/positive/wait_entry/negative/risk: "
+            f"`{summary['current_policy_shadow_active_promising']}/"
+            f"{summary['current_policy_shadow_active_positive']}/"
+            f"{summary['current_policy_shadow_active_wait_entry']}/"
+            f"{summary['current_policy_shadow_active_negative']}/"
+            f"{summary['current_policy_shadow_active_risk']}`"
+        ),
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
         f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}` "
@@ -1379,12 +1495,12 @@ def format_markdown(payload: dict[str, Any]) -> str:
         )
     lines.extend(
         [
-        "",
-        "## Current Policy Strategy Scoreboard",
-        "",
-        "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
-        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+            "",
+            "## Current Policy Strategy Scoreboard",
+            "",
+            "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
+            "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["current_policy_scoreboard"]:
@@ -1400,12 +1516,12 @@ def format_markdown(payload: dict[str, Any]) -> str:
         )
     lines.extend(
         [
-        "",
-        "## Current Policy Shadow Scoreboard",
-        "",
-        "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
-        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+            "",
+            "## Current Policy Shadow Scoreboard",
+            "",
+            "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
+            "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["current_policy_shadow_scoreboard"]:
@@ -1421,11 +1537,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
         )
     lines.extend(
         [
-        "",
-        "## Current Policy Shadow Active",
-        "",
-        "| timeframe | created_at | symbol | side | status | analog | exp_R | entry | latest | stop | take_profit | current_R | reason |",
-        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+            "",
+            "## Current Policy Shadow Active",
+            "",
+            "| timeframe | created_at | symbol | side | status | analog | exp_R | entry | latest | stop | take_profit | current_R | reason |",
+            "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["current_policy_shadow_active_watchlist"]:
@@ -1436,6 +1552,24 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(row.get('latest_close'))} | {fmt_num(row.get('stop_loss'))} | "
             f"{fmt_num(row.get('take_profit'))} | {fmt_num(row.get('current_r_multiple'), 3)} | "
             f"{row.get('shadow_reason')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Current Policy Shadow Active Grades",
+            "",
+            "| grade | action | timeframe | symbol | side | status | exp_R | entry | latest | stop | take_profit | current_R | reason |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_shadow_active_queue"]:
+        lines.append(
+            f"| {row.get('active_grade')} | {row.get('next_action')} | {row.get('timeframe')} | "
+            f"{row.get('symbol')} | {row.get('side')} | {row.get('status')} | "
+            f"{fmt_num(row.get('analog_expectancy_r'), 3)} | {fmt_num(row.get('entry_price'))} | "
+            f"{fmt_num(row.get('latest_close'))} | {fmt_num(row.get('stop_loss'))} | "
+            f"{fmt_num(row.get('take_profit'))} | {fmt_num(row.get('current_r_multiple'), 3)} | "
+            f"{row.get('active_grade_reason')} |"
         )
     lines.extend(
         [
@@ -1593,7 +1727,12 @@ def format_text(payload: dict[str, Any]) -> str:
             f"active_min/max={fmt_num(summary['current_policy_shadow_active_min_r'], 3)}/"
             f"{fmt_num(summary['current_policy_shadow_active_max_r'], 3)} "
             f"active_wl={summary['current_policy_shadow_active_profit']}/"
-            f"{summary['current_policy_shadow_active_loss']}"
+            f"{summary['current_policy_shadow_active_loss']} "
+            f"grades={summary['current_policy_shadow_active_promising']}/"
+            f"{summary['current_policy_shadow_active_positive']}/"
+            f"{summary['current_policy_shadow_active_wait_entry']}/"
+            f"{summary['current_policy_shadow_active_negative']}/"
+            f"{summary['current_policy_shadow_active_risk']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
@@ -1635,6 +1774,15 @@ def format_text(payload: dict[str, Any]) -> str:
             f"entry={fmt_num(row.get('entry_price'))} latest={fmt_num(row.get('latest_close'))} "
             f"stop={fmt_num(row.get('stop_loss'))} tp={fmt_num(row.get('take_profit'))} "
             f"R={fmt_num(row.get('current_r_multiple'), 3)} reason={row.get('shadow_reason')}"
+        )
+    for row in payload["current_policy_shadow_active_queue"][:5]:
+        lines.append(
+            f"current_policy_shadow_active_grade {row.get('active_grade')} {row.get('timeframe')} "
+            f"{row.get('symbol')} {row.get('side')} status={row.get('status')} "
+            f"action={row.get('next_action')} exp_R={fmt_num(row.get('analog_expectancy_r'), 3)} "
+            f"entry={fmt_num(row.get('entry_price'))} latest={fmt_num(row.get('latest_close'))} "
+            f"stop={fmt_num(row.get('stop_loss'))} tp={fmt_num(row.get('take_profit'))} "
+            f"R={fmt_num(row.get('current_r_multiple'), 3)}"
         )
     for row in payload["regime_scoreboard"][:5]:
         lines.append(
@@ -1683,6 +1831,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scoreboard-promote-sum-r", type=float, default=5.0)
     parser.add_argument("--scoreboard-promote-profit-factor", type=float, default=1.2)
     parser.add_argument("--scoreboard-promote-max-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--shadow-active-promising-r", type=float, default=0.50)
+    parser.add_argument("--shadow-active-risk-r", type=float, default=-0.50)
+    parser.add_argument("--shadow-active-min-promising-expectancy-r", type=float, default=0.15)
     parser.add_argument("--fresh-veto-min-trades", type=int, default=3)
     parser.add_argument("--fresh-veto-sum-r", type=float, default=-2.0)
     parser.add_argument("--fresh-veto-profit-factor", type=float, default=0.5)

@@ -384,16 +384,24 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["summary"]["current_policy_shadow_active"] == 1
     assert payload["summary"]["current_policy_shadow_active_r_known"] == 1
     assert abs(payload["summary"]["current_policy_shadow_active_sum_r"] - 0.5) < 1e-9
+    assert payload["summary"]["current_policy_shadow_active_promising"] == 1
+    assert payload["summary"]["current_policy_shadow_active_positive"] == 0
+    assert payload["summary"]["current_policy_shadow_active_risk"] == 0
     assert payload["summary"]["current_policy_shadow_scoreboard_groups"] == 1
     assert payload["summary"]["current_policy_shadow_promote_candidates"] == 1
     assert payload["current_policy_shadow_scoreboard"][0]["symbol"] == "SHADOWUSDT"
     assert payload["actions"]["current_policy_summary"]["promote_candidates"] == 0
     assert payload["actions"]["current_policy_shadow_summary"]["promote_candidates"] == 1
     assert payload["actions"]["current_policy_shadow_summary"]["active_watchlist"] == 1
+    assert payload["actions"]["current_policy_shadow_summary"]["active_grade_counts"]["promising_active"] == 1
     assert payload["actions"]["current_policy_shadow_promote_candidates"][0]["symbol"] == "SHADOWUSDT"
     assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_shadow_active_watchlist"][0]["current_r_multiple"] == 0.5
+    assert payload["actions"]["current_policy_shadow_active_queue"][0]["symbol"] == "OPENUSDT"
+    assert payload["actions"]["current_policy_shadow_active_queue"][0]["active_grade"] == "promising_active"
+    assert payload["actions"]["current_policy_shadow_active_queue"][0]["next_action"] == "await_completion_for_scoreboard"
     assert payload["current_policy_shadow_active_watchlist"][0]["symbol"] == "OPENUSDT"
+    assert payload["current_policy_shadow_active_queue"][0]["symbol"] == "OPENUSDT"
     assert payload["actions"]["current_policy_promote_candidates"] == []
 
 
@@ -452,6 +460,51 @@ def test_paper_report_writes_current_policy_shadow_promote_marker(tmp_path: Path
     assert no_text.startswith("NO_CURRENT_POLICY_SHADOW_PROMOTE ")
     assert "completed=20" in no_text
     assert "paper_trading_authorized=False" in no_text
+
+
+def test_paper_report_grades_current_policy_shadow_active_queue() -> None:
+    args = Namespace(
+        shadow_active_promising_r=0.5,
+        shadow_active_risk_r=-0.5,
+        shadow_active_min_promising_expectancy_r=0.15,
+    )
+    rows = [
+        {
+            "status": "open",
+            "symbol": "RISKUSDT",
+            "side": "long",
+            "timeframe": "15m",
+            "current_r_multiple": -0.75,
+            "analog_expectancy_r": 0.4,
+        },
+        {
+            "status": "pending_entry",
+            "symbol": "PENDINGUSDT",
+            "side": "long",
+            "timeframe": "1h",
+            "analog_expectancy_r": 0.3,
+        },
+        {
+            "status": "open",
+            "symbol": "GOODUSDT",
+            "side": "long",
+            "timeframe": "1h",
+            "current_r_multiple": 0.6,
+            "analog_expectancy_r": 0.25,
+        },
+    ]
+
+    queue = report_mod.active_shadow_queue(rows, args, 10)
+    by_symbol = {row["symbol"]: row for row in queue}
+
+    assert queue[0]["symbol"] == "GOODUSDT"
+    assert by_symbol["GOODUSDT"]["active_grade"] == "promising_active"
+    assert by_symbol["PENDINGUSDT"]["active_grade"] == "wait_entry"
+    assert by_symbol["RISKUSDT"]["active_grade"] == "risk_active"
+    counts = report_mod.active_shadow_grade_counts(queue)
+    assert counts["promising_active"] == 1
+    assert counts["wait_entry"] == 1
+    assert counts["risk_active"] == 1
 
 
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
