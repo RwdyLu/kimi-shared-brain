@@ -911,27 +911,35 @@ def skip_realistic_record(record: dict[str, Any], *, updated_at: str, reason: st
     }
 
 
+def frame_dt_index(frame: pd.DataFrame, value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        target = parse_utc_timestamp(value)
+    except Exception:
+        return None
+    candidates = frame.index[frame["dt"] == target]
+    if len(candidates) == 0:
+        return None
+    return int(candidates[-1])
+
+
 def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame, *, updated_at: str) -> bool:
     if record.get("status") in {"completed", "skipped"}:
         return False
     if frame.empty:
         return False
 
-    signal_dt = parse_utc_timestamp(record.get("signal_dt") or record.get("latest_dt"))
-    candidates = frame.index[frame["dt"] == signal_dt]
-    if len(candidates) == 0:
-        return False
-
     config = execution_config_from_record(record)
     side = str(record.get("side"))
-    signal_idx = int(candidates[-1])
     entry_latency = max(0, int(config.get("entry_latency_bars") or 0))
-    entry_idx = signal_idx + entry_latency
-    if entry_idx >= len(frame):
-        return False
+    signal_idx = frame_dt_index(frame, record.get("signal_dt") or record.get("latest_dt"))
+    entry_idx = (signal_idx + entry_latency) if signal_idx is not None else None
 
     modified = False
     if record.get("status") == "pending_entry":
+        if entry_idx is None or entry_idx >= len(frame):
+            return False
         partial_fill_frac = safe_float(config.get("partial_fill_frac"), 1.0)
         min_fill_frac = safe_float(config.get("min_fill_frac"), 1.0)
         if partial_fill_frac < min_fill_frac:
@@ -995,7 +1003,13 @@ def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame,
     if record.get("status") != "open":
         return modified
 
-    entry_idx = int(record.get("entry_bar_index") or entry_idx)
+    entry_idx = frame_dt_index(frame, record.get("entry_dt"))
+    if entry_idx is None and signal_idx is not None:
+        entry_idx = signal_idx + entry_latency
+    if entry_idx is None:
+        entry_idx = int(record.get("entry_bar_index") or -1)
+    if entry_idx < 0 or entry_idx >= len(frame):
+        return modified
     outcome = simulate_realistic_exit(
         frame,
         entry_idx=entry_idx,

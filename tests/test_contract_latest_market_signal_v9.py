@@ -381,6 +381,56 @@ def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None
     assert outcome["funding_cost_per_unit"] > 0
 
 
+def test_realistic_open_record_uses_entry_dt_when_tail_window_shifts() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "dt": pd.Timestamp("2026-01-01T01:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+            },
+            {
+                "dt": pd.Timestamp("2026-01-01T02:00:00Z"),
+                "open": 100.5,
+                "high": 105.0,
+                "low": 100.0,
+                "close": 104.0,
+            },
+        ]
+    )
+    record = {
+        "status": "open",
+        "execution_model_version": signal_mod.REALISTIC_EXECUTION_MODEL_VERSION,
+        "symbol": "AAAUSDT",
+        "side": "long",
+        "timeframe": "1h",
+        "signal_dt": "2026-01-01T00:00:00+00:00",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "entry_dt": "2026-01-01T01:00:00+00:00",
+        "entry_bar_index": 999,
+        "entry_price": 100.02,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "outcome_horizon_bars": 4,
+        "paper_execution": {
+            "timeframe": "1h",
+            "fee_bps_per_side": 5.0,
+            "slippage_bps": 2.0,
+            "entry_latency_bars": 1,
+            "max_entry_drift_bps": 100.0,
+            "funding_bps_per_8h": 1.0,
+            "partial_fill_frac": 1.0,
+            "min_fill_frac": 1.0,
+        },
+    }
+
+    assert signal_mod.update_record_outcome(record, frame, updated_at="later") is True
+    assert record["status"] == "completed"
+    assert record["outcome"]["exit_reason"] == "take_profit"
+
+
 def test_timeframe_aware_return_windows_use_real_hours() -> None:
     assert signal_mod.bars_for_hours("1h", 24.0) == 24
     assert signal_mod.bars_for_hours("15m", 24.0) == 96
