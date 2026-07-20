@@ -878,12 +878,11 @@ def build_confirmation_scoreboard(
 
     rows = []
     recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
-    for key, group in grouped.items():
+    for key in sorted(set(grouped) | set(active_grouped)):
+        group = grouped.get(key, [])
         timeframe, side, bucket, confirmation_timeframes, confirmation_regime_ids = key
         ordered = sorted(group, key=record_time_key)
         values = [value for row in ordered if (value := completed_r(row)) is not None]
-        if not values:
-            continue
         recent_values = values[-recent_n:] if recent_n > 0 else values
         all_stats = summarize_values(values)
         recent_stats = summarize_values(recent_values)
@@ -917,7 +916,7 @@ def build_confirmation_scoreboard(
             "active_avg_r": active_stats["active_avg_r"],
             "active_min_r": active_stats["active_min_r"],
             "active_max_r": active_stats["active_max_r"],
-            "latest_completed_at": record_time_key(ordered[-1]),
+            "latest_completed_at": record_time_key(ordered[-1]) if ordered else None,
         }
         status, reasons = decide_group_status(stats, args)
         edge_score = (

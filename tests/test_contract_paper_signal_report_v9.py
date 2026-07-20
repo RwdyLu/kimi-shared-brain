@@ -1080,6 +1080,31 @@ def test_paper_report_builds_regime_confirmation_scoreboard(tmp_path: Path) -> N
                 "outcome": {"r_multiple": value, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
             }
         )
+    rows.append(
+        {
+            "created_at": "2026-01-03T00:00:00+00:00",
+            "updated_at": "2026-01-03T00:00:00+00:00",
+            "status": "open",
+            "symbol": "ACTIVEUSDT",
+            "side": "long",
+            "decision_policy_version": "policy_v2",
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "regime_confirmation_mode": "block_conflict",
+            "regime_confirmation_allowed": True,
+            "regime_confirmation_timeframes": ["1h"],
+            "regime_confirmation_regime_ids": ["uptrend_normal_vol"],
+            "regime_confirmation_filters": [
+                {
+                    "timeframe": "1h",
+                    "allowed": True,
+                    "reason": "regime_aligned",
+                    "regime_id": "uptrend_normal_vol",
+                }
+            ],
+        }
+    )
     journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
     args = Namespace(
         cache_dir=str(tmp_path),
@@ -1104,5 +1129,6 @@ def test_paper_report_builds_regime_confirmation_scoreboard(tmp_path: Path) -> N
     assert confirmed["recent_completed"] == 3
     assert abs(confirmed["recent_sum_r"] - 1.1) < 1e-9
     assert confirmed["recent_win_rate"] == 2 / 3
+    assert confirmed["active"] == 1
     assert untracked["recent_completed"] == 2
     assert abs(untracked["recent_sum_r"] + 1.0) < 1e-9
