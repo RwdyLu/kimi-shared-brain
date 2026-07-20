@@ -27,6 +27,20 @@ def parse_symbols(raw: str) -> tuple[str, ...]:
     return tuple(symbols)
 
 
+def parse_timeframes(raw: str) -> tuple[str, ...]:
+    timeframes = []
+    seen = set()
+    for part in raw.replace(";", ",").replace(" ", ",").split(","):
+        timeframe = part.strip().lower()
+        if not timeframe or timeframe in seen:
+            continue
+        # Reuse interval parsing for validation.
+        interval_minutes(timeframe)
+        seen.add(timeframe)
+        timeframes.append(timeframe)
+    return tuple(timeframes)
+
+
 def parse_symbol_side_pairs(raw: str) -> set[tuple[str, str]]:
     pairs: set[tuple[str, str]] = set()
     for part in raw.replace(";", ",").split(","):
@@ -394,8 +408,15 @@ def percentile_rank(series: pd.Series, value: float) -> float:
 
 
 def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args: argparse.Namespace) -> dict[str, Any]:
+    timeframe = str(getattr(args, "timeframe", "") or "").lower()
     if str(getattr(args, "regime_filter_mode", "off")) == "off":
-        return {"enabled": False, "regime_id": "disabled", "trend_state": "unknown", "vol_state": "unknown"}
+        return {
+            "enabled": False,
+            "timeframe": timeframe,
+            "regime_id": "disabled",
+            "trend_state": "unknown",
+            "vol_state": "unknown",
+        }
 
     requested = parse_symbols(getattr(args, "regime_symbols", ""))
     symbols = requested or tuple(frames_by_symbol)
@@ -410,7 +431,9 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
         frame = frames_by_symbol.get(symbol.upper())
         if frame is None or len(frame) < min_bars:
             continue
-        features = prepare_feature_frame(frame, args).dropna(subset=["close", "ema_slow", "ema_fast", "slow_ema_slope", "ret_24h", "atr_pct"])
+        features = prepare_feature_frame(frame, args).dropna(
+            subset=["close", "ema_slow", "ema_fast", "slow_ema_slope", "ret_24h", "atr_pct"]
+        )
         if features.empty:
             continue
         latest = features.iloc[-1]
@@ -423,8 +446,12 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
         direction_votes = 0
         direction_votes += 1 if close > ema_slow else -1
         direction_votes += 1 if ema_fast > ema_slow else -1
-        direction_votes += 1 if slow_slope > float(args.min_slope) else (-1 if slow_slope < -float(args.min_slope) else 0)
-        direction_votes += 1 if ret_24h > float(args.min_ret_24h) else (-1 if ret_24h < -float(args.min_ret_24h) else 0)
+        direction_votes += (
+            1 if slow_slope > float(args.min_slope) else (-1 if slow_slope < -float(args.min_slope) else 0)
+        )
+        direction_votes += (
+            1 if ret_24h > float(args.min_ret_24h) else (-1 if ret_24h < -float(args.min_ret_24h) else 0)
+        )
         samples.append(
             {
                 "symbol": symbol.upper(),
@@ -434,7 +461,10 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
                 "slow_ema_slope": slow_slope,
                 "ema_gap": safe_float(latest.get("ema_gap")),
                 "atr_pct": atr_pct,
-                "atr_percentile": percentile_rank(features["atr_pct"].tail(int(args.regime_vol_lookback_bars)), atr_pct),
+                "atr_percentile": percentile_rank(
+                    features["atr_pct"].tail(int(args.regime_vol_lookback_bars)),
+                    atr_pct,
+                ),
                 "direction_votes": int(direction_votes),
             }
         )
@@ -442,6 +472,7 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
     if not samples:
         return {
             "enabled": True,
+            "timeframe": timeframe,
             "regime_id": "unknown",
             "trend_state": "unknown",
             "vol_state": "unknown",
@@ -467,6 +498,7 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
     vol_state = "high_vol" if median_atr_percentile >= float(args.regime_high_vol_percentile) else "normal_vol"
     return {
         "enabled": True,
+        "timeframe": timeframe,
         "regime_id": f"{trend_state}_{vol_state}",
         "trend_state": trend_state,
         "vol_state": vol_state,
@@ -482,9 +514,51 @@ def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args:
     }
 
 
-def regime_filter_decision(signal: str, market_regime: dict[str, Any] | None, args: argparse.Namespace) -> dict[str, Any]:
-    mode = str(getattr(args, "regime_filter_mode", "off"))
-    context = market_regime or {"enabled": False, "trend_state": "unknown", "vol_state": "unknown", "regime_id": "unknown"}
+def clone_args_for_timeframe(args: argparse.Namespace, timeframe: str) -> argparse.Namespace:
+    values = dict(vars(args))
+    values["timeframe"] = timeframe
+    return argparse.Namespace(**values)
+
+
+def build_confirmation_regime_contexts(
+    *,
+    cache_dir: Path,
+    args: argparse.Namespace,
+    regime_symbols: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    contexts = []
+    for timeframe in parse_timeframes(str(getattr(args, "regime_confirm_timeframes", "") or "")):
+        if timeframe == str(getattr(args, "timeframe", "") or "").lower():
+            continue
+        confirm_args = clone_args_for_timeframe(args, timeframe)
+        frames = {
+            symbol: load_symbol_cache(
+                cache_dir,
+                symbol,
+                timeframe,
+                lookback_bars=int(getattr(args, "lookback_bars", 20000)),
+            )
+            for symbol in regime_symbols
+        }
+        context = build_market_regime_context(frames, confirm_args)
+        context["confirmation_timeframe"] = timeframe
+        contexts.append(context)
+    return contexts
+
+
+def single_regime_filter_decision(
+    signal: str,
+    market_regime: dict[str, Any] | None,
+    args: argparse.Namespace,
+    *,
+    mode: str,
+) -> dict[str, Any]:
+    context = market_regime or {
+        "enabled": False,
+        "trend_state": "unknown",
+        "vol_state": "unknown",
+        "regime_id": "unknown",
+    }
     if mode == "off":
         return {"enabled": False, "allowed": True, "mode": mode, "reason": "regime_filter_off"}
     if signal not in {"long", "short"}:
@@ -508,14 +582,104 @@ def regime_filter_decision(signal: str, market_regime: dict[str, Any] | None, ar
             "regime_id": context.get("regime_id"),
         }
     if mode == "annotate":
-        return {"enabled": True, "allowed": True, "mode": mode, "reason": "annotate_only", "regime_id": context.get("regime_id")}
+        return {
+            "enabled": True,
+            "allowed": True,
+            "mode": mode,
+            "reason": "annotate_only",
+            "regime_id": context.get("regime_id"),
+        }
     if signal == "long" and trend_state == "downtrend":
-        return {"enabled": True, "allowed": False, "mode": mode, "reason": "long_blocked_by_market_downtrend", "regime_id": context.get("regime_id")}
+        return {
+            "enabled": True,
+            "allowed": False,
+            "mode": mode,
+            "reason": "long_blocked_by_market_downtrend",
+            "regime_id": context.get("regime_id"),
+        }
     if signal == "short" and trend_state == "uptrend":
-        return {"enabled": True, "allowed": False, "mode": mode, "reason": "short_blocked_by_market_uptrend", "regime_id": context.get("regime_id")}
+        return {
+            "enabled": True,
+            "allowed": False,
+            "mode": mode,
+            "reason": "short_blocked_by_market_uptrend",
+            "regime_id": context.get("regime_id"),
+        }
     if mode == "trend_only" and trend_state == "range":
-        return {"enabled": True, "allowed": False, "mode": mode, "reason": "range_regime_blocked", "regime_id": context.get("regime_id")}
-    return {"enabled": True, "allowed": True, "mode": mode, "reason": "regime_aligned", "regime_id": context.get("regime_id")}
+        return {
+            "enabled": True,
+            "allowed": False,
+            "mode": mode,
+            "reason": "range_regime_blocked",
+            "regime_id": context.get("regime_id"),
+        }
+    return {
+        "enabled": True,
+        "allowed": True,
+        "mode": mode,
+        "reason": "regime_aligned",
+        "regime_id": context.get("regime_id"),
+    }
+
+
+def regime_filter_decision(
+    signal: str,
+    market_regime: dict[str, Any] | None,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    mode = str(getattr(args, "regime_filter_mode", "off"))
+    context = market_regime or {
+        "enabled": False,
+        "trend_state": "unknown",
+        "vol_state": "unknown",
+        "regime_id": "unknown",
+    }
+    decision = single_regime_filter_decision(signal, context, args, mode=mode)
+    confirmation_contexts = context.get("confirmation_contexts") or []
+    confirm_mode = str(getattr(args, "regime_confirm_mode", "block_conflict") or "block_conflict")
+    if (
+        decision.get("allowed", True)
+        and mode != "off"
+        and confirm_mode != "off"
+        and signal in {"long", "short"}
+        and confirmation_contexts
+    ):
+        confirmation_filters = []
+        for confirmation in confirmation_contexts:
+            confirmation_filter = single_regime_filter_decision(
+                signal,
+                confirmation,
+                args,
+                mode=confirm_mode,
+            )
+            confirmation_filters.append(
+                {
+                    **confirmation_filter,
+                    "timeframe": confirmation.get("confirmation_timeframe")
+                    or confirmation.get("timeframe"),
+                    "regime_id": confirmation.get("regime_id"),
+                    "trend_state": confirmation.get("trend_state"),
+                    "vol_state": confirmation.get("vol_state"),
+                    "direction_score": confirmation.get("direction_score"),
+                }
+            )
+            if not confirmation_filter.get("allowed", True):
+                timeframe = confirmation.get("confirmation_timeframe") or confirmation.get(
+                    "timeframe"
+                )
+                return {
+                    **decision,
+                    "allowed": False,
+                    "reason": f"confirmation_{timeframe}_{confirmation_filter.get('reason')}",
+                    "confirmation_mode": confirm_mode,
+                    "confirmation_filters": confirmation_filters,
+                }
+        return {
+            **decision,
+            "confirmation_mode": confirm_mode,
+            "confirmation_filters": confirmation_filters,
+        }
+    return decision
 
 
 def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
@@ -1959,6 +2123,17 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             lookback_bars=args.lookback_bars,
         )
     market_regime = build_market_regime_context(frames_by_symbol, args)
+    confirmation_contexts = build_confirmation_regime_contexts(
+        cache_dir=Path(args.cache_dir),
+        args=args,
+        regime_symbols=regime_symbols or symbols,
+    )
+    if confirmation_contexts:
+        market_regime["confirmation_contexts"] = confirmation_contexts
+        market_regime["confirmation_timeframes"] = [
+            context.get("confirmation_timeframe") for context in confirmation_contexts
+        ]
+        market_regime["confirmation_mode"] = str(getattr(args, "regime_confirm_mode", "block_conflict"))
     rows = []
     for symbol in symbols:
         rows.append(classify_signal(frames_by_symbol[symbol], args, symbol=symbol, market_regime=market_regime))
@@ -1997,6 +2172,10 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "paper_execution": execution_config_from_args(args),
             "regime_filter_mode": str(getattr(args, "regime_filter_mode", "off")),
             "regime_symbols": [symbol.upper() for symbol in regime_symbols],
+            "regime_confirm_timeframes": parse_timeframes(
+                str(getattr(args, "regime_confirm_timeframes", "") or "")
+            ),
+            "regime_confirm_mode": str(getattr(args, "regime_confirm_mode", "block_conflict")),
             "regime_min_direction_votes": int(args.regime_min_direction_votes),
             "regime_vol_lookback_bars": int(args.regime_vol_lookback_bars),
             "regime_high_vol_percentile": float(args.regime_high_vol_percentile),
@@ -2152,12 +2331,14 @@ def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_pa
 
 def format_markdown(payload: dict[str, Any]) -> str:
     market_regime = payload.get("market_regime") or {}
+    confirmation = market_regime.get("confirmation_contexts") or []
     lines = [
         "# Contract Latest Market Signal",
         "",
         f"- updated_at: `{payload['updated_at']}`",
         f"- timeframe: `{payload['timeframe']}`",
         f"- market_regime: `{market_regime.get('regime_id')}`",
+        f"- market_regime_confirmations: `{len(confirmation)}`",
         f"- market_direction_score: `{market_regime.get('direction_score')}`",
         f"- regime_filtered_count: `{payload['summary'].get('regime_filtered_count')}`",
         f"- signal_count: `{payload['summary']['signal_count']}`",
@@ -2198,11 +2379,16 @@ def format_markdown(payload: dict[str, Any]) -> str:
 
 def format_text(payload: dict[str, Any]) -> str:
     market_regime = payload.get("market_regime") or {}
+    confirmation = market_regime.get("confirmation_contexts") or []
     lines = [
         f"updated_at={payload['updated_at']}",
         f"timeframe={payload['timeframe']}",
         f"market_regime={market_regime.get('regime_id')} direction_score={market_regime.get('direction_score')} "
         f"vol={market_regime.get('vol_state')} sources={','.join(market_regime.get('source_symbols') or [])}",
+        "market_regime_confirmation "
+        f"mode={market_regime.get('confirmation_mode')} "
+        f"timeframes={','.join(str(item.get('confirmation_timeframe') or item.get('timeframe')) for item in confirmation)} "
+        f"regimes={','.join(str(item.get('regime_id')) for item in confirmation)}",
         f"signal_count={payload['summary']['signal_count']}",
         f"regime_filtered_count={payload['summary'].get('regime_filtered_count')}",
         f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
@@ -2335,6 +2521,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--regime-symbols",
         default="BTCUSDT,ETHUSDT",
         help="Comma list of market symbols used to infer the broad regime. Falls back to screened symbols if missing.",
+    )
+    parser.add_argument(
+        "--regime-confirm-timeframes",
+        default="",
+        help="Comma list of higher timeframes used to confirm broad regime before recording a signal.",
+    )
+    parser.add_argument(
+        "--regime-confirm-mode",
+        choices=("off", "annotate", "block_conflict", "trend_only"),
+        default="block_conflict",
+        help="How confirmation timeframes gate a signal after the primary regime filter allows it.",
     )
     parser.add_argument("--regime-min-direction-votes", type=int, default=2)
     parser.add_argument("--regime-vol-lookback-bars", type=int, default=1000)

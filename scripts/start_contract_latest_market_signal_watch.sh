@@ -102,6 +102,15 @@ JOURNAL_SHADOW_RETEST_JSON="${CONTRACT_MARKET_JOURNAL_SHADOW_RETEST_JSON:-$ACTIO
 JOURNAL_SHADOW_RETEST_MAX_NEW="${CONTRACT_MARKET_JOURNAL_SHADOW_RETEST_MAX_NEW:-2}"
 REGIME_FILTER_MODE="${CONTRACT_MARKET_REGIME_FILTER_MODE:-block_conflict}"
 REGIME_SYMBOLS="${CONTRACT_MARKET_REGIME_SYMBOLS:-BTCUSDT,ETHUSDT}"
+if [[ -n "${CONTRACT_MARKET_REGIME_CONFIRM_TIMEFRAMES:-}" ]]; then
+  REGIME_CONFIRM_TIMEFRAMES="$CONTRACT_MARKET_REGIME_CONFIRM_TIMEFRAMES"
+else
+  case "$TIMEFRAME" in
+    15m) REGIME_CONFIRM_TIMEFRAMES="1h" ;;
+    *) REGIME_CONFIRM_TIMEFRAMES="" ;;
+  esac
+fi
+REGIME_CONFIRM_MODE="${CONTRACT_MARKET_REGIME_CONFIRM_MODE:-block_conflict}"
 REGIME_MIN_DIRECTION_VOTES="${CONTRACT_MARKET_REGIME_MIN_DIRECTION_VOTES:-2}"
 REGIME_VOL_LOOKBACK_BARS="${CONTRACT_MARKET_REGIME_VOL_LOOKBACK_BARS:-1000}"
 REGIME_HIGH_VOL_PERCENTILE="${CONTRACT_MARKET_REGIME_HIGH_VOL_PERCENTILE:-0.85}"
@@ -119,6 +128,13 @@ case "$REGIME_FILTER_MODE" in
   off|annotate|block_conflict|trend_only) ;;
   *)
     echo "CONTRACT_MARKET_REGIME_FILTER_MODE must be off, annotate, block_conflict, or trend_only" >&2
+    exit 2
+    ;;
+esac
+case "$REGIME_CONFIRM_MODE" in
+  off|annotate|block_conflict|trend_only) ;;
+  *)
+    echo "CONTRACT_MARKET_REGIME_CONFIRM_MODE must be off, annotate, block_conflict, or trend_only" >&2
     exit 2
     ;;
 esac
@@ -267,6 +283,8 @@ printf -v JOURNAL_SHADOW_RETEST_JSON_Q "%q" "$JOURNAL_SHADOW_RETEST_JSON"
 printf -v JOURNAL_SHADOW_RETEST_MAX_NEW_Q "%q" "$JOURNAL_SHADOW_RETEST_MAX_NEW"
 printf -v REGIME_FILTER_MODE_Q "%q" "$REGIME_FILTER_MODE"
 printf -v REGIME_SYMBOLS_Q "%q" "$REGIME_SYMBOLS"
+printf -v REGIME_CONFIRM_TIMEFRAMES_Q "%q" "$REGIME_CONFIRM_TIMEFRAMES"
+printf -v REGIME_CONFIRM_MODE_Q "%q" "$REGIME_CONFIRM_MODE"
 printf -v REGIME_MIN_DIRECTION_Q "%q" "$REGIME_MIN_DIRECTION_VOTES"
 printf -v REGIME_VOL_LOOKBACK_Q "%q" "$REGIME_VOL_LOOKBACK_BARS"
 printf -v REGIME_HIGH_VOL_Q "%q" "$REGIME_HIGH_VOL_PERCENTILE"
@@ -276,7 +294,7 @@ if [[ "$REGIME_BLOCK_HIGH_VOL" == "1" || "$REGIME_BLOCK_HIGH_VOL" == "true" || "
 fi
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-shadow-jsonl $SHADOW_JOURNAL_JSONL_Q --journal-fast-shadow-jsonl $FAST_SHADOW_JOURNAL_JSONL_Q --journal-fast-shadow-outcome-horizon-bars $FAST_SHADOW_OUTCOME_HORIZON_Q --journal-shadow-record-mode $JOURNAL_SHADOW_RECORD_MODE_Q --journal-shadow-min-analog-samples $JOURNAL_SHADOW_MIN_ANALOG_Q --journal-shadow-min-expectancy-r $JOURNAL_SHADOW_MIN_EXPECTANCY_Q --journal-shadow-min-hit-rate $JOURNAL_SHADOW_MIN_HIT_Q --journal-shadow-min-profitable-rate $JOURNAL_SHADOW_MIN_PROFITABLE_Q --journal-shadow-retest-json $JOURNAL_SHADOW_RETEST_JSON_Q --journal-shadow-retest-max-new $JOURNAL_SHADOW_RETEST_MAX_NEW_Q --journal-risk-scope $JOURNAL_RISK_SCOPE_Q --journal-active-cap-scope $JOURNAL_ACTIVE_CAP_SCOPE_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --out-blocked-pairs-scope $BLOCKED_PAIRS_SCOPE_Q --out-current-policy-shadow-promote-marker $SHADOW_PROMOTE_MARKER_Q --out-current-policy-shadow-no-promote-marker $SHADOW_NO_PROMOTE_MARKER_Q --out-current-policy-shadow-readiness-marker $SHADOW_READINESS_MARKER_Q --out-current-policy-shadow-readiness-json $SHADOW_READINESS_JSON_Q --out-current-policy-fast-shadow-retest-marker $FAST_SHADOW_RETEST_MARKER_Q --out-current-policy-fast-shadow-no-retest-marker $FAST_SHADOW_NO_RETEST_MARKER_Q --out-current-policy-fast-shadow-retest-json $FAST_SHADOW_RETEST_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-shadow-jsonl $SHADOW_JOURNAL_JSONL_Q --journal-fast-shadow-jsonl $FAST_SHADOW_JOURNAL_JSONL_Q --journal-fast-shadow-outcome-horizon-bars $FAST_SHADOW_OUTCOME_HORIZON_Q --journal-shadow-record-mode $JOURNAL_SHADOW_RECORD_MODE_Q --journal-shadow-min-analog-samples $JOURNAL_SHADOW_MIN_ANALOG_Q --journal-shadow-min-expectancy-r $JOURNAL_SHADOW_MIN_EXPECTANCY_Q --journal-shadow-min-hit-rate $JOURNAL_SHADOW_MIN_HIT_Q --journal-shadow-min-profitable-rate $JOURNAL_SHADOW_MIN_PROFITABLE_Q --journal-shadow-retest-json $JOURNAL_SHADOW_RETEST_JSON_Q --journal-shadow-retest-max-new $JOURNAL_SHADOW_RETEST_MAX_NEW_Q --journal-risk-scope $JOURNAL_RISK_SCOPE_Q --journal-active-cap-scope $JOURNAL_ACTIVE_CAP_SCOPE_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-confirm-timeframes $REGIME_CONFIRM_TIMEFRAMES_Q --regime-confirm-mode $REGIME_CONFIRM_MODE_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --out-blocked-pairs-scope $BLOCKED_PAIRS_SCOPE_Q --out-current-policy-shadow-promote-marker $SHADOW_PROMOTE_MARKER_Q --out-current-policy-shadow-no-promote-marker $SHADOW_NO_PROMOTE_MARKER_Q --out-current-policy-shadow-readiness-marker $SHADOW_READINESS_MARKER_Q --out-current-policy-shadow-readiness-json $SHADOW_READINESS_JSON_Q --out-current-policy-fast-shadow-retest-marker $FAST_SHADOW_RETEST_MARKER_Q --out-current-policy-fast-shadow-no-retest-marker $FAST_SHADOW_NO_RETEST_MARKER_Q --out-current-policy-fast-shadow-retest-json $FAST_SHADOW_RETEST_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract latest-market signal watch: $SESSION"
 echo "symbols: $SYMBOLS"
@@ -286,6 +304,7 @@ echo "analog_horizon_bars: $ANALOG_HORIZON_BARS"
 echo "fast_shadow_outcome_horizon_bars: $FAST_SHADOW_OUTCOME_HORIZON_BARS"
 echo "paper_execution: fee_bps=$PAPER_FEE_BPS slippage_bps=$PAPER_SLIPPAGE_BPS latency_bars=$PAPER_ENTRY_LATENCY_BARS funding_bps_per_8h=$PAPER_FUNDING_BPS_PER_8H migrate_legacy=$PAPER_MIGRATE_LEGACY_RECORDS"
 echo "regime_filter: mode=$REGIME_FILTER_MODE symbols=$REGIME_SYMBOLS min_direction_votes=$REGIME_MIN_DIRECTION_VOTES high_vol_percentile=$REGIME_HIGH_VOL_PERCENTILE block_high_vol=$REGIME_BLOCK_HIGH_VOL"
+echo "regime_confirm: mode=$REGIME_CONFIRM_MODE timeframes=$REGIME_CONFIRM_TIMEFRAMES"
 echo "journal_max_active_per_pair: $JOURNAL_MAX_ACTIVE_PER_PAIR"
 echo "journal_risk_scope: $JOURNAL_RISK_SCOPE"
 echo "journal_active_cap_scope: $JOURNAL_ACTIVE_CAP_SCOPE"

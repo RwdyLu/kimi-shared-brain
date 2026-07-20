@@ -18,15 +18,16 @@ signal_mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(signal_mod)
 
 
-def write_symbol_cache(cache_dir: Path, symbol: str, closes: list[float]) -> None:
+def write_symbol_cache(cache_dir: Path, symbol: str, closes: list[float], timeframe: str = "1h") -> None:
     start = pd.Timestamp("2026-01-01T00:00:00Z")
+    minutes = signal_mod.interval_minutes(timeframe)
     rows = []
     previous = closes[0]
     for idx, close in enumerate(closes):
         open_price = previous if idx else close
         rows.append(
             {
-                "open_time": int((start + pd.Timedelta(hours=idx)).timestamp() * 1000),
+                "open_time": int((start + pd.Timedelta(minutes=minutes * idx)).timestamp() * 1000),
                 "open": open_price,
                 "high": max(open_price, close) * 1.001,
                 "low": min(open_price, close) * 0.999,
@@ -36,7 +37,7 @@ def write_symbol_cache(cache_dir: Path, symbol: str, closes: list[float]) -> Non
         )
         previous = close
     frame = pd.DataFrame(rows)
-    frame.to_parquet(cache_dir / f"{symbol}_1h_2026-01.parquet", index=False)
+    frame.to_parquet(cache_dir / f"{symbol}_{timeframe}_2026-01.parquet", index=False)
 
 
 def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
@@ -81,6 +82,8 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_stale_grace_bars=4,
         regime_filter_mode="block_conflict",
         regime_symbols="BTCUSDT,ETHUSDT",
+        regime_confirm_timeframes="",
+        regime_confirm_mode="block_conflict",
         regime_min_direction_votes=2,
         regime_vol_lookback_bars=1000,
         regime_high_vol_percentile=0.85,
@@ -166,6 +169,30 @@ def test_market_regime_blocks_long_against_btc_downtrend(tmp_path: Path) -> None
     assert row["signal"] == "none"
     assert row["status"] == "regime_blocked"
     assert row["regime_filter"]["reason"] == "long_blocked_by_market_downtrend"
+    assert payload["journal"]["new_records"] == 0
+
+
+def test_market_regime_confirmation_blocks_15m_long_against_1h_downtrend(tmp_path: Path) -> None:
+    write_symbol_cache(tmp_path, "AAAUSDT", [100.0 * (1.0015**idx) for idx in range(180)], "15m")
+    write_symbol_cache(tmp_path, "BTCUSDT", [100.0 * (1.0012**idx) for idx in range(180)], "15m")
+    write_symbol_cache(tmp_path, "BTCUSDT", [180.0 * (0.9985**idx) for idx in range(180)], "1h")
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.timeframe = "15m"
+    args.regime_confirm_timeframes = "1h"
+
+    payload = signal_mod.run_screen(args)
+
+    row = payload["rows"][0]
+    assert payload["market_regime"]["trend_state"] == "uptrend"
+    assert payload["market_regime"]["confirmation_timeframes"] == ["1h"]
+    assert payload["market_regime"]["confirmation_contexts"][0]["trend_state"] == "downtrend"
+    assert payload["summary"]["paper_plan_found"] is False
+    assert payload["summary"]["regime_filtered_count"] == 1
+    assert row["raw_signal"] == "long"
+    assert row["status"] == "regime_blocked"
+    assert row["regime_filter"]["allowed"] is False
+    assert row["regime_filter"]["reason"] == "confirmation_1h_long_blocked_by_market_downtrend"
+    assert row["regime_filter"]["confirmation_filters"][0]["timeframe"] == "1h"
     assert payload["journal"]["new_records"] == 0
 
 
