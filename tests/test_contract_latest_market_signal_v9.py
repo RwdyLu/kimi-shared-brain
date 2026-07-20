@@ -80,6 +80,10 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_partial_fill_frac=1.0,
         paper_min_fill_frac=1.0,
         paper_stale_grace_bars=4,
+        data_freshness_mode="off",
+        data_freshness_max_age_bars=2.5,
+        data_freshness_grace_minutes=5.0,
+        data_freshness_now="",
         regime_filter_mode="block_conflict",
         regime_symbols="BTCUSDT,ETHUSDT",
         regime_confirm_timeframes="",
@@ -145,6 +149,50 @@ def test_latest_market_signal_builds_long_paper_plan(tmp_path: Path) -> None:
     assert best["regime_filter"]["allowed"] is True
     assert plan["stop_loss"] < plan["entry_price"] < plan["take_profit"]
     assert plan["order_intent"]["entry"] == "paper_only_no_order"
+
+
+def test_data_freshness_allows_recent_directional_signal(tmp_path: Path) -> None:
+    closes = [100.0 * (1.0015**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.data_freshness_mode = "block"
+    args.data_freshness_now = "2026-01-08T12:05:00+00:00"
+
+    payload = signal_mod.run_screen(args)
+    row = payload["top"][0]
+    records = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["data_stale_filtered_count"] == 0
+    assert row["signal"] == "long"
+    assert row["data_freshness"]["allowed"] is True
+    assert row["data_freshness"]["reason"] == "data_freshness_pass"
+    assert records[0]["data_freshness_allowed"] is True
+    assert records[0]["data_freshness_reason"] == "data_freshness_pass"
+
+
+def test_data_freshness_blocks_stale_directional_signal_before_paper_journal(tmp_path: Path) -> None:
+    closes = [100.0 * (1.0015**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.data_freshness_mode = "block"
+    args.data_freshness_now = "2026-01-09T12:00:00+00:00"
+
+    payload = signal_mod.run_screen(args)
+    row = payload["top"][0]
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+
+    assert payload["summary"]["paper_plan_found"] is False
+    assert payload["summary"]["data_stale_filtered_count"] == 1
+    assert payload["journal"]["new_records"] == 0
+    assert main_rows == []
+    assert row["status"] == "data_stale"
+    assert row["raw_signal"] == "long"
+    assert row["signal"] == "none"
+    assert row["paper_plan"] is None
+    assert row["data_freshness"]["allowed"] is False
+    assert row["data_freshness"]["reason"] == "data_freshness_stale_blocked"
+    assert row["analog_evidence"]["reason"] == "data_freshness_stale"
 
 
 def test_analog_evidence_uses_realistic_execution_costs(tmp_path: Path) -> None:

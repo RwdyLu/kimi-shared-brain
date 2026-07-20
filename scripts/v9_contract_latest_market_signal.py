@@ -605,6 +605,73 @@ def bars_for_hours(timeframe: str, hours: float) -> int:
     return max(1, int(round(float(hours) * 60.0 / interval_minutes(timeframe))))
 
 
+def data_freshness_reference(args: argparse.Namespace) -> str:
+    return str(
+        getattr(args, "_data_freshness_reference_utc", "")
+        or getattr(args, "data_freshness_now", "")
+        or now_utc()
+    )
+
+
+def market_data_freshness_decision(latest_dt: Any, args: argparse.Namespace) -> dict[str, Any]:
+    mode = str(getattr(args, "data_freshness_mode", "block") or "block")
+    timeframe = str(getattr(args, "timeframe", "") or "")
+    max_age_bars = float(getattr(args, "data_freshness_max_age_bars", 2.5))
+    grace_minutes = float(getattr(args, "data_freshness_grace_minutes", 5.0))
+    thresholds = {
+        "max_age_bars": max_age_bars,
+        "grace_minutes": grace_minutes,
+    }
+    if mode == "off":
+        return {
+            "enabled": False,
+            "allowed": True,
+            "mode": mode,
+            "reason": "data_freshness_off",
+            "thresholds": thresholds,
+        }
+    try:
+        latest = parse_utc_timestamp(latest_dt)
+        reference = parse_utc_timestamp(data_freshness_reference(args))
+        interval = interval_minutes(timeframe)
+    except Exception as exc:
+        allowed = mode == "annotate"
+        return {
+            "enabled": True,
+            "allowed": allowed,
+            "mode": mode,
+            "reason": "data_freshness_invalid_timestamp" if not allowed else "data_freshness_invalid_annotated",
+            "error": str(exc),
+            "latest_dt": str(latest_dt),
+            "reference_dt": data_freshness_reference(args),
+            "thresholds": thresholds,
+        }
+    age_minutes = max(0.0, (reference - latest).total_seconds() / 60.0)
+    age_bars = age_minutes / interval if interval > 0.0 else float("inf")
+    max_age_minutes = interval * max_age_bars + grace_minutes
+    fresh = age_minutes <= max_age_minutes
+    allowed = fresh or mode == "annotate"
+    if fresh:
+        reason = "data_freshness_pass"
+    elif mode == "annotate":
+        reason = "data_freshness_stale_annotated"
+    else:
+        reason = "data_freshness_stale_blocked"
+    return {
+        "enabled": True,
+        "allowed": allowed,
+        "mode": mode,
+        "reason": reason,
+        "latest_dt": latest.isoformat(),
+        "reference_dt": reference.isoformat(),
+        "timeframe": timeframe,
+        "age_minutes": float(age_minutes),
+        "age_bars": float(age_bars),
+        "max_age_minutes": float(max_age_minutes),
+        "thresholds": thresholds,
+    }
+
+
 def percentile_rank(series: pd.Series, value: float) -> float:
     xs = pd.to_numeric(series, errors="coerce").dropna()
     if xs.empty or not math.isfinite(value):
@@ -1701,6 +1768,7 @@ def classify_signal(
         "long_votes": long_score,
         "short_votes": short_score,
     }
+    data_freshness = market_data_freshness_decision(latest["dt"], args)
     if signal == "none":
         return {
             "symbol": symbol,
@@ -1711,9 +1779,29 @@ def classify_signal(
             "close": close,
             "metrics": metrics,
             "market_regime": market_regime or {"enabled": False},
+            "data_freshness": data_freshness,
             "regime_filter": regime_filter_decision(signal, market_regime, args),
             "market_quality": market_quality_decision(latest, args, signal=signal),
             "analog_evidence": {"enabled": True, "supported": False, "reason": "no_signal"},
+            "paper_plan": None,
+        }
+
+    if not data_freshness.get("allowed", True):
+        return {
+            "symbol": symbol,
+            "status": "data_stale",
+            "signal": "none",
+            "raw_signal": signal,
+            "reason": str(data_freshness.get("reason") or "data_freshness_stale_blocked"),
+            "latest_dt": latest["dt"].isoformat(),
+            "previous_dt": previous["dt"].isoformat(),
+            "close": close,
+            "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
+            "market_regime": market_regime or {"enabled": False},
+            "data_freshness": data_freshness,
+            "regime_filter": regime_filter_decision(signal, market_regime, args),
+            "market_quality": market_quality_decision(latest, args, signal=signal),
+            "analog_evidence": {"enabled": True, "supported": False, "reason": "data_freshness_stale"},
             "paper_plan": None,
         }
 
@@ -1730,6 +1818,7 @@ def classify_signal(
             "close": close,
             "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
             "market_regime": market_regime or {"enabled": False},
+            "data_freshness": data_freshness,
             "regime_filter": regime_filter,
             "market_quality": market_quality_decision(latest, args, signal=signal),
             "analog_evidence": {"enabled": True, "supported": False, "reason": "regime_blocked"},
@@ -1745,6 +1834,7 @@ def classify_signal(
             "signal": "none",
             "reason": "invalid_stop_or_take_profit",
             "market_regime": market_regime or {"enabled": False},
+            "data_freshness": data_freshness,
             "regime_filter": regime_filter,
             "market_quality": market_quality,
             "paper_plan": None,
@@ -1777,6 +1867,7 @@ def classify_signal(
             "close": close,
             "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
             "market_regime": market_regime or {"enabled": False},
+            "data_freshness": data_freshness,
             "regime_filter": regime_filter,
             "market_quality": market_quality,
             "analog_evidence": analog,
@@ -1792,6 +1883,7 @@ def classify_signal(
         "close": close,
         "metrics": {**metrics, "votes": votes},
         "market_regime": market_regime or {"enabled": False},
+        "data_freshness": data_freshness,
         "regime_filter": regime_filter,
         "market_quality": market_quality,
         "analog_evidence": analog,
@@ -1992,6 +2084,7 @@ def journal_record_from_row(
     market_regime = row.get("market_regime") or {}
     regime_filter = row.get("regime_filter") or {}
     market_quality = row.get("market_quality") or {}
+    data_freshness = row.get("data_freshness") or {}
     confirmation = regime_confirmation_payload(regime_filter)
     analog_robustness = analog.get("time_segment_robustness") or {}
     return {
@@ -2024,6 +2117,13 @@ def journal_record_from_row(
         "market_vol_state": market_regime.get("vol_state"),
         "market_direction_score": market_regime.get("direction_score"),
         "market_regime_source_symbols": market_regime.get("source_symbols") or [],
+        "data_freshness_mode": data_freshness.get("mode"),
+        "data_freshness_allowed": data_freshness.get("allowed"),
+        "data_freshness_reason": data_freshness.get("reason"),
+        "data_freshness_reference_dt": data_freshness.get("reference_dt"),
+        "data_freshness_age_minutes": data_freshness.get("age_minutes"),
+        "data_freshness_age_bars": data_freshness.get("age_bars"),
+        "data_freshness_max_age_minutes": data_freshness.get("max_age_minutes"),
         "regime_filter_mode": regime_filter.get("mode"),
         "regime_filter_reason": regime_filter.get("reason"),
         **confirmation,
@@ -3086,6 +3186,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
 
 
 def run_screen(args: argparse.Namespace) -> dict[str, Any]:
+    screen_updated_at = now_utc()
+    if not str(getattr(args, "data_freshness_now", "") or ""):
+        setattr(args, "_data_freshness_reference_utc", screen_updated_at)
     fallback = parse_symbols(args.symbols) or DEFAULT_SYMBOLS
     symbols = parse_symbols(args.symbols) or symbols_from_universe(
         args.universe_json,
@@ -3121,6 +3224,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     signal_rows = [row for row in rows if row.get("signal") in {"long", "short"} and row.get("paper_plan")]
     analog_supported_rows = [row for row in signal_rows if (row.get("analog_evidence") or {}).get("supported")]
     regime_filtered_rows = [row for row in rows if (row.get("regime_filter") or {}).get("allowed") is False]
+    data_stale_filtered_rows = [row for row in rows if row.get("status") == "data_stale"]
     market_quality_filtered_rows = [
         row
         for row in rows
@@ -3128,7 +3232,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     ]
     payload = {
         "kind": "contract_latest_market_signal_v2_analog_journal",
-        "updated_at": now_utc(),
+        "updated_at": screen_updated_at,
         "cache_dir": args.cache_dir,
         "timeframe": args.timeframe,
         "universe_json": args.universe_json,
@@ -3165,6 +3269,10 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
             "decision_policy_version": str(getattr(args, "decision_policy_version", DECISION_POLICY_VERSION)),
             "paper_execution": execution_config_from_args(args),
+            "data_freshness_mode": str(getattr(args, "data_freshness_mode", "block")),
+            "data_freshness_max_age_bars": float(getattr(args, "data_freshness_max_age_bars", 2.5)),
+            "data_freshness_grace_minutes": float(getattr(args, "data_freshness_grace_minutes", 5.0)),
+            "data_freshness_reference_dt": data_freshness_reference(args),
             "regime_filter_mode": str(getattr(args, "regime_filter_mode", "off")),
             "regime_symbols": [symbol.upper() for symbol in regime_symbols],
             "regime_confirm_timeframes": parse_timeframes(
@@ -3251,6 +3359,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "rows": len(rows),
             "signal_count": len(signal_rows),
             "regime_filtered_count": len(regime_filtered_rows),
+            "data_stale_filtered_count": len(data_stale_filtered_rows),
             "market_quality_filtered_count": len(market_quality_filtered_rows),
             "paper_plan_found": bool(signal_rows),
             "analog_supported_plan_count": len(analog_supported_rows),
@@ -3346,6 +3455,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- market_regime: `{market_regime.get('regime_id')}`",
         f"- market_regime_confirmations: `{len(confirmation)}`",
         f"- market_direction_score: `{market_regime.get('direction_score')}`",
+        f"- data_stale_filtered_count: `{payload['summary'].get('data_stale_filtered_count')}`",
         f"- regime_filtered_count: `{payload['summary'].get('regime_filtered_count')}`",
         f"- market_quality_filtered_count: `{payload['summary'].get('market_quality_filtered_count')}`",
         f"- signal_count: `{payload['summary']['signal_count']}`",
@@ -3410,6 +3520,7 @@ def format_text(payload: dict[str, Any]) -> str:
         f"regimes={','.join(str(item.get('regime_id')) for item in confirmation)}",
         f"signal_count={payload['summary']['signal_count']}",
         f"regime_filtered_count={payload['summary'].get('regime_filtered_count')}",
+        f"data_stale_filtered_count={payload['summary'].get('data_stale_filtered_count')}",
         f"market_quality_filtered_count={payload['summary'].get('market_quality_filtered_count')}",
         f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
@@ -3553,6 +3664,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=4,
         help="Skip unresolved paper records after entry/horizon plus this many bars if data can no longer settle them.",
+    )
+    parser.add_argument(
+        "--data-freshness-mode",
+        choices=("off", "annotate", "block"),
+        default="block",
+        help="Block current directional paper plans when latest cached candle is too old.",
+    )
+    parser.add_argument("--data-freshness-max-age-bars", type=float, default=2.5)
+    parser.add_argument("--data-freshness-grace-minutes", type=float, default=5.0)
+    parser.add_argument(
+        "--data-freshness-now",
+        default="",
+        help="Optional UTC reference timestamp for deterministic freshness checks.",
     )
     parser.add_argument(
         "--regime-filter-mode",
