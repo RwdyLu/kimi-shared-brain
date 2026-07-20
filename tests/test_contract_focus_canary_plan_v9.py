@@ -48,6 +48,18 @@ def args_for(actions_json: Path) -> Namespace:
         active_risk_max_avg_r=-0.25,
         respect_portfolio_risk=True,
         respect_portfolio_side_risk=True,
+        allow_portfolio_side_recovery_probes=True,
+        side_recovery_max_segment_active=0,
+        side_recovery_min_recent_completed=8,
+        side_recovery_min_recent_analog_supported=4,
+        side_recovery_min_recent_analog_rate=0.50,
+        side_recovery_min_recent_sum_r=4.0,
+        side_recovery_min_recent_profit_factor=1.5,
+        side_recovery_max_recent_drawdown_r=5.0,
+        side_recovery_min_fresh_analog_samples=50,
+        side_recovery_min_fresh_hit_rate=0.55,
+        side_recovery_min_fresh_profitable_rate=0.55,
+        side_recovery_min_fresh_expectancy_r=0.35,
         allow_blocked=False,
         out_json=str(actions_json.with_suffix(".plan.json")),
         out_md=str(actions_json.with_suffix(".plan.md")),
@@ -227,6 +239,52 @@ def test_focus_plan_blocks_only_frozen_side_when_portfolio_is_normal(tmp_path: P
     rejected = payload["rejected_candidates"][0]
     assert rejected["symbol"] == "SHORTUSDT"
     assert rejected["rejection_reasons"] == ["portfolio_side_short_blocked"]
+
+
+def test_focus_plan_allows_strong_recovery_probe_after_side_active_clears(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "reason_codes": [],
+                    "blocked_sides": ["short"],
+                    "segment_risk": {
+                        "blocked_sides": ["short"],
+                        "segments": {"short": {"status": "blocked", "active": 0}},
+                    },
+                },
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "RECOVERUSDT",
+                        "short",
+                        recent_completed=12,
+                        recent_sum_r=6.0,
+                        recent_profit_factor=1.8,
+                        recent_max_drawdown_r=3.0,
+                        recent_analog_supported=8,
+                        recent_analog_supported_rate=0.67,
+                        edge_score=9.0,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["portfolio_side_recovery_selected"] == 1
+    assert payload["summary"]["rejection_reason_counts"] == {}
+    row = payload["candidates"][0]
+    assert row["symbol"] == "RECOVERUSDT"
+    assert row["side"] == "short"
+    assert row["portfolio_side_recovery_probe"] is True
+    assert row["portfolio_side_recovery_reason"] == "blocked_side_strong_evidence_recovery"
 
 
 def write_signal_json(path: Path) -> None:

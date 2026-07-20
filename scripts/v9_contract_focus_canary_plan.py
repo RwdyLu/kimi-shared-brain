@@ -130,6 +130,56 @@ def portfolio_side_risk_rejection_reasons(row: dict[str, Any], actions: dict[str
     return [f"portfolio_side_{side}_blocked"]
 
 
+def portfolio_side_recovery_probe_allowed(row: dict[str, Any], actions: dict[str, Any], args: argparse.Namespace) -> bool:
+    if not bool(args.allow_portfolio_side_recovery_probes):
+        return False
+    side = str(row.get("side") or "").lower()
+    if not side:
+        return False
+    portfolio = actions.get("portfolio_risk") or {}
+    if portfolio.get("block_new_focus"):
+        return False
+    segment_risk = portfolio.get("segment_risk") or {}
+    segments = segment_risk.get("segments") if isinstance(segment_risk.get("segments"), dict) else {}
+    segment = segments.get(side)
+    if not isinstance(segment, dict):
+        return False
+    if safe_int(segment.get("active")) > int(args.side_recovery_max_segment_active):
+        return False
+
+    recent_pass = (
+        safe_int(row.get("recent_completed")) >= int(args.side_recovery_min_recent_completed)
+        and safe_int(row.get("recent_analog_supported")) >= int(args.side_recovery_min_recent_analog_supported)
+        and safe_float(row.get("recent_analog_supported_rate")) >= float(args.side_recovery_min_recent_analog_rate)
+        and safe_float(row.get("recent_sum_r")) >= float(args.side_recovery_min_recent_sum_r)
+        and compare_profit_factor(row.get("recent_profit_factor")) >= float(args.side_recovery_min_recent_profit_factor)
+        and safe_float(row.get("recent_max_drawdown_r")) <= float(args.side_recovery_max_recent_drawdown_r)
+    )
+    fresh_pass = (
+        safe_int(row.get("analog_used_count")) >= int(args.side_recovery_min_fresh_analog_samples)
+        and safe_float(row.get("analog_hit_rate")) >= float(args.side_recovery_min_fresh_hit_rate)
+        and safe_float(row.get("analog_profitable_rate")) >= float(args.side_recovery_min_fresh_profitable_rate)
+        and safe_float(row.get("analog_expectancy_r")) >= float(args.side_recovery_min_fresh_expectancy_r)
+    )
+    return bool(recent_pass or fresh_pass)
+
+
+def apply_portfolio_side_gate(
+    row: dict[str, Any],
+    actions: dict[str, Any],
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], list[str]]:
+    reasons = portfolio_side_risk_rejection_reasons(row, actions, args)
+    if not reasons:
+        return row, []
+    if portfolio_side_recovery_probe_allowed(row, actions, args):
+        gated = dict(row)
+        gated["portfolio_side_recovery_probe"] = True
+        gated["portfolio_side_recovery_reason"] = "blocked_side_strong_evidence_recovery"
+        return gated, []
+    return row, reasons
+
+
 def candidate_sort_key(row: dict[str, Any]) -> tuple[float, float, int]:
     return (
         safe_float(row.get("edge_score")),
@@ -261,6 +311,8 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
         "timeframe": timeframe,
         "symbol": symbol,
         "side": side,
+        "portfolio_side_recovery_probe": bool(row.get("portfolio_side_recovery_probe")),
+        "portfolio_side_recovery_reason": row.get("portfolio_side_recovery_reason"),
         "allowed_pair": allowed_pair,
         "session": session,
         "metrics": {
@@ -512,7 +564,8 @@ def build_paper_probe_candidates(
         key = pair_key(row)
         if key in used:
             continue
-        if portfolio_side_risk_rejection_reasons(row, actions, args):
+        row, side_reasons = apply_portfolio_side_gate(row, actions, args)
+        if side_reasons:
             continue
         rows.append(build_candidate_config(row, source="near_miss_probe"))
         used.add(key)
@@ -548,7 +601,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                 continue
             reasons: list[str] = []
             reasons.extend(portfolio_reasons)
-            reasons.extend(portfolio_side_risk_rejection_reasons(row, actions, args))
+            row, side_reasons = apply_portfolio_side_gate(row, actions, args)
+            reasons.extend(side_reasons)
             if key in blocked and not args.allow_blocked:
                 reasons.append("blocked_pair")
             reasons.extend(active_risk_rejection_reasons(row, args))
@@ -575,7 +629,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             continue
         reasons = []
         reasons.extend(portfolio_reasons)
-        reasons.extend(portfolio_side_risk_rejection_reasons(row, actions, args))
+        row, side_reasons = apply_portfolio_side_gate(row, actions, args)
+        reasons.extend(side_reasons)
         if key in blocked and not args.allow_blocked:
             reasons.append("blocked_pair")
         if key in fresh_veto and not args.allow_fresh_veto:
@@ -626,6 +681,18 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
             "respect_portfolio_risk": bool(args.respect_portfolio_risk),
             "respect_portfolio_side_risk": bool(args.respect_portfolio_side_risk),
+            "allow_portfolio_side_recovery_probes": bool(args.allow_portfolio_side_recovery_probes),
+            "side_recovery_max_segment_active": int(args.side_recovery_max_segment_active),
+            "side_recovery_min_recent_completed": int(args.side_recovery_min_recent_completed),
+            "side_recovery_min_recent_analog_supported": int(args.side_recovery_min_recent_analog_supported),
+            "side_recovery_min_recent_analog_rate": float(args.side_recovery_min_recent_analog_rate),
+            "side_recovery_min_recent_sum_r": float(args.side_recovery_min_recent_sum_r),
+            "side_recovery_min_recent_profit_factor": float(args.side_recovery_min_recent_profit_factor),
+            "side_recovery_max_recent_drawdown_r": float(args.side_recovery_max_recent_drawdown_r),
+            "side_recovery_min_fresh_analog_samples": int(args.side_recovery_min_fresh_analog_samples),
+            "side_recovery_min_fresh_hit_rate": float(args.side_recovery_min_fresh_hit_rate),
+            "side_recovery_min_fresh_profitable_rate": float(args.side_recovery_min_fresh_profitable_rate),
+            "side_recovery_min_fresh_expectancy_r": float(args.side_recovery_min_fresh_expectancy_r),
             "allow_blocked": bool(args.allow_blocked),
         },
         "summary": {
@@ -643,6 +710,12 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "portfolio_risk_status": (actions.get("portfolio_risk") or {}).get("status"),
             "portfolio_block_new_focus": bool((actions.get("portfolio_risk") or {}).get("block_new_focus")),
             "portfolio_blocked_sides": (actions.get("portfolio_risk") or {}).get("blocked_sides") or [],
+            "portfolio_side_recovery_selected": sum(
+                1 for row in selected if row.get("portfolio_side_recovery_probe")
+            ),
+            "portfolio_side_recovery_paper_probes": sum(
+                1 for row in paper_probe_candidates if row.get("portfolio_side_recovery_probe")
+            ),
         },
         "portfolio_risk": actions.get("portfolio_risk") or {},
         "candidates": selected,
@@ -680,6 +753,9 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
         f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
         f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
+        f"- side recovery selected/probes: "
+        f"`{summary.get('portfolio_side_recovery_selected', 0)}/"
+        f"{summary.get('portfolio_side_recovery_paper_probes', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}`",
         f"- portfolio_blocked_sides: `{','.join(portfolio.get('blocked_sides') or [])}`",
@@ -785,7 +861,9 @@ def format_text(payload: dict[str, Any]) -> str:
         f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
         f"near_miss={summary.get('near_miss_candidates', 0)} "
-        f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
+        f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)} "
+        f"side_recovery_selected={summary.get('portfolio_side_recovery_selected', 0)} "
+        f"side_recovery_probes={summary.get('portfolio_side_recovery_paper_probes', 0)}",
         f"portfolio_risk={portfolio.get('status')} block_new_focus={portfolio.get('block_new_focus')} "
         f"reasons={','.join(portfolio.get('reason_codes') or [])} "
         f"blocked_sides={','.join(portfolio.get('blocked_sides') or [])}",
@@ -875,6 +953,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
     parser.add_argument("--respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--allow-portfolio-side-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--side-recovery-max-segment-active", type=int, default=0)
+    parser.add_argument("--side-recovery-min-recent-completed", type=int, default=8)
+    parser.add_argument("--side-recovery-min-recent-analog-supported", type=int, default=4)
+    parser.add_argument("--side-recovery-min-recent-analog-rate", type=float, default=0.50)
+    parser.add_argument("--side-recovery-min-recent-sum-r", type=float, default=4.0)
+    parser.add_argument("--side-recovery-min-recent-profit-factor", type=float, default=1.5)
+    parser.add_argument("--side-recovery-max-recent-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--side-recovery-min-fresh-analog-samples", type=int, default=50)
+    parser.add_argument("--side-recovery-min-fresh-hit-rate", type=float, default=0.55)
+    parser.add_argument("--side-recovery-min-fresh-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--side-recovery-min-fresh-expectancy-r", type=float, default=0.35)
     parser.add_argument("--allow-blocked", action="store_true")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.md")

@@ -441,6 +441,65 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert rows == []
 
 
+def test_latest_market_signal_journal_allows_strong_side_recovery_probe(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="BBBUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "reason_codes": [],
+                    "blocked_sides": ["short"],
+                    "segment_risk": {
+                        "blocked_sides": ["short"],
+                        "segments": {"short": {"status": "blocked", "active": 0}},
+                    },
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": True,
+                    "used_count": 64,
+                    "hit_rate": 0.58,
+                    "profitable_rate": 0.60,
+                    "expectancy_r": 0.42,
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_portfolio_side_blocked_candidate_rows"] == 0
+    assert summary["journal_portfolio_side_recovery_candidate_rows"] == 1
+    assert rows[0]["symbol"] == "BBBUSDT"
+    assert rows[0]["portfolio_side_recovery_probe"] is True
+    assert rows[0]["portfolio_side_recovery_reason"] == "blocked_side_strong_analog_recovery"
+
+
 def test_latest_market_signal_journal_limits_active_pair_records(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT")
     args.journal_max_active_per_pair = 1

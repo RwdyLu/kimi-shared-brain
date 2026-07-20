@@ -121,6 +121,7 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
     segment_risk = portfolio.get("segment_risk") or {}
     blocked_sides = set(str(side).lower() for side in (portfolio.get("blocked_sides") or []))
     blocked_sides.update(str(side).lower() for side in (segment_risk.get("blocked_sides") or []))
+    segments = segment_risk.get("segments") if isinstance(segment_risk.get("segments"), dict) else {}
     return {
         "enabled": True,
         "path": path,
@@ -129,7 +130,44 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
         "reason_codes": portfolio.get("reason_codes") or [],
         "blocked_sides": sorted(side for side in blocked_sides if side in {"long", "short"}),
         "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
+        "segments": segments,
     }
+
+
+def journal_side_recovery_probe_allowed(
+    row: dict[str, Any],
+    side: str,
+    risk_controls: dict[str, Any],
+    args: argparse.Namespace,
+) -> bool:
+    if not bool(getattr(args, "journal_allow_side_recovery_probes", True)):
+        return False
+    if not risk_controls.get("enabled"):
+        return False
+    if risk_controls.get("block_new_focus"):
+        return False
+    segments = risk_controls.get("segments") or {}
+    segment = segments.get(side)
+    if not isinstance(segment, dict):
+        return False
+    max_segment_active = int(getattr(args, "journal_side_recovery_max_segment_active", 0))
+    if int(segment.get("active") or 0) > max_segment_active:
+        return False
+
+    analog = row.get("analog_evidence") or {}
+    if not analog.get("supported"):
+        return False
+    if int(analog.get("used_count") or 0) < int(getattr(args, "journal_side_recovery_min_analog_samples", 50)):
+        return False
+    if safe_float(analog.get("hit_rate")) < float(getattr(args, "journal_side_recovery_min_hit_rate", 0.55)):
+        return False
+    if safe_float(analog.get("profitable_rate")) < float(
+        getattr(args, "journal_side_recovery_min_profitable_rate", 0.55)
+    ):
+        return False
+    if safe_float(analog.get("expectancy_r")) < float(getattr(args, "journal_side_recovery_min_expectancy_r", 0.35)):
+        return False
+    return True
 
 
 def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -> tuple[str, ...]:
@@ -1364,6 +1402,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     blocked_candidates = 0
     portfolio_risk_blocked_candidates = 0
     portfolio_side_blocked_candidates = 0
+    portfolio_side_recovery_candidates = 0
     active_total_cap_blocked_candidates = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
@@ -1417,9 +1456,14 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if respect_portfolio_risk and risk_controls.get("block_new_focus"):
             portfolio_risk_blocked_candidates += 1
             continue
+        recovery_probe = False
         if respect_portfolio_side_risk and pair[1] in blocked_sides:
-            portfolio_side_blocked_candidates += 1
-            continue
+            if journal_side_recovery_probe_allowed(row, pair[1], risk_controls, args):
+                recovery_probe = True
+                portfolio_side_recovery_candidates += 1
+            else:
+                portfolio_side_blocked_candidates += 1
+                continue
         if max_active_total > 0 and active_total >= max_active_total:
             active_total_cap_blocked_candidates += 1
             continue
@@ -1432,14 +1476,18 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if sid in seen:
             continue
         seen.add(sid)
-        new_records.append(
-            journal_record_from_row(
-                row,
-                updated_at=payload["updated_at"],
-                horizon_bars=args.paper_outcome_horizon_bars,
-                execution_config=execution_config,
-            )
+        record = journal_record_from_row(
+            row,
+            updated_at=payload["updated_at"],
+            horizon_bars=args.paper_outcome_horizon_bars,
+            execution_config=execution_config,
         )
+        if recovery_probe:
+            record["portfolio_side_recovery_probe"] = True
+            record["portfolio_side_recovery_reason"] = "blocked_side_strong_analog_recovery"
+            record["portfolio_side_recovery_from_status"] = risk_controls.get("status")
+            record["portfolio_side_recovery_blocked_sides"] = sorted(blocked_sides)
+        new_records.append(record)
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
         active_total += 1
 
@@ -1478,6 +1526,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_portfolio_blocked_sides": sorted(blocked_sides),
         "journal_portfolio_risk_blocked_candidate_rows": portfolio_risk_blocked_candidates,
         "journal_portfolio_side_blocked_candidate_rows": portfolio_side_blocked_candidates,
+        "journal_portfolio_side_recovery_candidate_rows": portfolio_side_recovery_candidates,
         "journal_portfolio_reason_codes": risk_controls.get("reason_codes") or [],
         "journal_portfolio_side_reason_codes": risk_controls.get("side_reason_codes") or [],
         "journal_max_active_per_pair": max_active_per_pair,
@@ -1555,6 +1604,20 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
             "journal_respect_portfolio_side_risk": bool(
                 getattr(args, "journal_respect_portfolio_side_risk", True)
+            ),
+            "journal_allow_side_recovery_probes": bool(getattr(args, "journal_allow_side_recovery_probes", True)),
+            "journal_side_recovery_max_segment_active": int(
+                getattr(args, "journal_side_recovery_max_segment_active", 0)
+            ),
+            "journal_side_recovery_min_analog_samples": int(
+                getattr(args, "journal_side_recovery_min_analog_samples", 50)
+            ),
+            "journal_side_recovery_min_hit_rate": float(getattr(args, "journal_side_recovery_min_hit_rate", 0.55)),
+            "journal_side_recovery_min_profitable_rate": float(
+                getattr(args, "journal_side_recovery_min_profitable_rate", 0.55)
+            ),
+            "journal_side_recovery_min_expectancy_r": float(
+                getattr(args, "journal_side_recovery_min_expectancy_r", 0.35)
             ),
             "journal_max_active_per_pair": int(args.journal_max_active_per_pair),
             "journal_max_active_total": int(getattr(args, "journal_max_active_total", 0) or 0),
@@ -1709,6 +1772,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_side_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_side_blocked_candidate_rows')}",
+        "journal_portfolio_side_recovery_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_portfolio_side_recovery_candidate_rows')}",
         "journal_portfolio_blocked_sides="
         f"{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}",
         "safety=paper_authorized:False live:False",
@@ -1822,6 +1887,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--journal-respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-allow-side-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-side-recovery-max-segment-active", type=int, default=0)
+    parser.add_argument("--journal-side-recovery-min-analog-samples", type=int, default=50)
+    parser.add_argument("--journal-side-recovery-min-hit-rate", type=float, default=0.55)
+    parser.add_argument("--journal-side-recovery-min-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--journal-side-recovery-min-expectancy-r", type=float, default=0.35)
     parser.add_argument(
         "--journal-max-active-per-pair",
         type=int,
