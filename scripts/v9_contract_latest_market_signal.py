@@ -15,6 +15,7 @@ import pandas as pd
 DEFAULT_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT", "LINKUSDT")
 ANALOG_FEATURES = ("ema_gap", "slow_ema_slope", "ret_6h", "ret_24h", "atr_pct", "rsi", "breakout_pos")
 REALISTIC_EXECUTION_MODEL_VERSION = "realistic_v1"
+DECISION_POLICY_VERSION = "portfolio_gate_v4_drawdown_recovery"
 
 
 def now_utc() -> str:
@@ -586,6 +587,7 @@ def simulate_outcome(
 def execution_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "model": REALISTIC_EXECUTION_MODEL_VERSION,
+        "decision_policy_version": str(getattr(args, "decision_policy_version", DECISION_POLICY_VERSION)),
         "timeframe": str(getattr(args, "timeframe", "1h")),
         "fee_bps_per_side": float(getattr(args, "paper_fee_bps", 5.0)),
         "slippage_bps": float(getattr(args, "paper_slippage_bps", 2.0)),
@@ -1075,6 +1077,7 @@ def journal_record_from_row(
         "updated_at": updated_at,
         "status": "pending_entry",
         "execution_model_version": REALISTIC_EXECUTION_MODEL_VERSION,
+        "decision_policy_version": str(config.get("decision_policy_version") or DECISION_POLICY_VERSION),
         "paper_execution": config,
         "symbol": row["symbol"],
         "side": row["signal"],
@@ -1640,6 +1643,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
+            "decision_policy_version": str(getattr(args, "decision_policy_version", DECISION_POLICY_VERSION)),
             "paper_execution": execution_config_from_args(args),
             "regime_filter_mode": str(getattr(args, "regime_filter_mode", "off")),
             "regime_symbols": [symbol.upper() for symbol in regime_symbols],
@@ -1903,6 +1907,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-analog-profitable-rate", type=float, default=0.55)
     parser.add_argument("--min-analog-expectancy-r", type=float, default=0.15)
     parser.add_argument("--paper-outcome-horizon-bars", type=int, default=24)
+    parser.add_argument("--decision-policy-version", default=DECISION_POLICY_VERSION)
     parser.add_argument("--paper-fee-bps", type=float, default=5.0)
     parser.add_argument("--paper-slippage-bps", type=float, default=2.0)
     parser.add_argument("--paper-entry-latency-bars", type=int, default=1)

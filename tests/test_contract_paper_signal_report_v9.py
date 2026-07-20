@@ -218,6 +218,53 @@ def test_paper_report_surfaces_portfolio_side_risk_without_global_block(tmp_path
     assert payload["actions"]["summary"]["portfolio_blocked_sides"] == ["short"]
 
 
+def test_paper_report_builds_decision_policy_scoreboard(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = []
+    for idx in range(5):
+        rows.append(
+            {
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "NEWUSDT",
+                "side": "long",
+                "decision_policy_version": "policy_v2",
+                "analog_supported": True,
+                "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-01T0{idx}:30:00+00:00"},
+            }
+        )
+        rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "OLDUSDT",
+                "side": "long",
+                "analog_supported": True,
+                "outcome": {"r_multiple": -0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_recent_trades=50,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["policy_scoreboard_groups"] == 2
+    by_policy = {row["decision_policy_version"]: row for row in payload["policy_scoreboard"]}
+    assert by_policy["policy_v2"]["recent_sum_r"] == 2.5
+    assert by_policy["policy_v2"]["recent_completed"] == 5
+    assert by_policy["legacy_unknown"]["recent_sum_r"] == -2.5
+    assert payload["records"][0]["decision_policy_version"] == "legacy_unknown"
+
+
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     pd.DataFrame(
         {

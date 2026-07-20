@@ -193,6 +193,35 @@ def test_latest_market_signal_journal_deduplicates_same_candle(tmp_path: Path) -
     assert len(records) == 1
 
 
+def test_journal_record_persists_decision_policy_version(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.decision_policy_version = "test_policy_v2"
+    record = signal_mod.journal_record_from_row(
+        {
+            "symbol": "AAAUSDT",
+            "signal": "long",
+            "latest_dt": "2026-01-01T00:00:00+00:00",
+            "reason": "test",
+            "analog_evidence": {"supported": True},
+            "paper_plan": {
+                "entry_price": 100.0,
+                "stop_loss": 98.0,
+                "take_profit": 104.0,
+                "risk_per_unit": 2.0,
+                "reward_r": 2.0,
+                "risk_per_trade": 0.005,
+                "leverage_cap": 2.0,
+            },
+        },
+        updated_at="2026-01-01T00:00:00+00:00",
+        horizon_bars=12,
+        execution_config=signal_mod.execution_config_from_args(args),
+    )
+
+    assert record["decision_policy_version"] == "test_policy_v2"
+    assert record["paper_execution"]["decision_policy_version"] == "test_policy_v2"
+
+
 def test_latest_market_signal_journal_filters_allowed_pairs(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
     args.journal_allowed_pairs = "BBBUSDT:short"

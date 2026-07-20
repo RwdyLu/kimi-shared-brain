@@ -20,6 +20,7 @@ DEFAULT_SOURCES = (
     ("1h", "state/contract_latest_market_signal_journal.jsonl"),
     ("15m", "state/contract_latest_market_signal_15m_journal.jsonl"),
 )
+LEGACY_DECISION_POLICY_VERSION = "legacy_unknown"
 
 
 def now_utc() -> str:
@@ -138,6 +139,7 @@ def enrich_record(
         "exit_reason": outcome.get("exit_reason"),
         "exit_dt": outcome.get("exit_dt"),
         "execution_model": record.get("execution_model_version") or "legacy_v1",
+        "decision_policy_version": decision_policy_version(record),
     }
 
 
@@ -176,6 +178,11 @@ def completed_r(row: dict[str, Any]) -> float | None:
 
 def record_time_key(row: dict[str, Any]) -> str:
     return str(row.get("exit_dt") or row.get("updated_at") or row.get("created_at") or "")
+
+
+def decision_policy_version(row: dict[str, Any]) -> str:
+    value = row.get("decision_policy_version") or (row.get("paper_execution") or {}).get("decision_policy_version")
+    return str(value or LEGACY_DECISION_POLICY_VERSION)
 
 
 def max_drawdown_r(values: list[float]) -> float:
@@ -547,6 +554,14 @@ def regime_group_key(row: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def policy_group_key(row: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        decision_policy_version(row),
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("side") or "").lower(),
+    )
+
+
 def decide_group_status(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[str]]:
     min_trades = int(arg_value(args, "scoreboard_min_trades", 20))
     fail_sum_r = float(arg_value(args, "scoreboard_fail_sum_r", -5.0))
@@ -732,6 +747,65 @@ def build_regime_scoreboard(completed_rows: list[dict[str, Any]], args: argparse
     return rows
 
 
+def build_policy_scoreboard(completed_rows: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in completed_rows:
+        value = completed_r(row)
+        if value is None:
+            continue
+        grouped.setdefault(policy_group_key(row), []).append(row)
+
+    rows = []
+    recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
+    for key, group in grouped.items():
+        policy_version, timeframe, side = key
+        ordered = sorted(group, key=record_time_key)
+        values = [value for row in ordered if (value := completed_r(row)) is not None]
+        if not values:
+            continue
+        recent_values = values[-recent_n:] if recent_n > 0 else values
+        all_stats = summarize_values(values)
+        recent_stats = summarize_values(recent_values)
+        edge_score = (
+            safe_float(recent_stats["sum_r"])
+            - safe_float(recent_stats["max_drawdown_r"])
+            - 0.25 * float(recent_stats["trailing_losses"])
+        )
+        rows.append(
+            {
+                "decision_policy_version": policy_version,
+                "timeframe": timeframe,
+                "side": side,
+                "completed": all_stats["completed"],
+                "wins": all_stats["wins"],
+                "losses": all_stats["losses"],
+                "win_rate": all_stats["win_rate"],
+                "sum_r": all_stats["sum_r"],
+                "profit_factor": all_stats["profit_factor"],
+                "max_drawdown_r": all_stats["max_drawdown_r"],
+                "trailing_losses": all_stats["trailing_losses"],
+                "recent_completed": recent_stats["completed"],
+                "recent_win_rate": recent_stats["win_rate"],
+                "recent_sum_r": recent_stats["sum_r"],
+                "recent_profit_factor": recent_stats["profit_factor"],
+                "recent_max_drawdown_r": recent_stats["max_drawdown_r"],
+                "recent_trailing_losses": recent_stats["trailing_losses"],
+                "edge_score": float(edge_score),
+                "latest_completed_at": record_time_key(ordered[-1]),
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            -safe_float(row.get("edge_score")),
+            -int(row.get("recent_completed") or 0),
+            str(row.get("decision_policy_version")),
+            str(row.get("timeframe")),
+            str(row.get("side")),
+        )
+    )
+    return rows
+
+
 def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "timeframe": row.get("timeframe"),
@@ -881,6 +955,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
     regime_scoreboard = build_regime_scoreboard(completed_rows, args)
+    policy_scoreboard = build_policy_scoreboard(completed_rows, args)
     portfolio_drain = build_portfolio_drain(active_rows, args)
     portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
     portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
@@ -906,6 +981,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "analog_supported_open": sum(1 for row in active_rows if row.get("analog_supported")),
             "scoreboard_groups": len(scoreboard),
             "regime_scoreboard_groups": len(regime_scoreboard),
+            "policy_scoreboard_groups": len(policy_scoreboard),
             "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
             "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
             "blocked_pairs": len(actions["blocked_pairs"]),
@@ -925,6 +1001,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "actions": actions,
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "policy_scoreboard": policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
         "skipped": skipped_rows[: args.max_rows],
@@ -958,6 +1035,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"`{summary['scoreboard_groups']}/{summary['promote_candidates']}/{summary['stop_candidates']}`"
         ),
         f"- regime_scoreboard_groups: `{summary['regime_scoreboard_groups']}`",
+        f"- policy_scoreboard_groups: `{summary['policy_scoreboard_groups']}`",
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
         f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}` "
@@ -969,11 +1047,28 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"`{fmt_num((portfolio.get('drain') or {}).get('eta_to_active_cap_hours_upper_bound'), 2)}` "
         f"past_stale=`{(portfolio.get('drain') or {}).get('past_stale_after')}`",
         "",
+        "## Policy Scoreboard",
+        "",
+        "| policy | timeframe | side | recent_n | recent_win | recent_sum_R | recent_pf | recent_DD_R | trailing_loss | all_sum_R | score |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in payload["policy_scoreboard"]:
+        lines.append(
+            f"| {row.get('decision_policy_version')} | {row.get('timeframe')} | {row.get('side')} | "
+            f"{row.get('recent_completed')} | {fmt_pct(row.get('recent_win_rate'))} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
+            f"{fmt_num(row.get('sum_r'), 3)} | {fmt_num(row.get('edge_score'), 3)} |"
+        )
+    lines.extend(
+        [
+        "",
         "## Regime Scoreboard",
         "",
         "| timeframe | regime | side | recent_n | recent_win | recent_sum_R | recent_pf | recent_DD_R | trailing_loss | all_sum_R | score |",
         "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
+        ]
+    )
     for row in payload["regime_scoreboard"]:
         lines.append(
             f"| {row.get('timeframe')} | {row.get('market_regime_id')} | {row.get('side')} | "
@@ -1086,12 +1181,21 @@ def format_text(payload: dict[str, Any]) -> str:
         (
             f"scoreboard_groups={summary['scoreboard_groups']} "
             f"regime_groups={summary['regime_scoreboard_groups']} "
+            f"policy_groups={summary['policy_scoreboard_groups']} "
             f"promote={summary['promote_candidates']} stop={summary['stop_candidates']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
         "safety=paper_authorized:False live:False",
     ]
+    for row in payload["policy_scoreboard"][:5]:
+        lines.append(
+            f"policy {row.get('decision_policy_version')} {row.get('timeframe')} {row.get('side')} "
+            f"recent_n={row.get('recent_completed')} recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
+            f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
+            f"score={fmt_num(row.get('edge_score'), 3)}"
+        )
     for row in payload["regime_scoreboard"][:5]:
         lines.append(
             f"regime {row.get('timeframe')} {row.get('market_regime_id')} {row.get('side')} "
