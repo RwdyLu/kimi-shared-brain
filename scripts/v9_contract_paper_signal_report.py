@@ -461,6 +461,23 @@ def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def fresh_analog_veto_reasons(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    min_trades = int(arg_value(args, "fresh_veto_min_trades", 3))
+    if int(row.get("recent_completed") or 0) < min_trades:
+        return []
+    reasons = []
+    veto_sum_r = float(arg_value(args, "fresh_veto_sum_r", -2.0))
+    veto_profit_factor = float(arg_value(args, "fresh_veto_profit_factor", 0.5))
+    veto_trailing_losses = int(arg_value(args, "fresh_veto_trailing_losses", 3))
+    if safe_float(row.get("recent_sum_r")) <= veto_sum_r:
+        reasons.append(f"fresh_veto_recent_sum_r<={veto_sum_r:g}")
+    if compare_profit_factor(row.get("recent_profit_factor")) < veto_profit_factor:
+        reasons.append(f"fresh_veto_recent_profit_factor<{veto_profit_factor:g}")
+    if int(row.get("recent_trailing_losses") or 0) >= veto_trailing_losses:
+        reasons.append(f"fresh_veto_recent_trailing_losses>={veto_trailing_losses}")
+    return reasons
+
+
 def build_action_plan(scoreboard: list[dict[str, Any]], *, updated_at: str, args: argparse.Namespace) -> dict[str, Any]:
     max_rows = int(arg_value(args, "actions_max_rows", 80))
     blocked = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "stop_candidate"]
@@ -470,14 +487,23 @@ def build_action_plan(scoreboard: list[dict[str, Any]], *, updated_at: str, args
         for row in scoreboard
         if row.get("status") in {"watch", "collecting"} and safe_float(row.get("recent_sum_r")) > 0.0
     ]
+    fresh_veto = []
+    for row in scoreboard:
+        reasons = fresh_analog_veto_reasons(row, args)
+        if reasons:
+            compact = compact_scoreboard_row(row)
+            compact["fresh_veto_reason_codes"] = reasons
+            fresh_veto.append(compact)
     return {
         "kind": "contract_paper_strategy_actions_v1",
         "updated_at": updated_at,
         "blocked_pairs": blocked[:max_rows],
+        "fresh_analog_veto_pairs": fresh_veto[:max_rows],
         "promote_candidates": promote[:max_rows],
         "positive_watchlist": watch[:max_rows],
         "summary": {
             "blocked_pairs": len(blocked),
+            "fresh_analog_veto_pairs": len(fresh_veto),
             "promote_candidates": len(promote),
             "positive_watchlist": len(watch),
         },
@@ -562,6 +588,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
             "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
             "blocked_pairs": len(actions["blocked_pairs"]),
+            "fresh_analog_veto_pairs": len(actions["fresh_analog_veto_pairs"]),
             "positive_watchlist": len(actions["positive_watchlist"]),
         },
         "actions": actions,
@@ -599,7 +626,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"`{summary['scoreboard_groups']}/{summary['promote_candidates']}/{summary['stop_candidates']}`"
         ),
         f"- regime_scoreboard_groups: `{summary['regime_scoreboard_groups']}`",
-        f"- actions blocked/positive_watch: `{summary['blocked_pairs']}/{summary['positive_watchlist']}`",
+        f"- actions blocked/fresh_veto/positive_watch: "
+        f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
         "",
         "## Regime Scoreboard",
         "",
@@ -705,7 +733,8 @@ def format_text(payload: dict[str, Any]) -> str:
             f"regime_groups={summary['regime_scoreboard_groups']} "
             f"promote={summary['promote_candidates']} stop={summary['stop_candidates']}"
         ),
-        f"actions_blocked={summary['blocked_pairs']} positive_watch={summary['positive_watchlist']}",
+        f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
+        f"positive_watch={summary['positive_watchlist']}",
         "safety=paper_authorized:False live:False",
     ]
     for row in payload["regime_scoreboard"][:5]:
@@ -752,6 +781,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scoreboard-promote-sum-r", type=float, default=5.0)
     parser.add_argument("--scoreboard-promote-profit-factor", type=float, default=1.2)
     parser.add_argument("--scoreboard-promote-max-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--fresh-veto-min-trades", type=int, default=3)
+    parser.add_argument("--fresh-veto-sum-r", type=float, default=-2.0)
+    parser.add_argument("--fresh-veto-profit-factor", type=float, default=0.5)
+    parser.add_argument("--fresh-veto-trailing-losses", type=int, default=3)
     parser.add_argument("--actions-max-rows", type=int, default=80)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")

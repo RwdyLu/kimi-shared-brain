@@ -23,6 +23,7 @@ def args_for(actions_json: Path) -> Namespace:
         include_fresh_analog=False,
         signal_jsons="",
         max_fresh_analog_candidates=2,
+        allow_fresh_veto=False,
         min_fresh_analog_samples=30,
         min_fresh_analog_hit_rate=0.42,
         min_fresh_analog_profitable_rate=0.42,
@@ -225,5 +226,31 @@ def test_focus_plan_excludes_blocked_fresh_analog_signal(tmp_path: Path) -> None
     payload = plan_mod.build_plan(args)
 
     assert payload["summary"]["fresh_analog_seen"] == 1
+    assert payload["summary"]["fresh_analog_added"] == 0
+    assert payload["summary"]["selected"] == 0
+
+
+def test_focus_plan_excludes_fresh_veto_signal(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    signal_json = tmp_path / "signal.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [],
+                "blocked_pairs": [],
+                "fresh_analog_veto_pairs": [candidate("VELVETUSDT", "long", timeframe="15m")],
+            }
+        )
+    )
+    write_signal_json(signal_json)
+    args = args_for(actions_json)
+    args.include_fresh_analog = True
+    args.signal_jsons = str(signal_json)
+
+    payload = plan_mod.build_plan(args)
+
+    assert payload["summary"]["fresh_analog_seen"] == 1
+    assert payload["summary"]["fresh_analog_veto_pairs"] == 1
     assert payload["summary"]["fresh_analog_added"] == 0
     assert payload["summary"]["selected"] == 0

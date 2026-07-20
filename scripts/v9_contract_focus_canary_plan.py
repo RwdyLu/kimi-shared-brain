@@ -213,6 +213,7 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     actions = json.loads(Path(args.actions_json).read_text())
     blocked = {pair_key(row) for row in actions.get("blocked_pairs", [])}
+    fresh_veto = {pair_key(row) for row in actions.get("fresh_analog_veto_pairs", [])}
     selected: list[dict[str, Any]] = []
     used: set[tuple[str, str, str]] = set()
 
@@ -252,6 +253,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             continue
         if key in blocked and not args.allow_blocked:
             continue
+        if key in fresh_veto and not args.allow_fresh_veto:
+            continue
         selected.append(build_candidate_config(row, source="fresh_analog_signal"))
         used.add(key)
         fresh_added += 1
@@ -265,6 +268,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "include_fresh_analog": bool(args.include_fresh_analog),
             "signal_jsons": args.signal_jsons,
             "max_fresh_analog_candidates": int(args.max_fresh_analog_candidates),
+            "allow_fresh_veto": bool(args.allow_fresh_veto),
             "min_fresh_analog_samples": int(args.min_fresh_analog_samples),
             "min_fresh_analog_hit_rate": float(args.min_fresh_analog_hit_rate),
             "min_fresh_analog_profitable_rate": float(args.min_fresh_analog_profitable_rate),
@@ -281,6 +285,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "summary": {
             "selected": len(selected),
             "blocked_pairs": len(blocked),
+            "fresh_analog_veto_pairs": len(fresh_veto),
             "promote_candidates_seen": len(actions.get("promote_candidates", [])),
             "positive_watchlist_seen": len(actions.get("positive_watchlist", [])),
             "fresh_analog_seen": len(fresh_rows),
@@ -313,6 +318,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- selected: `{summary['selected']}`",
         f"- seen promote/positive/blocked: "
         f"`{summary['promote_candidates_seen']}/{summary['positive_watchlist_seen']}/{summary['blocked_pairs']}`",
+        f"- fresh analog veto pairs: `{summary.get('fresh_analog_veto_pairs', 0)}`",
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss | session |",
@@ -341,6 +347,7 @@ def format_text(payload: dict[str, Any]) -> str:
         f"updated_at={payload['updated_at']}",
         f"selected={summary['selected']} promote_seen={summary['promote_candidates_seen']} "
         f"positive_seen={summary['positive_watchlist_seen']} blocked_seen={summary['blocked_pairs']} "
+        f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)}",
         "safety=paper_authorized:False live:False",
     ]
@@ -373,6 +380,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--max-fresh-analog-candidates", type=int, default=2)
+    parser.add_argument("--allow-fresh-veto", action="store_true")
     parser.add_argument("--min-fresh-analog-samples", type=int, default=30)
     parser.add_argument("--min-fresh-analog-hit-rate", type=float, default=0.42)
     parser.add_argument("--min-fresh-analog-profitable-rate", type=float, default=0.42)

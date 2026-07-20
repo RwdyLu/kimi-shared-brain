@@ -128,6 +128,57 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     assert payload["actions"]["blocked_pairs"][0]["timeframe"] == "1h"
     assert payload["actions"]["blocked_pairs"][0]["symbol"] == "BBBUSDT"
     assert payload["actions"]["blocked_pairs"][0]["side"] == "short"
+    assert payload["actions"]["summary"]["fresh_analog_veto_pairs"] == 1
+    assert payload["actions"]["fresh_analog_veto_pairs"][0]["symbol"] == "BBBUSDT"
+    assert "fresh_veto_recent_sum_r<=-2" in payload["actions"]["fresh_analog_veto_pairs"][0]["fresh_veto_reason_codes"]
+
+
+def test_paper_report_fresh_veto_blocks_short_negative_evidence_before_stop_candidate(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = []
+    for idx, value in enumerate([-1.1, -1.2, -1.3]):
+        rows.append(
+            {
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "DOGEUSDT",
+                "side": "long",
+                "analog_supported": False,
+                "outcome": {"r_multiple": value, "exit_dt": f"2026-01-01T0{idx}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"15m:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=20,
+        scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-5.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=6,
+        scoreboard_promote_sum_r=5.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=5.0,
+        fresh_veto_min_trades=3,
+        fresh_veto_sum_r=-2.0,
+        fresh_veto_profit_factor=0.5,
+        fresh_veto_trailing_losses=3,
+        actions_max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["stop_candidates"] == 0
+    assert payload["actions"]["summary"]["fresh_analog_veto_pairs"] == 1
+    row = payload["actions"]["fresh_analog_veto_pairs"][0]
+    assert row["timeframe"] == "15m"
+    assert row["symbol"] == "DOGEUSDT"
+    assert row["side"] == "long"
+    assert "fresh_veto_recent_trailing_losses>=3" in row["fresh_veto_reason_codes"]
 
 
 def test_paper_report_builds_regime_scoreboard(tmp_path: Path) -> None:
