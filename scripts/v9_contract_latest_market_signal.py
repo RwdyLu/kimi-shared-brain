@@ -988,6 +988,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     seen = {record.get("signal_id") for record in records}
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
+    max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
     updated = 0
     migrated = 0
     by_symbol: dict[str, pd.DataFrame] = {}
@@ -1019,11 +1020,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
             updated += 1
 
+    active_by_pair: dict[tuple[str, str], int] = {}
+    for record in records:
+        if record.get("status") not in {"pending_entry", "open"}:
+            continue
+        pair = (str(record.get("symbol", "")).upper(), str(record.get("side", "")).lower())
+        active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
+
     new_records = []
     for row in payload["rows"]:
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
             continue
-        if allowed_pairs and (str(row.get("symbol", "")).upper(), str(row.get("signal"))) not in allowed_pairs:
+        pair = (str(row.get("symbol", "")).upper(), str(row.get("signal")).lower())
+        if allowed_pairs and pair not in allowed_pairs:
+            continue
+        if max_active_per_pair > 0 and active_by_pair.get(pair, 0) >= max_active_per_pair:
             continue
         analog = row.get("analog_evidence") or {}
         if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
@@ -1040,6 +1051,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 execution_config=execution_config,
             )
         )
+        active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
 
     records.extend(new_records)
     if args.max_journal_records > 0 and len(records) > args.max_journal_records:
@@ -1066,6 +1078,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "analog_supported_open_records": analog_supported_open,
         "record_mode": args.journal_record_mode,
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
+        "journal_max_active_per_pair": max_active_per_pair,
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "paper_execution": execution_config,
     }
@@ -1115,6 +1128,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_allowed_pairs": sorted(
                 f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
             ),
+            "journal_max_active_per_pair": int(args.journal_max_active_per_pair),
         },
         "summary": {
             "rows": len(rows),
@@ -1308,6 +1322,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--journal-allowed-pairs",
         default="",
         help="Optional comma list of SYMBOL:long or SYMBOL:short pairs to record in the paper journal.",
+    )
+    parser.add_argument(
+        "--journal-max-active-per-pair",
+        type=int,
+        default=0,
+        help="If positive, do not add a new paper record when SYMBOL:SIDE already has this many active records.",
     )
     parser.add_argument(
         "--journal-record-mode",

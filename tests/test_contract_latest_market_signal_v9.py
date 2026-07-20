@@ -81,6 +81,7 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_allowed_pairs="",
+        journal_max_active_per_pair=0,
         journal_record_mode="all_signals",
         max_journal_records=1000,
         out_json=str(tmp_path / "signal.json"),
@@ -199,6 +200,54 @@ def test_latest_market_signal_journal_filters_allowed_pairs(tmp_path: Path) -> N
     assert summary["new_records"] == 1
     assert rows[0]["symbol"] == "BBBUSDT"
     assert rows[0]["side"] == "short"
+
+
+def test_latest_market_signal_journal_limits_active_pair_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_max_active_per_pair = 1
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "AAAUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T01:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 99.0,
+                    "stop_loss": 101.0,
+                    "take_profit": 95.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert rows[0]["latest_dt"] == "2026-01-01T00:00:00+00:00"
 
 
 def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None:
