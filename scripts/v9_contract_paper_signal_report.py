@@ -352,6 +352,53 @@ def build_scoreboard(
     return rows
 
 
+def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "timeframe": row.get("timeframe"),
+        "symbol": row.get("symbol"),
+        "side": row.get("side"),
+        "status": row.get("status"),
+        "reason_codes": row.get("reason_codes") or [],
+        "recent_completed": row.get("recent_completed"),
+        "recent_win_rate": row.get("recent_win_rate"),
+        "recent_sum_r": row.get("recent_sum_r"),
+        "recent_profit_factor": row.get("recent_profit_factor"),
+        "recent_max_drawdown_r": row.get("recent_max_drawdown_r"),
+        "recent_trailing_losses": row.get("recent_trailing_losses"),
+        "completed": row.get("completed"),
+        "sum_r": row.get("sum_r"),
+        "profit_factor": row.get("profit_factor"),
+        "active": row.get("active"),
+        "edge_score": row.get("edge_score"),
+        "latest_completed_at": row.get("latest_completed_at"),
+    }
+
+
+def build_action_plan(scoreboard: list[dict[str, Any]], *, updated_at: str, args: argparse.Namespace) -> dict[str, Any]:
+    max_rows = int(arg_value(args, "actions_max_rows", 80))
+    blocked = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "stop_candidate"]
+    promote = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "promote_candidate"]
+    watch = [
+        compact_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") in {"watch", "collecting"} and safe_float(row.get("recent_sum_r")) > 0.0
+    ]
+    return {
+        "kind": "contract_paper_strategy_actions_v1",
+        "updated_at": updated_at,
+        "blocked_pairs": blocked[:max_rows],
+        "promote_candidates": promote[:max_rows],
+        "positive_watchlist": watch[:max_rows],
+        "summary": {
+            "blocked_pairs": len(blocked),
+            "promote_candidates": len(promote),
+            "positive_watchlist": len(watch),
+        },
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
 def fmt_num(value: Any, digits: int = 6) -> str:
     if value is None:
         return ""
@@ -373,6 +420,7 @@ def fmt_pct(value: Any) -> str:
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     sources = parse_sources(args.sources)
+    updated_at = now_utc()
     latest_cache: dict[tuple[str, str], dict[str, Any]] = {}
     records = []
     source_summaries = []
@@ -405,9 +453,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     wins = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) > 0]
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
     scoreboard = build_scoreboard(completed_rows, active_rows, args)
+    actions = build_action_plan(scoreboard, updated_at=updated_at, args=args)
     payload = {
         "kind": "contract_paper_signal_report_v1",
-        "updated_at": now_utc(),
+        "updated_at": updated_at,
         "cache_dir": args.cache_dir,
         "sources": source_summaries,
         "summary": {
@@ -423,7 +472,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scoreboard_groups": len(scoreboard),
             "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
             "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
+            "blocked_pairs": len(actions["blocked_pairs"]),
+            "positive_watchlist": len(actions["positive_watchlist"]),
         },
+        "actions": actions,
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
@@ -452,7 +504,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- skipped: `{summary['skipped']}`",
         f"- wins/losses: `{summary['wins']}/{summary['losses']}`",
         f"- analog_supported_open: `{summary['analog_supported_open']}`",
-        f"- scoreboard groups/promote/stop: `{summary['scoreboard_groups']}/{summary['promote_candidates']}/{summary['stop_candidates']}`",
+        (
+            f"- scoreboard groups/promote/stop: "
+            f"`{summary['scoreboard_groups']}/{summary['promote_candidates']}/{summary['stop_candidates']}`"
+        ),
+        f"- actions blocked/positive_watch: `{summary['blocked_pairs']}/{summary['positive_watchlist']}`",
         "",
         "## Strategy Scoreboard",
         "",
@@ -535,7 +591,11 @@ def format_text(payload: dict[str, Any]) -> str:
         f"records={summary['records']} active={summary['active']} open={summary['open']} "
         f"pending={summary['pending_entry']} completed={summary['completed']} skipped={summary['skipped']}",
         f"wins={summary['wins']} losses={summary['losses']} analog_supported_active={summary['analog_supported_open']}",
-        f"scoreboard_groups={summary['scoreboard_groups']} promote={summary['promote_candidates']} stop={summary['stop_candidates']}",
+        (
+            f"scoreboard_groups={summary['scoreboard_groups']} "
+            f"promote={summary['promote_candidates']} stop={summary['stop_candidates']}"
+        ),
+        f"actions_blocked={summary['blocked_pairs']} positive_watch={summary['positive_watchlist']}",
         "safety=paper_authorized:False live:False",
     ]
     for row in payload["scoreboard"][:10]:
@@ -573,8 +633,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scoreboard-promote-sum-r", type=float, default=5.0)
     parser.add_argument("--scoreboard-promote-profit-factor", type=float, default=1.2)
     parser.add_argument("--scoreboard-promote-max-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--actions-max-rows", type=int, default=80)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")
+    parser.add_argument("--out-actions-json", default="")
+    parser.add_argument("--out-blocked-pairs-json", default="")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -585,6 +648,19 @@ def main() -> None:
     write_json(payload, Path(args.out_json))
     Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_md).write_text(format_markdown(payload))
+    if args.out_actions_json:
+        write_json(payload["actions"], Path(args.out_actions_json))
+    if args.out_blocked_pairs_json:
+        write_json(
+            {
+                "kind": "contract_paper_blocked_pairs_v1",
+                "updated_at": payload["updated_at"],
+                "blocked_pairs": payload["actions"]["blocked_pairs"],
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            },
+            Path(args.out_blocked_pairs_json),
+        )
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
     else:

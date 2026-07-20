@@ -42,6 +42,70 @@ def parse_symbol_side_pairs(raw: str) -> set[tuple[str, str]]:
     return pairs
 
 
+def parse_timeframe_symbol_side_refs(raw: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
+    refs: set[tuple[str, str, str]] = set()
+    for part in raw.replace(";", ",").split(","):
+        item = part.strip()
+        if not item:
+            continue
+        fields = [field.strip() for field in item.split(":")]
+        if len(fields) == 2:
+            timeframe = default_timeframe
+            symbol, side = fields
+        elif len(fields) == 3:
+            timeframe, symbol, side = fields
+        else:
+            raise ValueError(f"journal blocked pair must be SYMBOL:SIDE or TIMEFRAME:SYMBOL:SIDE, got {item!r}")
+        side = side.lower()
+        if side not in {"long", "short"}:
+            raise ValueError(f"journal blocked side must be long or short, got {side!r}")
+        refs.add((timeframe.lower(), symbol.upper(), side))
+    return refs
+
+
+def read_blocked_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return set()
+    rows = payload.get("blocked_pairs", payload) if isinstance(payload, dict) else payload
+    refs: set[tuple[str, str, str]] = set()
+    if not isinstance(rows, list):
+        return refs
+    for row in rows:
+        if isinstance(row, str):
+            refs.update(parse_timeframe_symbol_side_refs(row, default_timeframe=default_timeframe))
+            continue
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        side = str(row.get("side") or "").lower()
+        timeframe = str(row.get("timeframe") or default_timeframe).lower()
+        if symbol and side in {"long", "short"}:
+            refs.add((timeframe, symbol, side))
+    return refs
+
+
+def journal_blocked_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
+    default_timeframe = str(getattr(args, "timeframe", "") or "").lower()
+    refs = parse_timeframe_symbol_side_refs(
+        getattr(args, "journal_blocked_pairs", ""),
+        default_timeframe=default_timeframe,
+    )
+    refs.update(
+        read_blocked_pair_refs(
+            getattr(args, "journal_blocked_pairs_json", ""),
+            default_timeframe=default_timeframe,
+        )
+    )
+    return refs
+
+
 def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -> tuple[str, ...]:
     if not path:
         return fallback[:top_n]
@@ -988,9 +1052,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     seen = {record.get("signal_id") for record in records}
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
+    blocked_pairs = journal_blocked_pair_refs(args)
     max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
     updated = 0
     migrated = 0
+    blocked_candidates = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
@@ -1032,7 +1098,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
             continue
         pair = (str(row.get("symbol", "")).upper(), str(row.get("signal")).lower())
+        pair_ref = (str(getattr(args, "timeframe", "") or "").lower(), pair[0], pair[1])
         if allowed_pairs and pair not in allowed_pairs:
+            continue
+        if pair_ref in blocked_pairs:
+            blocked_candidates += 1
             continue
         if max_active_per_pair > 0 and active_by_pair.get(pair, 0) >= max_active_per_pair:
             continue
@@ -1078,6 +1148,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "analog_supported_open_records": analog_supported_open,
         "record_mode": args.journal_record_mode,
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
+        "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
+        "journal_blocked_candidate_rows": blocked_candidates,
         "journal_max_active_per_pair": max_active_per_pair,
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "paper_execution": execution_config,
@@ -1128,6 +1200,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_allowed_pairs": sorted(
                 f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
             ),
+            "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_max_active_per_pair": int(args.journal_max_active_per_pair),
         },
         "summary": {
@@ -1322,6 +1395,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--journal-allowed-pairs",
         default="",
         help="Optional comma list of SYMBOL:long or SYMBOL:short pairs to record in the paper journal.",
+    )
+    parser.add_argument(
+        "--journal-blocked-pairs",
+        default="",
+        help="Optional comma list of SYMBOL:SIDE or TIMEFRAME:SYMBOL:SIDE pairs to skip in the paper journal.",
+    )
+    parser.add_argument(
+        "--journal-blocked-pairs-json",
+        default="",
+        help="Optional JSON file with blocked_pairs rows containing timeframe, symbol, and side.",
     )
     parser.add_argument(
         "--journal-max-active-per-pair",

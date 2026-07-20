@@ -104,6 +104,7 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
         scoreboard_promote_sum_r=5.0,
         scoreboard_promote_profit_factor=1.2,
         scoreboard_promote_max_drawdown_r=5.0,
+        actions_max_rows=20,
     )
 
     payload = report_mod.build_report(args)
@@ -117,3 +118,7 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     stop = next(row for row in payload["scoreboard"] if row["symbol"] == "BBBUSDT")
     assert stop["status"] == "stop_candidate"
     assert "recent_sum_r<=-5" in stop["reason_codes"]
+    assert payload["actions"]["summary"]["blocked_pairs"] == 1
+    assert payload["actions"]["blocked_pairs"][0]["timeframe"] == "1h"
+    assert payload["actions"]["blocked_pairs"][0]["symbol"] == "BBBUSDT"
+    assert payload["actions"]["blocked_pairs"][0]["side"] == "short"
