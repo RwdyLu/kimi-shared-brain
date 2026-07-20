@@ -284,6 +284,75 @@ def test_paper_report_builds_decision_policy_scoreboard(tmp_path: Path) -> None:
     assert payload["records"][0]["decision_policy_version"] == "legacy_unknown"
 
 
+def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path) -> None:
+    main_journal = tmp_path / "main.jsonl"
+    shadow_journal = tmp_path / "shadow.jsonl"
+    main_journal.write_text(
+        json.dumps(
+            {
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+                "status": "open",
+                "symbol": "LIVEUSDT",
+                "side": "long",
+                "entry_price": 100.0,
+                "stop_loss": 98.0,
+                "take_profit": 104.0,
+                "analog_supported": True,
+            }
+        )
+        + "\n"
+    )
+    shadow_rows = []
+    for idx in range(5):
+        shadow_rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "SHADOWUSDT",
+                "side": "long",
+                "decision_policy_version": "policy_v2",
+                "shadow_journal": True,
+                "shadow_reason": "portfolio_risk_block",
+                "analog_supported": True,
+                "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    shadow_journal.write_text("\n".join(json.dumps(row) for row in shadow_rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{main_journal}",
+        shadow_sources=f"1h:{shadow_journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=5,
+        scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-2.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=6,
+        scoreboard_promote_sum_r=2.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=1.0,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["active"] == 1
+    assert payload["summary"]["records"] == 1
+    assert payload["summary"]["shadow_records"] == 5
+    assert payload["summary"]["shadow_completed"] == 5
+    assert payload["summary"]["current_policy_records"] == 0
+    assert payload["summary"]["current_policy_shadow_records"] == 5
+    assert payload["summary"]["current_policy_shadow_scoreboard_groups"] == 1
+    assert payload["summary"]["current_policy_shadow_promote_candidates"] == 1
+    assert payload["current_policy_shadow_scoreboard"][0]["symbol"] == "SHADOWUSDT"
+    assert payload["actions"]["current_policy_summary"]["promote_candidates"] == 0
+
+
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     pd.DataFrame(
         {

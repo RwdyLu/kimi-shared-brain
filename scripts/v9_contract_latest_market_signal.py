@@ -1137,6 +1137,34 @@ def write_journal(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text(text + ("\n" if text else ""))
 
 
+def shadow_record_from_row(
+    row: dict[str, Any],
+    *,
+    updated_at: str,
+    horizon_bars: int,
+    execution_config: dict[str, Any],
+    reason: str,
+    reason_codes: list[str] | None = None,
+    risk_controls: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    risk_controls = risk_controls or {}
+    record = journal_record_from_row(
+        row,
+        updated_at=updated_at,
+        horizon_bars=horizon_bars,
+        execution_config=execution_config,
+    )
+    record["kind"] = "contract_latest_market_signal_shadow_journal_v1"
+    record["shadow_journal"] = True
+    record["shadow_reason"] = reason
+    record["shadow_reason_codes"] = reason_codes or []
+    record["shadow_portfolio_risk_status"] = risk_controls.get("status")
+    record["shadow_portfolio_blocked_sides"] = risk_controls.get("blocked_sides") or []
+    record["shadow_global_active"] = risk_controls.get("active")
+    record["shadow_global_max_active"] = risk_controls.get("max_active")
+    return record
+
+
 def migrate_legacy_record_to_realistic(
     record: dict[str, Any],
     *,
@@ -1433,6 +1461,10 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     path = Path(args.journal_jsonl)
     records = read_journal(path)
     seen = {record.get("signal_id") for record in records}
+    shadow_path_raw = str(getattr(args, "journal_shadow_jsonl", "") or "")
+    shadow_path = Path(shadow_path_raw) if shadow_path_raw else None
+    shadow_records = read_journal(shadow_path) if shadow_path is not None else []
+    shadow_seen = {record.get("signal_id") for record in shadow_records}
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
@@ -1453,6 +1485,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     global_active_cap_blocked_candidates = 0
     global_active_added = 0
     active_total_cap_blocked_candidates = 0
+    shadow_updated = 0
+    new_shadow_records: list[dict[str, Any]] = []
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
@@ -1482,6 +1516,22 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
             updated += 1
 
+    for record in shadow_records:
+        if record.get("status") in {"completed", "skipped"}:
+            continue
+        symbol = str(record.get("symbol", "")).upper()
+        if not symbol:
+            continue
+        if symbol not in by_symbol:
+            by_symbol[symbol] = load_symbol_cache(
+                Path(args.cache_dir),
+                symbol,
+                args.timeframe,
+                lookback_bars=args.lookback_bars,
+            )
+        if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
+            shadow_updated += 1
+
     active_by_pair: dict[tuple[str, str], int] = {}
     active_total = 0
     for record in records:
@@ -1492,6 +1542,28 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
 
     new_records = []
+    def add_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
+        if shadow_path is None:
+            return
+        analog = row.get("analog_evidence") or {}
+        if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
+            return
+        sid = signal_id(row)
+        if sid in seen or sid in shadow_seen:
+            return
+        shadow_seen.add(sid)
+        new_shadow_records.append(
+            shadow_record_from_row(
+                row,
+                updated_at=payload["updated_at"],
+                horizon_bars=args.paper_outcome_horizon_bars,
+                execution_config=execution_config,
+                reason=reason,
+                reason_codes=reason_codes,
+                risk_controls=risk_controls,
+            )
+        )
+
     for row in payload["rows"]:
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
             continue
@@ -1509,6 +1581,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 portfolio_drawdown_recovery_candidates += 1
             else:
                 portfolio_risk_blocked_candidates += 1
+                add_shadow_record(
+                    row,
+                    "portfolio_risk_block",
+                    list(risk_controls.get("reason_codes") or []),
+                )
                 continue
         recovery_probe = False
         if respect_portfolio_side_risk and pair[1] in blocked_sides:
@@ -1517,16 +1594,28 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 portfolio_side_recovery_candidates += 1
             else:
                 portfolio_side_blocked_candidates += 1
+                add_shadow_record(
+                    row,
+                    "portfolio_side_block",
+                    list(risk_controls.get("side_reason_codes") or []),
+                )
                 continue
         global_max_active = int(risk_controls.get("max_active") or 0)
         global_active = int(risk_controls.get("active") or 0)
         if respect_global_active_cap and global_max_active > 0 and global_active + global_active_added >= global_max_active:
             global_active_cap_blocked_candidates += 1
+            add_shadow_record(row, "global_active_cap_block", [f"global_active>={global_max_active}"])
             continue
         if max_active_total > 0 and active_total >= max_active_total:
             active_total_cap_blocked_candidates += 1
+            add_shadow_record(row, "journal_active_total_cap_block", [f"journal_active_total>={max_active_total}"])
             continue
         if max_active_per_pair > 0 and active_by_pair.get(pair, 0) >= max_active_per_pair:
+            add_shadow_record(
+                row,
+                "journal_active_pair_cap_block",
+                [f"journal_active_pair>={max_active_per_pair}"],
+            )
             continue
         analog = row.get("analog_evidence") or {}
         if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
@@ -1556,12 +1645,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         global_active_added += 1
 
     records.extend(new_records)
+    shadow_records.extend(new_shadow_records)
     if args.max_journal_records > 0 and len(records) > args.max_journal_records:
         records = records[-int(args.max_journal_records) :]
+    max_shadow_records = int(getattr(args, "max_shadow_journal_records", 0) or 0)
+    if max_shadow_records > 0 and len(shadow_records) > max_shadow_records:
+        shadow_records = shadow_records[-max_shadow_records:]
     write_journal(path, records)
+    if shadow_path is not None:
+        write_journal(shadow_path, shadow_records)
     completed = sum(1 for record in records if record.get("status") == "completed")
     skipped = sum(1 for record in records if record.get("status") == "skipped")
     active = sum(1 for record in records if record.get("status") in {"pending_entry", "open"})
+    shadow_completed = sum(1 for record in shadow_records if record.get("status") == "completed")
+    shadow_skipped = sum(1 for record in shadow_records if record.get("status") == "skipped")
+    shadow_active = sum(1 for record in shadow_records if record.get("status") in {"pending_entry", "open"})
     analog_supported_open = sum(
         1
         for record in records
@@ -1578,6 +1676,14 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "completed_records": completed,
         "skipped_records": skipped,
         "analog_supported_open_records": analog_supported_open,
+        "shadow_enabled": shadow_path is not None,
+        "shadow_path": str(shadow_path) if shadow_path is not None else "",
+        "shadow_new_records": len(new_shadow_records),
+        "shadow_updated_records": shadow_updated,
+        "shadow_total_records": len(shadow_records),
+        "shadow_open_records": shadow_active,
+        "shadow_completed_records": shadow_completed,
+        "shadow_skipped_records": shadow_skipped,
         "record_mode": args.journal_record_mode,
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
@@ -1670,6 +1776,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
+            "journal_shadow_jsonl": str(getattr(args, "journal_shadow_jsonl", "")),
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
             "journal_respect_global_portfolio_active_cap": bool(
                 getattr(args, "journal_respect_global_portfolio_active_cap", True)
@@ -1814,6 +1921,10 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
+        f"- journal_shadow_new/active/completed: "
+        f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
+        f"{(payload.get('journal') or {}).get('shadow_open_records')}/"
+        f"{(payload.get('journal') or {}).get('shadow_completed_records')}`",
         f"- journal_portfolio_risk: `{(payload.get('journal') or {}).get('journal_portfolio_risk_status')}`",
         f"- journal_portfolio_blocked_sides: "
         f"`{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}`",
@@ -1871,6 +1982,13 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_portfolio_side_recovery_candidate_rows')}",
         "journal_portfolio_blocked_sides="
         f"{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}",
+        "journal_shadow "
+        f"enabled={(payload.get('journal') or {}).get('shadow_enabled')} "
+        f"new={(payload.get('journal') or {}).get('shadow_new_records')} "
+        f"updated={(payload.get('journal') or {}).get('shadow_updated_records')} "
+        f"active={(payload.get('journal') or {}).get('shadow_open_records')} "
+        f"completed={(payload.get('journal') or {}).get('shadow_completed_records')} "
+        f"path={(payload.get('journal') or {}).get('shadow_path')}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
@@ -1962,6 +2080,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--journal-jsonl", default="state/contract_latest_market_signal_journal.jsonl")
     parser.add_argument(
+        "--journal-shadow-jsonl",
+        default="",
+        help="Optional separate shadow journal for candidates blocked by risk caps; never counted as active risk.",
+    )
+    parser.add_argument(
         "--journal-allowed-pairs",
         default="",
         help="Optional comma list of SYMBOL:long or SYMBOL:short pairs to record in the paper journal.",
@@ -2015,6 +2138,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="all_signals",
     )
     parser.add_argument("--max-journal-records", type=int, default=20000)
+    parser.add_argument("--max-shadow-journal-records", type=int, default=20000)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.md")
     parser.add_argument("--marker", default="state/FOUND_CONTRACT_MARKET_PAPER_PLAN.txt")

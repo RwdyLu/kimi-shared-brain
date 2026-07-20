@@ -20,6 +20,10 @@ DEFAULT_SOURCES = (
     ("1h", "state/contract_latest_market_signal_journal.jsonl"),
     ("15m", "state/contract_latest_market_signal_15m_journal.jsonl"),
 )
+DEFAULT_SHADOW_SOURCES = (
+    ("1h", "state/contract_latest_market_signal_shadow_journal.jsonl"),
+    ("15m", "state/contract_latest_market_signal_15m_shadow_journal.jsonl"),
+)
 LEGACY_DECISION_POLICY_VERSION = "legacy_unknown"
 
 
@@ -40,6 +44,12 @@ def parse_sources(raw: str) -> tuple[tuple[str, str], ...]:
         timeframe, path = part.split(":", 1)
         out.append((timeframe.strip(), path.strip()))
     return tuple(out or DEFAULT_SOURCES)
+
+
+def parse_shadow_sources(raw: str) -> tuple[tuple[str, str], ...]:
+    if not raw.strip():
+        return DEFAULT_SHADOW_SOURCES
+    return parse_sources(raw)
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -958,13 +968,13 @@ def fmt_pct(value: Any) -> str:
     return f"{safe_float(value) * 100:.2f}%"
 
 
-def build_report(args: argparse.Namespace) -> dict[str, Any]:
-    sources = parse_sources(args.sources)
-    updated_at = now_utc()
-    current_policy_version = str(
-        arg_value(args, "current_decision_policy_version", DECISION_POLICY_VERSION) or DECISION_POLICY_VERSION
-    )
-    latest_cache: dict[tuple[str, str], dict[str, Any]] = {}
+def load_enriched_records(
+    sources: tuple[tuple[str, str], ...],
+    *,
+    cache_dir: Path,
+    lookback_bars: int,
+    latest_cache: dict[tuple[str, str], dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     records = []
     source_summaries = []
     for timeframe, journal_path in sources:
@@ -982,12 +992,36 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 enrich_record(
                     record,
                     timeframe=timeframe,
-                    cache_dir=Path(args.cache_dir),
-                    lookback_bars=args.lookback_bars,
+                    cache_dir=cache_dir,
+                    lookback_bars=lookback_bars,
                     latest_cache=latest_cache,
                 )
             )
     records.sort(key=lambda row: str(row.get("created_at", "")), reverse=True)
+    return records, source_summaries
+
+
+def build_report(args: argparse.Namespace) -> dict[str, Any]:
+    sources = parse_sources(args.sources)
+    shadow_sources = parse_shadow_sources(str(arg_value(args, "shadow_sources", "") or ""))
+    updated_at = now_utc()
+    current_policy_version = str(
+        arg_value(args, "current_decision_policy_version", DECISION_POLICY_VERSION) or DECISION_POLICY_VERSION
+    )
+    latest_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    cache_dir = Path(args.cache_dir)
+    records, source_summaries = load_enriched_records(
+        sources,
+        cache_dir=cache_dir,
+        lookback_bars=args.lookback_bars,
+        latest_cache=latest_cache,
+    )
+    shadow_records, shadow_source_summaries = load_enriched_records(
+        shadow_sources,
+        cache_dir=cache_dir,
+        lookback_bars=args.lookback_bars,
+        latest_cache=latest_cache,
+    )
     active_rows = [row for row in records if row.get("status") in {"pending_entry", "open"}]
     pending_rows = [row for row in records if row.get("status") == "pending_entry"]
     open_rows = [row for row in records if row.get("status") == "open"]
@@ -1002,6 +1036,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     current_policy_completed_rows = rows_for_decision_policy(completed_rows, current_policy_version)
     current_policy_active_rows = rows_for_decision_policy(active_rows, current_policy_version)
     current_policy_scoreboard = build_scoreboard(current_policy_completed_rows, current_policy_active_rows, args)
+    shadow_active_rows = [row for row in shadow_records if row.get("status") in {"pending_entry", "open"}]
+    shadow_completed_rows = [row for row in shadow_records if row.get("status") == "completed"]
+    shadow_scoreboard = build_scoreboard(shadow_completed_rows, shadow_active_rows, args)
+    current_policy_shadow_records = rows_for_decision_policy(shadow_records, current_policy_version)
+    current_policy_shadow_completed_rows = rows_for_decision_policy(shadow_completed_rows, current_policy_version)
+    current_policy_shadow_active_rows = rows_for_decision_policy(shadow_active_rows, current_policy_version)
+    current_policy_shadow_scoreboard = build_scoreboard(
+        current_policy_shadow_completed_rows,
+        current_policy_shadow_active_rows,
+        args,
+    )
     portfolio_drain = build_portfolio_drain(active_rows, args)
     portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
     portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
@@ -1022,6 +1067,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": updated_at,
         "cache_dir": args.cache_dir,
         "sources": source_summaries,
+        "shadow_sources": shadow_source_summaries,
         "summary": {
             "records": len(records),
             "open": len(open_rows),
@@ -1035,11 +1081,25 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scoreboard_groups": len(scoreboard),
             "regime_scoreboard_groups": len(regime_scoreboard),
             "policy_scoreboard_groups": len(policy_scoreboard),
+            "shadow_records": len(shadow_records),
+            "shadow_completed": len(shadow_completed_rows),
+            "shadow_active": len(shadow_active_rows),
+            "shadow_scoreboard_groups": len(shadow_scoreboard),
             "current_decision_policy_version": current_policy_version,
             "current_policy_records": len(current_policy_records),
             "current_policy_completed": len(current_policy_completed_rows),
             "current_policy_active": len(current_policy_active_rows),
             "current_policy_scoreboard_groups": len(current_policy_scoreboard),
+            "current_policy_shadow_records": len(current_policy_shadow_records),
+            "current_policy_shadow_completed": len(current_policy_shadow_completed_rows),
+            "current_policy_shadow_active": len(current_policy_shadow_active_rows),
+            "current_policy_shadow_scoreboard_groups": len(current_policy_shadow_scoreboard),
+            "current_policy_shadow_promote_candidates": sum(
+                1 for row in current_policy_shadow_scoreboard if row.get("status") == "promote_candidate"
+            ),
+            "current_policy_shadow_stop_candidates": sum(
+                1 for row in current_policy_shadow_scoreboard if row.get("status") == "stop_candidate"
+            ),
             "current_policy_promote_candidates": sum(
                 1 for row in current_policy_scoreboard if row.get("status") == "promote_candidate"
             ),
@@ -1067,10 +1127,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "policy_scoreboard": policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "current_policy_scoreboard": current_policy_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "shadow_scoreboard": shadow_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
+        "current_policy_shadow_scoreboard": current_policy_shadow_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
         "skipped": skipped_rows[: args.max_rows],
+        "shadow_open": shadow_active_rows[: args.max_rows],
+        "shadow_completed": shadow_completed_rows[: args.max_rows],
         "records": records,
+        "shadow_records": shadow_records,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
@@ -1102,11 +1169,23 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- regime_scoreboard_groups: `{summary['regime_scoreboard_groups']}`",
         f"- policy_scoreboard_groups: `{summary['policy_scoreboard_groups']}`",
         (
+            f"- shadow records/completed/active/groups: "
+            f"`{summary['shadow_records']}/{summary['shadow_completed']}/"
+            f"{summary['shadow_active']}/{summary['shadow_scoreboard_groups']}`"
+        ),
+        (
             f"- current_policy `{summary['current_decision_policy_version']}` "
             f"records/completed/active/groups/promote/stop: "
             f"`{summary['current_policy_records']}/{summary['current_policy_completed']}/"
             f"{summary['current_policy_active']}/{summary['current_policy_scoreboard_groups']}/"
             f"{summary['current_policy_promote_candidates']}/{summary['current_policy_stop_candidates']}`"
+        ),
+        (
+            f"- current_policy_shadow records/completed/active/groups/promote/stop: "
+            f"`{summary['current_policy_shadow_records']}/{summary['current_policy_shadow_completed']}/"
+            f"{summary['current_policy_shadow_active']}/{summary['current_policy_shadow_scoreboard_groups']}/"
+            f"{summary['current_policy_shadow_promote_candidates']}/"
+            f"{summary['current_policy_shadow_stop_candidates']}`"
         ),
         f"- actions blocked/fresh_veto/positive_watch: "
         f"`{summary['blocked_pairs']}/{summary['fresh_analog_veto_pairs']}/{summary['positive_watchlist']}`",
@@ -1143,6 +1222,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
         ]
     )
     for row in payload["current_policy_scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('symbol')} | {row.get('side')} | "
+            f"{row.get('recent_completed')} | {row.get('recent_analog_supported')} | "
+            f"{fmt_pct(row.get('recent_analog_supported_rate'))} | {fmt_pct(row.get('recent_win_rate'))} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
+            f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+        "",
+        "## Current Policy Shadow Scoreboard",
+        "",
+        "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
+        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in payload["current_policy_shadow_scoreboard"]:
         lines.append(
             f"| {row.get('status')} | {row.get('timeframe')} | {row.get('symbol')} | {row.get('side')} | "
             f"{row.get('recent_completed')} | {row.get('recent_analog_supported')} | "
@@ -1278,6 +1378,12 @@ def format_text(payload: dict[str, Any]) -> str:
             f"promote={summary['promote_candidates']} stop={summary['stop_candidates']}"
         ),
         (
+            f"shadow records={summary['shadow_records']} "
+            f"completed={summary['shadow_completed']} "
+            f"active={summary['shadow_active']} "
+            f"groups={summary['shadow_scoreboard_groups']}"
+        ),
+        (
             f"current_policy version={summary['current_decision_policy_version']} "
             f"records={summary['current_policy_records']} "
             f"completed={summary['current_policy_completed']} "
@@ -1285,6 +1391,14 @@ def format_text(payload: dict[str, Any]) -> str:
             f"groups={summary['current_policy_scoreboard_groups']} "
             f"promote={summary['current_policy_promote_candidates']} "
             f"stop={summary['current_policy_stop_candidates']}"
+        ),
+        (
+            f"current_policy_shadow records={summary['current_policy_shadow_records']} "
+            f"completed={summary['current_policy_shadow_completed']} "
+            f"active={summary['current_policy_shadow_active']} "
+            f"groups={summary['current_policy_shadow_scoreboard_groups']} "
+            f"promote={summary['current_policy_shadow_promote_candidates']} "
+            f"stop={summary['current_policy_shadow_stop_candidates']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']}",
@@ -1301,6 +1415,16 @@ def format_text(payload: dict[str, Any]) -> str:
     for row in payload["current_policy_scoreboard"][:5]:
         lines.append(
             f"current_policy_scoreboard {row.get('status')} {row.get('timeframe')} {row.get('symbol')} "
+            f"{row.get('side')} recent_n={row.get('recent_completed')} "
+            f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
+            f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
+            f"active={row.get('active')} active_R={fmt_num(row.get('active_sum_r'), 3)} "
+            f"score={fmt_num(row.get('edge_score'), 3)}"
+        )
+    for row in payload["current_policy_shadow_scoreboard"][:5]:
+        lines.append(
+            f"current_policy_shadow_scoreboard {row.get('status')} {row.get('timeframe')} {row.get('symbol')} "
             f"{row.get('side')} recent_n={row.get('recent_completed')} "
             f"recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
             f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
@@ -1343,6 +1467,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a readable report for paper-only contract market signals.")
     parser.add_argument("--cache-dir", default="data/binance_usdm_ohlcv_cache")
     parser.add_argument("--sources", default="")
+    parser.add_argument("--shadow-sources", default="")
     parser.add_argument("--lookback-bars", type=int, default=200)
     parser.add_argument("--max-rows", type=int, default=80)
     parser.add_argument("--scoreboard-max-rows", type=int, default=40)

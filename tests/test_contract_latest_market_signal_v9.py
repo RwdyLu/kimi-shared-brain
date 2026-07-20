@@ -87,11 +87,13 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         regime_block_high_vol=False,
         paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
+        journal_shadow_jsonl="",
         journal_allowed_pairs="",
         journal_max_active_per_pair=0,
         journal_max_active_total=0,
         journal_record_mode="all_signals",
         max_journal_records=1000,
+        max_shadow_journal_records=1000,
         out_json=str(tmp_path / "signal.json"),
         out_md=str(tmp_path / "signal.md"),
         marker=str(tmp_path / "FOUND.txt"),
@@ -468,6 +470,81 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 2
     assert summary["journal_portfolio_side_blocked_candidate_rows"] == 0
     assert rows == []
+
+
+def test_latest_market_signal_writes_shadow_records_for_portfolio_risk_blocks(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "overexposed",
+                    "block_new_focus": True,
+                    "active": 123,
+                    "thresholds": {"portfolio_max_active": 12},
+                    "reason_codes": ["portfolio_active>12"],
+                    "blocked_sides": ["long", "short"],
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    first = signal_mod.update_journal(payload, args)
+    second = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+
+    assert first["new_records"] == 0
+    assert first["shadow_new_records"] == 2
+    assert first["shadow_open_records"] == 2
+    assert second["shadow_new_records"] == 0
+    assert main_rows == []
+    assert len(shadow_rows) == 2
+    assert {row["symbol"] for row in shadow_rows} == {"AAAUSDT", "BBBUSDT"}
+    assert all(row["shadow_journal"] is True for row in shadow_rows)
+    assert all(row["shadow_reason"] == "portfolio_risk_block" for row in shadow_rows)
+    assert all(row["paper_trading_authorized"] is False for row in shadow_rows)
+    assert all(row["live_trading_authorized"] is False for row in shadow_rows)
 
 
 def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_path: Path) -> None:
