@@ -1537,6 +1537,107 @@ def test_latest_market_signal_shadow_positive_expectancy_is_independent_from_mai
     assert shadow_rows[0]["analog_supported"] is False
 
 
+def test_latest_market_signal_journal_shadows_analog_robustness_failures(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_record_mode = "analog_supported"
+    args.journal_shadow_record_mode = "positive_expectancy"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": False,
+                    "base_supported": True,
+                    "reason": "analog_robustness_fail",
+                    "used_count": 40,
+                    "hit_rate": 0.50,
+                    "profitable_rate": 0.55,
+                    "expectancy_r": 0.20,
+                    "time_segment_robustness": {
+                        "supported": False,
+                        "reason": "analog_time_segments_fail",
+                        "segment_count": 2,
+                        "failing_segment_count": 1,
+                        "worst_segment_expectancy_r": -0.10,
+                        "worst_segment_profitable_rate": 0.35,
+                        "segments": [
+                            {
+                                "segment": 1,
+                                "expectancy_r": -0.10,
+                                "profitable_rate": 0.35,
+                                "reason_codes": [
+                                    "segment_expectancy_r<0",
+                                    "segment_profitable_rate<0.45",
+                                ],
+                            },
+                            {
+                                "segment": 2,
+                                "expectancy_r": 0.50,
+                                "profitable_rate": 0.75,
+                                "reason_codes": [],
+                            },
+                        ],
+                    },
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+    fast_shadow_rows = [
+        json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()
+    ]
+
+    assert summary["new_records"] == 0
+    assert summary["analog_robustness_fail_candidate_rows"] == 1
+    assert summary["analog_robustness_fail_shadow_new_records"] == 1
+    assert summary["analog_robustness_fail_fast_shadow_new_records"] == 1
+    assert main_rows == []
+    assert len(shadow_rows) == 1
+    assert len(fast_shadow_rows) == 1
+    shadow = shadow_rows[0]
+    fast_shadow = fast_shadow_rows[0]
+    assert shadow["shadow_reason"] == "analog_robustness_fail"
+    assert shadow["analog_robustness_shadow"] is True
+    assert shadow["analog_supported"] is False
+    assert shadow["analog_base_supported"] is True
+    assert shadow["analog_time_segment_reason"] == "analog_time_segments_fail"
+    assert shadow["analog_time_segment_failing_count"] == 1
+    assert shadow["analog_worst_segment_expectancy_r"] == -0.10
+    assert shadow["analog_worst_segment_profitable_rate"] == 0.35
+    assert shadow["analog_time_segment_robustness"]["segments"][0]["reason_codes"] == [
+        "segment_expectancy_r<0",
+        "segment_profitable_rate<0.45",
+    ]
+    assert "analog_robustness_fail" in shadow["shadow_reason_codes"]
+    assert "segment_1:segment_profitable_rate<0.45" in shadow["shadow_reason_codes"]
+    assert shadow["promotion_eligible"] is False
+    assert shadow["paper_trading_authorized"] is False
+    assert shadow["live_trading_authorized"] is False
+    assert fast_shadow["kind"] == "contract_latest_market_signal_fast_shadow_journal_v1"
+    assert fast_shadow["shadow_reason"] == "analog_robustness_fail"
+    assert fast_shadow["outcome_horizon_bars"] == 3
+    assert fast_shadow["promotion_eligible"] is False
+
+
 def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT")
     actions = tmp_path / "actions.json"

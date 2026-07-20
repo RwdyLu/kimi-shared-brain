@@ -1993,6 +1993,7 @@ def journal_record_from_row(
     regime_filter = row.get("regime_filter") or {}
     market_quality = row.get("market_quality") or {}
     confirmation = regime_confirmation_payload(regime_filter)
+    analog_robustness = analog.get("time_segment_robustness") or {}
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
         "signal_id": signal_id(row),
@@ -2036,11 +2037,23 @@ def journal_record_from_row(
         "market_quality_breakout_pos": market_quality.get("breakout_pos"),
         "market_quality_volume_ratio": market_quality.get("volume_ratio"),
         "analog_supported": bool(analog.get("supported")),
+        "analog_base_supported": bool(analog.get("base_supported", analog.get("supported"))),
         "analog_reason": analog.get("reason"),
         "analog_used_count": int(analog.get("used_count") or 0),
         "analog_hit_rate": safe_float(analog.get("hit_rate")),
         "analog_profitable_rate": safe_float(analog.get("profitable_rate")),
         "analog_expectancy_r": safe_float(analog.get("expectancy_r")),
+        "analog_time_segment_supported": analog_robustness.get("supported"),
+        "analog_time_segment_reason": analog_robustness.get("reason"),
+        "analog_time_segment_count": int(analog_robustness.get("segment_count") or 0),
+        "analog_time_segment_failing_count": int(analog_robustness.get("failing_segment_count") or 0),
+        "analog_worst_segment_expectancy_r": safe_float(
+            analog_robustness.get("worst_segment_expectancy_r")
+        ),
+        "analog_worst_segment_profitable_rate": safe_float(
+            analog_robustness.get("worst_segment_profitable_rate")
+        ),
+        "analog_time_segment_robustness": analog_robustness,
         "outcome_horizon_bars": int(horizon_bars),
         "outcome": None,
         "paper_trading_authorized": False,
@@ -2138,6 +2151,37 @@ def market_quality_blocked_candidate_row(row: dict[str, Any]) -> dict[str, Any] 
         "blocked_signal": True,
         "blocked_signal_reason": row.get("reason"),
     }
+
+
+def analog_robustness_failed_candidate(row: dict[str, Any]) -> bool:
+    analog = row.get("analog_evidence") or {}
+    robustness = analog.get("time_segment_robustness") or {}
+    return (
+        bool(analog.get("base_supported"))
+        and not bool(analog.get("supported"))
+        and str(analog.get("reason") or "") == "analog_robustness_fail"
+        and robustness.get("supported") is False
+    )
+
+
+def analog_robustness_shadow_reason_codes(row: dict[str, Any]) -> list[str]:
+    analog = row.get("analog_evidence") or {}
+    robustness = analog.get("time_segment_robustness") or {}
+    reason_codes = [
+        "analog_robustness_fail",
+        f"time_segment_reason={robustness.get('reason')}",
+        f"failing_segments={int(robustness.get('failing_segment_count') or 0)}",
+        f"worst_segment_expectancy_r={safe_float(robustness.get('worst_segment_expectancy_r')):.6g}",
+        f"worst_segment_profitable_rate={safe_float(robustness.get('worst_segment_profitable_rate')):.6g}",
+    ]
+    for segment in robustness.get("segments") or []:
+        if not isinstance(segment, dict) or not segment.get("reason_codes"):
+            continue
+        reason_codes.extend(
+            f"segment_{int(segment.get('segment') or 0)}:{reason}"
+            for reason in segment.get("reason_codes") or []
+        )
+    return reason_codes
 
 
 def migrate_legacy_record_to_realistic(
@@ -2478,6 +2522,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     market_quality_blocked_candidates = 0
     market_quality_shadow_new_records = 0
     market_quality_fast_shadow_new_records = 0
+    analog_robustness_fail_candidates = 0
+    analog_robustness_fail_shadow_new_records = 0
+    analog_robustness_fail_fast_shadow_new_records = 0
     shadow_retest_candidate_rows = 0
     shadow_retest_new_records = 0
     regime_confirmation_backfilled = 0
@@ -2853,6 +2900,32 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             )
             continue
         analog = row.get("analog_evidence") or {}
+        if analog_robustness_failed_candidate(row):
+            analog_robustness_fail_candidates += 1
+            reason_codes = analog_robustness_shadow_reason_codes(row)
+            extra_fields = {
+                "analog_robustness_shadow": True,
+                "promotion_eligible": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+            if add_shadow_record(
+                row,
+                "analog_robustness_fail",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                analog_robustness_fail_shadow_new_records += 1
+            if add_fast_shadow_record(
+                row,
+                "analog_robustness_fail",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                analog_robustness_fail_fast_shadow_new_records += 1
+            continue
         if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
             continue
         if sid in seen:
@@ -2950,6 +3023,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "fast_shadow_outcome_horizon_bars": fast_shadow_horizon,
         "fast_shadow_new_records": len(new_fast_shadow_records),
         "market_quality_fast_shadow_new_records": market_quality_fast_shadow_new_records,
+        "analog_robustness_fail_candidate_rows": analog_robustness_fail_candidates,
+        "analog_robustness_fail_shadow_new_records": analog_robustness_fail_shadow_new_records,
+        "analog_robustness_fail_fast_shadow_new_records": (
+            analog_robustness_fail_fast_shadow_new_records
+        ),
         "fast_shadow_updated_records": fast_shadow_updated,
         "fast_shadow_regime_confirmation_backfilled_records": fast_shadow_regime_confirmation_backfilled,
         "fast_shadow_total_records": len(fast_shadow_records),
@@ -3280,6 +3358,10 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"`{(payload.get('journal') or {}).get('journal_blocked_trend_alignment_cohort_candidate_rows')}`",
         f"- journal_market_quality_blocked: "
         f"`{(payload.get('journal') or {}).get('market_quality_blocked_candidate_rows')}`",
+        f"- journal_analog_robustness_fail_shadow: "
+        f"`{(payload.get('journal') or {}).get('analog_robustness_fail_candidate_rows')}/"
+        f"{(payload.get('journal') or {}).get('analog_robustness_fail_shadow_new_records')}/"
+        f"{(payload.get('journal') or {}).get('analog_robustness_fail_fast_shadow_new_records')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
@@ -3360,6 +3442,11 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('market_quality_shadow_new_records')}",
         "journal_market_quality_fast_shadow_new_records="
         f"{(payload.get('journal') or {}).get('market_quality_fast_shadow_new_records')}",
+        "journal_analog_robustness_fail "
+        f"candidates={(payload.get('journal') or {}).get('analog_robustness_fail_candidate_rows')} "
+        f"shadow_new={(payload.get('journal') or {}).get('analog_robustness_fail_shadow_new_records')} "
+        "fast_shadow_new="
+        f"{(payload.get('journal') or {}).get('analog_robustness_fail_fast_shadow_new_records')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="
