@@ -806,6 +806,68 @@ def build_regime_scoreboard(completed_rows: list[dict[str, Any]], args: argparse
     return rows
 
 
+def build_active_regime_scoreboard(
+    active_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in active_rows:
+        if optional_float(row.get("current_r_multiple")) is None:
+            continue
+        grouped.setdefault(regime_group_key(row), []).append(row)
+
+    rows = []
+    for key, group in grouped.items():
+        timeframe, regime_id, side = key
+        active_stats = active_unrealized_stats(group)
+        loss_rate = (
+            float(active_stats["active_loss"] / active_stats["active_r_known"])
+            if active_stats["active_r_known"]
+            else 0.0
+        )
+        stats = {
+            "timeframe": timeframe,
+            "market_regime_id": regime_id,
+            "side": side,
+            "active": len(group),
+            "active_r_known": active_stats["active_r_known"],
+            "active_profit": active_stats["active_profit"],
+            "active_loss": active_stats["active_loss"],
+            "active_loss_rate": loss_rate,
+            "active_sum_r": active_stats["active_sum_r"],
+            "active_avg_r": active_stats["active_avg_r"],
+            "active_min_r": active_stats["active_min_r"],
+            "active_max_r": active_stats["active_max_r"],
+            "latest_active_at": max(
+                (str(row.get("updated_at") or row.get("created_at") or "") for row in group),
+                default="",
+            ),
+        }
+        reasons = fast_shadow_active_regime_block_reason_codes(stats, args)
+        if reasons:
+            status = "active_stress_block"
+        elif safe_float(stats.get("active_sum_r")) > 0.0:
+            status = "active_positive"
+        elif int(stats.get("active_r_known") or 0) > 0:
+            status = "active_watch"
+        else:
+            status = "active_unknown"
+        edge_score = safe_float(stats["active_sum_r"]) + safe_float(stats["active_min_r"])
+        rows.append({**stats, "status": status, "reason_codes": reasons, "edge_score": float(edge_score)})
+
+    priority = {"active_stress_block": 0, "active_watch": 1, "active_positive": 2, "active_unknown": 3}
+    rows.sort(
+        key=lambda row: (
+            priority.get(str(row.get("status")), 9),
+            safe_float(row.get("edge_score")),
+            str(row.get("timeframe")),
+            str(row.get("market_regime_id")),
+            str(row.get("side")),
+        )
+    )
+    return rows
+
+
 def build_policy_scoreboard(completed_rows: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for row in completed_rows:
@@ -995,8 +1057,18 @@ def compact_regime_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
         "profit_factor": row.get("profit_factor"),
         "max_drawdown_r": row.get("max_drawdown_r"),
         "trailing_losses": row.get("trailing_losses"),
+        "active": row.get("active"),
+        "active_r_known": row.get("active_r_known"),
+        "active_profit": row.get("active_profit"),
+        "active_loss": row.get("active_loss"),
+        "active_loss_rate": row.get("active_loss_rate"),
+        "active_sum_r": row.get("active_sum_r"),
+        "active_avg_r": row.get("active_avg_r"),
+        "active_min_r": row.get("active_min_r"),
+        "active_max_r": row.get("active_max_r"),
         "edge_score": row.get("edge_score"),
         "latest_completed_at": row.get("latest_completed_at"),
+        "latest_active_at": row.get("latest_active_at"),
     }
 
 
@@ -1296,6 +1368,52 @@ def fast_shadow_regime_cohort_action_rows(
     return blocked, watch
 
 
+def fast_shadow_active_regime_block_thresholds(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "min_known": int(arg_value(args, "fast_shadow_active_regime_block_min_known", 3)),
+        "sum_r": float(arg_value(args, "fast_shadow_active_regime_block_sum_r", -1.5)),
+        "avg_r": float(arg_value(args, "fast_shadow_active_regime_block_avg_r", -0.5)),
+        "loss_rate": float(arg_value(args, "fast_shadow_active_regime_block_loss_rate", 0.67)),
+    }
+
+
+def fast_shadow_active_regime_block_reason_codes(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    thresholds = fast_shadow_active_regime_block_thresholds(args)
+    min_known = int(thresholds["min_known"])
+    if int(row.get("active_r_known") or 0) < min_known:
+        return []
+
+    reasons = ["fast_shadow_active_regime_stress_block"]
+    sum_r = float(thresholds["sum_r"])
+    avg_r = float(thresholds["avg_r"])
+    loss_rate = float(thresholds["loss_rate"])
+    if safe_float(row.get("active_sum_r")) <= sum_r:
+        reasons.append(f"fast_shadow_active_regime_sum_r<={sum_r:g}")
+    if safe_float(row.get("active_avg_r")) <= avg_r:
+        reasons.append(f"fast_shadow_active_regime_avg_r<={avg_r:g}")
+    if safe_float(row.get("active_loss_rate")) >= loss_rate and safe_float(row.get("active_sum_r")) < 0.0:
+        reasons.append(f"fast_shadow_active_regime_loss_rate>={loss_rate:g}")
+    return reasons if len(reasons) > 1 else []
+
+
+def fast_shadow_active_regime_cohort_action_rows(
+    scoreboard: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    blocked = []
+    watch = []
+    for row in scoreboard:
+        if row.get("status") == "active_stress_block":
+            blocked_row = compact_regime_scoreboard_row(row)
+            blocked_row["fast_shadow_active_regime_block_reason_codes"] = row.get("reason_codes") or []
+            blocked_row["block_source"] = "fast_shadow_active_regime_stress"
+            blocked_row["paper_trading_authorized"] = False
+            blocked_row["live_trading_authorized"] = False
+            blocked.append(blocked_row)
+        elif safe_float(row.get("active_sum_r")) > 0.0:
+            watch.append(compact_regime_scoreboard_row(row))
+    return blocked, watch
+
+
 def build_action_plan(
     scoreboard: list[dict[str, Any]],
     *,
@@ -1309,6 +1427,7 @@ def build_action_plan(
     current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_regime_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_fast_shadow_active_regime_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_fast_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_active_rows: list[dict[str, Any]] | None = None,
     current_decision_policy_version: str = "",
@@ -1353,6 +1472,11 @@ def build_action_plan(
         current_policy_fast_shadow_blocked_regime,
         current_policy_fast_shadow_watch_regime,
     ) = fast_shadow_regime_cohort_action_rows(current_policy_fast_shadow_regime_scoreboard, args)
+    current_policy_fast_shadow_active_regime_scoreboard = current_policy_fast_shadow_active_regime_scoreboard or []
+    (
+        current_policy_fast_shadow_active_blocked_regime,
+        current_policy_fast_shadow_active_watch_regime,
+    ) = fast_shadow_active_regime_cohort_action_rows(current_policy_fast_shadow_active_regime_scoreboard)
     (
         current_policy_fast_shadow_blocked_confirmation,
         current_policy_fast_shadow_promote_confirmation,
@@ -1395,6 +1519,12 @@ def build_action_plan(
         ],
         "current_policy_fast_shadow_blocked_regime_cohorts": current_policy_fast_shadow_blocked_regime[:max_rows],
         "current_policy_fast_shadow_regime_watchlist": current_policy_fast_shadow_watch_regime[:max_rows],
+        "current_policy_fast_shadow_active_blocked_regime_cohorts": current_policy_fast_shadow_active_blocked_regime[
+            :max_rows
+        ],
+        "current_policy_fast_shadow_active_regime_watchlist": current_policy_fast_shadow_active_watch_regime[
+            :max_rows
+        ],
         "current_policy_fast_shadow_promote_confirmation_cohorts": current_policy_fast_shadow_promote_confirmation[
             :max_rows
         ],
@@ -1432,6 +1562,12 @@ def build_action_plan(
             ),
             "current_policy_fast_shadow_blocked_regime_cohorts": len(current_policy_fast_shadow_blocked_regime),
             "current_policy_fast_shadow_regime_watchlist": len(current_policy_fast_shadow_watch_regime),
+            "current_policy_fast_shadow_active_blocked_regime_cohorts": len(
+                current_policy_fast_shadow_active_blocked_regime
+            ),
+            "current_policy_fast_shadow_active_regime_watchlist": len(
+                current_policy_fast_shadow_active_watch_regime
+            ),
             "current_policy_fast_shadow_promote_confirmation_cohorts": len(
                 current_policy_fast_shadow_promote_confirmation
             ),
@@ -1555,6 +1691,12 @@ def blocked_regime_cohorts_for_scope(actions: dict[str, Any], scope: str) -> lis
                 actions.get("current_policy_fast_shadow_blocked_regime_cohorts") or [],
             )
         )
+        sources.append(
+            (
+                "fast_shadow_active_regime_stress",
+                actions.get("current_policy_fast_shadow_active_blocked_regime_cohorts") or [],
+            )
+        )
     for source, source_rows in sources:
         if not isinstance(source_rows, list):
             continue
@@ -1614,6 +1756,9 @@ def blocked_pairs_payload(
         ),
         "current_policy_fast_shadow_blocked_regime_cohorts_count": len(
             actions.get("current_policy_fast_shadow_blocked_regime_cohorts") or []
+        ),
+        "current_policy_fast_shadow_active_blocked_regime_cohorts_count": len(
+            actions.get("current_policy_fast_shadow_active_blocked_regime_cohorts") or []
         ),
         "current_policy_blocked_confirmation_cohorts_count": len(
             actions.get("current_policy_blocked_confirmation_cohorts") or []
@@ -2196,6 +2341,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_fast_shadow_completed_rows,
         args,
     )
+    current_policy_fast_shadow_active_regime_scoreboard = build_active_regime_scoreboard(
+        current_policy_fast_shadow_active_rows,
+        args,
+    )
     current_policy_fast_shadow_confirmation_scoreboard = build_confirmation_scoreboard(
         current_policy_fast_shadow_completed_rows,
         current_policy_fast_shadow_active_rows,
@@ -2241,6 +2390,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
         current_policy_shadow_confirmation_scoreboard=current_policy_shadow_confirmation_scoreboard,
         current_policy_fast_shadow_regime_scoreboard=current_policy_fast_shadow_regime_scoreboard,
+        current_policy_fast_shadow_active_regime_scoreboard=current_policy_fast_shadow_active_regime_scoreboard,
         current_policy_fast_shadow_confirmation_scoreboard=current_policy_fast_shadow_confirmation_scoreboard,
         current_policy_shadow_active_rows=current_policy_shadow_active_rows,
         current_decision_policy_version=current_policy_version,
@@ -2354,11 +2504,20 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_fast_shadow_regime_scoreboard_groups": len(
                 current_policy_fast_shadow_regime_scoreboard
             ),
+            "current_policy_fast_shadow_active_regime_scoreboard_groups": len(
+                current_policy_fast_shadow_active_regime_scoreboard
+            ),
             "current_policy_fast_shadow_blocked_regime_cohorts": actions["summary"][
                 "current_policy_fast_shadow_blocked_regime_cohorts"
             ],
             "current_policy_fast_shadow_regime_watchlist": actions["summary"][
                 "current_policy_fast_shadow_regime_watchlist"
+            ],
+            "current_policy_fast_shadow_active_blocked_regime_cohorts": actions["summary"][
+                "current_policy_fast_shadow_active_blocked_regime_cohorts"
+            ],
+            "current_policy_fast_shadow_active_regime_watchlist": actions["summary"][
+                "current_policy_fast_shadow_active_regime_watchlist"
             ],
             "current_policy_fast_shadow_confirmation_scoreboard_groups": len(
                 current_policy_fast_shadow_confirmation_scoreboard
@@ -2433,6 +2592,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
         "current_policy_fast_shadow_regime_scoreboard": current_policy_fast_shadow_regime_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
+        "current_policy_fast_shadow_active_regime_scoreboard": current_policy_fast_shadow_active_regime_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
         "current_policy_fast_shadow_confirmation_scoreboard": current_policy_fast_shadow_confirmation_scoreboard[
@@ -2569,6 +2731,12 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"`{summary['current_policy_fast_shadow_regime_scoreboard_groups']}/"
             f"{summary['current_policy_fast_shadow_blocked_regime_cohorts']}/"
             f"{summary['current_policy_fast_shadow_regime_watchlist']}`"
+        ),
+        (
+            f"- current_policy_fast_shadow active_regime groups/blocked/watch: "
+            f"`{summary['current_policy_fast_shadow_active_regime_scoreboard_groups']}/"
+            f"{summary['current_policy_fast_shadow_active_blocked_regime_cohorts']}/"
+            f"{summary['current_policy_fast_shadow_active_regime_watchlist']}`"
         ),
         (
             f"- current_policy_fast_shadow retest/action: "
@@ -2944,6 +3112,12 @@ def format_text(payload: dict[str, Any]) -> str:
             f"blocked={summary['current_policy_fast_shadow_blocked_regime_cohorts']} "
             f"watch={summary['current_policy_fast_shadow_regime_watchlist']}"
         ),
+        (
+            f"current_policy_fast_shadow_active_regime "
+            f"groups={summary['current_policy_fast_shadow_active_regime_scoreboard_groups']} "
+            f"blocked={summary['current_policy_fast_shadow_active_blocked_regime_cohorts']} "
+            f"watch={summary['current_policy_fast_shadow_active_regime_watchlist']}"
+        ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
         f"positive_watch={summary['positive_watchlist']} "
         f"confirm_blocked={summary['current_policy_blocked_confirmation_cohorts']} "
@@ -3053,6 +3227,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fast-shadow-regime-block-profit-factor", type=float, default=0.8)
     parser.add_argument("--fast-shadow-regime-block-max-drawdown-r", type=float, default=2.0)
     parser.add_argument("--fast-shadow-regime-block-trailing-losses", type=int, default=3)
+    parser.add_argument("--fast-shadow-active-regime-block-min-known", type=int, default=3)
+    parser.add_argument("--fast-shadow-active-regime-block-sum-r", type=float, default=-1.5)
+    parser.add_argument("--fast-shadow-active-regime-block-avg-r", type=float, default=-0.5)
+    parser.add_argument("--fast-shadow-active-regime-block-loss-rate", type=float, default=0.67)
     parser.add_argument("--shadow-active-promising-r", type=float, default=0.50)
     parser.add_argument("--shadow-active-risk-r", type=float, default=-0.50)
     parser.add_argument("--shadow-active-min-promising-expectancy-r", type=float, default=0.15)
