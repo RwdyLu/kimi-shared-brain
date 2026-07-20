@@ -166,6 +166,192 @@ def outcome_label(row: dict[str, Any]) -> str:
     return "flat"
 
 
+def completed_r(row: dict[str, Any]) -> float | None:
+    value = row.get("completed_r_multiple")
+    number = safe_float(value, float("nan"))
+    if pd.isna(number):
+        return None
+    return float(number)
+
+
+def record_time_key(row: dict[str, Any]) -> str:
+    return str(row.get("exit_dt") or row.get("updated_at") or row.get("created_at") or "")
+
+
+def max_drawdown_r(values: list[float]) -> float:
+    equity = 0.0
+    peak = 0.0
+    worst = 0.0
+    for value in values:
+        equity += value
+        peak = max(peak, equity)
+        worst = max(worst, peak - equity)
+    return float(worst)
+
+
+def trailing_losses(values: list[float]) -> int:
+    count = 0
+    for value in reversed(values):
+        if value < 0.0:
+            count += 1
+        else:
+            break
+    return count
+
+
+def profit_factor(values: list[float]) -> float | None:
+    wins = [value for value in values if value > 0.0]
+    losses = [value for value in values if value < 0.0]
+    gross_profit = float(sum(wins))
+    gross_loss = float(-sum(losses))
+    if gross_loss == 0.0:
+        return None if gross_profit > 0.0 else 0.0
+    return float(gross_profit / gross_loss)
+
+
+def compare_profit_factor(value: float | None) -> float:
+    return float("inf") if value is None else float(value)
+
+
+def arg_value(args: argparse.Namespace, name: str, default: Any) -> Any:
+    return getattr(args, name, default)
+
+
+def summarize_values(values: list[float]) -> dict[str, Any]:
+    wins = [value for value in values if value > 0.0]
+    losses = [value for value in values if value < 0.0]
+    total = float(sum(values))
+    return {
+        "completed": len(values),
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": float(len(wins) / len(values)) if values else 0.0,
+        "sum_r": total,
+        "avg_r": float(total / len(values)) if values else 0.0,
+        "profit_factor": profit_factor(values),
+        "max_drawdown_r": max_drawdown_r(values),
+        "trailing_losses": trailing_losses(values),
+    }
+
+
+def group_key(row: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("symbol") or "").upper(),
+        str(row.get("side") or "").lower(),
+    )
+
+
+def decide_group_status(stats: dict[str, Any], args: argparse.Namespace) -> tuple[str, list[str]]:
+    min_trades = int(arg_value(args, "scoreboard_min_trades", 20))
+    fail_sum_r = float(arg_value(args, "scoreboard_fail_sum_r", -5.0))
+    fail_profit_factor = float(arg_value(args, "scoreboard_fail_profit_factor", 0.8))
+    fail_consecutive_losses = int(arg_value(args, "scoreboard_fail_consecutive_losses", 6))
+    promote_sum_r = float(arg_value(args, "scoreboard_promote_sum_r", 5.0))
+    promote_profit_factor = float(arg_value(args, "scoreboard_promote_profit_factor", 1.2))
+    promote_max_drawdown_r = float(arg_value(args, "scoreboard_promote_max_drawdown_r", 5.0))
+
+    if int(stats["recent_completed"]) < min_trades:
+        return "collecting", [f"recent_completed<{min_trades}"]
+
+    reasons: list[str] = []
+    recent_pf = compare_profit_factor(stats.get("recent_profit_factor"))
+    if safe_float(stats.get("recent_sum_r")) <= fail_sum_r:
+        reasons.append(f"recent_sum_r<={fail_sum_r:g}")
+    if recent_pf < fail_profit_factor:
+        reasons.append(f"recent_profit_factor<{fail_profit_factor:g}")
+    if int(stats.get("recent_trailing_losses") or 0) >= fail_consecutive_losses:
+        reasons.append(f"recent_trailing_losses>={fail_consecutive_losses}")
+    if reasons:
+        return "stop_candidate", reasons
+
+    if (
+        safe_float(stats.get("recent_sum_r")) >= promote_sum_r
+        and recent_pf >= promote_profit_factor
+        and safe_float(stats.get("recent_max_drawdown_r")) <= promote_max_drawdown_r
+    ):
+        return "promote_candidate", [
+            f"recent_sum_r>={promote_sum_r:g}",
+            f"recent_profit_factor>={promote_profit_factor:g}",
+            f"recent_max_drawdown_r<={promote_max_drawdown_r:g}",
+        ]
+    return "watch", ["not_failed_not_promoted"]
+
+
+def build_scoreboard(
+    completed_rows: list[dict[str, Any]],
+    active_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    active_counts: dict[tuple[str, str, str], int] = {}
+    for row in completed_rows:
+        value = completed_r(row)
+        if value is None:
+            continue
+        grouped.setdefault(group_key(row), []).append(row)
+    for row in active_rows:
+        key = group_key(row)
+        active_counts[key] = active_counts.get(key, 0) + 1
+
+    rows = []
+    recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
+    for key, group in grouped.items():
+        timeframe, symbol, side = key
+        ordered = sorted(group, key=record_time_key)
+        values = [value for row in ordered if (value := completed_r(row)) is not None]
+        if not values:
+            continue
+        recent_values = values[-recent_n:] if recent_n > 0 else values
+        all_stats = summarize_values(values)
+        recent_stats = summarize_values(recent_values)
+        stats = {
+            "timeframe": timeframe,
+            "symbol": symbol,
+            "side": side,
+            "completed": all_stats["completed"],
+            "wins": all_stats["wins"],
+            "losses": all_stats["losses"],
+            "win_rate": all_stats["win_rate"],
+            "sum_r": all_stats["sum_r"],
+            "avg_r": all_stats["avg_r"],
+            "profit_factor": all_stats["profit_factor"],
+            "max_drawdown_r": all_stats["max_drawdown_r"],
+            "trailing_losses": all_stats["trailing_losses"],
+            "recent_completed": recent_stats["completed"],
+            "recent_wins": recent_stats["wins"],
+            "recent_losses": recent_stats["losses"],
+            "recent_win_rate": recent_stats["win_rate"],
+            "recent_sum_r": recent_stats["sum_r"],
+            "recent_avg_r": recent_stats["avg_r"],
+            "recent_profit_factor": recent_stats["profit_factor"],
+            "recent_max_drawdown_r": recent_stats["max_drawdown_r"],
+            "recent_trailing_losses": recent_stats["trailing_losses"],
+            "active": active_counts.get(key, 0),
+            "latest_completed_at": record_time_key(ordered[-1]),
+        }
+        status, reasons = decide_group_status(stats, args)
+        edge_score = (
+            safe_float(stats["recent_sum_r"])
+            - safe_float(stats["recent_max_drawdown_r"])
+            - 0.25 * float(stats["recent_trailing_losses"])
+        )
+        rows.append({**stats, "status": status, "reason_codes": reasons, "edge_score": float(edge_score)})
+
+    priority = {"promote_candidate": 0, "watch": 1, "collecting": 2, "stop_candidate": 3}
+    rows.sort(
+        key=lambda row: (
+            priority.get(str(row.get("status")), 9),
+            -safe_float(row.get("edge_score")),
+            -int(row.get("recent_completed") or 0),
+            str(row.get("timeframe")),
+            str(row.get("symbol")),
+            str(row.get("side")),
+        )
+    )
+    return rows
+
+
 def fmt_num(value: Any, digits: int = 6) -> str:
     if value is None:
         return ""
@@ -218,6 +404,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     skipped_rows = [row for row in records if row.get("status") == "skipped"]
     wins = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) > 0]
     losses = [row for row in completed_rows if safe_float(row.get("completed_r_multiple")) < 0]
+    scoreboard = build_scoreboard(completed_rows, active_rows, args)
     payload = {
         "kind": "contract_paper_signal_report_v1",
         "updated_at": now_utc(),
@@ -233,7 +420,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "wins": len(wins),
             "losses": len(losses),
             "analog_supported_open": sum(1 for row in active_rows if row.get("analog_supported")),
+            "scoreboard_groups": len(scoreboard),
+            "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
+            "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
         },
+        "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "open": active_rows[: args.max_rows],
         "completed": completed_rows[: args.max_rows],
         "skipped": skipped_rows[: args.max_rows],
@@ -261,13 +452,33 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- skipped: `{summary['skipped']}`",
         f"- wins/losses: `{summary['wins']}/{summary['losses']}`",
         f"- analog_supported_open: `{summary['analog_supported_open']}`",
+        f"- scoreboard groups/promote/stop: `{summary['scoreboard_groups']}/{summary['promote_candidates']}/{summary['stop_candidates']}`",
         "",
-        "## Active Paper Signals",
+        "## Strategy Scoreboard",
         "",
-        "| timeframe | created_at | symbol | side | model | analog | planned_entry | fill_entry | latest | stop | "
-        "take_profit | current_R | current_% | status |",
-        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| status | timeframe | symbol | side | recent_n | recent_win | recent_sum_R | recent_pf | recent_DD_R | "
+        "recent_trailing_loss | all_sum_R | active | score | reasons |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
+    for row in payload["scoreboard"]:
+        lines.append(
+            f"| {row.get('status')} | {row.get('timeframe')} | {row.get('symbol')} | {row.get('side')} | "
+            f"{row.get('recent_completed')} | {fmt_pct(row.get('recent_win_rate'))} | "
+            f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
+            f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
+            f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{', '.join(row.get('reason_codes') or [])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Active Paper Signals",
+            "",
+            "| timeframe | created_at | symbol | side | model | analog | planned_entry | fill_entry | latest | stop | "
+            "take_profit | current_R | current_% | status |",
+            "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
     for row in payload["open"]:
         lines.append(
             f"| {row.get('timeframe')} | {row.get('created_at')} | {row.get('symbol')} | {row.get('side')} | "
@@ -324,8 +535,17 @@ def format_text(payload: dict[str, Any]) -> str:
         f"records={summary['records']} active={summary['active']} open={summary['open']} "
         f"pending={summary['pending_entry']} completed={summary['completed']} skipped={summary['skipped']}",
         f"wins={summary['wins']} losses={summary['losses']} analog_supported_active={summary['analog_supported_open']}",
+        f"scoreboard_groups={summary['scoreboard_groups']} promote={summary['promote_candidates']} stop={summary['stop_candidates']}",
         "safety=paper_authorized:False live:False",
     ]
+    for row in payload["scoreboard"][:10]:
+        lines.append(
+            f"scoreboard {row.get('status')} {row.get('timeframe')} {row.get('symbol')} {row.get('side')} "
+            f"recent_n={row.get('recent_completed')} recent_sum_R={fmt_num(row.get('recent_sum_r'), 3)} "
+            f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
+            f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
+            f"active={row.get('active')} score={fmt_num(row.get('edge_score'), 3)}"
+        )
     for row in payload["open"][:10]:
         lines.append(
             f"{row.get('timeframe')} {row.get('symbol')} {row.get('side')} "
@@ -344,6 +564,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sources", default="")
     parser.add_argument("--lookback-bars", type=int, default=200)
     parser.add_argument("--max-rows", type=int, default=80)
+    parser.add_argument("--scoreboard-max-rows", type=int, default=40)
+    parser.add_argument("--scoreboard-min-trades", type=int, default=20)
+    parser.add_argument("--scoreboard-recent-trades", type=int, default=50)
+    parser.add_argument("--scoreboard-fail-sum-r", type=float, default=-5.0)
+    parser.add_argument("--scoreboard-fail-profit-factor", type=float, default=0.8)
+    parser.add_argument("--scoreboard-fail-consecutive-losses", type=int, default=6)
+    parser.add_argument("--scoreboard-promote-sum-r", type=float, default=5.0)
+    parser.add_argument("--scoreboard-promote-profit-factor", type=float, default=1.2)
+    parser.add_argument("--scoreboard-promote-max-drawdown-r", type=float, default=5.0)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")
     parser.add_argument("--format", choices=("json", "text"), default="text")
