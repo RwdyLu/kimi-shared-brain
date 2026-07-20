@@ -837,6 +837,8 @@ def build_regime_scoreboard(completed_rows: list[dict[str, Any]], args: argparse
 def build_active_regime_scoreboard(
     active_rows: list[dict[str, Any]],
     args: argparse.Namespace,
+    *,
+    reason_code_fn: Any | None = None,
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for row in active_rows:
@@ -845,6 +847,7 @@ def build_active_regime_scoreboard(
         grouped.setdefault(regime_group_key(row), []).append(row)
 
     rows = []
+    reason_fn = reason_code_fn or fast_shadow_active_regime_block_reason_codes
     for key, group in grouped.items():
         timeframe, regime_id, side = key
         active_stats = active_unrealized_stats(group)
@@ -871,7 +874,7 @@ def build_active_regime_scoreboard(
                 default="",
             ),
         }
-        reasons = fast_shadow_active_regime_block_reason_codes(stats, args)
+        reasons = reason_fn(stats, args)
         if reasons:
             status = "active_stress_block"
         elif safe_float(stats.get("active_sum_r")) > 0.0:
@@ -1979,6 +1982,52 @@ def fast_shadow_active_regime_block_reason_codes(row: dict[str, Any], args: argp
     return reasons if len(reasons) > 1 else []
 
 
+def current_policy_active_regime_block_thresholds(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "min_known": int(arg_value(args, "current_policy_active_regime_block_min_known", 3)),
+        "sum_r": float(arg_value(args, "current_policy_active_regime_block_sum_r", -1.5)),
+        "avg_r": float(arg_value(args, "current_policy_active_regime_block_avg_r", -0.5)),
+        "loss_rate": float(arg_value(args, "current_policy_active_regime_block_loss_rate", 0.67)),
+    }
+
+
+def current_policy_active_regime_block_reason_codes(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    thresholds = current_policy_active_regime_block_thresholds(args)
+    min_known = int(thresholds["min_known"])
+    if int(row.get("active_r_known") or 0) < min_known:
+        return []
+
+    reasons = ["current_policy_active_regime_stress_block"]
+    sum_r = float(thresholds["sum_r"])
+    avg_r = float(thresholds["avg_r"])
+    loss_rate = float(thresholds["loss_rate"])
+    if safe_float(row.get("active_sum_r")) <= sum_r:
+        reasons.append(f"current_policy_active_regime_sum_r<={sum_r:g}")
+    if safe_float(row.get("active_avg_r")) <= avg_r:
+        reasons.append(f"current_policy_active_regime_avg_r<={avg_r:g}")
+    if safe_float(row.get("active_loss_rate")) >= loss_rate and safe_float(row.get("active_sum_r")) < 0.0:
+        reasons.append(f"current_policy_active_regime_loss_rate>={loss_rate:g}")
+    return reasons if len(reasons) > 1 else []
+
+
+def current_policy_active_regime_cohort_action_rows(
+    scoreboard: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    blocked = []
+    watch = []
+    for row in scoreboard:
+        if row.get("status") == "active_stress_block":
+            blocked_row = compact_regime_scoreboard_row(row)
+            blocked_row["current_policy_active_regime_block_reason_codes"] = row.get("reason_codes") or []
+            blocked_row["block_source"] = "current_policy_active_regime_stress"
+            blocked_row["paper_trading_authorized"] = False
+            blocked_row["live_trading_authorized"] = False
+            blocked.append(blocked_row)
+        elif safe_float(row.get("active_sum_r")) > 0.0:
+            watch.append(compact_regime_scoreboard_row(row))
+    return blocked, watch
+
+
 def fast_shadow_active_regime_cohort_action_rows(
     scoreboard: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -2006,6 +2055,7 @@ def build_action_plan(
     current_policy_portfolio_risk: dict[str, Any] | None = None,
     current_policy_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_regime_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_active_regime_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_trend_alignment_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
@@ -2035,6 +2085,11 @@ def build_action_plan(
         current_policy_promote_regime,
         current_policy_watch_regime,
     ) = regime_cohort_action_rows(current_policy_regime_scoreboard)
+    current_policy_active_regime_scoreboard = current_policy_active_regime_scoreboard or []
+    (
+        current_policy_active_blocked_regime,
+        current_policy_active_watch_regime,
+    ) = current_policy_active_regime_cohort_action_rows(current_policy_active_regime_scoreboard)
     current_policy_shadow_scoreboard = current_policy_shadow_scoreboard or []
     (
         current_policy_shadow_blocked,
@@ -2122,8 +2177,10 @@ def build_action_plan(
         "current_policy_promote_candidates": current_policy_promote[:max_rows],
         "current_policy_positive_watchlist": current_policy_watch[:max_rows],
         "current_policy_blocked_regime_cohorts": current_policy_blocked_regime[:max_rows],
+        "current_policy_active_blocked_regime_cohorts": current_policy_active_blocked_regime[:max_rows],
         "current_policy_promote_regime_cohorts": current_policy_promote_regime[:max_rows],
         "current_policy_regime_watchlist": current_policy_watch_regime[:max_rows],
+        "current_policy_active_regime_watchlist": current_policy_active_watch_regime[:max_rows],
         "current_policy_blocked_confirmation_cohorts": current_policy_blocked_confirmation[:max_rows],
         "current_policy_promote_confirmation_cohorts": current_policy_promote_confirmation[:max_rows],
         "current_policy_confirmation_watchlist": current_policy_watch_confirmation[:max_rows],
@@ -2198,8 +2255,10 @@ def build_action_plan(
             "current_policy_promote_candidates": len(current_policy_promote),
             "current_policy_positive_watchlist": len(current_policy_watch),
             "current_policy_blocked_regime_cohorts": len(current_policy_blocked_regime),
+            "current_policy_active_blocked_regime_cohorts": len(current_policy_active_blocked_regime),
             "current_policy_promote_regime_cohorts": len(current_policy_promote_regime),
             "current_policy_regime_watchlist": len(current_policy_watch_regime),
+            "current_policy_active_regime_watchlist": len(current_policy_active_watch_regime),
             "current_policy_blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
             "current_policy_promote_confirmation_cohorts": len(current_policy_promote_confirmation),
             "current_policy_confirmation_watchlist": len(current_policy_watch_confirmation),
@@ -2289,6 +2348,7 @@ def build_action_plan(
             "fresh_analog_veto_pairs": len(current_policy_fresh_veto),
             "promote_candidates": len(current_policy_promote),
             "positive_watchlist": len(current_policy_watch),
+            "active_blocked_regime_cohorts": len(current_policy_active_blocked_regime),
             "blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
             "promote_confirmation_cohorts": len(current_policy_promote_confirmation),
             "confirmation_watchlist": len(current_policy_watch_confirmation),
@@ -2382,6 +2442,12 @@ def blocked_regime_cohorts_for_scope(actions: dict[str, Any], scope: str) -> lis
         )
     ]
     if scope == "current_policy":
+        sources.append(
+            (
+                "current_policy_active_regime_stress",
+                actions.get("current_policy_active_blocked_regime_cohorts") or [],
+            )
+        )
         sources.append(
             (
                 "fast_shadow_regime_short_horizon",
@@ -2512,6 +2578,9 @@ def blocked_pairs_payload(
         ),
         "current_policy_blocked_regime_cohorts_count": len(
             actions.get("current_policy_blocked_regime_cohorts") or []
+        ),
+        "current_policy_active_blocked_regime_cohorts_count": len(
+            actions.get("current_policy_active_blocked_regime_cohorts") or []
         ),
         "current_policy_fast_shadow_blocked_regime_cohorts_count": len(
             actions.get("current_policy_fast_shadow_blocked_regime_cohorts") or []
@@ -3058,6 +3127,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     current_policy_active_rows = rows_for_decision_policy(active_rows, current_policy_version)
     current_policy_scoreboard = build_scoreboard(current_policy_completed_rows, current_policy_active_rows, args)
     current_policy_regime_scoreboard = build_regime_scoreboard(current_policy_completed_rows, args)
+    current_policy_active_regime_scoreboard = build_active_regime_scoreboard(
+        current_policy_active_rows,
+        args,
+        reason_code_fn=current_policy_active_regime_block_reason_codes,
+    )
     current_policy_confirmation_scoreboard = build_confirmation_scoreboard(
         current_policy_completed_rows,
         current_policy_active_rows,
@@ -3176,6 +3250,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         current_policy_portfolio_risk=current_policy_portfolio_risk,
         current_policy_scoreboard=current_policy_scoreboard,
         current_policy_regime_scoreboard=current_policy_regime_scoreboard,
+        current_policy_active_regime_scoreboard=current_policy_active_regime_scoreboard,
         current_policy_confirmation_scoreboard=current_policy_confirmation_scoreboard,
         current_policy_trend_alignment_scoreboard=current_policy_trend_alignment_scoreboard,
         current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
@@ -3243,10 +3318,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_active": len(current_policy_active_rows),
             "current_policy_scoreboard_groups": len(current_policy_scoreboard),
             "current_policy_regime_scoreboard_groups": len(current_policy_regime_scoreboard),
+            "current_policy_active_regime_scoreboard_groups": len(current_policy_active_regime_scoreboard),
             "current_policy_blocked_regime_cohorts": actions["summary"][
                 "current_policy_blocked_regime_cohorts"
             ],
+            "current_policy_active_blocked_regime_cohorts": actions["summary"][
+                "current_policy_active_blocked_regime_cohorts"
+            ],
             "current_policy_regime_watchlist": actions["summary"]["current_policy_regime_watchlist"],
+            "current_policy_active_regime_watchlist": actions["summary"][
+                "current_policy_active_regime_watchlist"
+            ],
             "current_policy_confirmation_scoreboard_groups": len(current_policy_confirmation_scoreboard),
             "current_policy_blocked_confirmation_cohorts": actions["summary"][
                 "current_policy_blocked_confirmation_cohorts"
@@ -3424,6 +3506,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "current_policy_regime_scoreboard": current_policy_regime_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
+        "current_policy_active_regime_scoreboard": current_policy_active_regime_scoreboard[
+            : int(arg_value(args, "scoreboard_max_rows", 40))
+        ],
         "current_policy_confirmation_scoreboard": current_policy_confirmation_scoreboard[
             : int(arg_value(args, "scoreboard_max_rows", 40))
         ],
@@ -3560,9 +3645,10 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_promote_candidates']}/{summary['current_policy_stop_candidates']}`"
         ),
         (
-            f"- current_policy regime groups/blocked/watch: "
+            f"- current_policy regime groups/blocked/active_blocked/watch: "
             f"`{summary['current_policy_regime_scoreboard_groups']}/"
             f"{summary['current_policy_blocked_regime_cohorts']}/"
+            f"{summary['current_policy_active_blocked_regime_cohorts']}/"
             f"{summary['current_policy_regime_watchlist']}`"
         ),
         (
@@ -4064,6 +4150,9 @@ def format_text(payload: dict[str, Any]) -> str:
         (
             f"current_policy_regime groups={summary['current_policy_regime_scoreboard_groups']} "
             f"blocked={summary['current_policy_blocked_regime_cohorts']} "
+            f"active_groups={summary['current_policy_active_regime_scoreboard_groups']} "
+            f"active_blocked={summary['current_policy_active_blocked_regime_cohorts']} "
+            f"active_watch={summary['current_policy_active_regime_watchlist']} "
             f"watch={summary['current_policy_regime_watchlist']}"
         ),
         (
@@ -4324,6 +4413,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fast-shadow-active-regime-block-sum-r", type=float, default=-1.5)
     parser.add_argument("--fast-shadow-active-regime-block-avg-r", type=float, default=-0.5)
     parser.add_argument("--fast-shadow-active-regime-block-loss-rate", type=float, default=0.67)
+    parser.add_argument("--current-policy-active-regime-block-min-known", type=int, default=3)
+    parser.add_argument("--current-policy-active-regime-block-sum-r", type=float, default=-1.5)
+    parser.add_argument("--current-policy-active-regime-block-avg-r", type=float, default=-0.5)
+    parser.add_argument("--current-policy-active-regime-block-loss-rate", type=float, default=0.67)
     parser.add_argument("--market-quality-audit-min-completed", type=int, default=5)
     parser.add_argument("--market-quality-audit-negative-sum-r", type=float, default=-2.0)
     parser.add_argument("--market-quality-audit-negative-profit-factor", type=float, default=0.8)

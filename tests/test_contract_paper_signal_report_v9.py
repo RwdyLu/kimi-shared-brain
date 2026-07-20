@@ -1708,6 +1708,83 @@ def test_paper_report_exports_fast_shadow_active_regime_stress_blocks(tmp_path: 
     assert blocked_payload["combined_blocked_regime_cohorts_count"] == 1
 
 
+def test_paper_report_exports_current_policy_active_regime_stress_blocks(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    shadow = tmp_path / "shadow.jsonl"
+    fast_shadow = tmp_path / "fast_shadow.jsonl"
+    shadow.write_text("")
+    fast_shadow.write_text("")
+    rows = []
+    for idx, symbol in enumerate(["AAAUSDT", "BBBUSDT", "CCCUSDT"]):
+        pd.DataFrame(
+            {
+                "open_time": [
+                    int(pd.Timestamp("2026-01-01T00:00:00Z").timestamp() * 1000),
+                    int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000),
+                ],
+                "open": [100.0, 100.0],
+                "high": [100.5, 100.5],
+                "low": [98.5, 98.5],
+                "close": [100.0, 98.8],
+                "volume": [10.0, 11.0],
+            }
+        ).to_parquet(tmp_path / f"{symbol}_1h_2026-01.parquet", index=False)
+        rows.append(
+            {
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "open",
+                "symbol": symbol,
+                "side": "long",
+                "timeframe": "1h",
+                "decision_policy_version": "policy_v2",
+                "market_regime_id": "uptrend_normal_vol",
+                "entry_price": 100.0,
+                "stop_loss": 98.0,
+                "take_profit": 104.0,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        shadow_sources=f"1h:{shadow}",
+        fast_shadow_sources=f"1h:{fast_shadow}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+        current_policy_active_regime_block_min_known=3,
+        current_policy_active_regime_block_sum_r=-1.5,
+        current_policy_active_regime_block_avg_r=-0.5,
+        current_policy_active_regime_block_loss_rate=0.67,
+    )
+
+    payload = report_mod.build_report(args)
+    blocked_payload = report_mod.blocked_pairs_payload(payload, "current_policy")
+
+    assert payload["summary"]["current_policy_active_regime_scoreboard_groups"] == 1
+    assert payload["summary"]["current_policy_active_blocked_regime_cohorts"] == 1
+    blocked = payload["actions"]["current_policy_active_blocked_regime_cohorts"][0]
+    assert blocked["timeframe"] == "1h"
+    assert blocked["side"] == "long"
+    assert blocked["market_regime_id"] == "uptrend_normal_vol"
+    assert blocked["active_r_known"] == 3
+    assert abs(blocked["active_sum_r"] + 1.8) < 1e-9
+    assert blocked["block_source"] == "current_policy_active_regime_stress"
+    assert "current_policy_active_regime_sum_r<=-1.5" in blocked[
+        "current_policy_active_regime_block_reason_codes"
+    ]
+    assert blocked["paper_trading_authorized"] is False
+    assert blocked["live_trading_authorized"] is False
+    assert blocked_payload["blocked_regime_cohorts"] == [blocked]
+    assert blocked_payload["current_policy_active_blocked_regime_cohorts_count"] == 1
+    assert blocked_payload["combined_blocked_regime_cohorts_count"] == 1
+
+
 def test_paper_report_builds_regime_confirmation_scoreboard(tmp_path: Path) -> None:
     journal = tmp_path / "journal.jsonl"
     rows = []
