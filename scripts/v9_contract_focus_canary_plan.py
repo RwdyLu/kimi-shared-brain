@@ -223,6 +223,13 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
             "analog_profitable_rate": safe_float(row.get("analog_profitable_rate")),
             "analog_expectancy_r": safe_float(row.get("analog_expectancy_r")),
             "active": safe_int(row.get("active")),
+            "active_r_known": safe_int(row.get("active_r_known")),
+            "active_profit": safe_int(row.get("active_profit")),
+            "active_loss": safe_int(row.get("active_loss")),
+            "active_sum_r": safe_float(row.get("active_sum_r")),
+            "active_avg_r": safe_float(row.get("active_avg_r")),
+            "active_min_r": optional_float(row.get("active_min_r")),
+            "active_max_r": optional_float(row.get("active_max_r")),
             "edge_score": safe_float(row.get("edge_score")),
         },
         "reason_codes": row.get("reason_codes") or [],
@@ -253,6 +260,13 @@ def build_rejection_config(row: dict[str, Any], *, source: str, reasons: list[st
             "analog_profitable_rate": safe_float(row.get("analog_profitable_rate")),
             "analog_expectancy_r": safe_float(row.get("analog_expectancy_r")),
             "active": safe_int(row.get("active")),
+            "active_r_known": safe_int(row.get("active_r_known")),
+            "active_profit": safe_int(row.get("active_profit")),
+            "active_loss": safe_int(row.get("active_loss")),
+            "active_sum_r": safe_float(row.get("active_sum_r")),
+            "active_avg_r": safe_float(row.get("active_avg_r")),
+            "active_min_r": optional_float(row.get("active_min_r")),
+            "active_max_r": optional_float(row.get("active_max_r")),
             "edge_score": safe_float(row.get("edge_score")),
         },
         "reason_codes": row.get("reason_codes") or [],
@@ -307,6 +321,10 @@ def near_miss_missing_metrics(row: dict[str, Any], args: argparse.Namespace) -> 
         float(args.min_probe_profit_factor) - compare_profit_factor(metrics.get("recent_profit_factor")),
     )
     active = safe_int(metrics.get("active"))
+    active_r_known = safe_int(metrics.get("active_r_known"))
+    active_loss = safe_int(metrics.get("active_loss"))
+    active_profit = safe_int(metrics.get("active_profit"))
+    active_loss_rate = float(active_loss / active_r_known) if active_r_known else 0.0
     return {
         "missing_completed": missing_completed,
         "missing_analog_supported": missing_analog_supported,
@@ -314,6 +332,14 @@ def near_miss_missing_metrics(row: dict[str, Any], args: argparse.Namespace) -> 
         "missing_sum_r": missing_sum_r,
         "missing_profit_factor": missing_profit_factor,
         "active": active,
+        "active_r_known": active_r_known,
+        "active_profit": active_profit,
+        "active_loss": active_loss,
+        "active_loss_rate": active_loss_rate,
+        "active_sum_r": safe_float(metrics.get("active_sum_r")),
+        "active_avg_r": safe_float(metrics.get("active_avg_r")),
+        "active_min_r": optional_float(metrics.get("active_min_r")),
+        "active_max_r": optional_float(metrics.get("active_max_r")),
         "active_can_cover_missing_completed": active >= missing_completed if missing_completed > 0 else active > 0,
     }
 
@@ -322,6 +348,12 @@ def near_miss_next_action(missing: dict[str, Any]) -> str:
     if safe_int(missing.get("active")) > 0 and (
         safe_int(missing.get("missing_completed")) > 0 or safe_float(missing.get("missing_sum_r")) > 0.0
     ):
+        if (
+            safe_int(missing.get("active_r_known")) > 0
+            and safe_float(missing.get("active_sum_r")) < 0.0
+            and safe_float(missing.get("active_loss_rate")) >= 0.5
+        ):
+            return "await_active_settlement_risk"
         return "await_active_settlement"
     return "probe_more"
 
@@ -532,8 +564,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         "",
-        "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss | session |",
-        "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | active_R | trailing_loss | session |",
+        "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for idx, row in enumerate(payload["candidates"], start=1):
         metrics = row["metrics"]
@@ -543,7 +575,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['analog_expectancy_r'])} | "
             f"{fmt_num(metrics['recent_sum_r'])} | "
             f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
-            f"{metrics['recent_trailing_losses']} | `{row['session']}` |"
+            f"{fmt_num(metrics['active_sum_r'])} | {metrics['recent_trailing_losses']} | `{row['session']}` |"
         )
     if payload.get("near_miss_candidates"):
         lines.extend(
@@ -551,8 +583,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 "",
                 "## Near-Miss Queue",
                 "",
-                "| rank | timeframe | symbol | side | readiness | action | gap | missing | active | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
-                "| ---: | --- | --- | --- | ---: | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                "| rank | timeframe | symbol | side | readiness | action | gap | missing | active | active_R | active_w/l | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
+                "| ---: | --- | --- | --- | ---: | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
         for idx, row in enumerate(payload["near_miss_candidates"], start=1):
@@ -563,7 +595,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 f"{fmt_num(row.get('readiness_score'))} | {row.get('next_action')} | "
                 f"{fmt_num(row.get('near_miss_gap_score'))} | "
                 f"{','.join(row['rejection_reasons'])} | "
-                f"{missing.get('active')} | "
+                f"{missing.get('active')} | {fmt_num(missing.get('active_sum_r'))} | "
+                f"{missing.get('active_profit')}/{missing.get('active_loss')} | "
                 f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
                 f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
                 f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
@@ -575,8 +608,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 "",
                 "## Paper Probe Candidates",
                 "",
-                "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | sum_R | pf | session |",
-                "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+                "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | sum_R | pf | active_R | session |",
+                "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
             ]
         )
         for idx, row in enumerate(payload["paper_probe_candidates"], start=1):
@@ -585,7 +618,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 f"| {idx} | {row['source']} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
                 f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
                 f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
-                f"{fmt_num(metrics['recent_profit_factor'])} | `{row['session']}` |"
+                f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['active_sum_r'])} | `{row['session']}` |"
             )
     if payload.get("rejected_candidates"):
         lines.extend(
@@ -593,8 +626,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 "",
                 "## Rejected Candidates",
                 "",
-                "| rank | source | timeframe | symbol | side | reasons | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss |",
-                "| ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                "| rank | source | timeframe | symbol | side | reasons | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | active_R | trailing_loss |",
+                "| ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
         for idx, row in enumerate(payload["rejected_candidates"], start=1):
@@ -605,7 +638,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
                 f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['analog_expectancy_r'])} | "
                 f"{fmt_num(metrics['recent_sum_r'])} | {fmt_num(metrics['recent_profit_factor'])} | "
-                f"{fmt_num(metrics['recent_max_drawdown_r'])} | {metrics['recent_trailing_losses']} |"
+                f"{fmt_num(metrics['recent_max_drawdown_r'])} | {fmt_num(metrics['active_sum_r'])} | "
+                f"{metrics['recent_trailing_losses']} |"
             )
     lines.extend(["", "## Launch Commands", ""])
     for row in payload["candidates"]:
@@ -641,6 +675,7 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
             f"pf={fmt_num(metrics['recent_profit_factor'])} "
             f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
+            f"active_R={fmt_num(metrics['active_sum_r'])} active_wl={metrics['active_profit']}/{metrics['active_loss']} "
             f"trailing_losses={metrics['recent_trailing_losses']}"
         )
     for row in payload.get("paper_probe_candidates", []):
@@ -650,6 +685,7 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
             f"pf={fmt_num(metrics['recent_profit_factor'])} "
             f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
+            f"active_R={fmt_num(metrics['active_sum_r'])} "
             f"session={row['session']}"
         )
     for row in payload["candidates"]:
@@ -659,6 +695,7 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
             f"pf={fmt_num(metrics['recent_profit_factor'])} max_dd_R={fmt_num(metrics['recent_max_drawdown_r'])} "
             f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
+            f"active_R={fmt_num(metrics['active_sum_r'])} active_wl={metrics['active_profit']}/{metrics['active_loss']} "
             f"signal_exp_R={fmt_num(metrics['analog_expectancy_r'])} "
             f"trailing_losses={metrics['recent_trailing_losses']} session={row['session']}"
         )

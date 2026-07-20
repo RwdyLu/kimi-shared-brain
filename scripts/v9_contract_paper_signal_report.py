@@ -243,6 +243,20 @@ def analog_supported_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def active_unrealized_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    values = [value for row in rows if (value := optional_float(row.get("current_r_multiple"))) is not None]
+    total = float(sum(values))
+    return {
+        "active_r_known": len(values),
+        "active_profit": sum(1 for value in values if value > 0.0),
+        "active_loss": sum(1 for value in values if value < 0.0),
+        "active_sum_r": total,
+        "active_avg_r": float(total / len(values)) if values else 0.0,
+        "active_min_r": min(values) if values else None,
+        "active_max_r": max(values) if values else None,
+    }
+
+
 def group_key(row: dict[str, Any]) -> tuple[str, str, str]:
     return (
         str(row.get("timeframe") or "").lower(),
@@ -301,7 +315,7 @@ def build_scoreboard(
     args: argparse.Namespace,
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
-    active_counts: dict[tuple[str, str, str], int] = {}
+    active_grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for row in completed_rows:
         value = completed_r(row)
         if value is None:
@@ -309,7 +323,7 @@ def build_scoreboard(
         grouped.setdefault(group_key(row), []).append(row)
     for row in active_rows:
         key = group_key(row)
-        active_counts[key] = active_counts.get(key, 0) + 1
+        active_grouped.setdefault(key, []).append(row)
 
     rows = []
     recent_n = int(arg_value(args, "scoreboard_recent_trades", 50))
@@ -325,6 +339,8 @@ def build_scoreboard(
         recent_stats = summarize_values(recent_values)
         all_analog = analog_supported_stats(ordered)
         recent_analog = analog_supported_stats(recent_rows)
+        active_group = active_grouped.get(key, [])
+        active_stats = active_unrealized_stats(active_group)
         stats = {
             "timeframe": timeframe,
             "symbol": symbol,
@@ -351,7 +367,14 @@ def build_scoreboard(
             "recent_trailing_losses": recent_stats["trailing_losses"],
             "recent_analog_supported": recent_analog["analog_supported"],
             "recent_analog_supported_rate": recent_analog["analog_supported_rate"],
-            "active": active_counts.get(key, 0),
+            "active": len(active_group),
+            "active_r_known": active_stats["active_r_known"],
+            "active_profit": active_stats["active_profit"],
+            "active_loss": active_stats["active_loss"],
+            "active_sum_r": active_stats["active_sum_r"],
+            "active_avg_r": active_stats["active_avg_r"],
+            "active_min_r": active_stats["active_min_r"],
+            "active_max_r": active_stats["active_max_r"],
             "latest_completed_at": record_time_key(ordered[-1]),
         }
         status, reasons = decide_group_status(stats, args)
@@ -456,6 +479,13 @@ def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
         "analog_supported": row.get("analog_supported"),
         "analog_supported_rate": row.get("analog_supported_rate"),
         "active": row.get("active"),
+        "active_r_known": row.get("active_r_known"),
+        "active_profit": row.get("active_profit"),
+        "active_loss": row.get("active_loss"),
+        "active_sum_r": row.get("active_sum_r"),
+        "active_avg_r": row.get("active_avg_r"),
+        "active_min_r": row.get("active_min_r"),
+        "active_max_r": row.get("active_max_r"),
         "edge_score": row.get("edge_score"),
         "latest_completed_at": row.get("latest_completed_at"),
     }
@@ -648,8 +678,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         "## Strategy Scoreboard",
         "",
         "| status | timeframe | symbol | side | recent_n | analog_n | analog_rate | recent_win | recent_sum_R | "
-        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | score | reasons |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "recent_pf | recent_DD_R | recent_trailing_loss | all_sum_R | active | active_R | active_w/l | score | reasons |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     for row in payload["scoreboard"]:
@@ -659,7 +689,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_pct(row.get('recent_analog_supported_rate'))} | {fmt_pct(row.get('recent_win_rate'))} | "
             f"{fmt_num(row.get('recent_sum_r'), 3)} | {fmt_num(row.get('recent_profit_factor'), 3)} | "
             f"{fmt_num(row.get('recent_max_drawdown_r'), 3)} | {row.get('recent_trailing_losses')} | "
-            f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('edge_score'), 3)} | "
+            f"{fmt_num(row.get('sum_r'), 3)} | {row.get('active')} | {fmt_num(row.get('active_sum_r'), 3)} | "
+            f"{row.get('active_profit')}/{row.get('active_loss')} | {fmt_num(row.get('edge_score'), 3)} | "
             f"{', '.join(row.get('reason_codes') or [])} |"
         )
     lines.extend(
@@ -752,7 +783,9 @@ def format_text(payload: dict[str, Any]) -> str:
             f"recent_pf={fmt_num(row.get('recent_profit_factor'), 3)} "
             f"recent_analog={row.get('recent_analog_supported')}/{fmt_pct(row.get('recent_analog_supported_rate'))} "
             f"recent_dd_R={fmt_num(row.get('recent_max_drawdown_r'), 3)} "
-            f"active={row.get('active')} score={fmt_num(row.get('edge_score'), 3)}"
+            f"active={row.get('active')} active_R={fmt_num(row.get('active_sum_r'), 3)} "
+            f"active_wl={row.get('active_profit')}/{row.get('active_loss')} "
+            f"score={fmt_num(row.get('edge_score'), 3)}"
         )
     for row in payload["open"][:10]:
         lines.append(

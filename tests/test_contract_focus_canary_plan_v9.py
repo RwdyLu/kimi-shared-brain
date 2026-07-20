@@ -62,6 +62,13 @@ def candidate(
     recent_analog_supported: int = 8,
     recent_analog_supported_rate: float = 0.67,
     active: int = 0,
+    active_r_known: int = 0,
+    active_profit: int = 0,
+    active_loss: int = 0,
+    active_sum_r: float = 0.0,
+    active_avg_r: float = 0.0,
+    active_min_r: float | None = None,
+    active_max_r: float | None = None,
     edge_score: float = 1.0,
 ) -> dict:
     return {
@@ -76,6 +83,13 @@ def candidate(
         "recent_analog_supported": recent_analog_supported,
         "recent_analog_supported_rate": recent_analog_supported_rate,
         "active": active,
+        "active_r_known": active_r_known,
+        "active_profit": active_profit,
+        "active_loss": active_loss,
+        "active_sum_r": active_sum_r,
+        "active_avg_r": active_avg_r,
+        "active_min_r": active_min_r,
+        "active_max_r": active_max_r,
         "edge_score": edge_score,
         "reason_codes": ["test"],
     }
@@ -330,6 +344,13 @@ def test_focus_plan_waits_for_active_near_miss_settlement(tmp_path: Path) -> Non
                         recent_max_drawdown_r=2.2,
                         recent_trailing_losses=0,
                         active=8,
+                        active_r_known=8,
+                        active_profit=5,
+                        active_loss=3,
+                        active_sum_r=1.2,
+                        active_avg_r=0.15,
+                        active_min_r=-0.4,
+                        active_max_r=0.8,
                     )
                 ],
                 "blocked_pairs": [],
@@ -347,3 +368,49 @@ def test_focus_plan_waits_for_active_near_miss_settlement(tmp_path: Path) -> Non
     assert near["next_action"] == "await_active_settlement"
     assert near["missing_metrics"]["missing_completed"] == 3
     assert near["missing_metrics"]["active"] == 8
+    assert near["missing_metrics"]["active_r_known"] == 8
+    assert near["missing_metrics"]["active_profit"] == 5
+    assert near["missing_metrics"]["active_loss"] == 3
+    assert near["missing_metrics"]["active_sum_r"] == 1.2
+    assert near["metrics"]["active_sum_r"] == 1.2
+
+
+def test_focus_plan_marks_losing_active_near_miss_as_risk_wait(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "RISKUSDT",
+                        "long",
+                        recent_completed=5,
+                        recent_sum_r=1.3,
+                        recent_profit_factor=1.57,
+                        recent_analog_supported=4,
+                        recent_analog_supported_rate=0.8,
+                        recent_max_drawdown_r=2.2,
+                        recent_trailing_losses=0,
+                        active=4,
+                        active_r_known=4,
+                        active_profit=1,
+                        active_loss=3,
+                        active_sum_r=-1.4,
+                        active_avg_r=-0.35,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["near_miss_candidates"] == 1
+    assert payload["summary"]["paper_probe_candidates"] == 0
+    near = payload["near_miss_candidates"][0]
+    assert near["symbol"] == "RISKUSDT"
+    assert near["next_action"] == "await_active_settlement_risk"
+    assert near["missing_metrics"]["active_loss_rate"] == 0.75

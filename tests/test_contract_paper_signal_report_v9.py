@@ -66,6 +66,19 @@ def test_paper_report_calculates_open_short_r_multiple(tmp_path: Path) -> None:
 
 
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
+    pd.DataFrame(
+        {
+            "open_time": [
+                int(pd.Timestamp("2026-01-03T00:00:00Z").timestamp() * 1000),
+                int(pd.Timestamp("2026-01-03T01:00:00Z").timestamp() * 1000),
+            ],
+            "open": [100.0, 104.0],
+            "high": [105.0, 106.0],
+            "low": [99.0, 103.0],
+            "close": [104.0, 105.0],
+            "volume": [10.0, 11.0],
+        }
+    ).to_parquet(tmp_path / "AAAUSDT_1h_2026-01.parquet", index=False)
     journal = tmp_path / "journal.jsonl"
     rows = []
     for idx in range(20):
@@ -91,6 +104,19 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
                 "outcome": {"r_multiple": -0.3, "exit_dt": f"2026-01-02T{idx:02d}:30:00+00:00"},
             }
         )
+    rows.append(
+        {
+            "created_at": "2026-01-03T00:00:00+00:00",
+            "updated_at": "2026-01-03T01:00:00+00:00",
+            "status": "open",
+            "symbol": "AAAUSDT",
+            "side": "long",
+            "entry_price": 100.0,
+            "stop_loss": 90.0,
+            "take_profit": 120.0,
+            "analog_supported": True,
+        }
+    )
     journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
     args = Namespace(
         cache_dir=str(tmp_path),
@@ -119,6 +145,12 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     assert abs(payload["scoreboard"][0]["recent_sum_r"] - 6.0) < 1e-9
     assert payload["scoreboard"][0]["recent_analog_supported"] == 10
     assert payload["scoreboard"][0]["recent_analog_supported_rate"] == 0.5
+    assert payload["scoreboard"][0]["active"] == 1
+    assert payload["scoreboard"][0]["active_r_known"] == 1
+    assert payload["scoreboard"][0]["active_profit"] == 1
+    assert payload["scoreboard"][0]["active_loss"] == 0
+    assert abs(payload["scoreboard"][0]["active_sum_r"] - 0.5) < 1e-9
+    assert payload["actions"]["promote_candidates"][0]["active_sum_r"] == payload["scoreboard"][0]["active_sum_r"]
     stop = next(row for row in payload["scoreboard"] if row["symbol"] == "BBBUSDT")
     assert stop["status"] == "stop_candidate"
     assert stop["recent_analog_supported"] == 4
