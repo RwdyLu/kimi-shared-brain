@@ -441,6 +441,63 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert rows == []
 
 
+def test_latest_market_signal_journal_allows_portfolio_drawdown_recovery_probe(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "portfolio_drawdown",
+                    "block_new_focus": True,
+                    "active": 2,
+                    "active_excess": 0,
+                    "reason_codes": ["portfolio_recent_drawdown_R>=30.00"],
+                    "blocked_sides": [],
+                    "segment_risk": {"blocked_sides": [], "segments": {"long": {"active": 0}}},
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": True,
+                    "used_count": 72,
+                    "hit_rate": 0.60,
+                    "profitable_rate": 0.60,
+                    "expectancy_r": 0.45,
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 0
+    assert summary["journal_portfolio_drawdown_recovery_candidate_rows"] == 1
+    assert rows[0]["portfolio_drawdown_recovery_probe"] is True
+    assert rows[0]["portfolio_drawdown_recovery_reason"] == "portfolio_drawdown_strong_analog_recovery"
+
+
 def test_latest_market_signal_journal_allows_strong_side_recovery_probe(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="BBBUSDT")
     actions = tmp_path / "actions.json"

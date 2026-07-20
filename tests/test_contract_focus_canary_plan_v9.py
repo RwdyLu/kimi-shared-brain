@@ -47,6 +47,19 @@ def args_for(actions_json: Path) -> Namespace:
         active_risk_max_loss_rate=0.67,
         active_risk_max_avg_r=-0.25,
         respect_portfolio_risk=True,
+        allow_portfolio_drawdown_recovery_probes=True,
+        portfolio_recovery_max_active=12,
+        portfolio_recovery_max_active_excess=0,
+        portfolio_recovery_min_recent_completed=8,
+        portfolio_recovery_min_recent_analog_supported=4,
+        portfolio_recovery_min_recent_analog_rate=0.50,
+        portfolio_recovery_min_recent_sum_r=4.0,
+        portfolio_recovery_min_recent_profit_factor=1.5,
+        portfolio_recovery_max_recent_drawdown_r=5.0,
+        portfolio_recovery_min_fresh_analog_samples=50,
+        portfolio_recovery_min_fresh_hit_rate=0.55,
+        portfolio_recovery_min_fresh_profitable_rate=0.55,
+        portfolio_recovery_min_fresh_expectancy_r=0.35,
         respect_portfolio_side_risk=True,
         allow_portfolio_side_recovery_probes=True,
         side_recovery_max_segment_active=0,
@@ -206,6 +219,50 @@ def test_focus_plan_blocks_new_launches_on_portfolio_risk(tmp_path: Path) -> Non
     row = payload["rejected_candidates"][0]
     assert row["symbol"] == "SOLUSDT"
     assert "portfolio_overexposed" in row["rejection_reasons"]
+
+
+def test_focus_plan_allows_strong_candidate_after_portfolio_drawdown_cooldown(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "portfolio_drawdown",
+                    "block_new_focus": True,
+                    "active": 2,
+                    "active_excess": 0,
+                    "reason_codes": ["portfolio_recent_sum_R<=-20.00"],
+                    "blocked_sides": [],
+                    "segment_risk": {"blocked_sides": [], "segments": {"long": {"active": 0}}},
+                },
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "RECOVERUSDT",
+                        "long",
+                        recent_completed=12,
+                        recent_sum_r=6.0,
+                        recent_profit_factor=1.8,
+                        recent_max_drawdown_r=3.0,
+                        recent_analog_supported=8,
+                        recent_analog_supported_rate=0.67,
+                        edge_score=8.0,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["portfolio_drawdown_recovery_selected"] == 1
+    assert payload["summary"]["rejection_reason_counts"] == {}
+    row = payload["candidates"][0]
+    assert row["symbol"] == "RECOVERUSDT"
+    assert row["portfolio_drawdown_recovery_probe"] is True
+    assert row["portfolio_drawdown_recovery_reason"] == "portfolio_drawdown_strong_evidence_recovery"
 
 
 def test_focus_plan_blocks_only_frozen_side_when_portfolio_is_normal(tmp_path: Path) -> None:

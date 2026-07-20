@@ -127,11 +127,51 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
         "path": path,
         "status": portfolio.get("status"),
         "block_new_focus": bool(portfolio.get("block_new_focus")),
+        "active": int(portfolio.get("active") or 0),
+        "active_excess": int(portfolio.get("active_excess") or 0),
         "reason_codes": portfolio.get("reason_codes") or [],
         "blocked_sides": sorted(side for side in blocked_sides if side in {"long", "short"}),
         "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
         "segments": segments,
     }
+
+
+def journal_portfolio_drawdown_recovery_probe_allowed(
+    row: dict[str, Any],
+    risk_controls: dict[str, Any],
+    args: argparse.Namespace,
+) -> bool:
+    if not bool(getattr(args, "journal_allow_portfolio_drawdown_recovery_probes", True)):
+        return False
+    if str(risk_controls.get("status") or "") != "portfolio_drawdown":
+        return False
+    if int(risk_controls.get("active") or 0) > int(getattr(args, "journal_portfolio_recovery_max_active", 12)):
+        return False
+    if int(risk_controls.get("active_excess") or 0) > int(
+        getattr(args, "journal_portfolio_recovery_max_active_excess", 0)
+    ):
+        return False
+    reason_codes = [str(reason) for reason in (risk_controls.get("reason_codes") or [])]
+    hard_prefixes = ("portfolio_active>", "portfolio_active_R", "portfolio_active_loss_rate")
+    if any(reason.startswith(hard_prefixes) for reason in reason_codes):
+        return False
+
+    analog = row.get("analog_evidence") or {}
+    if not analog.get("supported"):
+        return False
+    if int(analog.get("used_count") or 0) < int(getattr(args, "journal_portfolio_recovery_min_analog_samples", 50)):
+        return False
+    if safe_float(analog.get("hit_rate")) < float(getattr(args, "journal_portfolio_recovery_min_hit_rate", 0.55)):
+        return False
+    if safe_float(analog.get("profitable_rate")) < float(
+        getattr(args, "journal_portfolio_recovery_min_profitable_rate", 0.55)
+    ):
+        return False
+    if safe_float(analog.get("expectancy_r")) < float(
+        getattr(args, "journal_portfolio_recovery_min_expectancy_r", 0.35)
+    ):
+        return False
+    return True
 
 
 def journal_side_recovery_probe_allowed(
@@ -1401,6 +1441,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     migrated = 0
     blocked_candidates = 0
     portfolio_risk_blocked_candidates = 0
+    portfolio_drawdown_recovery_candidates = 0
     portfolio_side_blocked_candidates = 0
     portfolio_side_recovery_candidates = 0
     active_total_cap_blocked_candidates = 0
@@ -1453,9 +1494,14 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
             continue
+        drawdown_recovery_probe = False
         if respect_portfolio_risk and risk_controls.get("block_new_focus"):
-            portfolio_risk_blocked_candidates += 1
-            continue
+            if journal_portfolio_drawdown_recovery_probe_allowed(row, risk_controls, args):
+                drawdown_recovery_probe = True
+                portfolio_drawdown_recovery_candidates += 1
+            else:
+                portfolio_risk_blocked_candidates += 1
+                continue
         recovery_probe = False
         if respect_portfolio_side_risk and pair[1] in blocked_sides:
             if journal_side_recovery_probe_allowed(row, pair[1], risk_controls, args):
@@ -1487,6 +1533,10 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             record["portfolio_side_recovery_reason"] = "blocked_side_strong_analog_recovery"
             record["portfolio_side_recovery_from_status"] = risk_controls.get("status")
             record["portfolio_side_recovery_blocked_sides"] = sorted(blocked_sides)
+        if drawdown_recovery_probe:
+            record["portfolio_drawdown_recovery_probe"] = True
+            record["portfolio_drawdown_recovery_reason"] = "portfolio_drawdown_strong_analog_recovery"
+            record["portfolio_drawdown_recovery_from_status"] = risk_controls.get("status")
         new_records.append(record)
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
         active_total += 1
@@ -1525,6 +1575,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         ),
         "journal_portfolio_blocked_sides": sorted(blocked_sides),
         "journal_portfolio_risk_blocked_candidate_rows": portfolio_risk_blocked_candidates,
+        "journal_portfolio_drawdown_recovery_candidate_rows": portfolio_drawdown_recovery_candidates,
         "journal_portfolio_side_blocked_candidate_rows": portfolio_side_blocked_candidates,
         "journal_portfolio_side_recovery_candidate_rows": portfolio_side_recovery_candidates,
         "journal_portfolio_reason_codes": risk_controls.get("reason_codes") or [],
@@ -1602,6 +1653,25 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
+            "journal_allow_portfolio_drawdown_recovery_probes": bool(
+                getattr(args, "journal_allow_portfolio_drawdown_recovery_probes", True)
+            ),
+            "journal_portfolio_recovery_max_active": int(getattr(args, "journal_portfolio_recovery_max_active", 12)),
+            "journal_portfolio_recovery_max_active_excess": int(
+                getattr(args, "journal_portfolio_recovery_max_active_excess", 0)
+            ),
+            "journal_portfolio_recovery_min_analog_samples": int(
+                getattr(args, "journal_portfolio_recovery_min_analog_samples", 50)
+            ),
+            "journal_portfolio_recovery_min_hit_rate": float(
+                getattr(args, "journal_portfolio_recovery_min_hit_rate", 0.55)
+            ),
+            "journal_portfolio_recovery_min_profitable_rate": float(
+                getattr(args, "journal_portfolio_recovery_min_profitable_rate", 0.55)
+            ),
+            "journal_portfolio_recovery_min_expectancy_r": float(
+                getattr(args, "journal_portfolio_recovery_min_expectancy_r", 0.35)
+            ),
             "journal_respect_portfolio_side_risk": bool(
                 getattr(args, "journal_respect_portfolio_side_risk", True)
             ),
@@ -1770,6 +1840,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
+        "journal_portfolio_drawdown_recovery_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_portfolio_drawdown_recovery_candidate_rows')}",
         "journal_portfolio_side_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_side_blocked_candidate_rows')}",
         "journal_portfolio_side_recovery_candidate_rows="
@@ -1886,6 +1958,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Optional actions JSON with portfolio_risk and blocked_sides used to stop new paper journal records.",
     )
     parser.add_argument("--journal-respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-allow-portfolio-drawdown-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-portfolio-recovery-max-active", type=int, default=12)
+    parser.add_argument("--journal-portfolio-recovery-max-active-excess", type=int, default=0)
+    parser.add_argument("--journal-portfolio-recovery-min-analog-samples", type=int, default=50)
+    parser.add_argument("--journal-portfolio-recovery-min-hit-rate", type=float, default=0.55)
+    parser.add_argument("--journal-portfolio-recovery-min-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--journal-portfolio-recovery-min-expectancy-r", type=float, default=0.35)
     parser.add_argument("--journal-respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-allow-side-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-side-recovery-max-segment-active", type=int, default=0)

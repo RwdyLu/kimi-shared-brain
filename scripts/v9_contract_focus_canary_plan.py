@@ -115,6 +115,54 @@ def portfolio_risk_rejection_reasons(actions: dict[str, Any], args: argparse.Nam
     return reasons
 
 
+def portfolio_drawdown_recovery_allowed(row: dict[str, Any], actions: dict[str, Any], args: argparse.Namespace) -> bool:
+    if not bool(args.allow_portfolio_drawdown_recovery_probes):
+        return False
+    portfolio = actions.get("portfolio_risk") or {}
+    if str(portfolio.get("status") or "") != "portfolio_drawdown":
+        return False
+    if safe_int(portfolio.get("active_excess")) > int(args.portfolio_recovery_max_active_excess):
+        return False
+    if safe_int(portfolio.get("active")) > int(args.portfolio_recovery_max_active):
+        return False
+    reason_codes = [str(reason) for reason in (portfolio.get("reason_codes") or [])]
+    hard_prefixes = ("portfolio_active>", "portfolio_active_R", "portfolio_active_loss_rate")
+    if any(reason.startswith(hard_prefixes) for reason in reason_codes):
+        return False
+
+    recent_pass = (
+        safe_int(row.get("recent_completed")) >= int(args.portfolio_recovery_min_recent_completed)
+        and safe_int(row.get("recent_analog_supported")) >= int(args.portfolio_recovery_min_recent_analog_supported)
+        and safe_float(row.get("recent_analog_supported_rate")) >= float(args.portfolio_recovery_min_recent_analog_rate)
+        and safe_float(row.get("recent_sum_r")) >= float(args.portfolio_recovery_min_recent_sum_r)
+        and compare_profit_factor(row.get("recent_profit_factor")) >= float(args.portfolio_recovery_min_recent_profit_factor)
+        and safe_float(row.get("recent_max_drawdown_r")) <= float(args.portfolio_recovery_max_recent_drawdown_r)
+    )
+    fresh_pass = (
+        safe_int(row.get("analog_used_count")) >= int(args.portfolio_recovery_min_fresh_analog_samples)
+        and safe_float(row.get("analog_hit_rate")) >= float(args.portfolio_recovery_min_fresh_hit_rate)
+        and safe_float(row.get("analog_profitable_rate")) >= float(args.portfolio_recovery_min_fresh_profitable_rate)
+        and safe_float(row.get("analog_expectancy_r")) >= float(args.portfolio_recovery_min_fresh_expectancy_r)
+    )
+    return bool(recent_pass or fresh_pass)
+
+
+def apply_portfolio_gate(
+    row: dict[str, Any],
+    actions: dict[str, Any],
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], list[str]]:
+    reasons = portfolio_risk_rejection_reasons(actions, args)
+    if not reasons:
+        return row, []
+    if portfolio_drawdown_recovery_allowed(row, actions, args):
+        gated = dict(row)
+        gated["portfolio_drawdown_recovery_probe"] = True
+        gated["portfolio_drawdown_recovery_reason"] = "portfolio_drawdown_strong_evidence_recovery"
+        return gated, []
+    return row, reasons
+
+
 def portfolio_side_risk_rejection_reasons(row: dict[str, Any], actions: dict[str, Any], args: argparse.Namespace) -> list[str]:
     if not bool(args.respect_portfolio_side_risk):
         return []
@@ -311,6 +359,8 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
         "timeframe": timeframe,
         "symbol": symbol,
         "side": side,
+        "portfolio_drawdown_recovery_probe": bool(row.get("portfolio_drawdown_recovery_probe")),
+        "portfolio_drawdown_recovery_reason": row.get("portfolio_drawdown_recovery_reason"),
         "portfolio_side_recovery_probe": bool(row.get("portfolio_side_recovery_probe")),
         "portfolio_side_recovery_reason": row.get("portfolio_side_recovery_reason"),
         "allowed_pair": allowed_pair,
@@ -555,7 +605,8 @@ def build_paper_probe_candidates(
 ) -> list[dict[str, Any]]:
     if not bool(args.include_near_miss_paper_probes):
         return []
-    if portfolio_reasons:
+    portfolio = actions.get("portfolio_risk") or {}
+    if portfolio_reasons and str(portfolio.get("status") or "") != "portfolio_drawdown":
         return []
     rows: list[dict[str, Any]] = []
     for row in near_miss:
@@ -563,6 +614,9 @@ def build_paper_probe_candidates(
             continue
         key = pair_key(row)
         if key in used:
+            continue
+        row, portfolio_gate_reasons = apply_portfolio_gate(row, actions, args)
+        if portfolio_gate_reasons:
             continue
         row, side_reasons = apply_portfolio_side_gate(row, actions, args)
         if side_reasons:
@@ -600,7 +654,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             if key in used:
                 continue
             reasons: list[str] = []
-            reasons.extend(portfolio_reasons)
+            row, portfolio_gate_reasons = apply_portfolio_gate(row, actions, args)
+            reasons.extend(portfolio_gate_reasons)
             row, side_reasons = apply_portfolio_side_gate(row, actions, args)
             reasons.extend(side_reasons)
             if key in blocked and not args.allow_blocked:
@@ -628,7 +683,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         if key in used:
             continue
         reasons = []
-        reasons.extend(portfolio_reasons)
+        row, portfolio_gate_reasons = apply_portfolio_gate(row, actions, args)
+        reasons.extend(portfolio_gate_reasons)
         row, side_reasons = apply_portfolio_side_gate(row, actions, args)
         reasons.extend(side_reasons)
         if key in blocked and not args.allow_blocked:
@@ -680,6 +736,21 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "active_risk_max_loss_rate": float(args.active_risk_max_loss_rate),
             "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
             "respect_portfolio_risk": bool(args.respect_portfolio_risk),
+            "allow_portfolio_drawdown_recovery_probes": bool(args.allow_portfolio_drawdown_recovery_probes),
+            "portfolio_recovery_max_active": int(args.portfolio_recovery_max_active),
+            "portfolio_recovery_max_active_excess": int(args.portfolio_recovery_max_active_excess),
+            "portfolio_recovery_min_recent_completed": int(args.portfolio_recovery_min_recent_completed),
+            "portfolio_recovery_min_recent_analog_supported": int(
+                args.portfolio_recovery_min_recent_analog_supported
+            ),
+            "portfolio_recovery_min_recent_analog_rate": float(args.portfolio_recovery_min_recent_analog_rate),
+            "portfolio_recovery_min_recent_sum_r": float(args.portfolio_recovery_min_recent_sum_r),
+            "portfolio_recovery_min_recent_profit_factor": float(args.portfolio_recovery_min_recent_profit_factor),
+            "portfolio_recovery_max_recent_drawdown_r": float(args.portfolio_recovery_max_recent_drawdown_r),
+            "portfolio_recovery_min_fresh_analog_samples": int(args.portfolio_recovery_min_fresh_analog_samples),
+            "portfolio_recovery_min_fresh_hit_rate": float(args.portfolio_recovery_min_fresh_hit_rate),
+            "portfolio_recovery_min_fresh_profitable_rate": float(args.portfolio_recovery_min_fresh_profitable_rate),
+            "portfolio_recovery_min_fresh_expectancy_r": float(args.portfolio_recovery_min_fresh_expectancy_r),
             "respect_portfolio_side_risk": bool(args.respect_portfolio_side_risk),
             "allow_portfolio_side_recovery_probes": bool(args.allow_portfolio_side_recovery_probes),
             "side_recovery_max_segment_active": int(args.side_recovery_max_segment_active),
@@ -710,6 +781,12 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "portfolio_risk_status": (actions.get("portfolio_risk") or {}).get("status"),
             "portfolio_block_new_focus": bool((actions.get("portfolio_risk") or {}).get("block_new_focus")),
             "portfolio_blocked_sides": (actions.get("portfolio_risk") or {}).get("blocked_sides") or [],
+            "portfolio_drawdown_recovery_selected": sum(
+                1 for row in selected if row.get("portfolio_drawdown_recovery_probe")
+            ),
+            "portfolio_drawdown_recovery_paper_probes": sum(
+                1 for row in paper_probe_candidates if row.get("portfolio_drawdown_recovery_probe")
+            ),
             "portfolio_side_recovery_selected": sum(
                 1 for row in selected if row.get("portfolio_side_recovery_probe")
             ),
@@ -753,6 +830,9 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
         f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
         f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
+        f"- drawdown recovery selected/probes: "
+        f"`{summary.get('portfolio_drawdown_recovery_selected', 0)}/"
+        f"{summary.get('portfolio_drawdown_recovery_paper_probes', 0)}`",
         f"- side recovery selected/probes: "
         f"`{summary.get('portfolio_side_recovery_selected', 0)}/"
         f"{summary.get('portfolio_side_recovery_paper_probes', 0)}`",
@@ -862,6 +942,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
         f"near_miss={summary.get('near_miss_candidates', 0)} "
         f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)} "
+        f"drawdown_recovery_selected={summary.get('portfolio_drawdown_recovery_selected', 0)} "
+        f"drawdown_recovery_probes={summary.get('portfolio_drawdown_recovery_paper_probes', 0)} "
         f"side_recovery_selected={summary.get('portfolio_side_recovery_selected', 0)} "
         f"side_recovery_probes={summary.get('portfolio_side_recovery_paper_probes', 0)}",
         f"portfolio_risk={portfolio.get('status')} block_new_focus={portfolio.get('block_new_focus')} "
@@ -952,6 +1034,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--active-risk-max-loss-rate", type=float, default=0.67)
     parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
     parser.add_argument("--respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--allow-portfolio-drawdown-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--portfolio-recovery-max-active", type=int, default=12)
+    parser.add_argument("--portfolio-recovery-max-active-excess", type=int, default=0)
+    parser.add_argument("--portfolio-recovery-min-recent-completed", type=int, default=8)
+    parser.add_argument("--portfolio-recovery-min-recent-analog-supported", type=int, default=4)
+    parser.add_argument("--portfolio-recovery-min-recent-analog-rate", type=float, default=0.50)
+    parser.add_argument("--portfolio-recovery-min-recent-sum-r", type=float, default=4.0)
+    parser.add_argument("--portfolio-recovery-min-recent-profit-factor", type=float, default=1.5)
+    parser.add_argument("--portfolio-recovery-max-recent-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--portfolio-recovery-min-fresh-analog-samples", type=int, default=50)
+    parser.add_argument("--portfolio-recovery-min-fresh-hit-rate", type=float, default=0.55)
+    parser.add_argument("--portfolio-recovery-min-fresh-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--portfolio-recovery-min-fresh-expectancy-r", type=float, default=0.35)
     parser.add_argument("--respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--allow-portfolio-side-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--side-recovery-max-segment-active", type=int, default=0)
