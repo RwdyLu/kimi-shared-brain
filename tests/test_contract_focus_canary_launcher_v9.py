@@ -21,6 +21,7 @@ SPEC.loader.exec_module(launcher_mod)
 
 def candidate(session: str = "v9_contract_focus_canary_1h_aaa_long_watch") -> dict[str, Any]:
     return {
+        "source": "promote_candidate",
         "session": session,
         "timeframe": "1h",
         "symbol": "AAAUSDT",
@@ -33,12 +34,13 @@ def candidate(session: str = "v9_contract_focus_canary_1h_aaa_long_watch") -> di
     }
 
 
-def write_plan(path: Path, rows: list[dict[str, Any]]) -> None:
+def write_plan(path: Path, rows: list[dict[str, Any]], paper_probe_rows: list[dict[str, Any]] | None = None) -> None:
     path.write_text(
         json.dumps(
             {
                 "kind": "contract_focus_canary_plan_v1",
                 "candidates": rows,
+                "paper_probe_candidates": paper_probe_rows or [],
                 "paper_trading_authorized": False,
                 "live_trading_authorized": False,
             }
@@ -60,7 +62,7 @@ def test_focus_canary_launcher_starts_missing_session(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(cmd, 0, "started", "")
 
     payload = launcher_mod.run_launcher(
-        Namespace(plan_json=str(plan), max_launches=3, launch=True),
+        Namespace(plan_json=str(plan), max_launches=3, include_paper_probes=True, max_probe_launches=1, launch=True),
         runner=fake_run,
     )
 
@@ -79,7 +81,7 @@ def test_focus_canary_launcher_skips_existing_session(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(cmd, 0, "exists", "")
 
     payload = launcher_mod.run_launcher(
-        Namespace(plan_json=str(plan), max_launches=3, launch=True),
+        Namespace(plan_json=str(plan), max_launches=3, include_paper_probes=True, max_probe_launches=1, launch=True),
         runner=fake_run,
     )
 
@@ -98,7 +100,7 @@ def test_focus_canary_launcher_dry_run_does_not_start(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(cmd, 1, "", "missing")
 
     payload = launcher_mod.run_launcher(
-        Namespace(plan_json=str(plan), max_launches=3, launch=False),
+        Namespace(plan_json=str(plan), max_launches=3, include_paper_probes=True, max_probe_launches=1, launch=False),
         runner=fake_run,
     )
 
@@ -112,8 +114,38 @@ def test_focus_canary_launcher_rejects_bad_session_name(tmp_path: Path) -> None:
     write_plan(plan, [candidate("-bad")])
 
     payload = launcher_mod.run_launcher(
-        Namespace(plan_json=str(plan), max_launches=3, launch=True),
+        Namespace(plan_json=str(plan), max_launches=3, include_paper_probes=True, max_probe_launches=1, launch=True),
         runner=lambda *args, **kwargs: subprocess.CompletedProcess([], 0, "", ""),
     )
 
     assert payload["rows"][0]["status"] == "invalid_session_name"
+
+
+def test_focus_canary_launcher_starts_paper_probe_candidate(tmp_path: Path) -> None:
+    plan = tmp_path / "plan.json"
+    probe = candidate("v9_contract_focus_canary_1h_solusdt_long_watch")
+    probe["source"] = "near_miss_probe"
+    probe["symbol"] = "SOLUSDT"
+    probe["env"]["CONTRACT_EDGE_CANARY_SYMBOLS"] = "SOLUSDT"
+    probe["env"]["CONTRACT_EDGE_CANARY_ALLOWED_PAIRS"] = "SOLUSDT:long"
+    write_plan(plan, [], [probe])
+    calls: list[tuple[list[str], dict[str, Any]]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append((cmd, kwargs))
+        if cmd[:2] == ["tmux", "has-session"]:
+            return subprocess.CompletedProcess(cmd, 1, "", "missing")
+        assert cmd == ["scripts/start_contract_edge_canary_watch.sh", "v9_contract_focus_canary_1h_solusdt_long_watch"]
+        assert kwargs["env"]["CONTRACT_EDGE_CANARY_ALLOWED_PAIRS"] == "SOLUSDT:long"
+        return subprocess.CompletedProcess(cmd, 0, "started", "")
+
+    payload = launcher_mod.run_launcher(
+        Namespace(plan_json=str(plan), max_launches=3, include_paper_probes=True, max_probe_launches=1, launch=True),
+        runner=fake_run,
+    )
+
+    assert payload["summary"]["candidates_seen"] == 0
+    assert payload["summary"]["paper_probe_candidates_seen"] == 1
+    assert payload["summary"]["started"] == 1
+    assert payload["rows"][0]["source"] == "near_miss_probe"
+    assert len(calls) == 2

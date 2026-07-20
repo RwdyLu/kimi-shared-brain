@@ -290,6 +290,42 @@ def near_miss_gap_score(row: dict[str, Any], args: argparse.Namespace) -> float:
     )
 
 
+def near_miss_missing_metrics(row: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    metrics = row.get("metrics") or {}
+    missing_completed = max(0, int(args.min_probe_completed) - safe_int(metrics.get("recent_completed")))
+    missing_analog_supported = max(
+        0,
+        int(args.min_probe_analog_supported) - safe_int(metrics.get("recent_analog_supported")),
+    )
+    missing_analog_supported_rate = max(
+        0.0,
+        float(args.min_probe_analog_supported_rate) - safe_float(metrics.get("recent_analog_supported_rate")),
+    )
+    missing_sum_r = max(0.0, float(args.min_probe_sum_r) - safe_float(metrics.get("recent_sum_r")))
+    missing_profit_factor = max(
+        0.0,
+        float(args.min_probe_profit_factor) - compare_profit_factor(metrics.get("recent_profit_factor")),
+    )
+    active = safe_int(metrics.get("active"))
+    return {
+        "missing_completed": missing_completed,
+        "missing_analog_supported": missing_analog_supported,
+        "missing_analog_supported_rate": missing_analog_supported_rate,
+        "missing_sum_r": missing_sum_r,
+        "missing_profit_factor": missing_profit_factor,
+        "active": active,
+        "active_can_cover_missing_completed": active >= missing_completed if missing_completed > 0 else active > 0,
+    }
+
+
+def near_miss_next_action(missing: dict[str, Any]) -> str:
+    if safe_int(missing.get("active")) > 0 and (
+        safe_int(missing.get("missing_completed")) > 0 or safe_float(missing.get("missing_sum_r")) > 0.0
+    ):
+        return "await_active_settlement"
+    return "probe_more"
+
+
 def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
     hard_prefixes = ("recent_max_drawdown_r>", "recent_trailing_losses>")
     rows: list[dict[str, Any]] = []
@@ -314,6 +350,8 @@ def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespa
         near = dict(row)
         near["near_miss_gap_score"] = gap
         near["readiness_score"] = float(1.0 / (1.0 + gap))
+        near["missing_metrics"] = near_miss_missing_metrics(row, args)
+        near["next_action"] = near_miss_next_action(near["missing_metrics"])
         rows.append(near)
     rows.sort(
         key=lambda row: (
@@ -327,6 +365,27 @@ def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespa
         )
     )
     return rows[: int(args.max_near_miss_candidates)]
+
+
+def build_paper_probe_candidates(
+    near_miss: list[dict[str, Any]],
+    args: argparse.Namespace,
+    used: set[tuple[str, str, str]],
+) -> list[dict[str, Any]]:
+    if not bool(args.include_near_miss_paper_probes):
+        return []
+    rows: list[dict[str, Any]] = []
+    for row in near_miss:
+        if row.get("next_action") != "probe_more":
+            continue
+        key = pair_key(row)
+        if key in used:
+            continue
+        rows.append(build_candidate_config(row, source="near_miss_probe"))
+        used.add(key)
+        if len(rows) >= int(args.max_near_miss_paper_probes):
+            break
+    return rows
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -392,6 +451,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     rejection_reason_counts = reason_counts(rejected)
     near_miss = build_near_miss_queue(rejected, args)
+    paper_probe_candidates = build_paper_probe_candidates(near_miss, args, used)
 
     return {
         "kind": "contract_focus_canary_plan_v1",
@@ -401,6 +461,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "max_candidates": int(args.max_candidates),
             "max_rejections": max_rejections,
             "max_near_miss_candidates": int(args.max_near_miss_candidates),
+            "include_near_miss_paper_probes": bool(args.include_near_miss_paper_probes),
+            "max_near_miss_paper_probes": int(args.max_near_miss_paper_probes),
             "min_near_miss_completed": int(args.min_near_miss_completed),
             "min_near_miss_profit_factor": float(args.min_near_miss_profit_factor),
             "max_near_miss_gap_score": float(args.max_near_miss_gap_score),
@@ -431,10 +493,12 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "fresh_analog_added": fresh_added,
             "rejected_candidates": len(rejected),
             "near_miss_candidates": len(near_miss),
+            "paper_probe_candidates": len(paper_probe_candidates),
             "rejection_reason_counts": rejection_reason_counts,
         },
         "candidates": selected,
         "near_miss_candidates": near_miss,
+        "paper_probe_candidates": paper_probe_candidates,
         "rejected_candidates": rejected,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -465,6 +529,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- fresh analog veto pairs: `{summary.get('fresh_analog_veto_pairs', 0)}`",
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
         f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
+        f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss | session |",
@@ -486,20 +551,41 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 "",
                 "## Near-Miss Queue",
                 "",
-                "| rank | timeframe | symbol | side | readiness | gap | missing | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
-                "| ---: | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                "| rank | timeframe | symbol | side | readiness | action | gap | missing | active | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
+                "| ---: | --- | --- | --- | ---: | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
         for idx, row in enumerate(payload["near_miss_candidates"], start=1):
             metrics = row["metrics"]
+            missing = row.get("missing_metrics") or {}
             lines.append(
                 f"| {idx} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
-                f"{fmt_num(row.get('readiness_score'))} | {fmt_num(row.get('near_miss_gap_score'))} | "
+                f"{fmt_num(row.get('readiness_score'))} | {row.get('next_action')} | "
+                f"{fmt_num(row.get('near_miss_gap_score'))} | "
                 f"{','.join(row['rejection_reasons'])} | "
+                f"{missing.get('active')} | "
                 f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
                 f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
                 f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
                 f"{metrics['recent_trailing_losses']} |"
+            )
+    if payload.get("paper_probe_candidates"):
+        lines.extend(
+            [
+                "",
+                "## Paper Probe Candidates",
+                "",
+                "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | sum_R | pf | session |",
+                "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+            ]
+        )
+        for idx, row in enumerate(payload["paper_probe_candidates"], start=1):
+            metrics = row["metrics"]
+            lines.append(
+                f"| {idx} | {row['source']} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
+                f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
+                f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
+                f"{fmt_num(metrics['recent_profit_factor'])} | `{row['session']}` |"
             )
     if payload.get("rejected_candidates"):
         lines.extend(
@@ -524,6 +610,10 @@ def format_markdown(payload: dict[str, Any]) -> str:
     lines.extend(["", "## Launch Commands", ""])
     for row in payload["candidates"]:
         lines.extend(["```bash", row["launch_command"], "```", ""])
+    if payload.get("paper_probe_candidates"):
+        lines.extend(["", "## Paper Probe Launch Commands", ""])
+        for row in payload["paper_probe_candidates"]:
+            lines.extend(["```bash", row["launch_command"], "```", ""])
     lines.append("Paper-only focused canary plan. No live trading is authorized.")
     return "\n".join(lines) + "\n"
 
@@ -536,7 +626,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"positive_seen={summary['positive_watchlist_seen']} blocked_seen={summary['blocked_pairs']} "
         f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
-        f"near_miss={summary.get('near_miss_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
+        f"near_miss={summary.get('near_miss_candidates', 0)} "
+        f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
         f"reject_reasons={json.dumps(summary.get('rejection_reason_counts', {}), sort_keys=True)}",
         "safety=paper_authorized:False live:False",
     ]
@@ -544,12 +635,22 @@ def format_text(payload: dict[str, Any]) -> str:
         metrics = row["metrics"]
         lines.append(
             f"near_miss {row['timeframe']} {row['symbol']} {row['side']} "
-            f"readiness={fmt_num(row.get('readiness_score'))} gap={fmt_num(row.get('near_miss_gap_score'))} "
+            f"readiness={fmt_num(row.get('readiness_score'))} action={row.get('next_action')} "
+            f"gap={fmt_num(row.get('near_miss_gap_score'))} "
             f"missing={','.join(row.get('rejection_reasons') or [])} "
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
             f"pf={fmt_num(metrics['recent_profit_factor'])} "
             f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
             f"trailing_losses={metrics['recent_trailing_losses']}"
+        )
+    for row in payload.get("paper_probe_candidates", []):
+        metrics = row["metrics"]
+        lines.append(
+            f"paper_probe {row['timeframe']} {row['symbol']} {row['side']} "
+            f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
+            f"pf={fmt_num(metrics['recent_profit_factor'])} "
+            f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
+            f"session={row['session']}"
         )
     for row in payload["candidates"]:
         metrics = row["metrics"]
@@ -573,6 +674,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-candidates", type=int, default=3)
     parser.add_argument("--max-rejections", type=int, default=50)
     parser.add_argument("--max-near-miss-candidates", type=int, default=5)
+    parser.add_argument("--include-near-miss-paper-probes", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--max-near-miss-paper-probes", type=int, default=1)
     parser.add_argument("--min-near-miss-completed", type=int, default=4)
     parser.add_argument("--min-near-miss-profit-factor", type=float, default=1.0)
     parser.add_argument("--max-near-miss-gap-score", type=float, default=1.0)

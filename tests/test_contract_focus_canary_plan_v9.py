@@ -22,6 +22,8 @@ def args_for(actions_json: Path) -> Namespace:
         max_candidates=3,
         max_rejections=50,
         max_near_miss_candidates=5,
+        include_near_miss_paper_probes=True,
+        max_near_miss_paper_probes=1,
         min_near_miss_completed=4,
         min_near_miss_profit_factor=1.0,
         max_near_miss_gap_score=1.0,
@@ -59,6 +61,7 @@ def candidate(
     recent_trailing_losses: int = 2,
     recent_analog_supported: int = 8,
     recent_analog_supported_rate: float = 0.67,
+    active: int = 0,
     edge_score: float = 1.0,
 ) -> dict:
     return {
@@ -72,7 +75,7 @@ def candidate(
         "recent_trailing_losses": recent_trailing_losses,
         "recent_analog_supported": recent_analog_supported,
         "recent_analog_supported_rate": recent_analog_supported_rate,
-        "active": 0,
+        "active": active,
         "edge_score": edge_score,
         "reason_codes": ["test"],
     }
@@ -132,8 +135,10 @@ def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
     assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported<4"] == 1
     assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported_rate<0.50"] == 1
     assert payload["summary"]["near_miss_candidates"] == 5
+    assert payload["summary"]["paper_probe_candidates"] == 1
     assert payload["near_miss_candidates"][0]["source"] == "positive_watchlist"
     assert payload["near_miss_candidates"][0]["near_miss_gap_score"] >= 0.0
+    assert payload["paper_probe_candidates"][0]["source"] == "near_miss_probe"
     row = payload["candidates"][0]
     assert row["source"] == "positive_watchlist"
     assert row["symbol"] == "FFFUSDT"
@@ -305,3 +310,40 @@ def test_focus_plan_treats_lossless_profit_factor_as_passing(tmp_path: Path) -> 
     row = payload["candidates"][0]
     assert row["symbol"] == "WINUSDT"
     assert row["metrics"]["recent_profit_factor"] is None
+
+
+def test_focus_plan_waits_for_active_near_miss_settlement(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "SOLUSDT",
+                        "long",
+                        recent_completed=5,
+                        recent_sum_r=1.3,
+                        recent_profit_factor=1.57,
+                        recent_analog_supported=4,
+                        recent_analog_supported_rate=0.8,
+                        recent_max_drawdown_r=2.2,
+                        recent_trailing_losses=0,
+                        active=8,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["near_miss_candidates"] == 1
+    assert payload["summary"]["paper_probe_candidates"] == 0
+    near = payload["near_miss_candidates"][0]
+    assert near["symbol"] == "SOLUSDT"
+    assert near["next_action"] == "await_active_settlement"
+    assert near["missing_metrics"]["missing_completed"] == 3
+    assert near["missing_metrics"]["active"] == 8
