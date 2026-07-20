@@ -193,13 +193,54 @@ def test_paper_report_blocked_pairs_payload_defaults_to_current_policy_scope() -
     global_scope = report_mod.blocked_pairs_payload(payload, "global")
 
     assert current_policy["blocked_pairs_scope"] == "current_policy"
-    assert current_policy["blocked_pairs"] == [{"timeframe": "1h", "symbol": "NEWUSDT", "side": "short"}]
+    assert current_policy["blocked_pairs"] == [
+        {
+            "timeframe": "1h",
+            "symbol": "NEWUSDT",
+            "side": "short",
+            "block_source": "scoreboard_stop",
+        }
+    ]
     assert current_policy["global_blocked_pairs_count"] == 2
     assert current_policy["current_policy_blocked_pairs_count"] == 1
+    assert current_policy["combined_blocked_pairs_count"] == 1
     assert current_policy["paper_trading_authorized"] is False
     assert current_policy["live_trading_authorized"] is False
     assert global_scope["blocked_pairs_scope"] == "global"
     assert [row["symbol"] for row in global_scope["blocked_pairs"]] == ["OLDUSDT", "GLOBALUSDT"]
+
+
+def test_paper_report_blocked_pairs_payload_includes_fresh_veto_feedback() -> None:
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "actions": {
+            "current_policy_blocked_pairs": [
+                {"timeframe": "15m", "symbol": "BADUSDT", "side": "long"}
+            ],
+            "current_policy_fresh_analog_veto_pairs": [
+                {"timeframe": "15m", "symbol": "WEAKUSDT", "side": "short"},
+                {"timeframe": "15m", "symbol": "BADUSDT", "side": "long"},
+            ],
+        },
+    }
+
+    payload_with_veto = report_mod.blocked_pairs_payload(payload, "current_policy")
+    payload_without_veto = report_mod.blocked_pairs_payload(
+        payload,
+        "current_policy",
+        include_fresh_veto=False,
+    )
+
+    assert payload_with_veto["include_fresh_analog_veto"] is True
+    assert payload_with_veto["current_policy_blocked_pairs_count"] == 1
+    assert payload_with_veto["current_policy_fresh_analog_veto_pairs_count"] == 2
+    assert payload_with_veto["combined_blocked_pairs_count"] == 2
+    assert [(row["symbol"], row["block_source"]) for row in payload_with_veto["blocked_pairs"]] == [
+        ("BADUSDT", "scoreboard_stop"),
+        ("WEAKUSDT", "fresh_analog_veto"),
+    ]
+    assert payload_without_veto["include_fresh_analog_veto"] is False
+    assert [row["symbol"] for row in payload_without_veto["blocked_pairs"]] == ["BADUSDT"]
 
 
 def test_paper_report_projects_active_drain_eta() -> None:

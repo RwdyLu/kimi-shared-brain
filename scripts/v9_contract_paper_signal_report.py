@@ -1138,21 +1138,78 @@ def build_action_plan(
     }
 
 
-def blocked_pairs_for_scope(actions: dict[str, Any], scope: str) -> list[dict[str, Any]]:
-    key = "current_policy_blocked_pairs" if scope == "current_policy" else "blocked_pairs"
+def action_rows_for_scope(actions: dict[str, Any], scope: str, row_kind: str) -> list[dict[str, Any]]:
+    if row_kind == "fresh_analog_veto_pairs":
+        key = (
+            "current_policy_fresh_analog_veto_pairs"
+            if scope == "current_policy"
+            else "fresh_analog_veto_pairs"
+        )
+    else:
+        key = "current_policy_blocked_pairs" if scope == "current_policy" else "blocked_pairs"
     rows = actions.get(key) or []
     return rows if isinstance(rows, list) else []
 
 
-def blocked_pairs_payload(payload: dict[str, Any], scope: str) -> dict[str, Any]:
+def blocked_pair_identity(row: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(row.get("timeframe") or "").lower(),
+        str(row.get("symbol") or "").upper(),
+        str(row.get("side") or "").lower(),
+    )
+
+
+def blocked_pairs_for_scope(
+    actions: dict[str, Any],
+    scope: str,
+    *,
+    include_fresh_veto: bool = True,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    sources = [("scoreboard_stop", action_rows_for_scope(actions, scope, "blocked_pairs"))]
+    if include_fresh_veto:
+        sources.append(
+            (
+                "fresh_analog_veto",
+                action_rows_for_scope(actions, scope, "fresh_analog_veto_pairs"),
+            )
+        )
+    for source, source_rows in sources:
+        for row in source_rows:
+            key = blocked_pair_identity(row)
+            if not all(key) or key in seen:
+                continue
+            seen.add(key)
+            rows.append({**row, "block_source": source})
+    return rows
+
+
+def blocked_pairs_payload(
+    payload: dict[str, Any],
+    scope: str,
+    *,
+    include_fresh_veto: bool = True,
+) -> dict[str, Any]:
     actions = payload.get("actions") or {}
+    blocked_pairs = blocked_pairs_for_scope(
+        actions,
+        scope,
+        include_fresh_veto=include_fresh_veto,
+    )
     return {
         "kind": "contract_paper_blocked_pairs_v1",
         "updated_at": payload["updated_at"],
         "blocked_pairs_scope": scope,
-        "blocked_pairs": blocked_pairs_for_scope(actions, scope),
+        "include_fresh_analog_veto": include_fresh_veto,
+        "blocked_pairs": blocked_pairs,
         "global_blocked_pairs_count": len(actions.get("blocked_pairs") or []),
+        "global_fresh_analog_veto_pairs_count": len(actions.get("fresh_analog_veto_pairs") or []),
         "current_policy_blocked_pairs_count": len(actions.get("current_policy_blocked_pairs") or []),
+        "current_policy_fresh_analog_veto_pairs_count": len(
+            actions.get("current_policy_fresh_analog_veto_pairs") or []
+        ),
+        "combined_blocked_pairs_count": len(blocked_pairs),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
@@ -2335,6 +2392,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=("current_policy", "global"),
         default="current_policy",
     )
+    parser.add_argument(
+        "--out-blocked-pairs-include-fresh-veto",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument("--out-current-policy-shadow-promote-marker", default="")
     parser.add_argument("--out-current-policy-shadow-no-promote-marker", default="")
     parser.add_argument("--out-current-policy-shadow-readiness-marker", default="")
@@ -2355,7 +2417,14 @@ def main() -> None:
     if args.out_actions_json:
         write_json(payload["actions"], Path(args.out_actions_json))
     if args.out_blocked_pairs_json:
-        write_json(blocked_pairs_payload(payload, args.out_blocked_pairs_scope), Path(args.out_blocked_pairs_json))
+        write_json(
+            blocked_pairs_payload(
+                payload,
+                args.out_blocked_pairs_scope,
+                include_fresh_veto=args.out_blocked_pairs_include_fresh_veto,
+            ),
+            Path(args.out_blocked_pairs_json),
+        )
     if args.out_current_policy_shadow_promote_marker:
         no_marker = (
             Path(args.out_current_policy_shadow_no_promote_marker)
