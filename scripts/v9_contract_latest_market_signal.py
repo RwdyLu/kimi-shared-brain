@@ -207,6 +207,7 @@ def read_blocked_regime_cohort_refs(
         actions = payload.get("actions") or {}
         if isinstance(actions, dict):
             rows.extend(actions.get("current_policy_blocked_regime_cohorts") or [])
+            rows.extend(actions.get("current_policy_fast_shadow_blocked_regime_cohorts") or [])
             rows.extend(actions.get("blocked_regime_cohorts") or [])
 
     refs: set[tuple[str, str, str]] = set()

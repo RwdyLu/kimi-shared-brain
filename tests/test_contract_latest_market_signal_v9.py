@@ -636,6 +636,68 @@ def test_latest_market_signal_journal_blocks_regime_cohorts_from_json(tmp_path: 
     assert rows[0]["symbol"] == "BBBUSDT"
 
 
+def test_latest_market_signal_journal_blocks_fast_shadow_regime_cohorts_from_actions_json(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "actions": {
+                    "current_policy_fast_shadow_blocked_regime_cohorts": [
+                        {
+                            "timeframe": "1h",
+                            "side": "long",
+                            "market_regime_id": "uptrend_normal_vol",
+                            "block_source": "fast_shadow_regime_short_horizon",
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    args.journal_blocked_pairs_json = str(actions)
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "market_regime": {"regime_id": "uptrend_normal_vol"},
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+    fast_shadow_rows = [json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["journal_blocked_regime_cohort_candidate_rows"] == 1
+    assert summary["journal_blocked_regime_cohorts"] == ["1h:long:uptrend_normal_vol"]
+    assert main_rows == []
+    assert shadow_rows[0]["shadow_reason"] == "regime_cohort_block"
+    assert fast_shadow_rows[0]["shadow_reason"] == "regime_cohort_block"
+    assert fast_shadow_rows[0]["promotion_eligible"] is False
+
+
 def test_latest_market_signal_journal_blocks_side_from_portfolio_actions(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
     actions = tmp_path / "actions.json"

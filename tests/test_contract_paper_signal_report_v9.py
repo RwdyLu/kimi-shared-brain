@@ -1161,6 +1161,74 @@ def test_paper_report_exports_blocked_regime_cohorts(tmp_path: Path) -> None:
     assert blocked_payload["combined_blocked_regime_cohorts_count"] == 1
 
 
+def test_paper_report_exports_fast_shadow_blocked_regime_cohorts(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    shadow = tmp_path / "shadow.jsonl"
+    fast_shadow = tmp_path / "fast_shadow.jsonl"
+    journal.write_text("")
+    shadow.write_text("")
+    rows = []
+    for idx, value in enumerate([-0.6, -0.5, -0.4, -0.4, -0.4]):
+        rows.append(
+            {
+                "kind": "contract_latest_market_signal_fast_shadow_journal_v1",
+                "fast_shadow_journal": True,
+                "shadow_fast_probe": True,
+                "promotion_eligible": False,
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "BADFASTREGIMEUSDT",
+                "side": "long",
+                "timeframe": "1h",
+                "decision_policy_version": "policy_v2",
+                "market_regime_id": "uptrend_normal_vol",
+                "outcome_horizon_bars": 3,
+                "outcome": {"r_multiple": value, "exit_dt": f"2026-01-01T0{idx}:30:00+00:00"},
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+        )
+    fast_shadow.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        shadow_sources=f"1h:{shadow}",
+        fast_shadow_sources=f"1h:{fast_shadow}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=20,
+        scoreboard_recent_trades=50,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+        fast_shadow_regime_block_min_completed=5,
+        fast_shadow_regime_block_sum_r=-2.0,
+        fast_shadow_regime_block_profit_factor=0.8,
+        fast_shadow_regime_block_max_drawdown_r=2.0,
+        fast_shadow_regime_block_trailing_losses=3,
+    )
+
+    payload = report_mod.build_report(args)
+    blocked_payload = report_mod.blocked_pairs_payload(payload, "current_policy")
+
+    assert payload["summary"]["current_policy_blocked_regime_cohorts"] == 0
+    assert payload["summary"]["current_policy_fast_shadow_regime_scoreboard_groups"] == 1
+    assert payload["summary"]["current_policy_fast_shadow_blocked_regime_cohorts"] == 1
+    blocked = payload["actions"]["current_policy_fast_shadow_blocked_regime_cohorts"][0]
+    assert blocked["timeframe"] == "1h"
+    assert blocked["side"] == "long"
+    assert blocked["market_regime_id"] == "uptrend_normal_vol"
+    assert blocked["block_source"] == "fast_shadow_regime_short_horizon"
+    assert "fast_shadow_regime_recent_sum_r<=-2" in blocked["fast_shadow_regime_block_reason_codes"]
+    assert blocked["paper_trading_authorized"] is False
+    assert blocked["live_trading_authorized"] is False
+    assert blocked_payload["blocked_regime_cohorts"] == [blocked]
+    assert blocked_payload["current_policy_blocked_regime_cohorts_count"] == 0
+    assert blocked_payload["current_policy_fast_shadow_blocked_regime_cohorts_count"] == 1
+    assert blocked_payload["combined_blocked_regime_cohorts_count"] == 1
+
+
 def test_paper_report_builds_regime_confirmation_scoreboard(tmp_path: Path) -> None:
     journal = tmp_path / "journal.jsonl"
     rows = []
