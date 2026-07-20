@@ -397,6 +397,63 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["actions"]["current_policy_promote_candidates"] == []
 
 
+def test_paper_report_writes_current_policy_shadow_promote_marker(tmp_path: Path) -> None:
+    payload = {
+        "updated_at": "2026-01-04T00:00:00+00:00",
+        "summary": {
+            "current_decision_policy_version": "policy_v2",
+            "current_policy_shadow_completed": 20,
+            "current_policy_shadow_active": 2,
+            "current_policy_shadow_scoreboard_groups": 1,
+        },
+        "actions": {
+            "current_policy_shadow_promote_candidates": [
+                {
+                    "timeframe": "1h",
+                    "symbol": "SHADOWUSDT",
+                    "side": "long",
+                    "recent_completed": 20,
+                    "recent_sum_r": 6.25,
+                    "recent_profit_factor": 1.45,
+                    "recent_max_drawdown_r": 2.0,
+                    "recent_win_rate": 0.6,
+                    "active": 1,
+                    "active_sum_r": 0.75,
+                    "latest_completed_at": "2026-01-04T00:00:00+00:00",
+                }
+            ]
+        },
+    }
+    found_marker = tmp_path / "FOUND_CURRENT_POLICY_SHADOW_PROMOTE.txt"
+    no_marker = tmp_path / "NO_CURRENT_POLICY_SHADOW_PROMOTE.txt"
+
+    report_mod.write_current_policy_shadow_promote_marker(
+        payload,
+        found_marker,
+        no_marker,
+        report_json="report.json",
+        actions_json="actions.json",
+    )
+
+    text = found_marker.read_text()
+    assert text.startswith("FOUND_CURRENT_POLICY_SHADOW_PROMOTE ")
+    assert "policy=policy_v2" in text
+    assert "symbol=SHADOWUSDT" in text
+    assert "recent_sum_R=6.250" in text
+    assert "paper_trading_authorized=False" in text
+    assert "live_trading_authorized=False" in text
+    assert not no_marker.exists()
+
+    payload["actions"]["current_policy_shadow_promote_candidates"] = []
+    report_mod.write_current_policy_shadow_promote_marker(payload, found_marker, no_marker)
+
+    assert not found_marker.exists()
+    no_text = no_marker.read_text()
+    assert no_text.startswith("NO_CURRENT_POLICY_SHADOW_PROMOTE ")
+    assert "completed=20" in no_text
+    assert "paper_trading_authorized=False" in no_text
+
+
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     pd.DataFrame(
         {

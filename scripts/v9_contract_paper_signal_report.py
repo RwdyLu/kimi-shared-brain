@@ -1035,6 +1035,68 @@ def fmt_pct(value: Any) -> str:
     return f"{safe_float(value) * 100:.2f}%"
 
 
+def write_current_policy_shadow_promote_marker(
+    payload: dict[str, Any],
+    found_marker: Path,
+    no_marker: Path | None = None,
+    *,
+    report_json: str = "",
+    actions_json: str = "",
+) -> None:
+    actions = payload.get("actions") or {}
+    summary = payload.get("summary") or {}
+    candidates = actions.get("current_policy_shadow_promote_candidates") or []
+    found_marker.parent.mkdir(parents=True, exist_ok=True)
+    if no_marker is not None:
+        no_marker.parent.mkdir(parents=True, exist_ok=True)
+
+    if not candidates:
+        found_marker.unlink(missing_ok=True)
+        if no_marker is not None:
+            no_marker.write_text(
+                "NO_CURRENT_POLICY_SHADOW_PROMOTE "
+                f"{payload.get('updated_at')} "
+                f"policy={summary.get('current_decision_policy_version')} "
+                f"completed={summary.get('current_policy_shadow_completed')} "
+                f"active={summary.get('current_policy_shadow_active')} "
+                f"groups={summary.get('current_policy_shadow_scoreboard_groups')} "
+                "paper_trading_authorized=False live_trading_authorized=False\n"
+            )
+        return
+
+    best = candidates[0]
+    if no_marker is not None:
+        no_marker.unlink(missing_ok=True)
+    fields = [
+        "FOUND_CURRENT_POLICY_SHADOW_PROMOTE",
+        str(payload.get("updated_at")),
+        f"policy={summary.get('current_decision_policy_version')}",
+        f"timeframe={best.get('timeframe')}",
+        f"symbol={best.get('symbol')}",
+        f"side={best.get('side')}",
+        f"recent_n={best.get('recent_completed')}",
+        f"recent_sum_R={fmt_num(best.get('recent_sum_r'), 3)}",
+        f"recent_pf={fmt_num(best.get('recent_profit_factor'), 3)}",
+        f"recent_dd_R={fmt_num(best.get('recent_max_drawdown_r'), 3)}",
+        f"recent_win={fmt_pct(best.get('recent_win_rate'))}",
+        f"active={best.get('active')}",
+        f"active_R={fmt_num(best.get('active_sum_r'), 3)}",
+        f"latest_completed_at={best.get('latest_completed_at')}",
+    ]
+    if report_json:
+        fields.append(f"report_json={report_json}")
+    if actions_json:
+        fields.append(f"actions_json={actions_json}")
+    fields.extend(
+        [
+            "note=shadow_only_manual_review_required",
+            "paper_trading_authorized=False",
+            "live_trading_authorized=False",
+        ]
+    )
+    found_marker.write_text(" ".join(fields) + "\n")
+
+
 def load_enriched_records(
     sources: tuple[tuple[str, str], ...],
     *,
@@ -1645,6 +1707,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_paper_signal_report_latest.md")
     parser.add_argument("--out-actions-json", default="")
     parser.add_argument("--out-blocked-pairs-json", default="")
+    parser.add_argument("--out-current-policy-shadow-promote-marker", default="")
+    parser.add_argument("--out-current-policy-shadow-no-promote-marker", default="")
     parser.add_argument("--format", choices=("json", "text"), default="text")
     return parser
 
@@ -1667,6 +1731,19 @@ def main() -> None:
                 "live_trading_authorized": False,
             },
             Path(args.out_blocked_pairs_json),
+        )
+    if args.out_current_policy_shadow_promote_marker:
+        no_marker = (
+            Path(args.out_current_policy_shadow_no_promote_marker)
+            if args.out_current_policy_shadow_no_promote_marker
+            else None
+        )
+        write_current_policy_shadow_promote_marker(
+            payload,
+            Path(args.out_current_policy_shadow_promote_marker),
+            no_marker,
+            report_json=args.out_json,
+            actions_json=args.out_actions_json,
         )
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
