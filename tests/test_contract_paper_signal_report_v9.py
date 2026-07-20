@@ -544,6 +544,62 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["actions"]["current_policy_promote_candidates"] == []
 
 
+def test_paper_report_does_not_promote_ineligible_shadow_records(tmp_path: Path) -> None:
+    main_journal = tmp_path / "main.jsonl"
+    shadow_journal = tmp_path / "shadow.jsonl"
+    main_journal.write_text("")
+    rows = []
+    for idx in range(5):
+        rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "BLOCKEDUSDT",
+                "side": "long",
+                "timeframe": "1h",
+                "decision_policy_version": "policy_v2",
+                "shadow_journal": True,
+                "shadow_reason": "market_quality_block",
+                "market_quality_block_shadow": True,
+                "promotion_eligible": False,
+                "analog_supported": True,
+                "outcome": {"r_multiple": 0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    shadow_journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{main_journal}",
+        shadow_sources=f"1h:{shadow_journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=5,
+        scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-2.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=6,
+        scoreboard_promote_sum_r=2.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=1.0,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["current_policy_shadow_scoreboard_groups"] == 1
+    assert payload["current_policy_shadow_scoreboard"][0]["status"] == "promote_candidate"
+    assert payload["current_policy_shadow_scoreboard"][0]["promotion_eligible"] is False
+    assert payload["summary"]["current_policy_shadow_promote_candidates"] == 0
+    assert payload["actions"]["current_policy_shadow_summary"]["promote_candidates"] == 0
+    assert payload["actions"]["current_policy_shadow_promote_candidates"] == []
+    assert payload["actions"]["current_policy_shadow_readiness"]["status"] == "completed_no_candidate"
+    assert payload["actions"]["current_policy_shadow_readiness"]["paper_trading_authorized"] is False
+    assert payload["actions"]["current_policy_shadow_readiness"]["live_trading_authorized"] is False
+
+
 def test_paper_report_writes_current_policy_shadow_promote_marker(tmp_path: Path) -> None:
     payload = {
         "updated_at": "2026-01-04T00:00:00+00:00",

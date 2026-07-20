@@ -196,6 +196,14 @@ def completed_r(row: dict[str, Any]) -> float | None:
     return float(number)
 
 
+def promotion_eligible(row: dict[str, Any]) -> bool:
+    return row.get("promotion_eligible") is not False
+
+
+def promote_action_allowed(row: dict[str, Any]) -> bool:
+    return row.get("status") == "promote_candidate" and row.get("promotion_eligible") is not False
+
+
 def record_time_key(row: dict[str, Any]) -> str:
     return str(row.get("exit_dt") or row.get("updated_at") or row.get("created_at") or "")
 
@@ -685,10 +693,12 @@ def build_scoreboard(
         recent_analog = analog_supported_stats(recent_rows)
         active_group = active_grouped.get(key, [])
         active_stats = active_unrealized_stats(active_group)
+        group_promotion_eligible = any(promotion_eligible(row) for row in [*ordered, *active_group])
         stats = {
             "timeframe": timeframe,
             "symbol": symbol,
             "side": side,
+            "promotion_eligible": group_promotion_eligible,
             "completed": all_stats["completed"],
             "wins": all_stats["wins"],
             "losses": all_stats["losses"],
@@ -1012,6 +1022,7 @@ def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
         "symbol": row.get("symbol"),
         "side": row.get("side"),
         "status": row.get("status"),
+        "promotion_eligible": row.get("promotion_eligible"),
         "reason_codes": row.get("reason_codes") or [],
         "recent_completed": row.get("recent_completed"),
         "recent_win_rate": row.get("recent_win_rate"),
@@ -1257,7 +1268,7 @@ def scoreboard_action_rows(
     args: argparse.Namespace,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     blocked = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "stop_candidate"]
-    promote = [compact_scoreboard_row(row) for row in scoreboard if row.get("status") == "promote_candidate"]
+    promote = [compact_scoreboard_row(row) for row in scoreboard if promote_action_allowed(row)]
     watch = [
         compact_scoreboard_row(row)
         for row in scoreboard
@@ -2485,7 +2496,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 "current_policy_shadow_confirmation_watchlist"
             ],
             "current_policy_shadow_promote_candidates": sum(
-                1 for row in current_policy_shadow_scoreboard if row.get("status") == "promote_candidate"
+                1 for row in current_policy_shadow_scoreboard if promote_action_allowed(row)
             ),
             "current_policy_shadow_stop_candidates": sum(
                 1 for row in current_policy_shadow_scoreboard if row.get("status") == "stop_candidate"
@@ -2535,12 +2546,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 1 for row in current_policy_fast_shadow_scoreboard if row.get("status") == "stop_candidate"
             ),
             "current_policy_promote_candidates": sum(
-                1 for row in current_policy_scoreboard if row.get("status") == "promote_candidate"
+                1 for row in current_policy_scoreboard if promote_action_allowed(row)
             ),
             "current_policy_stop_candidates": sum(
                 1 for row in current_policy_scoreboard if row.get("status") == "stop_candidate"
             ),
-            "promote_candidates": sum(1 for row in scoreboard if row.get("status") == "promote_candidate"),
+            "promote_candidates": sum(1 for row in scoreboard if promote_action_allowed(row)),
             "stop_candidates": sum(1 for row in scoreboard if row.get("status") == "stop_candidate"),
             "blocked_pairs": len(actions["blocked_pairs"]),
             "fresh_analog_veto_pairs": len(actions["fresh_analog_veto_pairs"]),

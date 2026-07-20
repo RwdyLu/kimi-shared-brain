@@ -1444,24 +1444,6 @@ def classify_signal(
         }
 
     market_quality = market_quality_decision(latest, args, signal=signal)
-    if not market_quality.get("allowed", True):
-        return {
-            "symbol": symbol,
-            "status": "market_quality_blocked",
-            "signal": "none",
-            "raw_signal": signal,
-            "reason": str(market_quality.get("reason") or "market_quality_blocked"),
-            "latest_dt": latest["dt"].isoformat(),
-            "previous_dt": previous["dt"].isoformat(),
-            "close": close,
-            "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
-            "market_regime": market_regime or {"enabled": False},
-            "regime_filter": regime_filter,
-            "market_quality": market_quality,
-            "analog_evidence": {"enabled": True, "supported": False, "reason": "market_quality_blocked"},
-            "paper_plan": None,
-        }
-
     prices = plan_prices(latest, args, signal)
     if not prices:
         return {
@@ -1490,6 +1472,23 @@ def classify_signal(
             "reduce_only": True,
         },
     }
+    if not market_quality.get("allowed", True):
+        return {
+            "symbol": symbol,
+            "status": "market_quality_blocked",
+            "signal": "none",
+            "raw_signal": signal,
+            "reason": str(market_quality.get("reason") or "market_quality_blocked"),
+            "latest_dt": latest["dt"].isoformat(),
+            "previous_dt": previous["dt"].isoformat(),
+            "close": close,
+            "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
+            "market_regime": market_regime or {"enabled": False},
+            "regime_filter": regime_filter,
+            "market_quality": market_quality,
+            "analog_evidence": analog,
+            "paper_plan": plan,
+        }
     return {
         "symbol": symbol,
         "status": "ok",
@@ -1770,12 +1769,14 @@ def shadow_record_from_row(
     return record
 
 
-def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace) -> bool:
+def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace, *, force: bool = False) -> bool:
     mode = str(getattr(args, "journal_shadow_record_mode", "inherit") or "inherit")
     if mode == "inherit":
         mode = str(getattr(args, "journal_record_mode", "all_signals") or "all_signals")
     if mode == "off":
         return False
+    if force:
+        return True
     if mode == "all_signals":
         return True
     analog = row.get("analog_evidence") or {}
@@ -1796,6 +1797,20 @@ def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace) -> bool
             return False
         return True
     return False
+
+
+def market_quality_blocked_candidate_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    if row.get("status") != "market_quality_blocked":
+        return None
+    raw_signal = str(row.get("raw_signal") or "").lower()
+    if raw_signal not in {"long", "short"} or not row.get("paper_plan"):
+        return None
+    return {
+        **row,
+        "signal": raw_signal,
+        "blocked_signal": True,
+        "blocked_signal_reason": row.get("reason"),
+    }
 
 
 def migrate_legacy_record_to_realistic(
@@ -2131,6 +2146,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     global_active_cap_blocked_candidates = 0
     global_active_added = 0
     active_total_cap_blocked_candidates = 0
+    market_quality_blocked_candidates = 0
+    market_quality_shadow_new_records = 0
+    market_quality_fast_shadow_new_records = 0
     shadow_retest_candidate_rows = 0
     shadow_retest_new_records = 0
     regime_confirmation_backfilled = 0
@@ -2239,10 +2257,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         reason_codes: list[str] | None = None,
         *,
         extra_fields: dict[str, Any] | None = None,
+        force: bool = False,
     ) -> bool:
         if shadow_path is None:
             return False
-        if not shadow_record_allowed(row, args):
+        if not shadow_record_allowed(row, args, force=force):
             return False
         sid = signal_id(row)
         if sid in seen or sid in shadow_seen:
@@ -2262,14 +2281,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         new_shadow_records.append(record)
         return True
 
-    def add_fast_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
+    def add_fast_shadow_record(
+        row: dict[str, Any],
+        reason: str,
+        reason_codes: list[str] | None = None,
+        *,
+        extra_fields: dict[str, Any] | None = None,
+        force: bool = False,
+    ) -> bool:
         if fast_shadow_path is None or fast_shadow_horizon <= 0:
-            return
-        if not shadow_record_allowed(row, args):
-            return
+            return False
+        if not shadow_record_allowed(row, args, force=force):
+            return False
         sid = signal_id(row)
         if sid in seen or sid in fast_shadow_seen:
-            return
+            return False
         fast_shadow_seen.add(sid)
         record = shadow_record_from_row(
             row,
@@ -2285,9 +2311,51 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         record["shadow_fast_probe"] = True
         record["shadow_fast_probe_horizon_bars"] = fast_shadow_horizon
         record["promotion_eligible"] = False
+        if extra_fields:
+            record.update(extra_fields)
         new_fast_shadow_records.append(record)
+        return True
 
     for row in payload["rows"]:
+        market_quality_candidate = market_quality_blocked_candidate_row(row)
+        if market_quality_candidate is not None:
+            pair = (
+                str(market_quality_candidate.get("symbol", "")).upper(),
+                str(market_quality_candidate.get("signal")).lower(),
+            )
+            if allowed_pairs and pair not in allowed_pairs:
+                continue
+            market_quality_blocked_candidates += 1
+            market_quality = market_quality_candidate.get("market_quality") or {}
+            reason_codes = [
+                "market_quality_blocked",
+                *[str(reason) for reason in (market_quality.get("reason_codes") or [])],
+            ]
+            extra_fields = {
+                "market_quality_block_shadow": True,
+                "blocked_signal": True,
+                "blocked_signal_reason": market_quality_candidate.get("blocked_signal_reason"),
+                "promotion_eligible": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+            if add_shadow_record(
+                market_quality_candidate,
+                "market_quality_block",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                market_quality_shadow_new_records += 1
+            if add_fast_shadow_record(
+                market_quality_candidate,
+                "market_quality_block",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                market_quality_fast_shadow_new_records += 1
+            continue
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
             continue
         sid = signal_id(row)
@@ -2531,10 +2599,13 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "shadow_retest_max_new": shadow_retest_max_new,
         "shadow_retest_candidate_rows": shadow_retest_candidate_rows,
         "shadow_retest_new_records": shadow_retest_new_records,
+        "market_quality_blocked_candidate_rows": market_quality_blocked_candidates,
+        "market_quality_shadow_new_records": market_quality_shadow_new_records,
         "fast_shadow_enabled": fast_shadow_path is not None and fast_shadow_horizon > 0,
         "fast_shadow_path": str(fast_shadow_path) if fast_shadow_path is not None else "",
         "fast_shadow_outcome_horizon_bars": fast_shadow_horizon,
         "fast_shadow_new_records": len(new_fast_shadow_records),
+        "market_quality_fast_shadow_new_records": market_quality_fast_shadow_new_records,
         "fast_shadow_updated_records": fast_shadow_updated,
         "fast_shadow_regime_confirmation_backfilled_records": fast_shadow_regime_confirmation_backfilled,
         "fast_shadow_total_records": len(fast_shadow_records),
@@ -2844,6 +2915,8 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
         f"- journal_regime_cohort_blocked: "
         f"`{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}`",
+        f"- journal_market_quality_blocked: "
+        f"`{(payload.get('journal') or {}).get('market_quality_blocked_candidate_rows')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
@@ -2916,6 +2989,12 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_blocked_confirmation_cohort_candidate_rows')}",
         "journal_regime_cohort_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_blocked_regime_cohort_candidate_rows')}",
+        "journal_market_quality_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('market_quality_blocked_candidate_rows')}",
+        "journal_market_quality_shadow_new_records="
+        f"{(payload.get('journal') or {}).get('market_quality_shadow_new_records')}",
+        "journal_market_quality_fast_shadow_new_records="
+        f"{(payload.get('journal') or {}).get('market_quality_fast_shadow_new_records')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="

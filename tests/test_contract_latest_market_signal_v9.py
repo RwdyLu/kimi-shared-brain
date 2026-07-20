@@ -176,9 +176,48 @@ def test_market_quality_blocks_overextended_long_before_paper_journal(tmp_path: 
     assert row["status"] == "market_quality_blocked"
     assert row["raw_signal"] == "long"
     assert row["signal"] == "none"
+    assert row["paper_plan"]["side"] == "long"
     assert row["market_quality"]["allowed"] is False
     assert row["market_quality"]["reason"] == "market_quality_blocked"
     assert any(reason.startswith("long_ema_gap>") for reason in row["market_quality"]["reason_codes"])
+
+
+def test_market_quality_blocked_candidate_records_shadow_only(tmp_path: Path) -> None:
+    closes = [100.0 * (1.005**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    args.journal_shadow_record_mode = "positive_expectancy"
+
+    payload = signal_mod.run_screen(args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+    fast_shadow_rows = [json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()]
+
+    assert payload["summary"]["paper_plan_found"] is False
+    assert payload["journal"]["new_records"] == 0
+    assert payload["journal"]["market_quality_blocked_candidate_rows"] == 1
+    assert payload["journal"]["market_quality_shadow_new_records"] == 1
+    assert payload["journal"]["market_quality_fast_shadow_new_records"] == 1
+    assert main_rows == []
+    assert len(shadow_rows) == 1
+    assert len(fast_shadow_rows) == 1
+    shadow = shadow_rows[0]
+    fast_shadow = fast_shadow_rows[0]
+    assert shadow["kind"] == "contract_latest_market_signal_shadow_journal_v1"
+    assert shadow["side"] == "long"
+    assert shadow["shadow_reason"] == "market_quality_block"
+    assert shadow["market_quality_block_shadow"] is True
+    assert shadow["promotion_eligible"] is False
+    assert shadow["market_quality_allowed"] is False
+    assert shadow["paper_trading_authorized"] is False
+    assert shadow["live_trading_authorized"] is False
+    assert fast_shadow["kind"] == "contract_latest_market_signal_fast_shadow_journal_v1"
+    assert fast_shadow["shadow_reason"] == "market_quality_block"
+    assert fast_shadow["outcome_horizon_bars"] == 3
+    assert fast_shadow["promotion_eligible"] is False
 
 
 def test_market_quality_annotate_mode_records_context_without_blocking(tmp_path: Path) -> None:
