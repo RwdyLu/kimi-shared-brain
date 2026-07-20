@@ -760,6 +760,75 @@ def test_paper_report_summarizes_fast_shadow_as_retest_not_promotion(tmp_path: P
     assert "current_policy_fast_shadow_promote_candidates" not in payload["actions"]
 
 
+def test_paper_report_fast_shadow_early_retest_before_scoreboard_min_trades(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    shadow = tmp_path / "shadow.jsonl"
+    fast_shadow = tmp_path / "fast_shadow.jsonl"
+    journal.write_text("")
+    shadow.write_text("")
+    rows = []
+    for idx, value in enumerate([0.6, 0.4, 0.5, 0.5, 0.5]):
+        rows.append(
+            {
+                "kind": "contract_latest_market_signal_fast_shadow_journal_v1",
+                "fast_shadow_journal": True,
+                "shadow_fast_probe": True,
+                "promotion_eligible": False,
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "EARLYUSDT",
+                "side": "long",
+                "timeframe": "1h",
+                "decision_policy_version": report_mod.DECISION_POLICY_VERSION,
+                "analog_supported": True,
+                "outcome_horizon_bars": 3,
+                "outcome": {
+                    "r_multiple": value,
+                    "exit_dt": f"2026-01-01T0{idx}:30:00+00:00",
+                },
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+        )
+    fast_shadow.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        shadow_sources=f"1h:{shadow}",
+        fast_shadow_sources=f"1h:{fast_shadow}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_min_trades=20,
+        fast_shadow_retest_min_completed=5,
+        fast_shadow_retest_min_sum_r=2.0,
+        fast_shadow_retest_min_profit_factor=1.2,
+        fast_shadow_retest_max_drawdown_r=3.0,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["current_policy_fast_shadow_completed"] == 5
+    assert payload["current_policy_fast_shadow_scoreboard"][0]["status"] == "collecting"
+    assert payload["summary"]["current_policy_fast_shadow_retest_candidates"] == 1
+    assert payload["summary"]["current_policy_fast_shadow_early_retest_candidates"] == 1
+    assert payload["summary"]["current_policy_fast_shadow_retest_status"] == "retest_ready"
+    assert payload["summary"]["current_policy_fast_shadow_retest_next_action"] == "run_full_horizon_shadow_retest"
+    assert payload["paper_trading_authorized"] is False
+    assert payload["live_trading_authorized"] is False
+
+    candidate = payload["actions"]["current_policy_fast_shadow_retest_candidates"][0]
+    assert candidate["timeframe"] == "1h"
+    assert candidate["symbol"] == "EARLYUSDT"
+    assert candidate["side"] == "long"
+    assert candidate["fast_shadow_retest_source"] == "early_short_horizon"
+    assert "fast_shadow_recent_completed>=5" in candidate["fast_shadow_retest_reason_codes"]
+    assert "fast_shadow_only_full_horizon_retest_required" in candidate["fast_shadow_retest_reason_codes"]
+    assert candidate["promotion_eligible"] is False
+    assert candidate["paper_trading_authorized"] is False
+    assert candidate["live_trading_authorized"] is False
+
+
 def test_paper_report_writes_fast_shadow_retest_marker(tmp_path: Path) -> None:
     payload = {
         "updated_at": "2026-01-04T00:00:00+00:00",

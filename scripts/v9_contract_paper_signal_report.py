@@ -1596,14 +1596,102 @@ def write_current_policy_shadow_readiness_marker(payload: dict[str, Any], path: 
     )
 
 
-def build_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> dict[str, Any]:
+def fast_shadow_early_retest_thresholds(args: argparse.Namespace | None = None) -> dict[str, Any]:
+    return {
+        "min_completed": int(arg_value(args, "fast_shadow_retest_min_completed", 5)),
+        "min_sum_r": float(arg_value(args, "fast_shadow_retest_min_sum_r", 2.0)),
+        "min_profit_factor": float(arg_value(args, "fast_shadow_retest_min_profit_factor", 1.2)),
+        "max_drawdown_r": float(arg_value(args, "fast_shadow_retest_max_drawdown_r", 3.0)),
+    }
+
+
+def fast_shadow_early_retest_reason_codes(
+    row: dict[str, Any],
+    args: argparse.Namespace | None = None,
+) -> list[str]:
+    if row.get("status") != "collecting":
+        return []
+
+    thresholds = fast_shadow_early_retest_thresholds(args)
+    min_completed = int(thresholds["min_completed"])
+    min_sum_r = float(thresholds["min_sum_r"])
+    min_profit_factor = float(thresholds["min_profit_factor"])
+    max_drawdown_r = float(thresholds["max_drawdown_r"])
+
+    recent_completed = int(row.get("recent_completed") or 0)
+    recent_sum_r = safe_float(row.get("recent_sum_r"))
+    recent_profit_factor = compare_profit_factor(row.get("recent_profit_factor"))
+    recent_max_drawdown_r = safe_float(row.get("recent_max_drawdown_r"), float("inf"))
+
+    if recent_completed < min_completed:
+        return []
+    if recent_sum_r < min_sum_r:
+        return []
+    if recent_profit_factor < min_profit_factor:
+        return []
+    if recent_max_drawdown_r > max_drawdown_r:
+        return []
+
+    return [
+        f"fast_shadow_recent_completed>={min_completed}",
+        f"fast_shadow_recent_sum_r>={min_sum_r:g}",
+        f"fast_shadow_recent_profit_factor>={min_profit_factor:g}",
+        f"fast_shadow_recent_max_drawdown_r<={max_drawdown_r:g}",
+        "fast_shadow_only_full_horizon_retest_required",
+    ]
+
+
+def compact_fast_shadow_retest_candidate(
+    row: dict[str, Any],
+    *,
+    source: str,
+    reason_codes: list[str],
+) -> dict[str, Any]:
+    return {
+        **compact_scoreboard_row(row),
+        "fast_shadow_retest_source": source,
+        "fast_shadow_retest_reason_codes": reason_codes,
+        "promotion_eligible": False,
+        "paper_trading_authorized": False,
+        "live_trading_authorized": False,
+    }
+
+
+def build_current_policy_fast_shadow_retest(
+    payload: dict[str, Any],
+    args: argparse.Namespace | None = None,
+) -> dict[str, Any]:
     summary = payload.get("summary") or {}
     scoreboard = payload.get("current_policy_fast_shadow_scoreboard") or []
-    retest_candidates = [
-        compact_scoreboard_row(row)
-        for row in scoreboard
-        if row.get("status") == "promote_candidate"
-    ]
+    retest_candidates = []
+    early_retest_candidates = []
+    seen_retest_keys = set()
+    for row in scoreboard:
+        if row.get("status") != "promote_candidate":
+            continue
+        retest_candidates.append(
+            compact_fast_shadow_retest_candidate(
+                row,
+                source="scoreboard_promote_candidate",
+                reason_codes=row.get("reason_codes") or [],
+            )
+        )
+        seen_retest_keys.add(group_key(row))
+    for row in scoreboard:
+        key = group_key(row)
+        if key in seen_retest_keys:
+            continue
+        reason_codes = fast_shadow_early_retest_reason_codes(row, args)
+        if not reason_codes:
+            continue
+        candidate = compact_fast_shadow_retest_candidate(
+            row,
+            source="early_short_horizon",
+            reason_codes=reason_codes,
+        )
+        retest_candidates.append(candidate)
+        early_retest_candidates.append(candidate)
+        seen_retest_keys.add(key)
     stop_candidates = [
         compact_scoreboard_row(row)
         for row in scoreboard
@@ -1644,14 +1732,19 @@ def build_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> dict[str
         "active": active,
         "scoreboard_groups": groups,
         "retest_candidates": retest_candidates,
+        "early_retest_candidates": early_retest_candidates,
+        "early_retest_thresholds": fast_shadow_early_retest_thresholds(args),
         "stop_candidates": stop_candidates,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
 
 
-def attach_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> None:
-    retest = build_current_policy_fast_shadow_retest(payload)
+def attach_current_policy_fast_shadow_retest(
+    payload: dict[str, Any],
+    args: argparse.Namespace | None = None,
+) -> None:
+    retest = build_current_policy_fast_shadow_retest(payload, args)
     actions = payload.setdefault("actions", {})
     actions["current_policy_fast_shadow_retest"] = retest
     actions["current_policy_fast_shadow_retest_candidates"] = retest["retest_candidates"]
@@ -1661,10 +1754,19 @@ def attach_current_policy_fast_shadow_retest(payload: dict[str, Any]) -> None:
     actions["summary"]["current_policy_fast_shadow_retest_candidates"] = len(
         retest["retest_candidates"]
     )
+    actions["summary"]["current_policy_fast_shadow_early_retest_candidates"] = len(
+        retest["early_retest_candidates"]
+    )
     summary = payload.setdefault("summary", {})
     summary["current_policy_fast_shadow_retest_status"] = retest["status"]
     summary["current_policy_fast_shadow_retest_severity"] = retest["severity"]
     summary["current_policy_fast_shadow_retest_next_action"] = retest["next_action"]
+    summary["current_policy_fast_shadow_retest_candidates"] = len(
+        retest["retest_candidates"]
+    )
+    summary["current_policy_fast_shadow_early_retest_candidates"] = len(
+        retest["early_retest_candidates"]
+    )
 
 
 def write_current_policy_fast_shadow_retest_marker(
@@ -2149,7 +2251,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "live_trading_authorized": False,
     }
     attach_current_policy_shadow_readiness(payload)
-    attach_current_policy_fast_shadow_retest(payload)
+    attach_current_policy_fast_shadow_retest(payload, args)
     return payload
 
 
@@ -2713,6 +2815,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scoreboard-promote-sum-r", type=float, default=5.0)
     parser.add_argument("--scoreboard-promote-profit-factor", type=float, default=1.2)
     parser.add_argument("--scoreboard-promote-max-drawdown-r", type=float, default=5.0)
+    parser.add_argument("--fast-shadow-retest-min-completed", type=int, default=5)
+    parser.add_argument("--fast-shadow-retest-min-sum-r", type=float, default=2.0)
+    parser.add_argument("--fast-shadow-retest-min-profit-factor", type=float, default=1.2)
+    parser.add_argument("--fast-shadow-retest-max-drawdown-r", type=float, default=3.0)
     parser.add_argument("--shadow-active-promising-r", type=float, default=0.50)
     parser.add_argument("--shadow-active-risk-r", type=float, default=-0.50)
     parser.add_argument("--shadow-active-min-promising-expectancy-r", type=float, default=0.15)
