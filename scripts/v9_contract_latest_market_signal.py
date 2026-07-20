@@ -1288,6 +1288,26 @@ def signal_id(row: dict[str, Any]) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
 
 
+def compact_confirmation_filters(regime_filter: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for item in regime_filter.get("confirmation_filters") or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "timeframe": item.get("timeframe"),
+                "allowed": bool(item.get("allowed", True)),
+                "mode": item.get("mode"),
+                "reason": item.get("reason"),
+                "regime_id": item.get("regime_id"),
+                "trend_state": item.get("trend_state"),
+                "vol_state": item.get("vol_state"),
+                "direction_score": item.get("direction_score"),
+            }
+        )
+    return rows
+
+
 def journal_record_from_row(
     row: dict[str, Any],
     *,
@@ -1300,6 +1320,12 @@ def journal_record_from_row(
     config = execution_config or {}
     market_regime = row.get("market_regime") or {}
     regime_filter = row.get("regime_filter") or {}
+    confirmation_filters = compact_confirmation_filters(regime_filter)
+    confirmation_allowed = (
+        all(bool(item.get("allowed", True)) for item in confirmation_filters)
+        if confirmation_filters
+        else None
+    )
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
         "signal_id": signal_id(row),
@@ -1332,6 +1358,24 @@ def journal_record_from_row(
         "market_regime_source_symbols": market_regime.get("source_symbols") or [],
         "regime_filter_mode": regime_filter.get("mode"),
         "regime_filter_reason": regime_filter.get("reason"),
+        "regime_confirmation_mode": regime_filter.get("confirmation_mode"),
+        "regime_confirmation_allowed": confirmation_allowed,
+        "regime_confirmation_timeframes": [
+            item.get("timeframe")
+            for item in confirmation_filters
+            if item.get("timeframe")
+        ],
+        "regime_confirmation_regime_ids": [
+            item.get("regime_id")
+            for item in confirmation_filters
+            if item.get("regime_id")
+        ],
+        "regime_confirmation_reasons": [
+            item.get("reason")
+            for item in confirmation_filters
+            if item.get("reason")
+        ],
+        "regime_confirmation_filters": confirmation_filters,
         "analog_supported": bool(analog.get("supported")),
         "analog_reason": analog.get("reason"),
         "analog_used_count": int(analog.get("used_count") or 0),

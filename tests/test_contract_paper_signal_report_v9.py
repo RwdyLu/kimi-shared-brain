@@ -630,6 +630,11 @@ def test_paper_report_grades_current_policy_shadow_active_queue() -> None:
             "timeframe": "1h",
             "current_r_multiple": 0.6,
             "analog_expectancy_r": 0.25,
+            "regime_confirmation_mode": "block_conflict",
+            "regime_confirmation_allowed": True,
+            "regime_confirmation_timeframes": ["4h"],
+            "regime_confirmation_regime_ids": ["uptrend_normal_vol"],
+            "regime_confirmation_reasons": ["regime_aligned"],
         },
     ]
 
@@ -638,6 +643,8 @@ def test_paper_report_grades_current_policy_shadow_active_queue() -> None:
 
     assert queue[0]["symbol"] == "GOODUSDT"
     assert by_symbol["GOODUSDT"]["active_grade"] == "promising_active"
+    assert by_symbol["GOODUSDT"]["regime_confirmation_timeframes"] == ["4h"]
+    assert by_symbol["GOODUSDT"]["regime_confirmation_allowed"] is True
     assert by_symbol["PENDINGUSDT"]["active_grade"] == "wait_entry"
     assert by_symbol["RISKUSDT"]["active_grade"] == "risk_active"
     counts = report_mod.active_shadow_grade_counts(queue)

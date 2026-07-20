@@ -890,6 +890,11 @@ def compact_active_record(row: dict[str, Any]) -> dict[str, Any]:
         "analog_profitable_rate": row.get("analog_profitable_rate"),
         "analog_expectancy_r": row.get("analog_expectancy_r"),
         "shadow_reason": row.get("shadow_reason"),
+        "regime_confirmation_mode": row.get("regime_confirmation_mode"),
+        "regime_confirmation_allowed": row.get("regime_confirmation_allowed"),
+        "regime_confirmation_timeframes": row.get("regime_confirmation_timeframes") or [],
+        "regime_confirmation_regime_ids": row.get("regime_confirmation_regime_ids") or [],
+        "regime_confirmation_reasons": row.get("regime_confirmation_reasons") or [],
         "decision_policy_version": decision_policy_version(row),
     }
 

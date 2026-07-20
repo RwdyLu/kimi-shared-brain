@@ -209,6 +209,42 @@ def test_journal_record_persists_market_regime_context(tmp_path: Path) -> None:
     assert rows[0]["regime_filter_reason"] == "regime_aligned"
 
 
+def test_journal_record_persists_regime_confirmation_context(tmp_path: Path) -> None:
+    write_symbol_cache(
+        tmp_path,
+        "AAAUSDT",
+        [100.0 * (1.0015**idx) for idx in range(180)],
+        "15m",
+    )
+    write_symbol_cache(
+        tmp_path,
+        "BTCUSDT",
+        [100.0 * (1.0012**idx) for idx in range(180)],
+        "15m",
+    )
+    write_symbol_cache(
+        tmp_path,
+        "BTCUSDT",
+        [100.0 * (1.0012**idx) for idx in range(180)],
+        "1h",
+    )
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.timeframe = "15m"
+    args.regime_confirm_timeframes = "1h"
+
+    payload = signal_mod.run_screen(args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert payload["summary"]["paper_plan_found"] is True
+    assert rows[0]["regime_confirmation_mode"] == "block_conflict"
+    assert rows[0]["regime_confirmation_allowed"] is True
+    assert rows[0]["regime_confirmation_timeframes"] == ["1h"]
+    assert rows[0]["regime_confirmation_regime_ids"][0].startswith("uptrend_")
+    assert rows[0]["regime_confirmation_reasons"] == ["regime_aligned"]
+    assert rows[0]["regime_confirmation_filters"][0]["timeframe"] == "1h"
+    assert rows[0]["regime_confirmation_filters"][0]["allowed"] is True
+
+
 def test_latest_market_signal_rejects_flat_market(tmp_path: Path) -> None:
     closes = [100.0 for _ in range(180)]
     write_symbol_cache(tmp_path, "CCCUSDT", closes)
