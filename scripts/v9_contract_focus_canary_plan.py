@@ -23,6 +23,17 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     return out if math.isfinite(out) else default
 
 
+def optional_float(value: Any) -> float | None:
+    number = safe_float(value, float("nan"))
+    if math.isnan(number):
+        return None
+    return float(number)
+
+
+def compare_profit_factor(value: Any) -> float:
+    return float("inf") if value is None else safe_float(value)
+
+
 def safe_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
@@ -57,7 +68,7 @@ def probe_rejection_reasons(row: dict[str, Any], args: argparse.Namespace) -> li
         reasons.append(f"recent_analog_supported_rate<{float(args.min_probe_analog_supported_rate):.2f}")
     if safe_float(row.get("recent_sum_r")) < float(args.min_probe_sum_r):
         reasons.append(f"recent_sum_r<{float(args.min_probe_sum_r):.2f}")
-    if safe_float(row.get("recent_profit_factor")) < float(args.min_probe_profit_factor):
+    if compare_profit_factor(row.get("recent_profit_factor")) < float(args.min_probe_profit_factor):
         reasons.append(f"recent_profit_factor<{float(args.min_probe_profit_factor):.2f}")
     if safe_float(row.get("recent_max_drawdown_r")) > float(args.max_probe_drawdown_r):
         reasons.append(f"recent_max_drawdown_r>{float(args.max_probe_drawdown_r):.2f}")
@@ -202,7 +213,7 @@ def build_candidate_config(row: dict[str, Any], *, source: str) -> dict[str, Any
         "metrics": {
             "recent_completed": safe_int(row.get("recent_completed")),
             "recent_sum_r": safe_float(row.get("recent_sum_r")),
-            "recent_profit_factor": safe_float(row.get("recent_profit_factor")),
+            "recent_profit_factor": optional_float(row.get("recent_profit_factor")),
             "recent_max_drawdown_r": safe_float(row.get("recent_max_drawdown_r")),
             "recent_trailing_losses": safe_int(row.get("recent_trailing_losses")),
             "recent_analog_supported": safe_int(row.get("recent_analog_supported")),
@@ -232,7 +243,7 @@ def build_rejection_config(row: dict[str, Any], *, source: str, reasons: list[st
         "metrics": {
             "recent_completed": safe_int(row.get("recent_completed")),
             "recent_sum_r": safe_float(row.get("recent_sum_r")),
-            "recent_profit_factor": safe_float(row.get("recent_profit_factor")),
+            "recent_profit_factor": optional_float(row.get("recent_profit_factor")),
             "recent_max_drawdown_r": safe_float(row.get("recent_max_drawdown_r")),
             "recent_trailing_losses": safe_int(row.get("recent_trailing_losses")),
             "recent_analog_supported": safe_int(row.get("recent_analog_supported")),
@@ -254,6 +265,68 @@ def reason_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         for reason in row.get("rejection_reasons", []):
             counts[reason] = counts.get(reason, 0) + 1
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
+def normalized_shortfall(actual: float, target: float) -> float:
+    if target <= 0.0:
+        return 0.0
+    return max(0.0, target - actual) / target
+
+
+def near_miss_gap_score(row: dict[str, Any], args: argparse.Namespace) -> float:
+    metrics = row.get("metrics") or {}
+    return float(
+        normalized_shortfall(float(safe_int(metrics.get("recent_completed"))), float(args.min_probe_completed))
+        + normalized_shortfall(
+            float(safe_int(metrics.get("recent_analog_supported"))),
+            float(args.min_probe_analog_supported),
+        )
+        + normalized_shortfall(
+            safe_float(metrics.get("recent_analog_supported_rate")),
+            float(args.min_probe_analog_supported_rate),
+        )
+        + normalized_shortfall(safe_float(metrics.get("recent_sum_r")), float(args.min_probe_sum_r))
+        + normalized_shortfall(compare_profit_factor(metrics.get("recent_profit_factor")), float(args.min_probe_profit_factor))
+    )
+
+
+def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
+    hard_prefixes = ("recent_max_drawdown_r>", "recent_trailing_losses>")
+    rows: list[dict[str, Any]] = []
+    for row in rejected:
+        reasons = list(row.get("rejection_reasons") or [])
+        metrics = row.get("metrics") or {}
+        if row.get("source") != "positive_watchlist":
+            continue
+        if "blocked_pair" in reasons or "fresh_analog_veto_pair" in reasons:
+            continue
+        if any(reason.startswith(hard_prefixes) for reason in reasons):
+            continue
+        if safe_int(metrics.get("recent_completed")) < int(args.min_near_miss_completed):
+            continue
+        if safe_float(metrics.get("recent_sum_r")) <= 0.0:
+            continue
+        if compare_profit_factor(metrics.get("recent_profit_factor")) < float(args.min_near_miss_profit_factor):
+            continue
+        gap = near_miss_gap_score(row, args)
+        if gap > float(args.max_near_miss_gap_score):
+            continue
+        near = dict(row)
+        near["near_miss_gap_score"] = gap
+        near["readiness_score"] = float(1.0 / (1.0 + gap))
+        rows.append(near)
+    rows.sort(
+        key=lambda row: (
+            safe_float(row.get("near_miss_gap_score")),
+            -safe_float((row.get("metrics") or {}).get("recent_sum_r")),
+            -safe_float((row.get("metrics") or {}).get("edge_score")),
+            -safe_int((row.get("metrics") or {}).get("recent_completed")),
+            str(row.get("timeframe")),
+            str(row.get("symbol")),
+            str(row.get("side")),
+        )
+    )
+    return rows[: int(args.max_near_miss_candidates)]
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -318,6 +391,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         fresh_added += 1
 
     rejection_reason_counts = reason_counts(rejected)
+    near_miss = build_near_miss_queue(rejected, args)
 
     return {
         "kind": "contract_focus_canary_plan_v1",
@@ -326,6 +400,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "config": {
             "max_candidates": int(args.max_candidates),
             "max_rejections": max_rejections,
+            "max_near_miss_candidates": int(args.max_near_miss_candidates),
+            "min_near_miss_completed": int(args.min_near_miss_completed),
+            "min_near_miss_profit_factor": float(args.min_near_miss_profit_factor),
+            "max_near_miss_gap_score": float(args.max_near_miss_gap_score),
             "include_fresh_analog": bool(args.include_fresh_analog),
             "signal_jsons": args.signal_jsons,
             "max_fresh_analog_candidates": int(args.max_fresh_analog_candidates),
@@ -352,9 +430,11 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "fresh_analog_seen": len(fresh_rows),
             "fresh_analog_added": fresh_added,
             "rejected_candidates": len(rejected),
+            "near_miss_candidates": len(near_miss),
             "rejection_reason_counts": rejection_reason_counts,
         },
         "candidates": selected,
+        "near_miss_candidates": near_miss,
         "rejected_candidates": rejected,
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -384,6 +464,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"`{summary['promote_candidates_seen']}/{summary['positive_watchlist_seen']}/{summary['blocked_pairs']}`",
         f"- fresh analog veto pairs: `{summary.get('fresh_analog_veto_pairs', 0)}`",
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
+        f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | trailing_loss | session |",
@@ -399,6 +480,27 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
             f"{metrics['recent_trailing_losses']} | `{row['session']}` |"
         )
+    if payload.get("near_miss_candidates"):
+        lines.extend(
+            [
+                "",
+                "## Near-Miss Queue",
+                "",
+                "| rank | timeframe | symbol | side | readiness | gap | missing | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
+                "| ---: | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for idx, row in enumerate(payload["near_miss_candidates"], start=1):
+            metrics = row["metrics"]
+            lines.append(
+                f"| {idx} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
+                f"{fmt_num(row.get('readiness_score'))} | {fmt_num(row.get('near_miss_gap_score'))} | "
+                f"{','.join(row['rejection_reasons'])} | "
+                f"{metrics['recent_completed']} | {metrics['recent_analog_supported']} | "
+                f"{fmt_num(metrics['recent_analog_supported_rate'])} | {fmt_num(metrics['recent_sum_r'])} | "
+                f"{fmt_num(metrics['recent_profit_factor'])} | {fmt_num(metrics['recent_max_drawdown_r'])} | "
+                f"{metrics['recent_trailing_losses']} |"
+            )
     if payload.get("rejected_candidates"):
         lines.extend(
             [
@@ -434,10 +536,21 @@ def format_text(payload: dict[str, Any]) -> str:
         f"positive_seen={summary['positive_watchlist_seen']} blocked_seen={summary['blocked_pairs']} "
         f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
-        f"rejected={summary.get('rejected_candidates', 0)}",
+        f"near_miss={summary.get('near_miss_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
         f"reject_reasons={json.dumps(summary.get('rejection_reason_counts', {}), sort_keys=True)}",
         "safety=paper_authorized:False live:False",
     ]
+    for row in payload.get("near_miss_candidates", []):
+        metrics = row["metrics"]
+        lines.append(
+            f"near_miss {row['timeframe']} {row['symbol']} {row['side']} "
+            f"readiness={fmt_num(row.get('readiness_score'))} gap={fmt_num(row.get('near_miss_gap_score'))} "
+            f"missing={','.join(row.get('rejection_reasons') or [])} "
+            f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
+            f"pf={fmt_num(metrics['recent_profit_factor'])} "
+            f"analog={metrics['recent_analog_supported']}/{fmt_num(metrics['recent_analog_supported_rate'])} "
+            f"trailing_losses={metrics['recent_trailing_losses']}"
+        )
     for row in payload["candidates"]:
         metrics = row["metrics"]
         lines.append(
@@ -459,6 +572,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-candidates", type=int, default=3)
     parser.add_argument("--max-rejections", type=int, default=50)
+    parser.add_argument("--max-near-miss-candidates", type=int, default=5)
+    parser.add_argument("--min-near-miss-completed", type=int, default=4)
+    parser.add_argument("--min-near-miss-profit-factor", type=float, default=1.0)
+    parser.add_argument("--max-near-miss-gap-score", type=float, default=1.0)
     parser.add_argument("--include-fresh-analog", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--signal-jsons",

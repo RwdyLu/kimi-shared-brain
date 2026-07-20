@@ -21,6 +21,10 @@ def args_for(actions_json: Path) -> Namespace:
         actions_json=str(actions_json),
         max_candidates=3,
         max_rejections=50,
+        max_near_miss_candidates=5,
+        min_near_miss_completed=4,
+        min_near_miss_profit_factor=1.0,
+        max_near_miss_gap_score=1.0,
         include_fresh_analog=False,
         signal_jsons="",
         max_fresh_analog_candidates=2,
@@ -127,6 +131,9 @@ def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
     assert payload["summary"]["rejection_reason_counts"]["recent_completed<8"] == 1
     assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported<4"] == 1
     assert payload["summary"]["rejection_reason_counts"]["recent_analog_supported_rate<0.50"] == 1
+    assert payload["summary"]["near_miss_candidates"] == 5
+    assert payload["near_miss_candidates"][0]["source"] == "positive_watchlist"
+    assert payload["near_miss_candidates"][0]["near_miss_gap_score"] >= 0.0
     row = payload["candidates"][0]
     assert row["source"] == "positive_watchlist"
     assert row["symbol"] == "FFFUSDT"
@@ -265,3 +272,36 @@ def test_focus_plan_excludes_fresh_veto_signal(tmp_path: Path) -> None:
     assert payload["summary"]["rejection_reason_counts"]["fresh_analog_veto_pair"] == 1
     assert payload["rejected_candidates"][0]["source"] == "fresh_analog_signal"
     assert payload["rejected_candidates"][0]["rejection_reasons"] == ["fresh_analog_veto_pair"]
+
+
+def test_focus_plan_treats_lossless_profit_factor_as_passing(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "WINUSDT",
+                        "long",
+                        recent_completed=8,
+                        recent_sum_r=3.0,
+                        recent_profit_factor=None,
+                        recent_max_drawdown_r=0.0,
+                        recent_trailing_losses=0,
+                        recent_analog_supported=5,
+                        recent_analog_supported_rate=0.625,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["rejected_candidates"] == 0
+    row = payload["candidates"][0]
+    assert row["symbol"] == "WINUSDT"
+    assert row["metrics"]["recent_profit_factor"] is None
