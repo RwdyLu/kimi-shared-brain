@@ -563,6 +563,60 @@ def test_paper_report_writes_current_policy_shadow_readiness_marker(tmp_path: Pa
     assert "live_trading_authorized=False" in text
 
 
+def test_paper_report_summarizes_fast_shadow_as_retest_not_promotion(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    shadow = tmp_path / "shadow.jsonl"
+    fast_shadow = tmp_path / "fast_shadow.jsonl"
+    journal.write_text("")
+    shadow.write_text("")
+    rows = []
+    for idx in range(20):
+        rows.append(
+            {
+                "kind": "contract_latest_market_signal_fast_shadow_journal_v1",
+                "fast_shadow_journal": True,
+                "shadow_fast_probe": True,
+                "promotion_eligible": False,
+                "created_at": f"2026-01-01T{idx:02d}:00:00+00:00",
+                "updated_at": f"2026-01-01T{idx:02d}:00:00+00:00",
+                "status": "completed",
+                "symbol": "FASTUSDT",
+                "side": "long",
+                "timeframe": "1h",
+                "decision_policy_version": report_mod.DECISION_POLICY_VERSION,
+                "analog_supported": True,
+                "outcome_horizon_bars": 3,
+                "outcome": {
+                    "r_multiple": 0.4,
+                    "exit_dt": f"2026-01-01T{idx:02d}:30:00+00:00",
+                },
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+        )
+    fast_shadow.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        shadow_sources=f"1h:{shadow}",
+        fast_shadow_sources=f"1h:{fast_shadow}",
+        lookback_bars=20,
+        max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["fast_shadow_records"] == 20
+    assert payload["summary"]["fast_shadow_completed"] == 20
+    assert payload["summary"]["current_policy_fast_shadow_records"] == 20
+    assert payload["summary"]["current_policy_fast_shadow_completed"] == 20
+    assert payload["summary"]["current_policy_fast_shadow_retest_candidates"] == 1
+    assert payload["summary"]["current_policy_shadow_promote_candidates"] == 0
+    assert payload["current_policy_fast_shadow_scoreboard"][0]["status"] == "promote_candidate"
+    assert payload["current_policy_fast_shadow_scoreboard"][0]["symbol"] == "FASTUSDT"
+    assert "current_policy_fast_shadow_promote_candidates" not in payload["actions"]
+
+
 def test_paper_report_shadow_readiness_risk_takes_priority() -> None:
     payload = {
         "updated_at": "2026-01-04T00:00:00+00:00",

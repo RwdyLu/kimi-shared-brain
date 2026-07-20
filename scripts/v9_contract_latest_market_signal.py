@@ -1493,6 +1493,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     shadow_path = Path(shadow_path_raw) if shadow_path_raw else None
     shadow_records = read_journal(shadow_path) if shadow_path is not None else []
     shadow_seen = {record.get("signal_id") for record in shadow_records}
+    fast_shadow_path_raw = str(getattr(args, "journal_fast_shadow_jsonl", "") or "")
+    fast_shadow_path = Path(fast_shadow_path_raw) if fast_shadow_path_raw else None
+    fast_shadow_records = read_journal(fast_shadow_path) if fast_shadow_path is not None else []
+    fast_shadow_seen = {record.get("signal_id") for record in fast_shadow_records}
+    fast_shadow_horizon = int(getattr(args, "journal_fast_shadow_outcome_horizon_bars", 0) or 0)
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
@@ -1514,7 +1519,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     global_active_added = 0
     active_total_cap_blocked_candidates = 0
     shadow_updated = 0
+    fast_shadow_updated = 0
     new_shadow_records: list[dict[str, Any]] = []
+    new_fast_shadow_records: list[dict[str, Any]] = []
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
@@ -1560,6 +1567,22 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
             shadow_updated += 1
 
+    for record in fast_shadow_records:
+        if record.get("status") in {"completed", "skipped"}:
+            continue
+        symbol = str(record.get("symbol", "")).upper()
+        if not symbol:
+            continue
+        if symbol not in by_symbol:
+            by_symbol[symbol] = load_symbol_cache(
+                Path(args.cache_dir),
+                symbol,
+                args.timeframe,
+                lookback_bars=args.lookback_bars,
+            )
+        if update_record_outcome(record, by_symbol[symbol], updated_at=payload["updated_at"]):
+            fast_shadow_updated += 1
+
     active_by_pair: dict[tuple[str, str], int] = {}
     active_total = 0
     for record in records:
@@ -1570,6 +1593,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
 
     new_records = []
+
     def add_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
         if shadow_path is None:
             return
@@ -1590,6 +1614,31 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                 risk_controls=risk_controls,
             )
         )
+
+    def add_fast_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
+        if fast_shadow_path is None or fast_shadow_horizon <= 0:
+            return
+        if not shadow_record_allowed(row, args):
+            return
+        sid = signal_id(row)
+        if sid in seen or sid in fast_shadow_seen:
+            return
+        fast_shadow_seen.add(sid)
+        record = shadow_record_from_row(
+            row,
+            updated_at=payload["updated_at"],
+            horizon_bars=fast_shadow_horizon,
+            execution_config=execution_config,
+            reason=reason,
+            reason_codes=reason_codes,
+            risk_controls=risk_controls,
+        )
+        record["kind"] = "contract_latest_market_signal_fast_shadow_journal_v1"
+        record["fast_shadow_journal"] = True
+        record["shadow_fast_probe"] = True
+        record["shadow_fast_probe_horizon_bars"] = fast_shadow_horizon
+        record["promotion_eligible"] = False
+        new_fast_shadow_records.append(record)
 
     for row in payload["rows"]:
         if row.get("signal") not in {"long", "short"} or not row.get("paper_plan"):
@@ -1613,6 +1662,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                     "portfolio_risk_block",
                     list(risk_controls.get("reason_codes") or []),
                 )
+                add_fast_shadow_record(
+                    row,
+                    "portfolio_risk_block",
+                    list(risk_controls.get("reason_codes") or []),
+                )
                 continue
         recovery_probe = False
         if respect_portfolio_side_risk and pair[1] in blocked_sides:
@@ -1626,19 +1680,31 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
                     "portfolio_side_block",
                     list(risk_controls.get("side_reason_codes") or []),
                 )
+                add_fast_shadow_record(
+                    row,
+                    "portfolio_side_block",
+                    list(risk_controls.get("side_reason_codes") or []),
+                )
                 continue
         global_max_active = int(risk_controls.get("max_active") or 0)
         global_active = int(risk_controls.get("active") or 0)
         if respect_global_active_cap and global_max_active > 0 and global_active + global_active_added >= global_max_active:
             global_active_cap_blocked_candidates += 1
             add_shadow_record(row, "global_active_cap_block", [f"global_active>={global_max_active}"])
+            add_fast_shadow_record(row, "global_active_cap_block", [f"global_active>={global_max_active}"])
             continue
         if max_active_total > 0 and active_total >= max_active_total:
             active_total_cap_blocked_candidates += 1
             add_shadow_record(row, "journal_active_total_cap_block", [f"journal_active_total>={max_active_total}"])
+            add_fast_shadow_record(row, "journal_active_total_cap_block", [f"journal_active_total>={max_active_total}"])
             continue
         if max_active_per_pair > 0 and active_by_pair.get(pair, 0) >= max_active_per_pair:
             add_shadow_record(
+                row,
+                "journal_active_pair_cap_block",
+                [f"journal_active_pair>={max_active_per_pair}"],
+            )
+            add_fast_shadow_record(
                 row,
                 "journal_active_pair_cap_block",
                 [f"journal_active_pair>={max_active_per_pair}"],
@@ -1673,20 +1739,31 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
 
     records.extend(new_records)
     shadow_records.extend(new_shadow_records)
+    fast_shadow_records.extend(new_fast_shadow_records)
     if args.max_journal_records > 0 and len(records) > args.max_journal_records:
         records = records[-int(args.max_journal_records) :]
     max_shadow_records = int(getattr(args, "max_shadow_journal_records", 0) or 0)
     if max_shadow_records > 0 and len(shadow_records) > max_shadow_records:
         shadow_records = shadow_records[-max_shadow_records:]
+    max_fast_shadow_records = int(getattr(args, "max_fast_shadow_journal_records", 0) or 0)
+    if max_fast_shadow_records > 0 and len(fast_shadow_records) > max_fast_shadow_records:
+        fast_shadow_records = fast_shadow_records[-max_fast_shadow_records:]
     write_journal(path, records)
     if shadow_path is not None:
         write_journal(shadow_path, shadow_records)
+    if fast_shadow_path is not None:
+        write_journal(fast_shadow_path, fast_shadow_records)
     completed = sum(1 for record in records if record.get("status") == "completed")
     skipped = sum(1 for record in records if record.get("status") == "skipped")
     active = sum(1 for record in records if record.get("status") in {"pending_entry", "open"})
     shadow_completed = sum(1 for record in shadow_records if record.get("status") == "completed")
     shadow_skipped = sum(1 for record in shadow_records if record.get("status") == "skipped")
     shadow_active = sum(1 for record in shadow_records if record.get("status") in {"pending_entry", "open"})
+    fast_shadow_completed = sum(1 for record in fast_shadow_records if record.get("status") == "completed")
+    fast_shadow_skipped = sum(1 for record in fast_shadow_records if record.get("status") == "skipped")
+    fast_shadow_active = sum(
+        1 for record in fast_shadow_records if record.get("status") in {"pending_entry", "open"}
+    )
     analog_supported_open = sum(
         1
         for record in records
@@ -1716,6 +1793,15 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
         "shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
         "shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
+        "fast_shadow_enabled": fast_shadow_path is not None and fast_shadow_horizon > 0,
+        "fast_shadow_path": str(fast_shadow_path) if fast_shadow_path is not None else "",
+        "fast_shadow_outcome_horizon_bars": fast_shadow_horizon,
+        "fast_shadow_new_records": len(new_fast_shadow_records),
+        "fast_shadow_updated_records": fast_shadow_updated,
+        "fast_shadow_total_records": len(fast_shadow_records),
+        "fast_shadow_open_records": fast_shadow_active,
+        "fast_shadow_completed_records": fast_shadow_completed,
+        "fast_shadow_skipped_records": fast_shadow_skipped,
         "record_mode": args.journal_record_mode,
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
@@ -1814,6 +1900,10 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
             "journal_shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
             "journal_shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
+            "journal_fast_shadow_jsonl": str(getattr(args, "journal_fast_shadow_jsonl", "")),
+            "journal_fast_shadow_outcome_horizon_bars": int(
+                getattr(args, "journal_fast_shadow_outcome_horizon_bars", 0) or 0
+            ),
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
             "journal_respect_global_portfolio_active_cap": bool(
                 getattr(args, "journal_respect_global_portfolio_active_cap", True)
@@ -2028,6 +2118,14 @@ def format_text(payload: dict[str, Any]) -> str:
         f"active={(payload.get('journal') or {}).get('shadow_open_records')} "
         f"completed={(payload.get('journal') or {}).get('shadow_completed_records')} "
         f"path={(payload.get('journal') or {}).get('shadow_path')}",
+        "journal_fast_shadow "
+        f"enabled={(payload.get('journal') or {}).get('fast_shadow_enabled')} "
+        f"horizon={(payload.get('journal') or {}).get('fast_shadow_outcome_horizon_bars')} "
+        f"new={(payload.get('journal') or {}).get('fast_shadow_new_records')} "
+        f"updated={(payload.get('journal') or {}).get('fast_shadow_updated_records')} "
+        f"active={(payload.get('journal') or {}).get('fast_shadow_open_records')} "
+        f"completed={(payload.get('journal') or {}).get('fast_shadow_completed_records')} "
+        f"path={(payload.get('journal') or {}).get('fast_shadow_path')}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
@@ -2133,6 +2231,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--journal-shadow-min-hit-rate", type=float, default=0.30)
     parser.add_argument("--journal-shadow-min-profitable-rate", type=float, default=0.40)
     parser.add_argument(
+        "--journal-fast-shadow-jsonl",
+        default="",
+        help="Optional fast horizon shadow journal for research feedback; never promotion eligible.",
+    )
+    parser.add_argument(
+        "--journal-fast-shadow-outcome-horizon-bars",
+        type=int,
+        default=0,
+        help="If positive, write blocked shadow candidates to a shorter outcome horizon journal.",
+    )
+    parser.add_argument(
         "--journal-allowed-pairs",
         default="",
         help="Optional comma list of SYMBOL:long or SYMBOL:short pairs to record in the paper journal.",
@@ -2187,6 +2296,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-journal-records", type=int, default=20000)
     parser.add_argument("--max-shadow-journal-records", type=int, default=20000)
+    parser.add_argument("--max-fast-shadow-journal-records", type=int, default=20000)
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_latest_market_signal_v1.md")
     parser.add_argument("--marker", default="state/FOUND_CONTRACT_MARKET_PAPER_PLAN.txt")
