@@ -175,6 +175,33 @@ def test_paper_report_separates_current_policy_portfolio_risk(tmp_path: Path) ->
     assert payload["summary"]["current_policy_portfolio_risk_status"] == "normal"
 
 
+def test_paper_report_blocked_pairs_payload_defaults_to_current_policy_scope() -> None:
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "actions": {
+            "blocked_pairs": [
+                {"timeframe": "1h", "symbol": "OLDUSDT", "side": "long"},
+                {"timeframe": "15m", "symbol": "GLOBALUSDT", "side": "short"},
+            ],
+            "current_policy_blocked_pairs": [
+                {"timeframe": "1h", "symbol": "NEWUSDT", "side": "short"}
+            ],
+        },
+    }
+
+    current_policy = report_mod.blocked_pairs_payload(payload, "current_policy")
+    global_scope = report_mod.blocked_pairs_payload(payload, "global")
+
+    assert current_policy["blocked_pairs_scope"] == "current_policy"
+    assert current_policy["blocked_pairs"] == [{"timeframe": "1h", "symbol": "NEWUSDT", "side": "short"}]
+    assert current_policy["global_blocked_pairs_count"] == 2
+    assert current_policy["current_policy_blocked_pairs_count"] == 1
+    assert current_policy["paper_trading_authorized"] is False
+    assert current_policy["live_trading_authorized"] is False
+    assert global_scope["blocked_pairs_scope"] == "global"
+    assert [row["symbol"] for row in global_scope["blocked_pairs"]] == ["OLDUSDT", "GLOBALUSDT"]
+
+
 def test_paper_report_projects_active_drain_eta() -> None:
     args = Namespace(portfolio_max_active=2)
     rows = [
