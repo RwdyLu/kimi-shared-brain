@@ -600,6 +600,117 @@ def test_paper_report_does_not_promote_ineligible_shadow_records(tmp_path: Path)
     assert payload["actions"]["current_policy_shadow_readiness"]["live_trading_authorized"] is False
 
 
+def test_paper_report_audits_market_quality_gate_supported(tmp_path: Path) -> None:
+    main_journal = tmp_path / "main.jsonl"
+    shadow_journal = tmp_path / "shadow.jsonl"
+    fast_shadow_journal = tmp_path / "fast_shadow.jsonl"
+    main_journal.write_text("")
+    fast_shadow_journal.write_text("")
+    rows = []
+    for idx in range(5):
+        rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "BLOCKEDUSDT",
+                "side": "long",
+                "timeframe": "15m",
+                "decision_policy_version": "policy_v2",
+                "shadow_journal": True,
+                "shadow_reason": "market_quality_block",
+                "market_quality_block_shadow": True,
+                "market_quality_reason_codes": ["volume_ratio<0.25"],
+                "promotion_eligible": False,
+                "outcome": {"r_multiple": -0.5, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    shadow_journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"15m:{main_journal}",
+        shadow_sources=f"15m:{shadow_journal}",
+        fast_shadow_sources=f"15m:{fast_shadow_journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=5,
+        scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-2.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=6,
+        scoreboard_promote_sum_r=2.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=1.0,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+        market_quality_audit_min_completed=5,
+        market_quality_audit_negative_sum_r=-2.0,
+        market_quality_audit_negative_profit_factor=0.8,
+        market_quality_audit_positive_sum_r=2.0,
+        market_quality_audit_positive_profit_factor=1.2,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["current_policy_shadow_market_quality_scoreboard_groups"] == 1
+    assert payload["summary"]["current_policy_shadow_market_quality_gate_supported"] == 1
+    assert payload["summary"]["current_policy_shadow_market_quality_gate_too_strict"] == 0
+    row = payload["current_policy_shadow_market_quality_scoreboard"][0]
+    assert row["status"] == "gate_supported"
+    assert row["market_quality_reason_code"] == "volume_ratio<0.25"
+    assert row["recent_completed"] == 5
+    assert row["recent_sum_r"] == -2.5
+    action = payload["actions"]["current_policy_shadow_market_quality_gate_supported"][0]
+    assert action["paper_trading_authorized"] is False
+    assert action["live_trading_authorized"] is False
+    assert payload["actions"]["current_policy_shadow_promote_candidates"] == []
+
+
+def test_paper_report_audits_active_market_quality_gate_too_strict_watch() -> None:
+    args = Namespace(
+        scoreboard_recent_trades=50,
+        market_quality_audit_min_completed=5,
+        market_quality_audit_negative_sum_r=-2.0,
+        market_quality_audit_negative_profit_factor=0.8,
+        market_quality_audit_positive_sum_r=2.0,
+        market_quality_audit_positive_profit_factor=1.2,
+        market_quality_audit_active_min_known=3,
+        market_quality_audit_active_negative_sum_r=-1.0,
+        market_quality_audit_active_positive_sum_r=1.0,
+        market_quality_audit_active_loss_rate=0.67,
+        market_quality_audit_active_profit_rate=0.67,
+    )
+    rows = [
+        {
+            "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+            "updated_at": f"2026-01-02T0{idx}:05:00+00:00",
+            "status": "open",
+            "symbol": f"FAST{idx}USDT",
+            "side": "long",
+            "timeframe": "15m",
+            "market_quality_block_shadow": True,
+            "market_quality_reason_codes": ["volume_ratio<0.25"],
+            "current_r_multiple": 0.4,
+            "promotion_eligible": False,
+        }
+        for idx in range(3)
+    ]
+
+    scoreboard = report_mod.build_market_quality_scoreboard(rows, args)
+    supported, too_strict, watch = report_mod.market_quality_action_rows(scoreboard)
+
+    assert len(scoreboard) == 1
+    assert scoreboard[0]["status"] == "active_gate_too_strict_watch"
+    assert scoreboard[0]["active_r_known"] == 3
+    assert scoreboard[0]["active_sum_r"] == 1.2000000000000002
+    assert supported == []
+    assert len(too_strict) == 1
+    assert watch == []
+    assert too_strict[0]["paper_trading_authorized"] is False
+    assert too_strict[0]["live_trading_authorized"] is False
+
+
 def test_paper_report_writes_current_policy_shadow_promote_marker(tmp_path: Path) -> None:
     payload = {
         "updated_at": "2026-01-04T00:00:00+00:00",
