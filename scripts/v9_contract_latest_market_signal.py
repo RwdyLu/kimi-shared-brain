@@ -1239,9 +1239,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
     max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
+    max_active_total = int(getattr(args, "journal_max_active_total", 0) or 0)
     updated = 0
     migrated = 0
     blocked_candidates = 0
+    active_total_cap_blocked_candidates = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
     for record in records:
@@ -1272,9 +1274,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             updated += 1
 
     active_by_pair: dict[tuple[str, str], int] = {}
+    active_total = 0
     for record in records:
         if record.get("status") not in {"pending_entry", "open"}:
             continue
+        active_total += 1
         pair = (str(record.get("symbol", "")).upper(), str(record.get("side", "")).lower())
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
 
@@ -1288,6 +1292,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             continue
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
+            continue
+        if max_active_total > 0 and active_total >= max_active_total:
+            active_total_cap_blocked_candidates += 1
             continue
         if max_active_per_pair > 0 and active_by_pair.get(pair, 0) >= max_active_per_pair:
             continue
@@ -1307,6 +1314,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             )
         )
         active_by_pair[pair] = active_by_pair.get(pair, 0) + 1
+        active_total += 1
 
     records.extend(new_records)
     if args.max_journal_records > 0 and len(records) > args.max_journal_records:
@@ -1336,6 +1344,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
         "journal_blocked_candidate_rows": blocked_candidates,
         "journal_max_active_per_pair": max_active_per_pair,
+        "journal_max_active_total": max_active_total,
+        "journal_active_total_cap_blocked_candidate_rows": active_total_cap_blocked_candidates,
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "paper_execution": execution_config,
     }
@@ -1405,6 +1415,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_max_active_per_pair": int(args.journal_max_active_per_pair),
+            "journal_max_active_total": int(getattr(args, "journal_max_active_total", 0) or 0),
         },
         "summary": {
             "rows": len(rows),
@@ -1545,6 +1556,10 @@ def format_text(payload: dict[str, Any]) -> str:
         f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
         f"journal_updated_records={(payload.get('journal') or {}).get('updated_records')}",
         f"journal_migrated_legacy_records={(payload.get('journal') or {}).get('migrated_legacy_records')}",
+        f"journal_open_records={(payload.get('journal') or {}).get('open_records')}",
+        f"journal_max_active_total={(payload.get('journal') or {}).get('journal_max_active_total')}",
+        "journal_active_total_cap_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
@@ -1648,6 +1663,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="If positive, do not add a new paper record when SYMBOL:SIDE already has this many active records.",
+    )
+    parser.add_argument(
+        "--journal-max-active-total",
+        type=int,
+        default=12,
+        help="If positive, do not add a new paper record when this journal already has this many active records.",
     )
     parser.add_argument(
         "--journal-record-mode",

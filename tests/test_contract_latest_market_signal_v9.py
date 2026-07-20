@@ -88,6 +88,7 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_allowed_pairs="",
         journal_max_active_per_pair=0,
+        journal_max_active_total=0,
         journal_record_mode="all_signals",
         max_journal_records=1000,
         out_json=str(tmp_path / "signal.json"),
@@ -352,6 +353,114 @@ def test_latest_market_signal_journal_limits_active_pair_records(tmp_path: Path)
 
     assert summary["new_records"] == 1
     assert rows[0]["latest_dt"] == "2026-01-01T00:00:00+00:00"
+
+
+def test_latest_market_signal_journal_limits_total_active_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    args.journal_max_active_total = 1
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["open_records"] == 1
+    assert summary["journal_max_active_total"] == 1
+    assert summary["journal_active_total_cap_blocked_candidate_rows"] == 1
+    assert rows[0]["symbol"] == "AAAUSDT"
+
+
+def test_latest_market_signal_journal_total_active_cap_counts_existing_open_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_max_active_total = 1
+    existing = signal_mod.journal_record_from_row(
+        {
+            "symbol": "OLDUSDT",
+            "signal": "long",
+            "latest_dt": "2026-01-01T00:00:00+00:00",
+            "reason": "existing",
+            "analog_evidence": {"supported": True},
+            "paper_plan": {
+                "entry_price": 100.0,
+                "stop_loss": 98.0,
+                "take_profit": 104.0,
+                "risk_per_unit": 2.0,
+                "reward_r": 2.0,
+                "risk_per_trade": 0.005,
+                "leverage_cap": 2.0,
+            },
+        },
+        updated_at="2026-01-01T00:00:00+00:00",
+        horizon_bars=12,
+        execution_config=signal_mod.execution_config_from_args(args),
+    )
+    signal_mod.write_journal(Path(args.journal_jsonl), [existing])
+    payload = {
+        "updated_at": "2026-01-01T01:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T01:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["open_records"] == 1
+    assert summary["journal_active_total_cap_blocked_candidate_rows"] == 1
+    assert len(rows) == 1
+    assert rows[0]["symbol"] == "OLDUSDT"
 
 
 def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None:
