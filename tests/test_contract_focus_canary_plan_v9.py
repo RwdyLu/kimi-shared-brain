@@ -377,6 +377,11 @@ def test_focus_plan_waits_for_active_near_miss_settlement(tmp_path: Path) -> Non
     assert near["missing_metrics"]["active_loss"] == 3
     assert near["missing_metrics"]["active_sum_r"] == 1.2
     assert near["metrics"]["active_sum_r"] == 1.2
+    assert near["pro_forma_probe"]["would_pass_if_active_settled_now"] is True
+    assert near["pro_forma_probe"]["projected_completed"] == 13
+    assert near["pro_forma_probe"]["projected_sum_r"] == 2.5
+    assert payload["paper_trading_authorized"] is False
+    assert payload["live_trading_authorized"] is False
 
 
 def test_focus_plan_marks_losing_active_near_miss_as_risk_wait(tmp_path: Path) -> None:
@@ -418,6 +423,50 @@ def test_focus_plan_marks_losing_active_near_miss_as_risk_wait(tmp_path: Path) -
     assert near["symbol"] == "RISKUSDT"
     assert near["next_action"] == "await_active_settlement_risk"
     assert near["missing_metrics"]["active_loss_rate"] == 0.75
+    assert near["pro_forma_probe"]["would_pass_if_active_settled_now"] is False
+    assert "projected_sum_r<2.00" in near["pro_forma_probe"]["blocking_reasons"]
+    assert "active_unrealized_loss_rate>=0.67_avg_r<=-0.25" in near["pro_forma_probe"]["blocking_reasons"]
+
+
+def test_focus_plan_pro_forma_does_not_project_analog_support(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [
+                    candidate(
+                        "ANALOGUSDT",
+                        "long",
+                        recent_completed=5,
+                        recent_sum_r=1.3,
+                        recent_profit_factor=1.57,
+                        recent_analog_supported=3,
+                        recent_analog_supported_rate=0.6,
+                        recent_max_drawdown_r=2.2,
+                        recent_trailing_losses=0,
+                        active=8,
+                        active_r_known=8,
+                        active_profit=8,
+                        active_loss=0,
+                        active_sum_r=2.0,
+                        active_avg_r=0.25,
+                    )
+                ],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["near_miss_candidates"] == 1
+    assert payload["summary"]["paper_probe_candidates"] == 0
+    near = payload["near_miss_candidates"][0]
+    assert near["next_action"] == "await_active_settlement"
+    assert near["pro_forma_probe"]["would_pass_if_active_settled_now"] is False
+    assert "recent_analog_supported<4" in near["pro_forma_probe"]["blocking_reasons"]
 
 
 def test_focus_plan_rejects_promote_candidate_with_bad_active_risk(tmp_path: Path) -> None:

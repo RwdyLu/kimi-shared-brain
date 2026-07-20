@@ -370,6 +370,47 @@ def near_miss_missing_metrics(row: dict[str, Any], args: argparse.Namespace) -> 
     }
 
 
+def pro_forma_probe_readiness(row: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    metrics = row.get("metrics") or {}
+    active_r_known = safe_int(metrics.get("active_r_known"))
+    active_sum_r = safe_float(metrics.get("active_sum_r"))
+    projected_completed = safe_int(metrics.get("recent_completed")) + active_r_known
+    projected_sum_r = safe_float(metrics.get("recent_sum_r")) + active_sum_r
+    blocking_reasons: list[str] = []
+
+    if projected_completed < int(args.min_probe_completed):
+        blocking_reasons.append(f"projected_completed<{int(args.min_probe_completed)}")
+    if safe_int(metrics.get("recent_analog_supported")) < int(args.min_probe_analog_supported):
+        blocking_reasons.append(f"recent_analog_supported<{int(args.min_probe_analog_supported)}")
+    if safe_float(metrics.get("recent_analog_supported_rate")) < float(args.min_probe_analog_supported_rate):
+        blocking_reasons.append(f"recent_analog_supported_rate<{float(args.min_probe_analog_supported_rate):.2f}")
+    if projected_sum_r < float(args.min_probe_sum_r):
+        blocking_reasons.append(f"projected_sum_r<{float(args.min_probe_sum_r):.2f}")
+    if compare_profit_factor(metrics.get("recent_profit_factor")) < float(args.min_probe_profit_factor):
+        blocking_reasons.append(f"recent_profit_factor<{float(args.min_probe_profit_factor):.2f}")
+    if safe_float(metrics.get("recent_max_drawdown_r")) > float(args.max_probe_drawdown_r):
+        blocking_reasons.append(f"recent_max_drawdown_r>{float(args.max_probe_drawdown_r):.2f}")
+    if safe_int(metrics.get("recent_trailing_losses")) > int(args.max_probe_trailing_losses):
+        blocking_reasons.append(f"recent_trailing_losses>{int(args.max_probe_trailing_losses)}")
+
+    active_row = {key: metrics.get(key) for key in ("active_r_known", "active_loss", "active_sum_r", "active_avg_r")}
+    blocking_reasons.extend(active_risk_rejection_reasons(active_row, args))
+    return {
+        "active_r_used": active_r_known,
+        "active_sum_r_used": active_sum_r,
+        "projected_completed": projected_completed,
+        "projected_sum_r": projected_sum_r,
+        "would_pass_if_active_settled_now": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "projection_limits": [
+            "profit_factor_not_recomputed_from_unrealized_r",
+            "drawdown_not_improved_by_unrealized_r",
+            "trailing_losses_not_improved_by_unrealized_r",
+            "analog_support_not_projected",
+        ],
+    }
+
+
 def near_miss_next_action(missing: dict[str, Any]) -> str:
     if safe_int(missing.get("active")) > 0 and (
         safe_int(missing.get("missing_completed")) > 0 or safe_float(missing.get("missing_sum_r")) > 0.0
@@ -409,6 +450,7 @@ def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespa
         near["near_miss_gap_score"] = gap
         near["readiness_score"] = float(1.0 / (1.0 + gap))
         near["missing_metrics"] = near_miss_missing_metrics(row, args)
+        near["pro_forma_probe"] = pro_forma_probe_readiness(row, args)
         near["next_action"] = near_miss_next_action(near["missing_metrics"])
         rows.append(near)
     rows.sort(
@@ -614,16 +656,19 @@ def format_markdown(payload: dict[str, Any]) -> str:
                 "",
                 "## Near-Miss Queue",
                 "",
-                "| rank | timeframe | symbol | side | readiness | action | gap | missing | active | active_R | active_w/l | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
-                "| ---: | --- | --- | --- | ---: | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                "| rank | timeframe | symbol | side | readiness | action | pro_forma | projected_n | projected_sum_R | gap | missing | active | active_R | active_w/l | recent_n | analog | analog_rate | sum_R | pf | max_DD_R | trailing_loss |",
+                "| ---: | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
         for idx, row in enumerate(payload["near_miss_candidates"], start=1):
             metrics = row["metrics"]
             missing = row.get("missing_metrics") or {}
+            pro_forma = row.get("pro_forma_probe") or {}
             lines.append(
                 f"| {idx} | {row['timeframe']} | {row['symbol']} | {row['side']} | "
                 f"{fmt_num(row.get('readiness_score'))} | {row.get('next_action')} | "
+                f"{pro_forma.get('would_pass_if_active_settled_now')} | "
+                f"{pro_forma.get('projected_completed')} | {fmt_num(pro_forma.get('projected_sum_r'))} | "
                 f"{fmt_num(row.get('near_miss_gap_score'))} | "
                 f"{','.join(row['rejection_reasons'])} | "
                 f"{missing.get('active')} | {fmt_num(missing.get('active_sum_r'))} | "
@@ -698,9 +743,14 @@ def format_text(payload: dict[str, Any]) -> str:
     ]
     for row in payload.get("near_miss_candidates", []):
         metrics = row["metrics"]
+        pro_forma = row.get("pro_forma_probe") or {}
         lines.append(
             f"near_miss {row['timeframe']} {row['symbol']} {row['side']} "
             f"readiness={fmt_num(row.get('readiness_score'))} action={row.get('next_action')} "
+            f"pro_forma_pass={pro_forma.get('would_pass_if_active_settled_now')} "
+            f"projected_n={pro_forma.get('projected_completed')} "
+            f"projected_sum_R={fmt_num(pro_forma.get('projected_sum_r'))} "
+            f"pro_forma_reasons={','.join(pro_forma.get('blocking_reasons') or [])} "
             f"gap={fmt_num(row.get('near_miss_gap_score'))} "
             f"missing={','.join(row.get('rejection_reasons') or [])} "
             f"recent_n={metrics['recent_completed']} sum_R={fmt_num(metrics['recent_sum_r'])} "
