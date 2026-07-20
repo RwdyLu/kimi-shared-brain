@@ -106,6 +106,71 @@ def read_blocked_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[st
     return refs
 
 
+def normalized_str_tuple(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raw = value.replace(";", ",")
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    if isinstance(value, (list, tuple, set)):
+        return tuple(str(part).strip() for part in value if str(part).strip())
+    return (str(value).strip(),) if str(value).strip() else ()
+
+
+def blocked_confirmation_cohort_ref_from_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str, tuple[str, ...], tuple[str, ...]] | None:
+    timeframe = str(row.get("timeframe") or default_timeframe).lower()
+    side = str(row.get("side") or "").lower()
+    bucket = str(row.get("confirmation_bucket") or "").strip()
+    if not timeframe or side not in {"long", "short"} or not bucket:
+        return None
+    return (
+        timeframe,
+        side,
+        bucket,
+        normalized_str_tuple(row.get("confirmation_timeframes")),
+        normalized_str_tuple(row.get("confirmation_regime_ids")),
+    )
+
+
+def read_blocked_confirmation_cohort_refs(
+    path: str,
+    *,
+    default_timeframe: str,
+) -> set[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return set()
+
+    rows: list[Any] = []
+    if isinstance(payload, list):
+        rows.extend(payload)
+    elif isinstance(payload, dict):
+        rows.extend(payload.get("blocked_confirmation_cohorts") or [])
+        actions = payload.get("actions") or {}
+        if isinstance(actions, dict):
+            rows.extend(actions.get("current_policy_blocked_confirmation_cohorts") or [])
+            rows.extend(actions.get("blocked_confirmation_cohorts") or [])
+
+    refs: set[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ref = blocked_confirmation_cohort_ref_from_row(row, default_timeframe=default_timeframe)
+        if ref is not None:
+            refs.add(ref)
+    return refs
+
+
 def read_shadow_retest_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
     if not path:
         return set()
@@ -155,6 +220,15 @@ def journal_blocked_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, s
         )
     )
     return refs
+
+
+def journal_blocked_confirmation_cohort_refs(
+    args: argparse.Namespace,
+) -> set[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]]:
+    return read_blocked_confirmation_cohort_refs(
+        getattr(args, "journal_blocked_pairs_json", ""),
+        default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+    )
 
 
 def journal_shadow_retest_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
@@ -1337,6 +1411,35 @@ def regime_confirmation_payload(regime_filter: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def confirmation_bucket_from_regime_filter(regime_filter: dict[str, Any]) -> str:
+    payload = regime_confirmation_payload(regime_filter)
+    if not payload["regime_confirmation_filters"]:
+        if payload["regime_confirmation_mode"] is not None:
+            return "confirmation_context_missing"
+        return "untracked"
+    if payload["regime_confirmation_allowed"] is True:
+        return "confirmed_aligned"
+    if payload["regime_confirmation_allowed"] is False:
+        return "confirmation_conflict"
+    return "confirmation_unknown"
+
+
+def confirmation_cohort_ref_for_signal_row(
+    row: dict[str, Any],
+    *,
+    default_timeframe: str,
+) -> tuple[str, str, str, tuple[str, ...], tuple[str, ...]]:
+    regime_filter = row.get("regime_filter") or {}
+    payload = regime_confirmation_payload(regime_filter)
+    return (
+        str(default_timeframe or "").lower(),
+        str(row.get("signal") or "").lower(),
+        confirmation_bucket_from_regime_filter(regime_filter),
+        tuple(str(item) for item in payload["regime_confirmation_timeframes"]),
+        tuple(str(item) for item in payload["regime_confirmation_regime_ids"]),
+    )
+
+
 def apply_regime_confirmation_to_record(
     record: dict[str, Any],
     row: dict[str, Any],
@@ -1802,6 +1905,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
+    blocked_confirmation_cohorts = journal_blocked_confirmation_cohort_refs(args)
     shadow_retest_pairs = journal_shadow_retest_pair_refs(args)
     shadow_retest_max_new = int(getattr(args, "journal_shadow_retest_max_new", 0) or 0)
     risk_controls = journal_risk_controls(args)
@@ -1816,6 +1920,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     updated = 0
     migrated = 0
     blocked_candidates = 0
+    blocked_confirmation_cohort_candidates = 0
     portfolio_risk_blocked_candidates = 0
     portfolio_drawdown_recovery_candidates = 0
     portfolio_side_blocked_candidates = 0
@@ -2011,6 +2116,29 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
             continue
+        confirmation_ref = confirmation_cohort_ref_for_signal_row(
+            row,
+            default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+        )
+        if confirmation_ref in blocked_confirmation_cohorts:
+            blocked_confirmation_cohort_candidates += 1
+            add_shadow_record(
+                row,
+                "confirmation_cohort_block",
+                [
+                    "confirmation_cohort_stop_candidate",
+                    f"confirmation_bucket={confirmation_ref[2]}",
+                ],
+            )
+            add_fast_shadow_record(
+                row,
+                "confirmation_cohort_block",
+                [
+                    "confirmation_cohort_stop_candidate",
+                    f"confirmation_bucket={confirmation_ref[2]}",
+                ],
+            )
+            continue
         if pair_ref in shadow_retest_pairs:
             shadow_retest_candidate_rows += 1
             if shadow_retest_max_new <= 0 or shadow_retest_new_records < shadow_retest_max_new:
@@ -2191,6 +2319,12 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
         "journal_blocked_candidate_rows": blocked_candidates,
+        "journal_blocked_confirmation_cohorts": sorted(
+            f"{timeframe}:{side}:{bucket}:{','.join(confirm_timeframes) or 'none'}:"
+            f"{','.join(confirm_regime_ids) or 'none'}"
+            for timeframe, side, bucket, confirm_timeframes, confirm_regime_ids in blocked_confirmation_cohorts
+        ),
+        "journal_blocked_confirmation_cohort_candidate_rows": blocked_confirmation_cohort_candidates,
         "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
         "journal_risk_scope": risk_controls.get("scope"),
         "journal_risk_source_key": risk_controls.get("source_key"),
@@ -2525,6 +2659,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
         "journal_global_active_cap_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_global_active_cap_blocked_candidate_rows')}",
+        "journal_confirmation_cohort_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_blocked_confirmation_cohort_candidate_rows')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="

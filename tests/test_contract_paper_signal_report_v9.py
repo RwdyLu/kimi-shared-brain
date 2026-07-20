@@ -1132,3 +1132,65 @@ def test_paper_report_builds_regime_confirmation_scoreboard(tmp_path: Path) -> N
     assert confirmed["active"] == 1
     assert untracked["recent_completed"] == 2
     assert abs(untracked["recent_sum_r"] + 1.0) < 1e-9
+
+
+def test_paper_report_exports_blocked_confirmation_cohorts(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = []
+    for idx, value in enumerate([-1.0, -0.8, -0.6]):
+        rows.append(
+            {
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "BADCONFIRMUSDT",
+                "side": "long",
+                "decision_policy_version": "policy_v2",
+                "regime_confirmation_mode": "block_conflict",
+                "regime_confirmation_allowed": True,
+                "regime_confirmation_timeframes": ["1h"],
+                "regime_confirmation_regime_ids": ["uptrend_normal_vol"],
+                "regime_confirmation_filters": [
+                    {
+                        "timeframe": "1h",
+                        "allowed": True,
+                        "reason": "regime_aligned",
+                        "regime_id": "uptrend_normal_vol",
+                    }
+                ],
+                "outcome": {"r_multiple": value, "exit_dt": f"2026-01-01T0{idx}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"15m:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_min_trades=3,
+        scoreboard_recent_trades=50,
+        scoreboard_fail_sum_r=-2.0,
+        scoreboard_fail_profit_factor=0.8,
+        scoreboard_fail_consecutive_losses=3,
+        scoreboard_promote_sum_r=2.0,
+        scoreboard_promote_profit_factor=1.2,
+        scoreboard_promote_max_drawdown_r=1.0,
+        current_decision_policy_version="policy_v2",
+        actions_max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+    blocked_payload = report_mod.blocked_pairs_payload(payload, "current_policy")
+
+    assert payload["summary"]["current_policy_blocked_confirmation_cohorts"] == 1
+    blocked = payload["actions"]["current_policy_blocked_confirmation_cohorts"][0]
+    assert blocked["timeframe"] == "15m"
+    assert blocked["side"] == "long"
+    assert blocked["confirmation_bucket"] == "confirmed_aligned"
+    assert blocked["confirmation_timeframes"] == ["1h"]
+    assert blocked["confirmation_regime_ids"] == ["uptrend_normal_vol"]
+    assert "recent_sum_r<=-2" in blocked["reason_codes"]
+    assert blocked_payload["blocked_confirmation_cohorts"] == [blocked]
+    assert blocked_payload["current_policy_blocked_confirmation_cohorts_count"] == 1
+    assert blocked_payload["combined_blocked_confirmation_cohorts_count"] == 1

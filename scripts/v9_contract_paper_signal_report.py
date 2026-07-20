@@ -973,6 +973,39 @@ def compact_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def compact_confirmation_scoreboard_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "timeframe": row.get("timeframe"),
+        "side": row.get("side"),
+        "status": row.get("status"),
+        "reason_codes": row.get("reason_codes") or [],
+        "confirmation_bucket": row.get("confirmation_bucket"),
+        "confirmation_timeframes": row.get("confirmation_timeframes") or [],
+        "confirmation_regime_ids": row.get("confirmation_regime_ids") or [],
+        "recent_completed": row.get("recent_completed"),
+        "recent_win_rate": row.get("recent_win_rate"),
+        "recent_sum_r": row.get("recent_sum_r"),
+        "recent_profit_factor": row.get("recent_profit_factor"),
+        "recent_max_drawdown_r": row.get("recent_max_drawdown_r"),
+        "recent_trailing_losses": row.get("recent_trailing_losses"),
+        "completed": row.get("completed"),
+        "sum_r": row.get("sum_r"),
+        "profit_factor": row.get("profit_factor"),
+        "max_drawdown_r": row.get("max_drawdown_r"),
+        "trailing_losses": row.get("trailing_losses"),
+        "active": row.get("active"),
+        "active_r_known": row.get("active_r_known"),
+        "active_profit": row.get("active_profit"),
+        "active_loss": row.get("active_loss"),
+        "active_sum_r": row.get("active_sum_r"),
+        "active_avg_r": row.get("active_avg_r"),
+        "active_min_r": row.get("active_min_r"),
+        "active_max_r": row.get("active_max_r"),
+        "edge_score": row.get("edge_score"),
+        "latest_completed_at": row.get("latest_completed_at"),
+    }
+
+
 def compact_active_record(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "timeframe": row.get("timeframe"),
@@ -1133,6 +1166,28 @@ def scoreboard_action_rows(
     return blocked, fresh_veto, promote, watch
 
 
+def confirmation_cohort_action_rows(
+    scoreboard: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    blocked = [
+        compact_confirmation_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") == "stop_candidate"
+    ]
+    promote = [
+        compact_confirmation_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") == "promote_candidate"
+    ]
+    watch = [
+        compact_confirmation_scoreboard_row(row)
+        for row in scoreboard
+        if row.get("status") in {"watch", "collecting"}
+        and (safe_float(row.get("recent_sum_r")) > 0.0 or safe_float(row.get("active_sum_r")) > 0.0)
+    ]
+    return blocked, promote, watch
+
+
 def build_action_plan(
     scoreboard: list[dict[str, Any]],
     *,
@@ -1141,7 +1196,10 @@ def build_action_plan(
     portfolio_risk: dict[str, Any],
     current_policy_portfolio_risk: dict[str, Any] | None = None,
     current_policy_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_fast_shadow_confirmation_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_active_rows: list[dict[str, Any]] | None = None,
     current_decision_policy_version: str = "",
 ) -> dict[str, Any]:
@@ -1161,6 +1219,24 @@ def build_action_plan(
         current_policy_shadow_promote,
         current_policy_shadow_watch,
     ) = scoreboard_action_rows(current_policy_shadow_scoreboard, args)
+    current_policy_confirmation_scoreboard = current_policy_confirmation_scoreboard or []
+    (
+        current_policy_blocked_confirmation,
+        current_policy_promote_confirmation,
+        current_policy_watch_confirmation,
+    ) = confirmation_cohort_action_rows(current_policy_confirmation_scoreboard)
+    current_policy_shadow_confirmation_scoreboard = current_policy_shadow_confirmation_scoreboard or []
+    (
+        current_policy_shadow_blocked_confirmation,
+        current_policy_shadow_promote_confirmation,
+        current_policy_shadow_watch_confirmation,
+    ) = confirmation_cohort_action_rows(current_policy_shadow_confirmation_scoreboard)
+    current_policy_fast_shadow_confirmation_scoreboard = current_policy_fast_shadow_confirmation_scoreboard or []
+    (
+        current_policy_fast_shadow_blocked_confirmation,
+        current_policy_fast_shadow_promote_confirmation,
+        current_policy_fast_shadow_watch_confirmation,
+    ) = confirmation_cohort_action_rows(current_policy_fast_shadow_confirmation_scoreboard)
     current_policy_shadow_active_queue_all = active_shadow_queue(
         current_policy_shadow_active_rows or [],
         args,
@@ -1180,10 +1256,23 @@ def build_action_plan(
         "current_policy_fresh_analog_veto_pairs": current_policy_fresh_veto[:max_rows],
         "current_policy_promote_candidates": current_policy_promote[:max_rows],
         "current_policy_positive_watchlist": current_policy_watch[:max_rows],
+        "current_policy_blocked_confirmation_cohorts": current_policy_blocked_confirmation[:max_rows],
+        "current_policy_promote_confirmation_cohorts": current_policy_promote_confirmation[:max_rows],
+        "current_policy_confirmation_watchlist": current_policy_watch_confirmation[:max_rows],
         "current_policy_shadow_blocked_pairs": current_policy_shadow_blocked[:max_rows],
         "current_policy_shadow_fresh_analog_veto_pairs": current_policy_shadow_fresh_veto[:max_rows],
         "current_policy_shadow_promote_candidates": current_policy_shadow_promote[:max_rows],
         "current_policy_shadow_positive_watchlist": current_policy_shadow_watch[:max_rows],
+        "current_policy_shadow_blocked_confirmation_cohorts": current_policy_shadow_blocked_confirmation[:max_rows],
+        "current_policy_shadow_promote_confirmation_cohorts": current_policy_shadow_promote_confirmation[:max_rows],
+        "current_policy_shadow_confirmation_watchlist": current_policy_shadow_watch_confirmation[:max_rows],
+        "current_policy_fast_shadow_blocked_confirmation_cohorts": current_policy_fast_shadow_blocked_confirmation[
+            :max_rows
+        ],
+        "current_policy_fast_shadow_promote_confirmation_cohorts": current_policy_fast_shadow_promote_confirmation[
+            :max_rows
+        ],
+        "current_policy_fast_shadow_confirmation_watchlist": current_policy_fast_shadow_watch_confirmation[:max_rows],
         "current_policy_shadow_active_watchlist": active_watchlist(current_policy_shadow_active_rows or [], max_rows),
         "current_policy_shadow_active_queue": current_policy_shadow_active_queue_all[:max_rows],
         "current_policy_shadow_active_grade_counts": current_policy_shadow_active_grade_counts,
@@ -1199,10 +1288,23 @@ def build_action_plan(
             "current_policy_fresh_analog_veto_pairs": len(current_policy_fresh_veto),
             "current_policy_promote_candidates": len(current_policy_promote),
             "current_policy_positive_watchlist": len(current_policy_watch),
+            "current_policy_blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
+            "current_policy_promote_confirmation_cohorts": len(current_policy_promote_confirmation),
+            "current_policy_confirmation_watchlist": len(current_policy_watch_confirmation),
             "current_policy_shadow_blocked_pairs": len(current_policy_shadow_blocked),
             "current_policy_shadow_fresh_analog_veto_pairs": len(current_policy_shadow_fresh_veto),
             "current_policy_shadow_promote_candidates": len(current_policy_shadow_promote),
             "current_policy_shadow_positive_watchlist": len(current_policy_shadow_watch),
+            "current_policy_shadow_blocked_confirmation_cohorts": len(current_policy_shadow_blocked_confirmation),
+            "current_policy_shadow_promote_confirmation_cohorts": len(current_policy_shadow_promote_confirmation),
+            "current_policy_shadow_confirmation_watchlist": len(current_policy_shadow_watch_confirmation),
+            "current_policy_fast_shadow_blocked_confirmation_cohorts": len(
+                current_policy_fast_shadow_blocked_confirmation
+            ),
+            "current_policy_fast_shadow_promote_confirmation_cohorts": len(
+                current_policy_fast_shadow_promote_confirmation
+            ),
+            "current_policy_fast_shadow_confirmation_watchlist": len(current_policy_fast_shadow_watch_confirmation),
             "current_policy_shadow_active_watchlist": len(current_policy_shadow_active_rows or []),
             "current_policy_shadow_active_promising": current_policy_shadow_active_grade_counts.get(
                 "promising_active", 0
@@ -1232,6 +1334,9 @@ def build_action_plan(
             "fresh_analog_veto_pairs": len(current_policy_fresh_veto),
             "promote_candidates": len(current_policy_promote),
             "positive_watchlist": len(current_policy_watch),
+            "blocked_confirmation_cohorts": len(current_policy_blocked_confirmation),
+            "promote_confirmation_cohorts": len(current_policy_promote_confirmation),
+            "confirmation_watchlist": len(current_policy_watch_confirmation),
         },
         "current_policy_shadow_summary": {
             "decision_policy_version": current_decision_policy_version,
@@ -1240,6 +1345,9 @@ def build_action_plan(
             "fresh_analog_veto_pairs": len(current_policy_shadow_fresh_veto),
             "promote_candidates": len(current_policy_shadow_promote),
             "positive_watchlist": len(current_policy_shadow_watch),
+            "blocked_confirmation_cohorts": len(current_policy_shadow_blocked_confirmation),
+            "promote_confirmation_cohorts": len(current_policy_shadow_promote_confirmation),
+            "confirmation_watchlist": len(current_policy_shadow_watch_confirmation),
             "active_watchlist": len(current_policy_shadow_active_rows or []),
             "active_grade_counts": current_policy_shadow_active_grade_counts,
         },
@@ -1307,19 +1415,33 @@ def blocked_pairs_payload(
         scope,
         include_fresh_veto=include_fresh_veto,
     )
+    blocked_confirmation_key = (
+        "current_policy_blocked_confirmation_cohorts"
+        if scope == "current_policy"
+        else "blocked_confirmation_cohorts"
+    )
+    blocked_confirmation_cohorts = actions.get(blocked_confirmation_key) or []
+    if not isinstance(blocked_confirmation_cohorts, list):
+        blocked_confirmation_cohorts = []
     return {
         "kind": "contract_paper_blocked_pairs_v1",
         "updated_at": payload["updated_at"],
         "blocked_pairs_scope": scope,
         "include_fresh_analog_veto": include_fresh_veto,
         "blocked_pairs": blocked_pairs,
+        "blocked_confirmation_cohorts": blocked_confirmation_cohorts,
         "global_blocked_pairs_count": len(actions.get("blocked_pairs") or []),
         "global_fresh_analog_veto_pairs_count": len(actions.get("fresh_analog_veto_pairs") or []),
+        "global_blocked_confirmation_cohorts_count": len(actions.get("blocked_confirmation_cohorts") or []),
         "current_policy_blocked_pairs_count": len(actions.get("current_policy_blocked_pairs") or []),
         "current_policy_fresh_analog_veto_pairs_count": len(
             actions.get("current_policy_fresh_analog_veto_pairs") or []
         ),
+        "current_policy_blocked_confirmation_cohorts_count": len(
+            actions.get("current_policy_blocked_confirmation_cohorts") or []
+        ),
         "combined_blocked_pairs_count": len(blocked_pairs),
+        "combined_blocked_confirmation_cohorts_count": len(blocked_confirmation_cohorts),
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
     }
@@ -1828,7 +1950,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         portfolio_risk=portfolio_risk,
         current_policy_portfolio_risk=current_policy_portfolio_risk,
         current_policy_scoreboard=current_policy_scoreboard,
+        current_policy_confirmation_scoreboard=current_policy_confirmation_scoreboard,
         current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
+        current_policy_shadow_confirmation_scoreboard=current_policy_shadow_confirmation_scoreboard,
+        current_policy_fast_shadow_confirmation_scoreboard=current_policy_fast_shadow_confirmation_scoreboard,
         current_policy_shadow_active_rows=current_policy_shadow_active_rows,
         current_decision_policy_version=current_policy_version,
     )
@@ -1883,6 +2008,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_active": len(current_policy_active_rows),
             "current_policy_scoreboard_groups": len(current_policy_scoreboard),
             "current_policy_confirmation_scoreboard_groups": len(current_policy_confirmation_scoreboard),
+            "current_policy_blocked_confirmation_cohorts": actions["summary"][
+                "current_policy_blocked_confirmation_cohorts"
+            ],
+            "current_policy_confirmation_watchlist": actions["summary"]["current_policy_confirmation_watchlist"],
             "current_policy_shadow_records": len(current_policy_shadow_records),
             "current_policy_shadow_completed": len(current_policy_shadow_completed_rows),
             "current_policy_shadow_active": len(current_policy_shadow_active_rows),
@@ -1906,6 +2035,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_shadow_confirmation_scoreboard_groups": len(
                 current_policy_shadow_confirmation_scoreboard
             ),
+            "current_policy_shadow_blocked_confirmation_cohorts": actions["summary"][
+                "current_policy_shadow_blocked_confirmation_cohorts"
+            ],
+            "current_policy_shadow_confirmation_watchlist": actions["summary"][
+                "current_policy_shadow_confirmation_watchlist"
+            ],
             "current_policy_shadow_promote_candidates": sum(
                 1 for row in current_policy_shadow_scoreboard if row.get("status") == "promote_candidate"
             ),
@@ -1926,6 +2061,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_policy_fast_shadow_confirmation_scoreboard_groups": len(
                 current_policy_fast_shadow_confirmation_scoreboard
             ),
+            "current_policy_fast_shadow_blocked_confirmation_cohorts": actions["summary"][
+                "current_policy_fast_shadow_blocked_confirmation_cohorts"
+            ],
+            "current_policy_fast_shadow_confirmation_watchlist": actions["summary"][
+                "current_policy_fast_shadow_confirmation_watchlist"
+            ],
             "current_policy_fast_shadow_retest_candidates": sum(
                 1 for row in current_policy_fast_shadow_scoreboard if row.get("status") == "promote_candidate"
             ),
@@ -2042,6 +2183,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
             f"{summary['current_policy_confirmation_scoreboard_groups']}/"
             f"{summary['current_policy_shadow_confirmation_scoreboard_groups']}/"
             f"{summary['current_policy_fast_shadow_confirmation_scoreboard_groups']}`"
+        ),
+        (
+            f"- current_policy confirmation blocked/watch: "
+            f"`{summary['current_policy_blocked_confirmation_cohorts']}/"
+            f"{summary['current_policy_confirmation_watchlist']}`"
         ),
         (
             f"- shadow records/completed/active/groups: "
@@ -2468,7 +2614,9 @@ def format_text(payload: dict[str, Any]) -> str:
             f"action={summary['current_policy_fast_shadow_retest_next_action']}"
         ),
         f"actions_blocked={summary['blocked_pairs']} fresh_veto={summary['fresh_analog_veto_pairs']} "
-        f"positive_watch={summary['positive_watchlist']}",
+        f"positive_watch={summary['positive_watchlist']} "
+        f"confirm_blocked={summary['current_policy_blocked_confirmation_cohorts']} "
+        f"confirm_watch={summary['current_policy_confirmation_watchlist']}",
         "safety=paper_authorized:False live:False",
     ]
     for row in payload["policy_scoreboard"][:5]:
