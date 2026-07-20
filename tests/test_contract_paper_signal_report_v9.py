@@ -111,6 +111,70 @@ def test_paper_report_surfaces_portfolio_overexposure_in_actions(tmp_path: Path)
     assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
 
 
+def test_paper_report_separates_current_policy_portfolio_risk(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = [
+        {
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "status": "open",
+            "symbol": "OLD1USDT",
+            "side": "long",
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "analog_supported": True,
+        },
+        {
+            "created_at": "2026-01-01T01:00:00+00:00",
+            "updated_at": "2026-01-01T01:00:00+00:00",
+            "status": "open",
+            "symbol": "OLD2USDT",
+            "side": "short",
+            "entry_price": 100.0,
+            "stop_loss": 102.0,
+            "take_profit": 96.0,
+            "analog_supported": True,
+        },
+        {
+            "created_at": "2026-01-01T02:00:00+00:00",
+            "updated_at": "2026-01-01T02:00:00+00:00",
+            "status": "open",
+            "symbol": "NEWUSDT",
+            "side": "long",
+            "decision_policy_version": "policy_v2",
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "analog_supported": True,
+        },
+    ]
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        portfolio_max_active=1,
+        current_decision_policy_version="policy_v2",
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["portfolio_risk"]["scope"] == "global"
+    assert payload["portfolio_risk"]["status"] == "overexposed"
+    assert payload["portfolio_risk"]["active"] == 3
+    assert payload["current_policy_portfolio_risk"]["scope"] == "current_policy"
+    assert payload["current_policy_portfolio_risk"]["decision_policy_version"] == "policy_v2"
+    assert payload["current_policy_portfolio_risk"]["status"] == "normal"
+    assert payload["current_policy_portfolio_risk"]["active"] == 1
+    assert payload["actions"]["portfolio_risk"]["status"] == "overexposed"
+    assert payload["actions"]["current_policy_portfolio_risk"]["status"] == "normal"
+    assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
+    assert payload["actions"]["summary"]["current_policy_portfolio_block_new_focus"] is False
+    assert payload["summary"]["current_policy_portfolio_risk_status"] == "normal"
+
+
 def test_paper_report_projects_active_drain_eta() -> None:
     args = Namespace(portfolio_max_active=2)
     rows = [

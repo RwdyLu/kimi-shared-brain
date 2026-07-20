@@ -150,18 +150,30 @@ def journal_shadow_retest_pair_refs(args: argparse.Namespace) -> set[tuple[str, 
     )
 
 
+def risk_portfolio_from_payload(payload: dict[str, Any], scope: str) -> tuple[dict[str, Any], str]:
+    actions = payload.get("actions") or {}
+    if scope == "current_policy":
+        for key in ("current_policy_portfolio_risk", "portfolio_risk"):
+            portfolio = payload.get(key) or actions.get(key)
+            if isinstance(portfolio, dict):
+                return portfolio, key
+    portfolio = payload.get("portfolio_risk") or actions.get("portfolio_risk") or {}
+    return portfolio if isinstance(portfolio, dict) else {}, "portfolio_risk"
+
+
 def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
     path = str(getattr(args, "journal_risk_actions_json", "") or "")
+    scope = str(getattr(args, "journal_risk_scope", "current_policy") or "current_policy")
     if not path:
-        return {"enabled": False}
+        return {"enabled": False, "scope": scope}
     p = Path(path)
     if not p.exists():
-        return {"enabled": False, "path": path, "missing": True}
+        return {"enabled": False, "path": path, "missing": True, "scope": scope}
     try:
         payload = json.loads(p.read_text())
     except json.JSONDecodeError:
-        return {"enabled": False, "path": path, "invalid_json": True}
-    portfolio = payload.get("portfolio_risk") or (payload.get("actions") or {}).get("portfolio_risk") or {}
+        return {"enabled": False, "path": path, "invalid_json": True, "scope": scope}
+    portfolio, source_key = risk_portfolio_from_payload(payload, scope)
     segment_risk = portfolio.get("segment_risk") or {}
     blocked_sides = set(str(side).lower() for side in (portfolio.get("blocked_sides") or []))
     blocked_sides.update(str(side).lower() for side in (segment_risk.get("blocked_sides") or []))
@@ -170,6 +182,9 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "enabled": True,
         "path": path,
+        "scope": scope,
+        "source_key": source_key,
+        "decision_policy_version": str(portfolio.get("decision_policy_version") or ""),
         "status": portfolio.get("status"),
         "block_new_focus": bool(portfolio.get("block_new_focus")),
         "active": int(portfolio.get("active") or 0),
@@ -180,6 +195,12 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
         "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
         "segments": segments,
     }
+
+
+def active_cap_record_allowed(record: dict[str, Any], *, scope: str, current_policy_version: str) -> bool:
+    if scope != "current_policy":
+        return True
+    return str(record.get("decision_policy_version") or "") == current_policy_version
 
 
 def journal_portfolio_drawdown_recovery_probe_allowed(
@@ -1553,6 +1574,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     respect_portfolio_side_risk = bool(getattr(args, "journal_respect_portfolio_side_risk", True))
     max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
     max_active_total = int(getattr(args, "journal_max_active_total", 0) or 0)
+    active_cap_scope = str(getattr(args, "journal_active_cap_scope", "current_policy") or "current_policy")
+    current_policy_version = str(execution_config.get("decision_policy_version") or DECISION_POLICY_VERSION)
     updated = 0
     migrated = 0
     blocked_candidates = 0
@@ -1634,6 +1657,12 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     active_total = 0
     for record in records:
         if record.get("status") not in {"pending_entry", "open"}:
+            continue
+        if not active_cap_record_allowed(
+            record,
+            scope=active_cap_scope,
+            current_policy_version=current_policy_version,
+        ):
             continue
         active_total += 1
         pair = (str(record.get("symbol", "")).upper(), str(record.get("side", "")).lower())
@@ -1884,6 +1913,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
         "journal_blocked_candidate_rows": blocked_candidates,
         "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
+        "journal_risk_scope": risk_controls.get("scope"),
+        "journal_risk_source_key": risk_controls.get("source_key"),
+        "journal_risk_decision_policy_version": risk_controls.get("decision_policy_version"),
         "journal_portfolio_risk_status": risk_controls.get("status"),
         "journal_portfolio_block_new_records": bool(
             respect_portfolio_risk and risk_controls.get("block_new_focus")
@@ -1900,6 +1932,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_global_active_cap_blocked_candidate_rows": global_active_cap_blocked_candidates,
         "journal_max_active_per_pair": max_active_per_pair,
         "journal_max_active_total": max_active_total,
+        "journal_active_cap_scope": active_cap_scope,
+        "journal_active_cap_policy_version": current_policy_version,
+        "journal_active_total_for_cap": active_total,
         "journal_active_total_cap_blocked_candidate_rows": active_total_cap_blocked_candidates,
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "paper_execution": execution_config,
@@ -1971,6 +2006,8 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
+            "journal_risk_scope": str(getattr(args, "journal_risk_scope", "current_policy")),
+            "journal_active_cap_scope": str(getattr(args, "journal_active_cap_scope", "current_policy")),
             "journal_shadow_jsonl": str(getattr(args, "journal_shadow_jsonl", "")),
             "journal_shadow_record_mode": str(getattr(args, "journal_shadow_record_mode", "inherit")),
             "journal_shadow_min_analog_samples": int(getattr(args, "journal_shadow_min_analog_samples", 20)),
@@ -2174,7 +2211,15 @@ def format_text(payload: dict[str, Any]) -> str:
         f"journal_updated_records={(payload.get('journal') or {}).get('updated_records')}",
         f"journal_migrated_legacy_records={(payload.get('journal') or {}).get('migrated_legacy_records')}",
         f"journal_open_records={(payload.get('journal') or {}).get('open_records')}",
+        "journal_risk "
+        f"scope={(payload.get('journal') or {}).get('journal_risk_scope')} "
+        f"source={(payload.get('journal') or {}).get('journal_risk_source_key')} "
+        f"policy={(payload.get('journal') or {}).get('journal_risk_decision_policy_version')}",
         f"journal_max_active_total={(payload.get('journal') or {}).get('journal_max_active_total')}",
+        "journal_active_cap "
+        f"scope={(payload.get('journal') or {}).get('journal_active_cap_scope')} "
+        f"policy={(payload.get('journal') or {}).get('journal_active_cap_policy_version')} "
+        f"active_for_cap={(payload.get('journal') or {}).get('journal_active_total_for_cap')}",
         "journal_active_total_cap_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
         "journal_global_active_cap_blocked_candidate_rows="
@@ -2357,6 +2402,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="artifacts/v9/contract_lab/contract_paper_strategy_actions_latest.json",
         help="Optional actions JSON with portfolio_risk and blocked_sides used to stop new paper journal records.",
     )
+    parser.add_argument(
+        "--journal-risk-scope",
+        choices=("current_policy", "global"),
+        default="current_policy",
+        help="Which portfolio risk object to use from the actions JSON for new journal records.",
+    )
     parser.add_argument("--journal-respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-respect-global-portfolio-active-cap", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--journal-allow-portfolio-drawdown-recovery-probes", action=argparse.BooleanOptionalAction, default=True)
@@ -2384,6 +2435,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=12,
         help="If positive, do not add a new paper record when this journal already has this many active records.",
+    )
+    parser.add_argument(
+        "--journal-active-cap-scope",
+        choices=("current_policy", "all"),
+        default="current_policy",
+        help="Which existing active journal records count toward journal active caps.",
     )
     parser.add_argument(
         "--journal-record-mode",

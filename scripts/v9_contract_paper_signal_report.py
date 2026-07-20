@@ -425,6 +425,9 @@ def build_portfolio_risk(
     completed_rows: list[dict[str, Any]],
     active_rows: list[dict[str, Any]],
     args: argparse.Namespace,
+    *,
+    scope: str = "global",
+    decision_policy_version: str = "",
 ) -> dict[str, Any]:
     recent_n = int(arg_value(args, "portfolio_recent_trades", 100))
     max_active = int(arg_value(args, "portfolio_max_active", 12))
@@ -471,6 +474,8 @@ def build_portfolio_risk(
         status = "portfolio_drawdown"
     block_new_focus = bool(arg_value(args, "portfolio_block_new_focus_on_risk", True)) and bool(reason_codes)
     return {
+        "scope": scope,
+        "decision_policy_version": decision_policy_version,
         "status": status,
         "reason_codes": reason_codes,
         "block_new_focus": block_new_focus,
@@ -1024,6 +1029,7 @@ def build_action_plan(
     updated_at: str,
     args: argparse.Namespace,
     portfolio_risk: dict[str, Any],
+    current_policy_portfolio_risk: dict[str, Any] | None = None,
     current_policy_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
     current_policy_shadow_active_rows: list[dict[str, Any]] | None = None,
@@ -1051,6 +1057,7 @@ def build_action_plan(
         max(len(current_policy_shadow_active_rows or []), max_rows),
     )
     current_policy_shadow_active_grade_counts = active_shadow_grade_counts(current_policy_shadow_active_queue_all)
+    current_policy_portfolio_risk = current_policy_portfolio_risk or portfolio_risk
     return {
         "kind": "contract_paper_strategy_actions_v1",
         "updated_at": updated_at,
@@ -1071,6 +1078,7 @@ def build_action_plan(
         "current_policy_shadow_active_queue": current_policy_shadow_active_queue_all[:max_rows],
         "current_policy_shadow_active_grade_counts": current_policy_shadow_active_grade_counts,
         "portfolio_risk": portfolio_risk,
+        "current_policy_portfolio_risk": current_policy_portfolio_risk,
         "summary": {
             "blocked_pairs": len(blocked),
             "fresh_analog_veto_pairs": len(fresh_veto),
@@ -1100,6 +1108,12 @@ def build_action_plan(
             "portfolio_risk_status": portfolio_risk.get("status"),
             "portfolio_block_new_focus": bool(portfolio_risk.get("block_new_focus")),
             "portfolio_blocked_sides": portfolio_risk.get("blocked_sides") or [],
+            "current_policy_portfolio_risk_status": current_policy_portfolio_risk.get("status"),
+            "current_policy_portfolio_block_new_focus": bool(
+                current_policy_portfolio_risk.get("block_new_focus")
+            ),
+            "current_policy_portfolio_active": current_policy_portfolio_risk.get("active"),
+            "current_policy_portfolio_active_excess": current_policy_portfolio_risk.get("active_excess"),
         },
         "current_policy_summary": {
             "decision_policy_version": current_decision_policy_version,
@@ -1576,16 +1590,34 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     current_policy_fast_shadow_active_stats = active_unrealized_stats(current_policy_fast_shadow_active_rows)
     portfolio_drain = build_portfolio_drain(active_rows, args)
     portfolio_segment_risk = build_portfolio_segment_risk(completed_rows, active_rows, args)
-    portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args)
+    portfolio_risk = build_portfolio_risk(completed_rows, active_rows, args, scope="global")
     portfolio_risk["segment_risk"] = portfolio_segment_risk
     portfolio_risk["drain"] = portfolio_drain
     portfolio_risk["blocked_sides"] = portfolio_segment_risk["blocked_sides"]
     portfolio_risk["side_reason_codes"] = portfolio_segment_risk["reason_codes"]
+    current_policy_portfolio_drain = build_portfolio_drain(current_policy_active_rows, args)
+    current_policy_portfolio_segment_risk = build_portfolio_segment_risk(
+        current_policy_completed_rows,
+        current_policy_active_rows,
+        args,
+    )
+    current_policy_portfolio_risk = build_portfolio_risk(
+        current_policy_completed_rows,
+        current_policy_active_rows,
+        args,
+        scope="current_policy",
+        decision_policy_version=current_policy_version,
+    )
+    current_policy_portfolio_risk["segment_risk"] = current_policy_portfolio_segment_risk
+    current_policy_portfolio_risk["drain"] = current_policy_portfolio_drain
+    current_policy_portfolio_risk["blocked_sides"] = current_policy_portfolio_segment_risk["blocked_sides"]
+    current_policy_portfolio_risk["side_reason_codes"] = current_policy_portfolio_segment_risk["reason_codes"]
     actions = build_action_plan(
         scoreboard,
         updated_at=updated_at,
         args=args,
         portfolio_risk=portfolio_risk,
+        current_policy_portfolio_risk=current_policy_portfolio_risk,
         current_policy_scoreboard=current_policy_scoreboard,
         current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
         current_policy_shadow_active_rows=current_policy_shadow_active_rows,
@@ -1694,6 +1726,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "positive_watchlist": len(actions["positive_watchlist"]),
             "portfolio_risk_status": portfolio_risk["status"],
             "portfolio_block_new_focus": bool(portfolio_risk["block_new_focus"]),
+            "current_policy_portfolio_risk_status": current_policy_portfolio_risk["status"],
+            "current_policy_portfolio_block_new_focus": bool(current_policy_portfolio_risk["block_new_focus"]),
+            "current_policy_portfolio_active_excess": current_policy_portfolio_risk["active_excess"],
             "portfolio_blocked_sides": portfolio_segment_risk["blocked_sides"],
             "portfolio_eta_to_active_cap_hours_upper_bound": portfolio_drain[
                 "eta_to_active_cap_hours_upper_bound"
@@ -1703,6 +1738,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "portfolio_risk": portfolio_risk,
         "portfolio_drain": portfolio_drain,
         "portfolio_segment_risk": portfolio_segment_risk,
+        "current_policy_portfolio_risk": current_policy_portfolio_risk,
+        "current_policy_portfolio_drain": current_policy_portfolio_drain,
+        "current_policy_portfolio_segment_risk": current_policy_portfolio_segment_risk,
         "actions": actions,
         "scoreboard": scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
         "regime_scoreboard": regime_scoreboard[: int(arg_value(args, "scoreboard_max_rows", 40))],
@@ -2052,6 +2090,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
 def format_text(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     portfolio = payload.get("portfolio_risk") or {}
+    current_policy_portfolio = payload.get("current_policy_portfolio_risk") or {}
     lines = [
         f"updated_at={payload['updated_at']}",
         f"records={summary['records']} active={summary['active']} open={summary['open']} "
@@ -2070,6 +2109,12 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{fmt_num((portfolio.get('drain') or {}).get('remaining_hours_to_horizon_median'), 2)}/"
         f"{fmt_num((portfolio.get('drain') or {}).get('remaining_hours_to_horizon_max'), 2)} "
         f"past_stale={(portfolio.get('drain') or {}).get('past_stale_after')}",
+        f"current_policy_portfolio_risk={current_policy_portfolio.get('status')} "
+        f"block_new_focus={current_policy_portfolio.get('block_new_focus')} "
+        f"active={current_policy_portfolio.get('active')} "
+        f"active_excess={current_policy_portfolio.get('active_excess')} "
+        f"reasons={','.join(current_policy_portfolio.get('reason_codes') or [])} "
+        f"blocked_sides={','.join(current_policy_portfolio.get('blocked_sides') or [])}",
         (
             f"scoreboard_groups={summary['scoreboard_groups']} "
             f"regime_groups={summary['regime_scoreboard_groups']} "

@@ -100,6 +100,8 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         journal_allowed_pairs="",
         journal_max_active_per_pair=0,
         journal_max_active_total=0,
+        journal_risk_scope="current_policy",
+        journal_active_cap_scope="current_policy",
         journal_record_mode="all_signals",
         max_journal_records=1000,
         max_shadow_journal_records=1000,
@@ -480,6 +482,71 @@ def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(t
     assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 2
     assert summary["journal_portfolio_side_blocked_candidate_rows"] == 0
     assert rows == []
+
+
+def test_latest_market_signal_prefers_current_policy_portfolio_risk_scope(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "scope": "global",
+                    "status": "overexposed",
+                    "block_new_focus": True,
+                    "active": 114,
+                    "active_excess": 102,
+                    "reason_codes": ["portfolio_active>12"],
+                    "blocked_sides": ["long", "short"],
+                    "thresholds": {"portfolio_max_active": 12},
+                },
+                "current_policy_portfolio_risk": {
+                    "scope": "current_policy",
+                    "decision_policy_version": signal_mod.DECISION_POLICY_VERSION,
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "active": 0,
+                    "active_excess": 0,
+                    "reason_codes": [],
+                    "blocked_sides": [],
+                    "thresholds": {"portfolio_max_active": 12},
+                },
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_risk_scope"] == "current_policy"
+    assert summary["journal_risk_source_key"] == "current_policy_portfolio_risk"
+    assert summary["journal_portfolio_risk_status"] == "normal"
+    assert summary["journal_global_portfolio_active"] == 0
+    assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 0
+    assert rows[0]["symbol"] == "AAAUSDT"
 
 
 def test_latest_market_signal_writes_shadow_records_for_portfolio_risk_blocks(tmp_path: Path) -> None:
@@ -1221,6 +1288,61 @@ def test_latest_market_signal_journal_total_active_cap_counts_existing_open_reco
     assert summary["journal_active_total_cap_blocked_candidate_rows"] == 1
     assert len(rows) == 1
     assert rows[0]["symbol"] == "OLDUSDT"
+
+
+def test_latest_market_signal_current_policy_active_cap_ignores_legacy_open_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_max_active_total = 1
+    legacy = {
+        "kind": "contract_latest_market_signal_paper_journal_v1",
+        "signal_id": "legacy-open",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "status": "open",
+        "symbol": "OLDUSDT",
+        "side": "long",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "entry_price": 100.0,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "risk_per_unit": 2.0,
+        "outcome_horizon_bars": 12,
+        "analog_supported": True,
+    }
+    signal_mod.write_journal(Path(args.journal_jsonl), [legacy])
+    payload = {
+        "updated_at": "2026-01-01T01:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T01:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_active_cap_scope"] == "current_policy"
+    assert summary["journal_active_total_for_cap"] == 1
+    assert summary["open_records"] == 2
+    assert summary["journal_active_total_cap_blocked_candidate_rows"] == 0
+    assert [row["symbol"] for row in rows] == ["OLDUSDT", "AAAUSDT"]
+    assert "decision_policy_version" not in rows[0]
+    assert rows[1]["decision_policy_version"] == signal_mod.DECISION_POLICY_VERSION
 
 
 def test_realistic_paper_execution_waits_for_latency_and_deducts_costs() -> None:
