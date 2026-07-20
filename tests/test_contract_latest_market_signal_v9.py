@@ -308,6 +308,139 @@ def test_latest_market_signal_journal_blocks_pairs_from_json(tmp_path: Path) -> 
     assert rows[0]["side"] == "short"
 
 
+def test_latest_market_signal_journal_blocks_side_from_portfolio_actions(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "normal",
+                    "block_new_focus": False,
+                    "reason_codes": [],
+                    "blocked_sides": ["short"],
+                    "segment_risk": {"blocked_sides": ["short"]},
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["journal_portfolio_risk_status"] == "normal"
+    assert summary["journal_portfolio_blocked_sides"] == ["short"]
+    assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 0
+    assert summary["journal_portfolio_side_blocked_candidate_rows"] == 1
+    assert rows[0]["symbol"] == "AAAUSDT"
+    assert rows[0]["side"] == "long"
+
+
+def test_latest_market_signal_journal_blocks_all_when_portfolio_is_overexposed(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "overexposed",
+                    "block_new_focus": True,
+                    "reason_codes": ["portfolio_active>12"],
+                    "blocked_sides": ["long", "short"],
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "short",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 102.0,
+                    "take_profit": 96.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+
+    assert summary["new_records"] == 0
+    assert summary["journal_portfolio_risk_status"] == "overexposed"
+    assert summary["journal_portfolio_block_new_records"] is True
+    assert summary["journal_portfolio_blocked_sides"] == ["long", "short"]
+    assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 2
+    assert summary["journal_portfolio_side_blocked_candidate_rows"] == 0
+    assert rows == []
+
+
 def test_latest_market_signal_journal_limits_active_pair_records(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT")
     args.journal_max_active_per_pair = 1

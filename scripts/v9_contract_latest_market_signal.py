@@ -106,6 +106,32 @@ def journal_blocked_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, s
     return refs
 
 
+def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
+    path = str(getattr(args, "journal_risk_actions_json", "") or "")
+    if not path:
+        return {"enabled": False}
+    p = Path(path)
+    if not p.exists():
+        return {"enabled": False, "path": path, "missing": True}
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return {"enabled": False, "path": path, "invalid_json": True}
+    portfolio = payload.get("portfolio_risk") or (payload.get("actions") or {}).get("portfolio_risk") or {}
+    segment_risk = portfolio.get("segment_risk") or {}
+    blocked_sides = set(str(side).lower() for side in (portfolio.get("blocked_sides") or []))
+    blocked_sides.update(str(side).lower() for side in (segment_risk.get("blocked_sides") or []))
+    return {
+        "enabled": True,
+        "path": path,
+        "status": portfolio.get("status"),
+        "block_new_focus": bool(portfolio.get("block_new_focus")),
+        "reason_codes": portfolio.get("reason_codes") or [],
+        "blocked_sides": sorted(side for side in blocked_sides if side in {"long", "short"}),
+        "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
+    }
+
+
 def symbols_from_universe(path: str, *, top_n: int, fallback: tuple[str, ...]) -> tuple[str, ...]:
     if not path:
         return fallback[:top_n]
@@ -1327,11 +1353,17 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
+    risk_controls = journal_risk_controls(args)
+    blocked_sides = set(risk_controls.get("blocked_sides") or [])
+    respect_portfolio_risk = bool(getattr(args, "journal_respect_portfolio_risk", True))
+    respect_portfolio_side_risk = bool(getattr(args, "journal_respect_portfolio_side_risk", True))
     max_active_per_pair = int(getattr(args, "journal_max_active_per_pair", 0) or 0)
     max_active_total = int(getattr(args, "journal_max_active_total", 0) or 0)
     updated = 0
     migrated = 0
     blocked_candidates = 0
+    portfolio_risk_blocked_candidates = 0
+    portfolio_side_blocked_candidates = 0
     active_total_cap_blocked_candidates = 0
     by_symbol: dict[str, pd.DataFrame] = {}
 
@@ -1381,6 +1413,12 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             continue
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
+            continue
+        if respect_portfolio_risk and risk_controls.get("block_new_focus"):
+            portfolio_risk_blocked_candidates += 1
+            continue
+        if respect_portfolio_side_risk and pair[1] in blocked_sides:
+            portfolio_side_blocked_candidates += 1
             continue
         if max_active_total > 0 and active_total >= max_active_total:
             active_total_cap_blocked_candidates += 1
@@ -1432,6 +1470,16 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
         "journal_blocked_candidate_rows": blocked_candidates,
+        "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
+        "journal_portfolio_risk_status": risk_controls.get("status"),
+        "journal_portfolio_block_new_records": bool(
+            respect_portfolio_risk and risk_controls.get("block_new_focus")
+        ),
+        "journal_portfolio_blocked_sides": sorted(blocked_sides),
+        "journal_portfolio_risk_blocked_candidate_rows": portfolio_risk_blocked_candidates,
+        "journal_portfolio_side_blocked_candidate_rows": portfolio_side_blocked_candidates,
+        "journal_portfolio_reason_codes": risk_controls.get("reason_codes") or [],
+        "journal_portfolio_side_reason_codes": risk_controls.get("side_reason_codes") or [],
         "journal_max_active_per_pair": max_active_per_pair,
         "journal_max_active_total": max_active_total,
         "journal_active_total_cap_blocked_candidate_rows": active_total_cap_blocked_candidates,
@@ -1503,6 +1551,11 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
                 f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
             ),
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
+            "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
+            "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
+            "journal_respect_portfolio_side_risk": bool(
+                getattr(args, "journal_respect_portfolio_side_risk", True)
+            ),
             "journal_max_active_per_pair": int(args.journal_max_active_per_pair),
             "journal_max_active_total": int(getattr(args, "journal_max_active_total", 0) or 0),
         },
@@ -1607,6 +1660,9 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
+        f"- journal_portfolio_risk: `{(payload.get('journal') or {}).get('journal_portfolio_risk_status')}`",
+        f"- journal_portfolio_blocked_sides: "
+        f"`{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}`",
         "",
         "| rank | symbol | signal | close | regime | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
         "| ---: | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -1649,6 +1705,12 @@ def format_text(payload: dict[str, Any]) -> str:
         f"journal_max_active_total={(payload.get('journal') or {}).get('journal_max_active_total')}",
         "journal_active_total_cap_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
+        "journal_portfolio_risk_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
+        "journal_portfolio_side_blocked_candidate_rows="
+        f"{(payload.get('journal') or {}).get('journal_portfolio_side_blocked_candidate_rows')}",
+        "journal_portfolio_blocked_sides="
+        f"{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}",
         "safety=paper_authorized:False live:False",
     ]
     if payload["top"]:
@@ -1753,6 +1815,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional JSON file with blocked_pairs rows containing timeframe, symbol, and side.",
     )
+    parser.add_argument(
+        "--journal-risk-actions-json",
+        default="artifacts/v9/contract_lab/contract_paper_strategy_actions_latest.json",
+        help="Optional actions JSON with portfolio_risk and blocked_sides used to stop new paper journal records.",
+    )
+    parser.add_argument("--journal-respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--journal-respect-portfolio-side-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--journal-max-active-per-pair",
         type=int,
