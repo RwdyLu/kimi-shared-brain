@@ -70,6 +70,11 @@ PAPER_MIN_FILL_FRAC="${CONTRACT_MARKET_PAPER_MIN_FILL_FRAC:-1.0}"
 PAPER_MIGRATE_LEGACY_RECORDS="${CONTRACT_MARKET_PAPER_MIGRATE_LEGACY_RECORDS:-all}"
 JOURNAL_MAX_ACTIVE_PER_PAIR="${CONTRACT_MARKET_JOURNAL_MAX_ACTIVE_PER_PAIR:-1}"
 JOURNAL_RECORD_MODE="${CONTRACT_MARKET_JOURNAL_RECORD_MODE:-analog_supported}"
+JOURNAL_SHADOW_RECORD_MODE="${CONTRACT_MARKET_JOURNAL_SHADOW_RECORD_MODE:-positive_expectancy}"
+JOURNAL_SHADOW_MIN_ANALOG_SAMPLES="${CONTRACT_MARKET_JOURNAL_SHADOW_MIN_ANALOG_SAMPLES:-20}"
+JOURNAL_SHADOW_MIN_EXPECTANCY_R="${CONTRACT_MARKET_JOURNAL_SHADOW_MIN_EXPECTANCY_R:-0.15}"
+JOURNAL_SHADOW_MIN_HIT_RATE="${CONTRACT_MARKET_JOURNAL_SHADOW_MIN_HIT_RATE:-0.30}"
+JOURNAL_SHADOW_MIN_PROFITABLE_RATE="${CONTRACT_MARKET_JOURNAL_SHADOW_MIN_PROFITABLE_RATE:-0.40}"
 REGIME_FILTER_MODE="${CONTRACT_MARKET_REGIME_FILTER_MODE:-block_conflict}"
 REGIME_SYMBOLS="${CONTRACT_MARKET_REGIME_SYMBOLS:-BTCUSDT,ETHUSDT}"
 REGIME_MIN_DIRECTION_VOTES="${CONTRACT_MARKET_REGIME_MIN_DIRECTION_VOTES:-2}"
@@ -81,8 +86,8 @@ if [[ "$SESSION" == -* ]]; then
   echo "session name must not start with '-'" >&2
   exit 2
 fi
-if ! [[ "$TOP_N" =~ ^[0-9]+$ && "$SLEEP_SEC" =~ ^[0-9]+$ && "$LOOKBACK_BARS_IF_EMPTY" =~ ^[0-9]+$ && "$ANALOG_HORIZON_BARS" =~ ^[0-9]+$ && "$PAPER_OUTCOME_HORIZON_BARS" =~ ^[0-9]+$ && "$PAPER_ENTRY_LATENCY_BARS" =~ ^[0-9]+$ && "$JOURNAL_MAX_ACTIVE_PER_PAIR" =~ ^[0-9]+$ && "$REGIME_MIN_DIRECTION_VOTES" =~ ^[0-9]+$ && "$REGIME_VOL_LOOKBACK_BARS" =~ ^[0-9]+$ ]]; then
-  echo "CONTRACT_MARKET_TOP_N, CONTRACT_MARKET_SIGNAL_SLEEP_SEC, CONTRACT_MARKET_LOOKBACK_BARS_IF_EMPTY, CONTRACT_MARKET_ANALOG_HORIZON_BARS, CONTRACT_MARKET_PAPER_OUTCOME_HORIZON_BARS, CONTRACT_MARKET_PAPER_ENTRY_LATENCY_BARS, CONTRACT_MARKET_JOURNAL_MAX_ACTIVE_PER_PAIR, CONTRACT_MARKET_REGIME_MIN_DIRECTION_VOTES, and CONTRACT_MARKET_REGIME_VOL_LOOKBACK_BARS must be integers" >&2
+if ! [[ "$TOP_N" =~ ^[0-9]+$ && "$SLEEP_SEC" =~ ^[0-9]+$ && "$LOOKBACK_BARS_IF_EMPTY" =~ ^[0-9]+$ && "$ANALOG_HORIZON_BARS" =~ ^[0-9]+$ && "$PAPER_OUTCOME_HORIZON_BARS" =~ ^[0-9]+$ && "$PAPER_ENTRY_LATENCY_BARS" =~ ^[0-9]+$ && "$JOURNAL_MAX_ACTIVE_PER_PAIR" =~ ^[0-9]+$ && "$JOURNAL_SHADOW_MIN_ANALOG_SAMPLES" =~ ^[0-9]+$ && "$REGIME_MIN_DIRECTION_VOTES" =~ ^[0-9]+$ && "$REGIME_VOL_LOOKBACK_BARS" =~ ^[0-9]+$ ]]; then
+  echo "CONTRACT_MARKET_TOP_N, CONTRACT_MARKET_SIGNAL_SLEEP_SEC, CONTRACT_MARKET_LOOKBACK_BARS_IF_EMPTY, CONTRACT_MARKET_ANALOG_HORIZON_BARS, CONTRACT_MARKET_PAPER_OUTCOME_HORIZON_BARS, CONTRACT_MARKET_PAPER_ENTRY_LATENCY_BARS, CONTRACT_MARKET_JOURNAL_MAX_ACTIVE_PER_PAIR, CONTRACT_MARKET_JOURNAL_SHADOW_MIN_ANALOG_SAMPLES, CONTRACT_MARKET_REGIME_MIN_DIRECTION_VOTES, and CONTRACT_MARKET_REGIME_VOL_LOOKBACK_BARS must be integers" >&2
   exit 2
 fi
 case "$REGIME_FILTER_MODE" in
@@ -96,6 +101,13 @@ case "$JOURNAL_RECORD_MODE" in
   all_signals|analog_supported|off) ;;
   *)
     echo "CONTRACT_MARKET_JOURNAL_RECORD_MODE must be all_signals, analog_supported, or off" >&2
+    exit 2
+    ;;
+esac
+case "$JOURNAL_SHADOW_RECORD_MODE" in
+  inherit|all_signals|analog_supported|positive_expectancy|off) ;;
+  *)
+    echo "CONTRACT_MARKET_JOURNAL_SHADOW_RECORD_MODE must be inherit, all_signals, analog_supported, positive_expectancy, or off" >&2
     exit 2
     ;;
 esac
@@ -188,6 +200,11 @@ printf -v PAPER_MIN_FILL_Q "%q" "$PAPER_MIN_FILL_FRAC"
 printf -v PAPER_MIGRATE_LEGACY_Q "%q" "$PAPER_MIGRATE_LEGACY_RECORDS"
 printf -v JOURNAL_MAX_ACTIVE_Q "%q" "$JOURNAL_MAX_ACTIVE_PER_PAIR"
 printf -v JOURNAL_RECORD_MODE_Q "%q" "$JOURNAL_RECORD_MODE"
+printf -v JOURNAL_SHADOW_RECORD_MODE_Q "%q" "$JOURNAL_SHADOW_RECORD_MODE"
+printf -v JOURNAL_SHADOW_MIN_ANALOG_Q "%q" "$JOURNAL_SHADOW_MIN_ANALOG_SAMPLES"
+printf -v JOURNAL_SHADOW_MIN_EXPECTANCY_Q "%q" "$JOURNAL_SHADOW_MIN_EXPECTANCY_R"
+printf -v JOURNAL_SHADOW_MIN_HIT_Q "%q" "$JOURNAL_SHADOW_MIN_HIT_RATE"
+printf -v JOURNAL_SHADOW_MIN_PROFITABLE_Q "%q" "$JOURNAL_SHADOW_MIN_PROFITABLE_RATE"
 printf -v REGIME_FILTER_MODE_Q "%q" "$REGIME_FILTER_MODE"
 printf -v REGIME_SYMBOLS_Q "%q" "$REGIME_SYMBOLS"
 printf -v REGIME_MIN_DIRECTION_Q "%q" "$REGIME_MIN_DIRECTION_VOTES"
@@ -199,7 +216,7 @@ if [[ "$REGIME_BLOCK_HIGH_VOL" == "1" || "$REGIME_BLOCK_HIGH_VOL" == "true" || "
 fi
 
 tmux new-session -d -s "$SESSION" \
-  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-shadow-jsonl $SHADOW_JOURNAL_JSONL_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
+  "cd $ROOT_Q && while true; do date -u; python3 scripts/v9_xsec_binance_cache_update.py --cache-dir $CACHE_DIR_Q --api-url $API_URL_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --lookback-bars-if-empty $LOOKBACK_Q --state-json $UPDATE_STATE_JSON_Q --format text; python3 scripts/v9_contract_latest_market_signal.py --cache-dir $CACHE_DIR_Q --universe-json $UNIVERSE_JSON_Q --top-n $TOP_N_Q --symbols $SYMBOLS_Q --timeframe $TIMEFRAME_Q --out-json $SIGNAL_JSON_Q --out-md $SIGNAL_MD_Q --journal-jsonl $JOURNAL_JSONL_Q --journal-shadow-jsonl $SHADOW_JOURNAL_JSONL_Q --journal-shadow-record-mode $JOURNAL_SHADOW_RECORD_MODE_Q --journal-shadow-min-analog-samples $JOURNAL_SHADOW_MIN_ANALOG_Q --journal-shadow-min-expectancy-r $JOURNAL_SHADOW_MIN_EXPECTANCY_Q --journal-shadow-min-hit-rate $JOURNAL_SHADOW_MIN_HIT_Q --journal-shadow-min-profitable-rate $JOURNAL_SHADOW_MIN_PROFITABLE_Q --journal-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --journal-max-active-per-pair $JOURNAL_MAX_ACTIVE_Q --journal-record-mode $JOURNAL_RECORD_MODE_Q --marker $MARKER_Q --no-marker $NO_MARKER_Q --analog-marker $ANALOG_MARKER_Q --analog-no-marker $ANALOG_NO_MARKER_Q --analog-horizon-bars $ANALOG_HORIZON_Q --paper-outcome-horizon-bars $PAPER_OUTCOME_HORIZON_Q --paper-fee-bps $PAPER_FEE_BPS_Q --paper-slippage-bps $PAPER_SLIPPAGE_BPS_Q --paper-entry-latency-bars $PAPER_ENTRY_LATENCY_Q --paper-max-entry-drift-bps $PAPER_MAX_ENTRY_DRIFT_Q --paper-funding-bps-per-8h $PAPER_FUNDING_BPS_Q --paper-partial-fill-frac $PAPER_PARTIAL_FILL_Q --paper-min-fill-frac $PAPER_MIN_FILL_Q --paper-migrate-legacy-records $PAPER_MIGRATE_LEGACY_Q --regime-filter-mode $REGIME_FILTER_MODE_Q --regime-symbols $REGIME_SYMBOLS_Q --regime-min-direction-votes $REGIME_MIN_DIRECTION_Q --regime-vol-lookback-bars $REGIME_VOL_LOOKBACK_Q --regime-high-vol-percentile $REGIME_HIGH_VOL_Q $REGIME_BLOCK_HIGH_VOL_ARG --format text; python3 scripts/v9_contract_paper_signal_report.py --cache-dir $CACHE_DIR_Q --out-actions-json $ACTIONS_JSON_Q --out-blocked-pairs-json $BLOCKED_PAIRS_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_plan.py --actions-json $ACTIONS_JSON_Q --out-json $FOCUS_PLAN_JSON_Q --format text; python3 scripts/v9_contract_focus_canary_launcher.py --plan-json $FOCUS_PLAN_JSON_Q --out-json $FOCUS_LAUNCHER_JSON_Q --out-md $FOCUS_LAUNCHER_MD_Q --launch --format text; sleep $SLEEP_Q; done >> $LOG_Q 2>&1"
 
 echo "started contract latest-market signal watch: $SESSION"
 echo "symbols: $SYMBOLS"
@@ -210,6 +227,8 @@ echo "paper_execution: fee_bps=$PAPER_FEE_BPS slippage_bps=$PAPER_SLIPPAGE_BPS l
 echo "regime_filter: mode=$REGIME_FILTER_MODE symbols=$REGIME_SYMBOLS min_direction_votes=$REGIME_MIN_DIRECTION_VOTES high_vol_percentile=$REGIME_HIGH_VOL_PERCENTILE block_high_vol=$REGIME_BLOCK_HIGH_VOL"
 echo "journal_max_active_per_pair: $JOURNAL_MAX_ACTIVE_PER_PAIR"
 echo "journal_record_mode: $JOURNAL_RECORD_MODE"
+echo "journal_shadow_record_mode: $JOURNAL_SHADOW_RECORD_MODE"
+echo "journal_shadow_thresholds: samples=$JOURNAL_SHADOW_MIN_ANALOG_SAMPLES expectancy=$JOURNAL_SHADOW_MIN_EXPECTANCY_R hit=$JOURNAL_SHADOW_MIN_HIT_RATE profitable=$JOURNAL_SHADOW_MIN_PROFITABLE_RATE"
 echo "blocked_pairs_json: $BLOCKED_PAIRS_JSON"
 echo "actions_json: $ACTIONS_JSON"
 echo "focus_plan_json: $FOCUS_PLAN_JSON"

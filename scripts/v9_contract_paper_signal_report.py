@@ -898,6 +898,7 @@ def build_action_plan(
     args: argparse.Namespace,
     portfolio_risk: dict[str, Any],
     current_policy_scoreboard: list[dict[str, Any]] | None = None,
+    current_policy_shadow_scoreboard: list[dict[str, Any]] | None = None,
     current_decision_policy_version: str = "",
 ) -> dict[str, Any]:
     max_rows = int(arg_value(args, "actions_max_rows", 80))
@@ -909,6 +910,13 @@ def build_action_plan(
         current_policy_promote,
         current_policy_watch,
     ) = scoreboard_action_rows(current_policy_scoreboard, args)
+    current_policy_shadow_scoreboard = current_policy_shadow_scoreboard or []
+    (
+        current_policy_shadow_blocked,
+        current_policy_shadow_fresh_veto,
+        current_policy_shadow_promote,
+        current_policy_shadow_watch,
+    ) = scoreboard_action_rows(current_policy_shadow_scoreboard, args)
     return {
         "kind": "contract_paper_strategy_actions_v1",
         "updated_at": updated_at,
@@ -921,6 +929,10 @@ def build_action_plan(
         "current_policy_fresh_analog_veto_pairs": current_policy_fresh_veto[:max_rows],
         "current_policy_promote_candidates": current_policy_promote[:max_rows],
         "current_policy_positive_watchlist": current_policy_watch[:max_rows],
+        "current_policy_shadow_blocked_pairs": current_policy_shadow_blocked[:max_rows],
+        "current_policy_shadow_fresh_analog_veto_pairs": current_policy_shadow_fresh_veto[:max_rows],
+        "current_policy_shadow_promote_candidates": current_policy_shadow_promote[:max_rows],
+        "current_policy_shadow_positive_watchlist": current_policy_shadow_watch[:max_rows],
         "portfolio_risk": portfolio_risk,
         "summary": {
             "blocked_pairs": len(blocked),
@@ -932,6 +944,10 @@ def build_action_plan(
             "current_policy_fresh_analog_veto_pairs": len(current_policy_fresh_veto),
             "current_policy_promote_candidates": len(current_policy_promote),
             "current_policy_positive_watchlist": len(current_policy_watch),
+            "current_policy_shadow_blocked_pairs": len(current_policy_shadow_blocked),
+            "current_policy_shadow_fresh_analog_veto_pairs": len(current_policy_shadow_fresh_veto),
+            "current_policy_shadow_promote_candidates": len(current_policy_shadow_promote),
+            "current_policy_shadow_positive_watchlist": len(current_policy_shadow_watch),
             "portfolio_risk_status": portfolio_risk.get("status"),
             "portfolio_block_new_focus": bool(portfolio_risk.get("block_new_focus")),
             "portfolio_blocked_sides": portfolio_risk.get("blocked_sides") or [],
@@ -943,6 +959,14 @@ def build_action_plan(
             "fresh_analog_veto_pairs": len(current_policy_fresh_veto),
             "promote_candidates": len(current_policy_promote),
             "positive_watchlist": len(current_policy_watch),
+        },
+        "current_policy_shadow_summary": {
+            "decision_policy_version": current_decision_policy_version,
+            "scoreboard_groups": len(current_policy_shadow_scoreboard),
+            "blocked_pairs": len(current_policy_shadow_blocked),
+            "fresh_analog_veto_pairs": len(current_policy_shadow_fresh_veto),
+            "promote_candidates": len(current_policy_shadow_promote),
+            "positive_watchlist": len(current_policy_shadow_watch),
         },
         "paper_trading_authorized": False,
         "live_trading_authorized": False,
@@ -1060,6 +1084,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         args=args,
         portfolio_risk=portfolio_risk,
         current_policy_scoreboard=current_policy_scoreboard,
+        current_policy_shadow_scoreboard=current_policy_shadow_scoreboard,
         current_decision_policy_version=current_policy_version,
     )
     payload = {

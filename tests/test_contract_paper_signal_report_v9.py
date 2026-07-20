@@ -351,6 +351,9 @@ def test_paper_report_keeps_shadow_records_out_of_portfolio_risk(tmp_path: Path)
     assert payload["summary"]["current_policy_shadow_promote_candidates"] == 1
     assert payload["current_policy_shadow_scoreboard"][0]["symbol"] == "SHADOWUSDT"
     assert payload["actions"]["current_policy_summary"]["promote_candidates"] == 0
+    assert payload["actions"]["current_policy_shadow_summary"]["promote_candidates"] == 1
+    assert payload["actions"]["current_policy_shadow_promote_candidates"][0]["symbol"] == "SHADOWUSDT"
+    assert payload["actions"]["current_policy_promote_candidates"] == []
 
 
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:

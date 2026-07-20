@@ -88,6 +88,11 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_shadow_jsonl="",
+        journal_shadow_record_mode="inherit",
+        journal_shadow_min_analog_samples=20,
+        journal_shadow_min_expectancy_r=0.15,
+        journal_shadow_min_hit_rate=0.30,
+        journal_shadow_min_profitable_rate=0.40,
         journal_allowed_pairs="",
         journal_max_active_per_pair=0,
         journal_max_active_total=0,
@@ -545,6 +550,92 @@ def test_latest_market_signal_writes_shadow_records_for_portfolio_risk_blocks(tm
     assert all(row["shadow_reason"] == "portfolio_risk_block" for row in shadow_rows)
     assert all(row["paper_trading_authorized"] is False for row in shadow_rows)
     assert all(row["live_trading_authorized"] is False for row in shadow_rows)
+
+
+def test_latest_market_signal_shadow_positive_expectancy_is_independent_from_main_record_mode(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    args.journal_record_mode = "analog_supported"
+    args.journal_shadow_record_mode = "positive_expectancy"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "overexposed",
+                    "block_new_focus": True,
+                    "active": 123,
+                    "thresholds": {"portfolio_max_active": 12},
+                    "reason_codes": ["portfolio_active>12"],
+                    "blocked_sides": ["long", "short"],
+                }
+            }
+        )
+    )
+    args.journal_risk_actions_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": False,
+                    "used_count": 40,
+                    "hit_rate": 0.31,
+                    "profitable_rate": 0.42,
+                    "expectancy_r": 0.20,
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+            {
+                "symbol": "BBBUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": False,
+                    "used_count": 40,
+                    "hit_rate": 0.29,
+                    "profitable_rate": 0.42,
+                    "expectancy_r": 0.20,
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            },
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["shadow_record_mode"] == "positive_expectancy"
+    assert summary["shadow_new_records"] == 1
+    assert main_rows == []
+    assert len(shadow_rows) == 1
+    assert shadow_rows[0]["symbol"] == "AAAUSDT"
+    assert shadow_rows[0]["analog_supported"] is False
 
 
 def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_path: Path) -> None:

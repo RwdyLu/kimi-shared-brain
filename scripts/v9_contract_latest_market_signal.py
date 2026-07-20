@@ -1165,6 +1165,34 @@ def shadow_record_from_row(
     return record
 
 
+def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace) -> bool:
+    mode = str(getattr(args, "journal_shadow_record_mode", "inherit") or "inherit")
+    if mode == "inherit":
+        mode = str(getattr(args, "journal_record_mode", "all_signals") or "all_signals")
+    if mode == "off":
+        return False
+    if mode == "all_signals":
+        return True
+    analog = row.get("analog_evidence") or {}
+    if mode == "analog_supported":
+        return bool(analog.get("supported"))
+    if mode == "positive_expectancy":
+        if bool(analog.get("supported")):
+            return True
+        if int(analog.get("used_count") or 0) < int(getattr(args, "journal_shadow_min_analog_samples", 20)):
+            return False
+        if safe_float(analog.get("expectancy_r")) < float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)):
+            return False
+        if safe_float(analog.get("hit_rate")) < float(getattr(args, "journal_shadow_min_hit_rate", 0.30)):
+            return False
+        if safe_float(analog.get("profitable_rate")) < float(
+            getattr(args, "journal_shadow_min_profitable_rate", 0.40)
+        ):
+            return False
+        return True
+    return False
+
+
 def migrate_legacy_record_to_realistic(
     record: dict[str, Any],
     *,
@@ -1545,8 +1573,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     def add_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
         if shadow_path is None:
             return
-        analog = row.get("analog_evidence") or {}
-        if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
+        if not shadow_record_allowed(row, args):
             return
         sid = signal_id(row)
         if sid in seen or sid in shadow_seen:
@@ -1684,6 +1711,11 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "shadow_open_records": shadow_active,
         "shadow_completed_records": shadow_completed,
         "shadow_skipped_records": shadow_skipped,
+        "shadow_record_mode": str(getattr(args, "journal_shadow_record_mode", "inherit") or "inherit"),
+        "shadow_min_analog_samples": int(getattr(args, "journal_shadow_min_analog_samples", 20)),
+        "shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
+        "shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
+        "shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
         "record_mode": args.journal_record_mode,
         "journal_allowed_pairs": sorted(f"{symbol}:{side}" for symbol, side in allowed_pairs),
         "journal_blocked_pairs": sorted(f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in blocked_pairs),
@@ -1777,6 +1809,11 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_blocked_pairs_json": str(getattr(args, "journal_blocked_pairs_json", "")),
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
             "journal_shadow_jsonl": str(getattr(args, "journal_shadow_jsonl", "")),
+            "journal_shadow_record_mode": str(getattr(args, "journal_shadow_record_mode", "inherit")),
+            "journal_shadow_min_analog_samples": int(getattr(args, "journal_shadow_min_analog_samples", 20)),
+            "journal_shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
+            "journal_shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
+            "journal_shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
             "journal_respect_portfolio_risk": bool(getattr(args, "journal_respect_portfolio_risk", True)),
             "journal_respect_global_portfolio_active_cap": bool(
                 getattr(args, "journal_respect_global_portfolio_active_cap", True)
@@ -1921,6 +1958,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
+        f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
         f"{(payload.get('journal') or {}).get('shadow_open_records')}/"
@@ -1984,6 +2022,7 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}",
         "journal_shadow "
         f"enabled={(payload.get('journal') or {}).get('shadow_enabled')} "
+        f"mode={(payload.get('journal') or {}).get('shadow_record_mode')} "
         f"new={(payload.get('journal') or {}).get('shadow_new_records')} "
         f"updated={(payload.get('journal') or {}).get('shadow_updated_records')} "
         f"active={(payload.get('journal') or {}).get('shadow_open_records')} "
@@ -2084,6 +2123,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional separate shadow journal for candidates blocked by risk caps; never counted as active risk.",
     )
+    parser.add_argument(
+        "--journal-shadow-record-mode",
+        choices=("inherit", "all_signals", "analog_supported", "positive_expectancy", "off"),
+        default="inherit",
+    )
+    parser.add_argument("--journal-shadow-min-analog-samples", type=int, default=20)
+    parser.add_argument("--journal-shadow-min-expectancy-r", type=float, default=0.15)
+    parser.add_argument("--journal-shadow-min-hit-rate", type=float, default=0.30)
+    parser.add_argument("--journal-shadow-min-profitable-rate", type=float, default=0.40)
     parser.add_argument(
         "--journal-allowed-pairs",
         default="",
