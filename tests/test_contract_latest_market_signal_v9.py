@@ -88,6 +88,14 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         regime_vol_lookback_bars=1000,
         regime_high_vol_percentile=0.85,
         regime_block_high_vol=False,
+        market_quality_mode="block",
+        market_quality_min_atr_pct=0.0015,
+        market_quality_max_atr_pct=0.08,
+        market_quality_max_ema_gap=0.15,
+        market_quality_max_abs_ret_24h=0.20,
+        market_quality_max_breakout_extension=0.35,
+        market_quality_min_volume_ratio=0.25,
+        market_quality_volume_window=48,
         paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_shadow_jsonl="",
@@ -153,6 +161,45 @@ def test_latest_market_signal_builds_short_paper_plan(tmp_path: Path) -> None:
     assert best["analog_evidence"]["supported"] is True
     assert best["regime_filter"]["allowed"] is True
     assert plan["take_profit"] < plan["entry_price"] < plan["stop_loss"]
+
+
+def test_market_quality_blocks_overextended_long_before_paper_journal(tmp_path: Path) -> None:
+    closes = [100.0 * (1.005**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+
+    payload = signal_mod.run_screen(base_args(tmp_path, symbols="AAAUSDT"))
+
+    row = payload["top"][0]
+    assert payload["summary"]["paper_plan_found"] is False
+    assert payload["summary"]["market_quality_filtered_count"] == 1
+    assert payload["journal"]["new_records"] == 0
+    assert row["status"] == "market_quality_blocked"
+    assert row["raw_signal"] == "long"
+    assert row["signal"] == "none"
+    assert row["market_quality"]["allowed"] is False
+    assert row["market_quality"]["reason"] == "market_quality_blocked"
+    assert any(reason.startswith("long_ema_gap>") for reason in row["market_quality"]["reason_codes"])
+
+
+def test_market_quality_annotate_mode_records_context_without_blocking(tmp_path: Path) -> None:
+    closes = [100.0 * (1.005**idx) for idx in range(180)]
+    write_symbol_cache(tmp_path, "AAAUSDT", closes)
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.market_quality_mode = "annotate"
+
+    payload = signal_mod.run_screen(args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    row = payload["top"][0]
+    assert payload["summary"]["paper_plan_found"] is True
+    assert payload["summary"]["market_quality_filtered_count"] == 0
+    assert payload["journal"]["new_records"] == 1
+    assert row["market_quality"]["allowed"] is True
+    assert row["market_quality"]["reason"] == "market_quality_annotated"
+    assert any(reason.startswith("long_ema_gap>") for reason in row["market_quality"]["reason_codes"])
+    assert rows[0]["market_quality_mode"] == "annotate"
+    assert rows[0]["market_quality_reason"] == "market_quality_annotated"
+    assert any(reason.startswith("long_ema_gap>") for reason in rows[0]["market_quality_reason_codes"])
 
 
 def test_market_regime_blocks_long_against_btc_downtrend(tmp_path: Path) -> None:

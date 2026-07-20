@@ -813,10 +813,98 @@ def regime_filter_decision(
     return decision
 
 
+def market_quality_decision(row: pd.Series, args: argparse.Namespace, *, signal: str) -> dict[str, Any]:
+    mode = str(getattr(args, "market_quality_mode", "block") or "block")
+    thresholds = {
+        "min_atr_pct": float(getattr(args, "market_quality_min_atr_pct", 0.0015)),
+        "max_atr_pct": float(getattr(args, "market_quality_max_atr_pct", 0.08)),
+        "max_ema_gap": float(getattr(args, "market_quality_max_ema_gap", 0.15)),
+        "max_abs_ret_24h": float(getattr(args, "market_quality_max_abs_ret_24h", 0.20)),
+        "max_breakout_extension": float(getattr(args, "market_quality_max_breakout_extension", 0.35)),
+        "min_volume_ratio": float(getattr(args, "market_quality_min_volume_ratio", 0.25)),
+    }
+    if mode == "off":
+        return {
+            "enabled": False,
+            "allowed": True,
+            "mode": mode,
+            "reason": "market_quality_off",
+            "reason_codes": [],
+            "thresholds": thresholds,
+        }
+    if signal not in {"long", "short"}:
+        return {
+            "enabled": True,
+            "allowed": True,
+            "mode": mode,
+            "reason": "no_directional_signal",
+            "reason_codes": [],
+            "thresholds": thresholds,
+        }
+
+    atr_pct = safe_float(row.get("atr_pct"), float("nan"))
+    ema_gap = safe_float(row.get("ema_gap"), float("nan"))
+    ret_24h = safe_float(row.get("ret_24h"), float("nan"))
+    breakout_pos = safe_float(row.get("breakout_pos"), float("nan"))
+    volume_ratio = safe_float(row.get("volume_ratio"), float("nan"))
+    reason_codes: list[str] = []
+
+    if not math.isfinite(atr_pct):
+        reason_codes.append("atr_pct_missing")
+    elif atr_pct < thresholds["min_atr_pct"]:
+        reason_codes.append(f"atr_pct<{thresholds['min_atr_pct']:.4f}")
+    elif atr_pct > thresholds["max_atr_pct"]:
+        reason_codes.append(f"atr_pct>{thresholds['max_atr_pct']:.4f}")
+
+    if math.isfinite(ema_gap):
+        if signal == "long" and ema_gap > thresholds["max_ema_gap"]:
+            reason_codes.append(f"long_ema_gap>{thresholds['max_ema_gap']:.3f}")
+        if signal == "short" and ema_gap < -thresholds["max_ema_gap"]:
+            reason_codes.append(f"short_ema_gap<-{thresholds['max_ema_gap']:.3f}")
+
+    if math.isfinite(ret_24h):
+        if signal == "long" and ret_24h > thresholds["max_abs_ret_24h"]:
+            reason_codes.append(f"long_ret_24h>{thresholds['max_abs_ret_24h']:.3f}")
+        if signal == "short" and ret_24h < -thresholds["max_abs_ret_24h"]:
+            reason_codes.append(f"short_ret_24h<-{thresholds['max_abs_ret_24h']:.3f}")
+
+    if math.isfinite(breakout_pos):
+        extension = thresholds["max_breakout_extension"]
+        if signal == "long" and breakout_pos > 1.0 + extension:
+            reason_codes.append(f"long_breakout_pos>{1.0 + extension:.2f}")
+        if signal == "short" and breakout_pos < -extension:
+            reason_codes.append(f"short_breakout_pos<-{extension:.2f}")
+
+    if math.isfinite(volume_ratio) and volume_ratio < thresholds["min_volume_ratio"]:
+        reason_codes.append(f"volume_ratio<{thresholds['min_volume_ratio']:.2f}")
+
+    allowed = not reason_codes or mode == "annotate"
+    if reason_codes and mode == "annotate":
+        reason = "market_quality_annotated"
+    elif reason_codes:
+        reason = "market_quality_blocked"
+    else:
+        reason = "market_quality_pass"
+    return {
+        "enabled": True,
+        "allowed": allowed,
+        "mode": mode,
+        "reason": reason,
+        "reason_codes": reason_codes,
+        "thresholds": thresholds,
+        "atr_pct": None if not math.isfinite(atr_pct) else float(atr_pct),
+        "ema_gap": None if not math.isfinite(ema_gap) else float(ema_gap),
+        "ret_24h": None if not math.isfinite(ret_24h) else float(ret_24h),
+        "breakout_pos": None if not math.isfinite(breakout_pos) else float(breakout_pos),
+        "volume_ratio": None if not math.isfinite(volume_ratio) else float(volume_ratio),
+    }
+
+
 def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
     df = frame.copy().sort_values("dt").reset_index(drop=True)
     ret_6h_bars = bars_for_hours(args.timeframe, 6.0)
     ret_24h_bars = bars_for_hours(args.timeframe, 24.0)
+    volume_window = max(2, int(getattr(args, "market_quality_volume_window", 48) or 48))
     df["ema_fast"] = df["close"].ewm(span=args.fast_ema, adjust=False, min_periods=args.fast_ema).mean()
     df["ema_slow"] = df["close"].ewm(span=args.slow_ema, adjust=False, min_periods=args.slow_ema).mean()
     df["atr"] = atr(df, args.atr_n)
@@ -828,6 +916,14 @@ def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.D
     df["ret_6h"] = df["close"] / df["close"].shift(ret_6h_bars) - 1.0
     df["ret_24h"] = df["close"] / df["close"].shift(ret_24h_bars) - 1.0
     df["atr_pct"] = df["atr"] / df["close"]
+    df["volume_sma"] = (
+        pd.to_numeric(df.get("volume", pd.Series(0.0, index=df.index)), errors="coerce")
+        .rolling(volume_window, min_periods=max(2, min(volume_window, 12)))
+        .mean()
+    )
+    df["volume_ratio"] = pd.to_numeric(df.get("volume", pd.Series(0.0, index=df.index)), errors="coerce") / df[
+        "volume_sma"
+    ].replace(0.0, pd.NA)
     breakout_range = (df["high_breakout"] - df["low_breakout"]).replace(0.0, pd.NA)
     df["breakout_pos"] = (df["close"] - df["low_breakout"]) / breakout_range
     long_votes = [
@@ -1308,6 +1404,7 @@ def classify_signal(
         "atr_pct": safe_float(latest["atr_pct"]),
         "rsi": safe_float(latest["rsi"], 50.0),
         "breakout_pos": safe_float(latest["breakout_pos"]),
+        "volume_ratio": safe_float(latest["volume_ratio"], float("nan")),
         "long_votes": long_score,
         "short_votes": short_score,
     }
@@ -1322,6 +1419,7 @@ def classify_signal(
             "metrics": metrics,
             "market_regime": market_regime or {"enabled": False},
             "regime_filter": regime_filter_decision(signal, market_regime, args),
+            "market_quality": market_quality_decision(latest, args, signal=signal),
             "analog_evidence": {"enabled": True, "supported": False, "reason": "no_signal"},
             "paper_plan": None,
         }
@@ -1340,7 +1438,27 @@ def classify_signal(
             "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
             "market_regime": market_regime or {"enabled": False},
             "regime_filter": regime_filter,
+            "market_quality": market_quality_decision(latest, args, signal=signal),
             "analog_evidence": {"enabled": True, "supported": False, "reason": "regime_blocked"},
+            "paper_plan": None,
+        }
+
+    market_quality = market_quality_decision(latest, args, signal=signal)
+    if not market_quality.get("allowed", True):
+        return {
+            "symbol": symbol,
+            "status": "market_quality_blocked",
+            "signal": "none",
+            "raw_signal": signal,
+            "reason": str(market_quality.get("reason") or "market_quality_blocked"),
+            "latest_dt": latest["dt"].isoformat(),
+            "previous_dt": previous["dt"].isoformat(),
+            "close": close,
+            "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
+            "market_regime": market_regime or {"enabled": False},
+            "regime_filter": regime_filter,
+            "market_quality": market_quality,
+            "analog_evidence": {"enabled": True, "supported": False, "reason": "market_quality_blocked"},
             "paper_plan": None,
         }
 
@@ -1353,6 +1471,7 @@ def classify_signal(
             "reason": "invalid_stop_or_take_profit",
             "market_regime": market_regime or {"enabled": False},
             "regime_filter": regime_filter,
+            "market_quality": market_quality,
             "paper_plan": None,
         }
     analog = historical_analog_evidence(df, args, signal=signal)
@@ -1382,6 +1501,7 @@ def classify_signal(
         "metrics": {**metrics, "votes": votes},
         "market_regime": market_regime or {"enabled": False},
         "regime_filter": regime_filter,
+        "market_quality": market_quality,
         "analog_evidence": analog,
         "paper_plan": plan,
     }
@@ -1545,6 +1665,7 @@ def journal_record_from_row(
     config = execution_config or {}
     market_regime = row.get("market_regime") or {}
     regime_filter = row.get("regime_filter") or {}
+    market_quality = row.get("market_quality") or {}
     confirmation = regime_confirmation_payload(regime_filter)
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
@@ -1579,6 +1700,15 @@ def journal_record_from_row(
         "regime_filter_mode": regime_filter.get("mode"),
         "regime_filter_reason": regime_filter.get("reason"),
         **confirmation,
+        "market_quality_mode": market_quality.get("mode"),
+        "market_quality_allowed": market_quality.get("allowed"),
+        "market_quality_reason": market_quality.get("reason"),
+        "market_quality_reason_codes": market_quality.get("reason_codes") or [],
+        "market_quality_atr_pct": market_quality.get("atr_pct"),
+        "market_quality_ema_gap": market_quality.get("ema_gap"),
+        "market_quality_ret_24h": market_quality.get("ret_24h"),
+        "market_quality_breakout_pos": market_quality.get("breakout_pos"),
+        "market_quality_volume_ratio": market_quality.get("volume_ratio"),
         "analog_supported": bool(analog.get("supported")),
         "analog_reason": analog.get("reason"),
         "analog_used_count": int(analog.get("used_count") or 0),
@@ -2491,6 +2621,11 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
     signal_rows = [row for row in rows if row.get("signal") in {"long", "short"} and row.get("paper_plan")]
     analog_supported_rows = [row for row in signal_rows if (row.get("analog_evidence") or {}).get("supported")]
     regime_filtered_rows = [row for row in rows if (row.get("regime_filter") or {}).get("allowed") is False]
+    market_quality_filtered_rows = [
+        row
+        for row in rows
+        if (row.get("market_quality") or {}).get("allowed") is False
+    ]
     payload = {
         "kind": "contract_latest_market_signal_v2_analog_journal",
         "updated_at": now_utc(),
@@ -2530,6 +2665,16 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "regime_vol_lookback_bars": int(args.regime_vol_lookback_bars),
             "regime_high_vol_percentile": float(args.regime_high_vol_percentile),
             "regime_block_high_vol": bool(args.regime_block_high_vol),
+            "market_quality_mode": str(getattr(args, "market_quality_mode", "block")),
+            "market_quality_min_atr_pct": float(getattr(args, "market_quality_min_atr_pct", 0.0015)),
+            "market_quality_max_atr_pct": float(getattr(args, "market_quality_max_atr_pct", 0.08)),
+            "market_quality_max_ema_gap": float(getattr(args, "market_quality_max_ema_gap", 0.15)),
+            "market_quality_max_abs_ret_24h": float(getattr(args, "market_quality_max_abs_ret_24h", 0.20)),
+            "market_quality_max_breakout_extension": float(
+                getattr(args, "market_quality_max_breakout_extension", 0.35)
+            ),
+            "market_quality_min_volume_ratio": float(getattr(args, "market_quality_min_volume_ratio", 0.25)),
+            "market_quality_volume_window": int(getattr(args, "market_quality_volume_window", 48)),
             "journal_allowed_pairs": sorted(
                 f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
             ),
@@ -2596,6 +2741,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "rows": len(rows),
             "signal_count": len(signal_rows),
             "regime_filtered_count": len(regime_filtered_rows),
+            "market_quality_filtered_count": len(market_quality_filtered_rows),
             "paper_plan_found": bool(signal_rows),
             "analog_supported_plan_count": len(analog_supported_rows),
             "analog_supported_plan_found": bool(analog_supported_rows),
@@ -2691,6 +2837,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- market_regime_confirmations: `{len(confirmation)}`",
         f"- market_direction_score: `{market_regime.get('direction_score')}`",
         f"- regime_filtered_count: `{payload['summary'].get('regime_filtered_count')}`",
+        f"- market_quality_filtered_count: `{payload['summary'].get('market_quality_filtered_count')}`",
         f"- signal_count: `{payload['summary']['signal_count']}`",
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
@@ -2706,20 +2853,22 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- journal_portfolio_blocked_sides: "
         f"`{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}`",
         "",
-        "| rank | symbol | signal | close | regime | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
-        "| ---: | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| rank | symbol | signal | close | regime | quality | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
+        "| ---: | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for idx, row in enumerate(payload["top"], start=1):
         plan = row.get("paper_plan") or {}
         metrics = row.get("metrics") or {}
         analog = row.get("analog_evidence") or {}
         regime_filter = row.get("regime_filter") or {}
+        market_quality = row.get("market_quality") or {}
         signal = row.get("signal")
         if signal == "none" and row.get("raw_signal"):
             signal = f"blocked:{row.get('raw_signal')}"
         lines.append(
             f"| {idx} | {row.get('symbol')} | {signal} | {row.get('close', 0.0):.8f} | "
             f"{regime_filter.get('reason')} | "
+            f"{market_quality.get('reason')} | "
             f"{analog.get('reason')} | {safe_float(analog.get('hit_rate')):.2f} | "
             f"{safe_float(analog.get('expectancy_r')):.2f} | "
             f"{plan.get('entry_price', 0.0):.8f} | {plan.get('stop_loss', 0.0):.8f} | "
@@ -2743,6 +2892,7 @@ def format_text(payload: dict[str, Any]) -> str:
         f"regimes={','.join(str(item.get('regime_id')) for item in confirmation)}",
         f"signal_count={payload['summary']['signal_count']}",
         f"regime_filtered_count={payload['summary'].get('regime_filtered_count')}",
+        f"market_quality_filtered_count={payload['summary'].get('market_quality_filtered_count')}",
         f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
         f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
@@ -2805,6 +2955,7 @@ def format_text(payload: dict[str, Any]) -> str:
         plan = best.get("paper_plan") or {}
         analog = best.get("analog_evidence") or {}
         regime_filter = best.get("regime_filter") or {}
+        market_quality = best.get("market_quality") or {}
         signal = best.get("signal")
         if signal == "none" and best.get("raw_signal"):
             signal = f"blocked:{best.get('raw_signal')}"
@@ -2812,6 +2963,7 @@ def format_text(payload: dict[str, Any]) -> str:
             "best "
             f"symbol={best.get('symbol')} signal={signal} reason={best.get('reason')} "
             f"regime={regime_filter.get('reason')} "
+            f"quality={market_quality.get('reason')} "
             f"analog={analog.get('reason')} hit_rate={analog.get('hit_rate')} "
             f"expectancy_r={analog.get('expectancy_r')} "
             f"entry={plan.get('entry_price')} stop={plan.get('stop_loss')} take_profit={plan.get('take_profit')}"
@@ -2893,6 +3045,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--regime-vol-lookback-bars", type=int, default=1000)
     parser.add_argument("--regime-high-vol-percentile", type=float, default=0.85)
     parser.add_argument("--regime-block-high-vol", action="store_true")
+    parser.add_argument(
+        "--market-quality-mode",
+        choices=("off", "annotate", "block"),
+        default="block",
+        help="Gate signals with immediate market-quality checks before writing paper journal records.",
+    )
+    parser.add_argument("--market-quality-min-atr-pct", type=float, default=0.0015)
+    parser.add_argument("--market-quality-max-atr-pct", type=float, default=0.08)
+    parser.add_argument("--market-quality-max-ema-gap", type=float, default=0.15)
+    parser.add_argument("--market-quality-max-abs-ret-24h", type=float, default=0.20)
+    parser.add_argument("--market-quality-max-breakout-extension", type=float, default=0.35)
+    parser.add_argument("--market-quality-min-volume-ratio", type=float, default=0.25)
+    parser.add_argument("--market-quality-volume-window", type=int, default=48)
     parser.add_argument(
         "--paper-migrate-legacy-records",
         choices=("off", "active", "all"),
