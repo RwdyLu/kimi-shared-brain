@@ -78,6 +78,7 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_funding_bps_per_8h=1.0,
         paper_partial_fill_frac=1.0,
         paper_min_fill_frac=1.0,
+        paper_stale_grace_bars=4,
         regime_filter_mode="block_conflict",
         regime_symbols="BTCUSDT,ETHUSDT",
         regime_min_direction_votes=2,
@@ -576,6 +577,120 @@ def test_realistic_open_record_uses_entry_dt_when_tail_window_shifts() -> None:
     assert signal_mod.update_record_outcome(record, frame, updated_at="later") is True
     assert record["status"] == "completed"
     assert record["outcome"]["exit_reason"] == "take_profit"
+
+
+def test_realistic_pending_entry_skips_when_stale_and_signal_missing() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "dt": pd.Timestamp("2026-01-01T05:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+            }
+        ]
+    )
+    record = {
+        "status": "pending_entry",
+        "execution_model_version": signal_mod.REALISTIC_EXECUTION_MODEL_VERSION,
+        "symbol": "AAAUSDT",
+        "side": "long",
+        "timeframe": "1h",
+        "signal_dt": "2026-01-01T00:00:00+00:00",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "planned_entry_price": 100.0,
+        "entry_price": None,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "outcome_horizon_bars": 4,
+        "paper_execution": {
+            "timeframe": "1h",
+            "entry_latency_bars": 1,
+            "stale_grace_bars": 2,
+        },
+    }
+
+    assert signal_mod.update_record_outcome(record, frame, updated_at="later") is True
+
+    assert record["status"] == "skipped"
+    assert record["outcome"]["exit_reason"] == "stale_pending_entry_unresolved"
+    assert record["outcome"]["elapsed_bars"] == 5
+
+
+def test_realistic_open_record_skips_when_stale_and_entry_missing() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "dt": pd.Timestamp("2026-01-01T05:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+            }
+        ]
+    )
+    record = {
+        "status": "open",
+        "execution_model_version": signal_mod.REALISTIC_EXECUTION_MODEL_VERSION,
+        "symbol": "AAAUSDT",
+        "side": "long",
+        "timeframe": "1h",
+        "signal_dt": "2026-01-01T00:00:00+00:00",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "entry_dt": "2026-01-01T01:00:00+00:00",
+        "entry_price": 100.02,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "outcome_horizon_bars": 2,
+        "paper_execution": {
+            "timeframe": "1h",
+            "entry_latency_bars": 1,
+            "stale_grace_bars": 1,
+        },
+    }
+
+    assert signal_mod.update_record_outcome(record, frame, updated_at="later") is True
+
+    assert record["status"] == "skipped"
+    assert record["outcome"]["exit_reason"] == "stale_open_entry_unresolved"
+    assert record["outcome"]["elapsed_bars"] == 4
+
+
+def test_realistic_pending_entry_waits_before_stale_grace() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "dt": pd.Timestamp("2026-01-01T02:00:00Z"),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+            }
+        ]
+    )
+    record = {
+        "status": "pending_entry",
+        "execution_model_version": signal_mod.REALISTIC_EXECUTION_MODEL_VERSION,
+        "symbol": "AAAUSDT",
+        "side": "long",
+        "timeframe": "1h",
+        "signal_dt": "2026-01-01T00:00:00+00:00",
+        "latest_dt": "2026-01-01T00:00:00+00:00",
+        "planned_entry_price": 100.0,
+        "entry_price": None,
+        "stop_loss": 98.0,
+        "take_profit": 104.0,
+        "outcome_horizon_bars": 4,
+        "paper_execution": {
+            "timeframe": "1h",
+            "entry_latency_bars": 1,
+            "stale_grace_bars": 2,
+        },
+    }
+
+    assert signal_mod.update_record_outcome(record, frame, updated_at="later") is False
+    assert record["status"] == "pending_entry"
 
 
 def test_timeframe_aware_return_windows_use_real_hours() -> None:

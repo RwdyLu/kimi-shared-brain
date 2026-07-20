@@ -490,6 +490,7 @@ def execution_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "funding_bps_per_8h": float(getattr(args, "paper_funding_bps_per_8h", 1.0)),
         "partial_fill_frac": float(getattr(args, "paper_partial_fill_frac", 1.0)),
         "min_fill_frac": float(getattr(args, "paper_min_fill_frac", 1.0)),
+        "stale_grace_bars": int(getattr(args, "paper_stale_grace_bars", 4)),
     }
 
 
@@ -503,6 +504,7 @@ def execution_config_from_record(record: dict[str, Any]) -> dict[str, Any]:
         "funding_bps_per_8h": 1.0,
         "partial_fill_frac": 1.0,
         "min_fill_frac": 1.0,
+        "stale_grace_bars": 4,
     }
     for key, value in defaults.items():
         if isinstance(value, float):
@@ -1082,6 +1084,58 @@ def skip_realistic_record(record: dict[str, Any], *, updated_at: str, reason: st
     }
 
 
+def latest_frame_dt(frame: pd.DataFrame) -> pd.Timestamp | None:
+    if frame.empty or "dt" not in frame.columns:
+        return None
+    try:
+        return parse_utc_timestamp(frame.iloc[-1]["dt"])
+    except Exception:
+        return None
+
+
+def elapsed_bars_since(frame: pd.DataFrame, value: Any, timeframe: str) -> int | None:
+    try:
+        reference = parse_utc_timestamp(value)
+    except Exception:
+        return None
+    latest = latest_frame_dt(frame)
+    if latest is None:
+        return None
+    elapsed_minutes = (latest - reference).total_seconds() / 60.0
+    if elapsed_minutes < 0.0:
+        return 0
+    return int(math.floor(elapsed_minutes / interval_minutes(timeframe)))
+
+
+def maybe_skip_stale_unresolved_record(
+    record: dict[str, Any],
+    frame: pd.DataFrame,
+    *,
+    updated_at: str,
+    reason: str,
+    reference_dt: Any,
+    required_bars: int,
+    stale_grace_bars: int,
+    timeframe: str,
+) -> bool:
+    elapsed = elapsed_bars_since(frame, reference_dt, timeframe)
+    if elapsed is None:
+        return False
+    stale_after = int(required_bars) + int(stale_grace_bars)
+    if elapsed < stale_after:
+        return False
+    skip_realistic_record(
+        record,
+        updated_at=updated_at,
+        reason=reason,
+        elapsed_bars=int(elapsed),
+        required_bars=int(required_bars),
+        stale_grace_bars=int(stale_grace_bars),
+        latest_data_dt=latest_frame_dt(frame).isoformat() if latest_frame_dt(frame) is not None else None,
+    )
+    return True
+
+
 def frame_dt_index(frame: pd.DataFrame, value: Any) -> int | None:
     if value is None:
         return None
@@ -1103,13 +1157,26 @@ def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame,
 
     config = execution_config_from_record(record)
     side = str(record.get("side"))
+    timeframe = str(record.get("timeframe") or config.get("timeframe") or "1h")
     entry_latency = max(0, int(config.get("entry_latency_bars") or 0))
+    stale_grace_bars = max(0, int(config.get("stale_grace_bars") or 0))
     signal_idx = frame_dt_index(frame, record.get("signal_dt") or record.get("latest_dt"))
     entry_idx = (signal_idx + entry_latency) if signal_idx is not None else None
 
     modified = False
     if record.get("status") == "pending_entry":
         if entry_idx is None or entry_idx >= len(frame):
+            if maybe_skip_stale_unresolved_record(
+                record,
+                frame,
+                updated_at=updated_at,
+                reason="stale_pending_entry_unresolved",
+                reference_dt=record.get("signal_dt") or record.get("latest_dt"),
+                required_bars=entry_latency,
+                stale_grace_bars=stale_grace_bars,
+                timeframe=timeframe,
+            ):
+                return True
             return False
         partial_fill_frac = safe_float(config.get("partial_fill_frac"), 1.0)
         min_fill_frac = safe_float(config.get("min_fill_frac"), 1.0)
@@ -1180,6 +1247,17 @@ def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame,
     if entry_idx is None:
         entry_idx = int(record.get("entry_bar_index") or -1)
     if entry_idx < 0 or entry_idx >= len(frame):
+        if maybe_skip_stale_unresolved_record(
+            record,
+            frame,
+            updated_at=updated_at,
+            reason="stale_open_entry_unresolved",
+            reference_dt=record.get("entry_dt"),
+            required_bars=int(record.get("outcome_horizon_bars") or 24),
+            stale_grace_bars=stale_grace_bars,
+            timeframe=timeframe,
+        ):
+            return True
         return modified
     outcome = simulate_realistic_exit(
         frame,
@@ -1193,6 +1271,17 @@ def update_realistic_record_outcome(record: dict[str, Any], frame: pd.DataFrame,
         timeframe=str(record.get("timeframe") or config.get("timeframe") or "1h"),
     )
     if outcome.get("status") != "completed":
+        if maybe_skip_stale_unresolved_record(
+            record,
+            frame,
+            updated_at=updated_at,
+            reason="stale_open_unresolved",
+            reference_dt=record.get("entry_dt"),
+            required_bars=int(record.get("outcome_horizon_bars") or 24),
+            stale_grace_bars=stale_grace_bars,
+            timeframe=timeframe,
+        ):
+            return True
         return modified
     record["status"] = "completed"
     record["updated_at"] = updated_at
@@ -1622,6 +1711,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--paper-funding-bps-per-8h", type=float, default=1.0)
     parser.add_argument("--paper-partial-fill-frac", type=float, default=1.0)
     parser.add_argument("--paper-min-fill-frac", type=float, default=1.0)
+    parser.add_argument(
+        "--paper-stale-grace-bars",
+        type=int,
+        default=4,
+        help="Skip unresolved paper records after entry/horizon plus this many bars if data can no longer settle them.",
+    )
     parser.add_argument(
         "--regime-filter-mode",
         choices=("off", "annotate", "block_conflict", "trend_only"),
