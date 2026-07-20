@@ -54,6 +54,22 @@ def pair_key(row: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def pair_set(rows: list[dict[str, Any]]) -> set[tuple[str, str, str]]:
+    return {pair_key(row) for row in rows}
+
+
+def source_blocked_pairs(actions: dict[str, Any], source: str) -> set[tuple[str, str, str]]:
+    if source.startswith("current_policy_shadow_"):
+        return pair_set(actions.get("current_policy_shadow_blocked_pairs", []))
+    if source.startswith("current_policy_"):
+        return pair_set(actions.get("current_policy_blocked_pairs", []))
+    return pair_set(actions.get("blocked_pairs", []))
+
+
+def source_uses_probe_thresholds(source: str) -> bool:
+    return source.endswith("positive_watchlist")
+
+
 def row_passes_probe_thresholds(row: dict[str, Any], args: argparse.Namespace) -> bool:
     return not probe_rejection_reasons(row, args)
 
@@ -560,7 +576,7 @@ def build_near_miss_queue(rejected: list[dict[str, Any]], args: argparse.Namespa
     for row in rejected:
         reasons = list(row.get("rejection_reasons") or [])
         metrics = row.get("metrics") or {}
-        if row.get("source") != "positive_watchlist":
+        if not source_uses_probe_thresholds(str(row.get("source") or "")):
             continue
         if "blocked_pair" in reasons or "fresh_analog_veto_pair" in reasons:
             continue
@@ -630,25 +646,45 @@ def build_paper_probe_candidates(
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     actions = json.loads(Path(args.actions_json).read_text())
-    blocked = {pair_key(row) for row in actions.get("blocked_pairs", [])}
-    fresh_veto = {pair_key(row) for row in actions.get("fresh_analog_veto_pairs", [])}
+    blocked = pair_set(actions.get("blocked_pairs", []))
+    fresh_veto = pair_set(actions.get("fresh_analog_veto_pairs", []))
     portfolio_reasons = portfolio_risk_rejection_reasons(actions, args)
     selected: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     used: set[tuple[str, str, str]] = set()
     max_rejections = int(args.max_rejections)
 
-    promote_rows = sorted(
-        actions.get("promote_candidates", []),
-        key=candidate_sort_key,
-        reverse=True,
+    lane_specs: list[tuple[str, list[dict[str, Any]]]] = []
+    if bool(args.include_current_policy_candidates):
+        lane_specs.extend(
+            [
+                ("current_policy_promote_candidate", actions.get("current_policy_promote_candidates", [])),
+                ("current_policy_positive_watchlist", actions.get("current_policy_positive_watchlist", [])),
+            ]
+        )
+    if bool(args.include_current_policy_shadow_candidates):
+        lane_specs.extend(
+            [
+                (
+                    "current_policy_shadow_promote_candidate",
+                    actions.get("current_policy_shadow_promote_candidates", []),
+                ),
+                (
+                    "current_policy_shadow_positive_watchlist",
+                    actions.get("current_policy_shadow_positive_watchlist", []),
+                ),
+            ]
+        )
+    lane_specs.extend(
+        [
+            ("promote_candidate", actions.get("promote_candidates", [])),
+            ("positive_watchlist", actions.get("positive_watchlist", [])),
+        ]
     )
-    probe_rows = sorted(
-        actions.get("positive_watchlist", []),
-        key=candidate_sort_key,
-        reverse=True,
-    )
-    for source, rows in [("promote_candidate", promote_rows), ("positive_watchlist", probe_rows)]:
+
+    for source, raw_rows in lane_specs:
+        rows = sorted(raw_rows, key=candidate_sort_key, reverse=True)
+        source_blocked = source_blocked_pairs(actions, source)
         for row in rows:
             key = pair_key(row)
             if key in used:
@@ -658,10 +694,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             reasons.extend(portfolio_gate_reasons)
             row, side_reasons = apply_portfolio_side_gate(row, actions, args)
             reasons.extend(side_reasons)
-            if key in blocked and not args.allow_blocked:
+            if key in source_blocked and not args.allow_blocked:
                 reasons.append("blocked_pair")
             reasons.extend(active_risk_rejection_reasons(row, args))
-            if source == "positive_watchlist":
+            if source_uses_probe_thresholds(source):
                 reasons.extend(probe_rejection_reasons(row, args))
             if reasons:
                 if len(rejected) < max_rejections:
@@ -711,6 +747,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "max_candidates": int(args.max_candidates),
             "max_rejections": max_rejections,
             "max_near_miss_candidates": int(args.max_near_miss_candidates),
+            "include_current_policy_candidates": bool(args.include_current_policy_candidates),
+            "include_current_policy_shadow_candidates": bool(args.include_current_policy_shadow_candidates),
             "include_near_miss_paper_probes": bool(args.include_near_miss_paper_probes),
             "max_near_miss_paper_probes": int(args.max_near_miss_paper_probes),
             "min_near_miss_completed": int(args.min_near_miss_completed),
@@ -770,6 +808,16 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "selected": len(selected),
             "blocked_pairs": len(blocked),
             "fresh_analog_veto_pairs": len(fresh_veto),
+            "current_policy_blocked_pairs": len(actions.get("current_policy_blocked_pairs", [])),
+            "current_policy_shadow_blocked_pairs": len(actions.get("current_policy_shadow_blocked_pairs", [])),
+            "current_policy_promote_candidates_seen": len(actions.get("current_policy_promote_candidates", [])),
+            "current_policy_positive_watchlist_seen": len(actions.get("current_policy_positive_watchlist", [])),
+            "current_policy_shadow_promote_candidates_seen": len(
+                actions.get("current_policy_shadow_promote_candidates", [])
+            ),
+            "current_policy_shadow_positive_watchlist_seen": len(
+                actions.get("current_policy_shadow_positive_watchlist", [])
+            ),
             "promote_candidates_seen": len(actions.get("promote_candidates", [])),
             "positive_watchlist_seen": len(actions.get("positive_watchlist", [])),
             "fresh_analog_seen": len(fresh_rows),
@@ -826,6 +874,14 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- selected: `{summary['selected']}`",
         f"- seen promote/positive/blocked: "
         f"`{summary['promote_candidates_seen']}/{summary['positive_watchlist_seen']}/{summary['blocked_pairs']}`",
+        f"- current_policy seen promote/positive/blocked: "
+        f"`{summary.get('current_policy_promote_candidates_seen', 0)}/"
+        f"{summary.get('current_policy_positive_watchlist_seen', 0)}/"
+        f"{summary.get('current_policy_blocked_pairs', 0)}`",
+        f"- current_policy_shadow seen promote/positive/blocked: "
+        f"`{summary.get('current_policy_shadow_promote_candidates_seen', 0)}/"
+        f"{summary.get('current_policy_shadow_positive_watchlist_seen', 0)}/"
+        f"{summary.get('current_policy_shadow_blocked_pairs', 0)}`",
         f"- fresh analog veto pairs: `{summary.get('fresh_analog_veto_pairs', 0)}`",
         f"- fresh analog seen/added: `{summary.get('fresh_analog_seen', 0)}/{summary.get('fresh_analog_added', 0)}`",
         f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
@@ -938,6 +994,10 @@ def format_text(payload: dict[str, Any]) -> str:
         f"updated_at={payload['updated_at']}",
         f"selected={summary['selected']} promote_seen={summary['promote_candidates_seen']} "
         f"positive_seen={summary['positive_watchlist_seen']} blocked_seen={summary['blocked_pairs']} "
+        f"current_policy_promote_seen={summary.get('current_policy_promote_candidates_seen', 0)} "
+        f"current_policy_positive_seen={summary.get('current_policy_positive_watchlist_seen', 0)} "
+        f"current_policy_shadow_promote_seen={summary.get('current_policy_shadow_promote_candidates_seen', 0)} "
+        f"current_policy_shadow_positive_seen={summary.get('current_policy_shadow_positive_watchlist_seen', 0)} "
         f"fresh_veto={summary.get('fresh_analog_veto_pairs', 0)} "
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
         f"near_miss={summary.get('near_miss_candidates', 0)} "
@@ -1003,6 +1063,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-candidates", type=int, default=3)
     parser.add_argument("--max-rejections", type=int, default=50)
     parser.add_argument("--max-near-miss-candidates", type=int, default=5)
+    parser.add_argument("--include-current-policy-candidates", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--include-current-policy-shadow-candidates", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--include-near-miss-paper-probes", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--max-near-miss-paper-probes", type=int, default=1)
     parser.add_argument("--min-near-miss-completed", type=int, default=4)

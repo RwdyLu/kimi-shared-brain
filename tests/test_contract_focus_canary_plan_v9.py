@@ -22,6 +22,8 @@ def args_for(actions_json: Path) -> Namespace:
         max_candidates=3,
         max_rejections=50,
         max_near_miss_candidates=5,
+        include_current_policy_candidates=True,
+        include_current_policy_shadow_candidates=True,
         include_near_miss_paper_probes=True,
         max_near_miss_paper_probes=1,
         min_near_miss_completed=4,
@@ -149,6 +151,56 @@ def test_focus_plan_prefers_promote_and_excludes_blocked(tmp_path: Path) -> None
     assert payload["candidates"][0]["allowed_pair"] == "AAAUSDT:long"
     assert "CONTRACT_EDGE_CANARY_ALLOWED_PAIRS=AAAUSDT:long" in payload["candidates"][0]["launch_command"]
     assert payload["candidates"][0]["env"]["CONTRACT_EDGE_CANARY_JOURNAL_RECORD_MODE"] == "analog_supported"
+
+
+def test_focus_plan_uses_current_policy_shadow_promote_despite_legacy_block(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "current_policy_shadow_promote_candidates": [
+                    candidate("SHADOWUSDT", "long", recent_sum_r=6.0, edge_score=8.0)
+                ],
+                "current_policy_shadow_blocked_pairs": [],
+                "promote_candidates": [],
+                "positive_watchlist": [],
+                "blocked_pairs": [candidate("SHADOWUSDT", "long")],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["current_policy_shadow_promote_candidates_seen"] == 1
+    row = payload["candidates"][0]
+    assert row["source"] == "current_policy_shadow_promote_candidate"
+    assert row["symbol"] == "SHADOWUSDT"
+    assert "blocked_pair" not in row["reason_codes"]
+
+
+def test_focus_plan_blocks_current_policy_shadow_promote_on_shadow_block(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "current_policy_shadow_promote_candidates": [
+                    candidate("SHADOWUSDT", "long", recent_sum_r=6.0, edge_score=8.0)
+                ],
+                "current_policy_shadow_blocked_pairs": [candidate("SHADOWUSDT", "long")],
+                "promote_candidates": [],
+                "positive_watchlist": [],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["current_policy_shadow_blocked_pairs"] == 1
+    assert payload["summary"]["rejection_reason_counts"]["blocked_pair"] == 1
+    assert payload["rejected_candidates"][0]["source"] == "current_policy_shadow_promote_candidate"
 
 
 def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
