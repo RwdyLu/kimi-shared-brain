@@ -166,6 +166,46 @@ def test_analog_evidence_uses_realistic_execution_costs(tmp_path: Path) -> None:
     assert analog["supported"] is False
 
 
+def test_analog_time_segment_robustness_passes_stable_segments() -> None:
+    args = Namespace(
+        analog_min_robust_segments=2,
+        analog_robust_segment_min_samples=3,
+        min_analog_segment_expectancy_r=0.0,
+        min_analog_segment_profitable_rate=0.45,
+    )
+    outcomes = [
+        {"dt": f"2026-01-01T0{idx}:00:00+00:00", "r_multiple": value}
+        for idx, value in enumerate([0.4, -0.1, 0.6, 0.5, -0.2, 0.7])
+    ]
+
+    robustness = signal_mod.analog_time_segment_robustness(outcomes, args)
+
+    assert robustness["supported"] is True
+    assert robustness["reason"] == "analog_time_segments_pass"
+    assert robustness["segment_count"] == 2
+    assert robustness["failing_segment_count"] == 0
+
+
+def test_analog_time_segment_robustness_blocks_weak_segment() -> None:
+    args = Namespace(
+        analog_min_robust_segments=2,
+        analog_robust_segment_min_samples=3,
+        min_analog_segment_expectancy_r=0.0,
+        min_analog_segment_profitable_rate=0.45,
+    )
+    outcomes = [
+        {"dt": f"2026-01-01T0{idx}:00:00+00:00", "r_multiple": value}
+        for idx, value in enumerate([-1.0, -0.2, 2.0, 0.5, 0.6, 0.7])
+    ]
+
+    robustness = signal_mod.analog_time_segment_robustness(outcomes, args)
+
+    assert robustness["supported"] is False
+    assert robustness["reason"] == "analog_time_segments_fail"
+    assert robustness["failing_segment_count"] == 1
+    assert "segment_profitable_rate<0.45" in robustness["segments"][0]["reason_codes"]
+
+
 def test_latest_market_signal_builds_short_paper_plan(tmp_path: Path) -> None:
     closes = [180.0 * (0.9985**idx) for idx in range(180)]
     write_symbol_cache(tmp_path, "BBBUSDT", closes)

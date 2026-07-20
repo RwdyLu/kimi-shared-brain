@@ -1386,6 +1386,84 @@ def simulate_realistic_analog_outcome(
     }
 
 
+def analog_time_segment_robustness(outcomes: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
+    min_segments = max(1, int(getattr(args, "analog_min_robust_segments", 2)))
+    min_samples = max(1, int(getattr(args, "analog_robust_segment_min_samples", 3)))
+    min_expectancy = float(getattr(args, "min_analog_segment_expectancy_r", 0.0))
+    min_profitable_rate = float(getattr(args, "min_analog_segment_profitable_rate", 0.45))
+    thresholds = {
+        "min_robust_segments": min_segments,
+        "segment_min_samples": min_samples,
+        "min_segment_expectancy_r": min_expectancy,
+        "min_segment_profitable_rate": min_profitable_rate,
+    }
+    if min_segments <= 1:
+        return {
+            "enabled": False,
+            "supported": True,
+            "reason": "analog_time_segments_off",
+            "thresholds": thresholds,
+            "segments": [],
+        }
+
+    ordered = sorted(outcomes, key=lambda row: str(row.get("dt") or ""))
+    if len(ordered) < min_segments * min_samples:
+        return {
+            "enabled": True,
+            "supported": False,
+            "reason": "insufficient_time_segment_samples",
+            "used_count": len(ordered),
+            "thresholds": thresholds,
+            "segments": [],
+        }
+
+    segments = []
+    for idx in range(min_segments):
+        start = round(idx * len(ordered) / min_segments)
+        end = round((idx + 1) * len(ordered) / min_segments)
+        rows = ordered[start:end]
+        r_values = [safe_float(row.get("r_multiple")) for row in rows]
+        profitable = sum(1 for value in r_values if value > 0.0)
+        segment_used = len(r_values)
+        expectancy = sum(r_values) / segment_used if segment_used else 0.0
+        profitable_rate = profitable / segment_used if segment_used else 0.0
+        reasons = []
+        if segment_used < min_samples:
+            reasons.append(f"segment_used<{min_samples}")
+        if expectancy < min_expectancy:
+            reasons.append(f"segment_expectancy_r<{min_expectancy:g}")
+        if profitable_rate < min_profitable_rate:
+            reasons.append(f"segment_profitable_rate<{min_profitable_rate:g}")
+        segments.append(
+            {
+                "segment": idx + 1,
+                "start_dt": rows[0].get("dt") if rows else None,
+                "end_dt": rows[-1].get("dt") if rows else None,
+                "used_count": segment_used,
+                "expectancy_r": float(expectancy),
+                "profitable_rate": float(profitable_rate),
+                "best_r": float(max(r_values)) if r_values else 0.0,
+                "worst_r": float(min(r_values)) if r_values else 0.0,
+                "reason_codes": reasons,
+            }
+        )
+
+    failing = [segment for segment in segments if segment["reason_codes"]]
+    worst_expectancy = min(float(segment["expectancy_r"]) for segment in segments)
+    worst_profitable_rate = min(float(segment["profitable_rate"]) for segment in segments)
+    return {
+        "enabled": True,
+        "supported": not failing,
+        "reason": "analog_time_segments_pass" if not failing else "analog_time_segments_fail",
+        "segment_count": len(segments),
+        "failing_segment_count": len(failing),
+        "worst_segment_expectancy_r": float(worst_expectancy),
+        "worst_segment_profitable_rate": float(worst_profitable_rate),
+        "thresholds": thresholds,
+        "segments": segments,
+    }
+
+
 def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, signal: str) -> dict[str, Any]:
     horizon = int(args.analog_horizon_bars)
     if signal not in {"long", "short"}:
@@ -1486,15 +1564,25 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
         and (hit_rate >= float(args.min_analog_hit_rate) or profitable_rate >= float(args.min_analog_profitable_rate))
         and expectancy >= float(args.min_analog_expectancy_r)
     )
+    robustness = analog_time_segment_robustness(outcomes, args)
+    final_supported = bool(supported and robustness.get("supported"))
+    if final_supported:
+        reason = "analog_support_pass"
+    elif supported and not robustness.get("supported"):
+        reason = "analog_robustness_fail"
+    else:
+        reason = "analog_support_fail"
     return {
         "enabled": True,
-        "supported": bool(supported),
-        "reason": "analog_support_pass" if supported else "analog_support_fail",
+        "supported": final_supported,
+        "base_supported": bool(supported),
+        "reason": reason,
         "execution_model": REALISTIC_EXECUTION_MODEL_VERSION,
         "candidate_count": int(len(history)),
         "used_count": used,
         "top_k": int(args.analog_top_k),
         "horizon_bars": horizon,
+        "time_segment_robustness": robustness,
         "entry_latency_bars": entry_latency,
         "fee_bps_per_side": float(config.get("fee_bps_per_side") or 0.0),
         "slippage_bps": float(config.get("slippage_bps") or 0.0),
@@ -1517,6 +1605,16 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
             "min_analog_hit_rate": float(args.min_analog_hit_rate),
             "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
+            "analog_min_robust_segments": int(getattr(args, "analog_min_robust_segments", 2)),
+            "analog_robust_segment_min_samples": int(
+                getattr(args, "analog_robust_segment_min_samples", 3)
+            ),
+            "min_analog_segment_expectancy_r": float(
+                getattr(args, "min_analog_segment_expectancy_r", 0.0)
+            ),
+            "min_analog_segment_profitable_rate": float(
+                getattr(args, "min_analog_segment_profitable_rate", 0.45)
+            ),
         },
     }
 
@@ -2976,6 +3074,16 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "min_analog_hit_rate": float(args.min_analog_hit_rate),
             "min_analog_profitable_rate": float(args.min_analog_profitable_rate),
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
+            "analog_min_robust_segments": int(getattr(args, "analog_min_robust_segments", 2)),
+            "analog_robust_segment_min_samples": int(
+                getattr(args, "analog_robust_segment_min_samples", 3)
+            ),
+            "min_analog_segment_expectancy_r": float(
+                getattr(args, "min_analog_segment_expectancy_r", 0.0)
+            ),
+            "min_analog_segment_profitable_rate": float(
+                getattr(args, "min_analog_segment_profitable_rate", 0.45)
+            ),
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
             "decision_policy_version": str(getattr(args, "decision_policy_version", DECISION_POLICY_VERSION)),
             "paper_execution": execution_config_from_args(args),
@@ -3340,6 +3448,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-analog-hit-rate", type=float, default=0.42)
     parser.add_argument("--min-analog-profitable-rate", type=float, default=0.55)
     parser.add_argument("--min-analog-expectancy-r", type=float, default=0.15)
+    parser.add_argument("--analog-min-robust-segments", type=int, default=2)
+    parser.add_argument("--analog-robust-segment-min-samples", type=int, default=3)
+    parser.add_argument("--min-analog-segment-expectancy-r", type=float, default=0.0)
+    parser.add_argument("--min-analog-segment-profitable-rate", type=float, default=0.45)
     parser.add_argument("--paper-outcome-horizon-bars", type=int, default=24)
     parser.add_argument("--decision-policy-version", default=DECISION_POLICY_VERSION)
     parser.add_argument("--paper-fee-bps", type=float, default=5.0)
