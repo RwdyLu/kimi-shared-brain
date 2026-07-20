@@ -93,6 +93,8 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         journal_shadow_min_expectancy_r=0.15,
         journal_shadow_min_hit_rate=0.30,
         journal_shadow_min_profitable_rate=0.40,
+        journal_shadow_retest_json="",
+        journal_shadow_retest_max_new=2,
         journal_fast_shadow_jsonl="",
         journal_fast_shadow_outcome_horizon_bars=0,
         journal_allowed_pairs="",
@@ -634,6 +636,116 @@ def test_latest_market_signal_writes_fast_shadow_records_for_portfolio_risk_bloc
     assert all(row["outcome_horizon_bars"] == 3 for row in fast_shadow_rows)
     assert all(row["paper_trading_authorized"] is False for row in fast_shadow_rows)
     assert all(row["live_trading_authorized"] is False for row in fast_shadow_rows)
+
+
+def test_latest_market_signal_writes_full_horizon_shadow_retest_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_record_mode = "analog_supported"
+    args.journal_shadow_record_mode = "all_signals"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_shadow_retest_json = str(tmp_path / "actions.json")
+    args.paper_outcome_horizon_bars = 12
+    Path(args.journal_shadow_retest_json).write_text(
+        json.dumps(
+            {
+                "current_policy_fast_shadow_retest_candidates": [
+                    {"timeframe": "1h", "symbol": "AAAUSDT", "side": "long"}
+                ]
+            }
+        )
+    )
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["shadow_retest_pairs"] == ["1h:AAAUSDT:long"]
+    assert summary["shadow_retest_candidate_rows"] == 1
+    assert summary["shadow_retest_new_records"] == 1
+    assert summary["shadow_new_records"] == 1
+    assert main_rows == []
+    assert len(shadow_rows) == 1
+    assert shadow_rows[0]["kind"] == "contract_latest_market_signal_shadow_journal_v1"
+    assert shadow_rows[0]["shadow_reason"] == "fast_shadow_full_horizon_retest"
+    assert shadow_rows[0]["shadow_retest"] is True
+    assert shadow_rows[0]["promotion_eligible"] is False
+    assert shadow_rows[0]["outcome_horizon_bars"] == 12
+    assert shadow_rows[0]["paper_trading_authorized"] is False
+    assert shadow_rows[0]["live_trading_authorized"] is False
+
+
+def test_latest_market_signal_limits_full_horizon_shadow_retest_records(tmp_path: Path) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT,BBBUSDT")
+    args.journal_record_mode = "analog_supported"
+    args.journal_shadow_record_mode = "all_signals"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_shadow_retest_json = str(tmp_path / "actions.json")
+    args.journal_shadow_retest_max_new = 1
+    Path(args.journal_shadow_retest_json).write_text(
+        json.dumps(
+            {
+                "current_policy_fast_shadow_retest": {
+                    "retest_candidates": [
+                        {"timeframe": "1h", "symbol": "AAAUSDT", "side": "long"},
+                        {"timeframe": "1h", "symbol": "BBBUSDT", "side": "long"},
+                    ]
+                }
+            }
+        )
+    )
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": symbol,
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {"supported": False},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+            for symbol in ("AAAUSDT", "BBBUSDT")
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+
+    assert summary["shadow_retest_candidate_rows"] == 2
+    assert summary["shadow_retest_new_records"] == 1
+    assert summary["shadow_new_records"] == 1
+    assert len(shadow_rows) == 1
+    assert shadow_rows[0]["symbol"] == "AAAUSDT"
 
 
 def test_latest_market_signal_shadow_positive_expectancy_is_independent_from_main_record_mode(

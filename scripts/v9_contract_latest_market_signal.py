@@ -92,6 +92,42 @@ def read_blocked_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[st
     return refs
 
 
+def read_shadow_retest_pair_refs(path: str, *, default_timeframe: str) -> set[tuple[str, str, str]]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    try:
+        payload = json.loads(p.read_text())
+    except json.JSONDecodeError:
+        return set()
+
+    rows: list[Any] = []
+    if isinstance(payload, list):
+        rows.extend(payload)
+    elif isinstance(payload, dict):
+        rows.extend(payload.get("current_policy_fast_shadow_retest_candidates") or [])
+        retest = payload.get("current_policy_fast_shadow_retest") or {}
+        if isinstance(retest, dict):
+            rows.extend(retest.get("retest_candidates") or [])
+        rows.extend(payload.get("retest_candidates") or [])
+
+    refs: set[tuple[str, str, str]] = set()
+    for row in rows:
+        if isinstance(row, str):
+            refs.update(parse_timeframe_symbol_side_refs(row, default_timeframe=default_timeframe))
+            continue
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        side = str(row.get("side") or "").lower()
+        timeframe = str(row.get("timeframe") or default_timeframe).lower()
+        if symbol and side in {"long", "short"}:
+            refs.add((timeframe, symbol, side))
+    return refs
+
+
 def journal_blocked_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
     default_timeframe = str(getattr(args, "timeframe", "") or "").lower()
     refs = parse_timeframe_symbol_side_refs(
@@ -105,6 +141,13 @@ def journal_blocked_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, s
         )
     )
     return refs
+
+
+def journal_shadow_retest_pair_refs(args: argparse.Namespace) -> set[tuple[str, str, str]]:
+    return read_shadow_retest_pair_refs(
+        getattr(args, "journal_shadow_retest_json", ""),
+        default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+    )
 
 
 def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
@@ -1501,6 +1544,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     execution_config = execution_config_from_args(args)
     allowed_pairs = parse_symbol_side_pairs(getattr(args, "journal_allowed_pairs", ""))
     blocked_pairs = journal_blocked_pair_refs(args)
+    shadow_retest_pairs = journal_shadow_retest_pair_refs(args)
+    shadow_retest_max_new = int(getattr(args, "journal_shadow_retest_max_new", 0) or 0)
     risk_controls = journal_risk_controls(args)
     blocked_sides = set(risk_controls.get("blocked_sides") or [])
     respect_portfolio_risk = bool(getattr(args, "journal_respect_portfolio_risk", True))
@@ -1518,6 +1563,8 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     global_active_cap_blocked_candidates = 0
     global_active_added = 0
     active_total_cap_blocked_candidates = 0
+    shadow_retest_candidate_rows = 0
+    shadow_retest_new_records = 0
     shadow_updated = 0
     fast_shadow_updated = 0
     new_shadow_records: list[dict[str, Any]] = []
@@ -1594,26 +1641,34 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
 
     new_records = []
 
-    def add_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
+    def add_shadow_record(
+        row: dict[str, Any],
+        reason: str,
+        reason_codes: list[str] | None = None,
+        *,
+        extra_fields: dict[str, Any] | None = None,
+    ) -> bool:
         if shadow_path is None:
-            return
+            return False
         if not shadow_record_allowed(row, args):
-            return
+            return False
         sid = signal_id(row)
         if sid in seen or sid in shadow_seen:
-            return
+            return False
         shadow_seen.add(sid)
-        new_shadow_records.append(
-            shadow_record_from_row(
-                row,
-                updated_at=payload["updated_at"],
-                horizon_bars=args.paper_outcome_horizon_bars,
-                execution_config=execution_config,
-                reason=reason,
-                reason_codes=reason_codes,
-                risk_controls=risk_controls,
-            )
+        record = shadow_record_from_row(
+            row,
+            updated_at=payload["updated_at"],
+            horizon_bars=args.paper_outcome_horizon_bars,
+            execution_config=execution_config,
+            reason=reason,
+            reason_codes=reason_codes,
+            risk_controls=risk_controls,
         )
+        if extra_fields:
+            record.update(extra_fields)
+        new_shadow_records.append(record)
+        return True
 
     def add_fast_shadow_record(row: dict[str, Any], reason: str, reason_codes: list[str] | None = None) -> None:
         if fast_shadow_path is None or fast_shadow_horizon <= 0:
@@ -1649,6 +1704,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             continue
         if pair_ref in blocked_pairs:
             blocked_candidates += 1
+            continue
+        if pair_ref in shadow_retest_pairs:
+            shadow_retest_candidate_rows += 1
+            if shadow_retest_max_new <= 0 or shadow_retest_new_records < shadow_retest_max_new:
+                if add_shadow_record(
+                    row,
+                    "fast_shadow_full_horizon_retest",
+                    ["fast_shadow_retest_ready"],
+                    extra_fields={
+                        "shadow_retest": True,
+                        "shadow_retest_source": str(getattr(args, "journal_shadow_retest_json", "") or ""),
+                        "promotion_eligible": False,
+                    },
+                ):
+                    shadow_retest_new_records += 1
             continue
         drawdown_recovery_probe = False
         if respect_portfolio_risk and risk_controls.get("block_new_focus"):
@@ -1793,6 +1863,13 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
         "shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
         "shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
+        "shadow_retest_json": str(getattr(args, "journal_shadow_retest_json", "")),
+        "shadow_retest_pairs": sorted(
+            f"{timeframe}:{symbol}:{side}" for timeframe, symbol, side in shadow_retest_pairs
+        ),
+        "shadow_retest_max_new": shadow_retest_max_new,
+        "shadow_retest_candidate_rows": shadow_retest_candidate_rows,
+        "shadow_retest_new_records": shadow_retest_new_records,
         "fast_shadow_enabled": fast_shadow_path is not None and fast_shadow_horizon > 0,
         "fast_shadow_path": str(fast_shadow_path) if fast_shadow_path is not None else "",
         "fast_shadow_outcome_horizon_bars": fast_shadow_horizon,
@@ -1900,6 +1977,8 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_shadow_min_expectancy_r": float(getattr(args, "journal_shadow_min_expectancy_r", 0.15)),
             "journal_shadow_min_hit_rate": float(getattr(args, "journal_shadow_min_hit_rate", 0.30)),
             "journal_shadow_min_profitable_rate": float(getattr(args, "journal_shadow_min_profitable_rate", 0.40)),
+            "journal_shadow_retest_json": str(getattr(args, "journal_shadow_retest_json", "")),
+            "journal_shadow_retest_max_new": int(getattr(args, "journal_shadow_retest_max_new", 0) or 0),
             "journal_fast_shadow_jsonl": str(getattr(args, "journal_fast_shadow_jsonl", "")),
             "journal_fast_shadow_outcome_horizon_bars": int(
                 getattr(args, "journal_fast_shadow_outcome_horizon_bars", 0) or 0
@@ -2118,6 +2197,12 @@ def format_text(payload: dict[str, Any]) -> str:
         f"active={(payload.get('journal') or {}).get('shadow_open_records')} "
         f"completed={(payload.get('journal') or {}).get('shadow_completed_records')} "
         f"path={(payload.get('journal') or {}).get('shadow_path')}",
+        "journal_shadow_retest "
+        f"pairs={len((payload.get('journal') or {}).get('shadow_retest_pairs') or [])} "
+        f"candidates={(payload.get('journal') or {}).get('shadow_retest_candidate_rows')} "
+        f"new={(payload.get('journal') or {}).get('shadow_retest_new_records')} "
+        f"max_new={(payload.get('journal') or {}).get('shadow_retest_max_new')} "
+        f"json={(payload.get('journal') or {}).get('shadow_retest_json')}",
         "journal_fast_shadow "
         f"enabled={(payload.get('journal') or {}).get('fast_shadow_enabled')} "
         f"horizon={(payload.get('journal') or {}).get('fast_shadow_outcome_horizon_bars')} "
@@ -2230,6 +2315,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--journal-shadow-min-expectancy-r", type=float, default=0.15)
     parser.add_argument("--journal-shadow-min-hit-rate", type=float, default=0.30)
     parser.add_argument("--journal-shadow-min-profitable-rate", type=float, default=0.40)
+    parser.add_argument(
+        "--journal-shadow-retest-json",
+        default="",
+        help="Optional actions/retest JSON whose fast-shadow retest candidates are shadow-only full horizon retests.",
+    )
+    parser.add_argument(
+        "--journal-shadow-retest-max-new",
+        type=int,
+        default=2,
+        help="Maximum full-horizon shadow retest records to add per run; 0 means unlimited.",
+    )
     parser.add_argument(
         "--journal-fast-shadow-jsonl",
         default="",
