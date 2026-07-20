@@ -207,6 +207,7 @@ def read_blocked_regime_cohort_refs(
         actions = payload.get("actions") or {}
         if isinstance(actions, dict):
             rows.extend(actions.get("current_policy_blocked_regime_cohorts") or [])
+            rows.extend(actions.get("current_policy_active_blocked_regime_cohorts") or [])
             rows.extend(actions.get("current_policy_fast_shadow_blocked_regime_cohorts") or [])
             rows.extend(actions.get("current_policy_fast_shadow_active_blocked_regime_cohorts") or [])
             rows.extend(actions.get("blocked_regime_cohorts") or [])
@@ -2213,6 +2214,8 @@ def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace, *, forc
     mode = str(getattr(args, "journal_shadow_record_mode", "inherit") or "inherit")
     if mode == "inherit":
         mode = str(getattr(args, "journal_record_mode", "all_signals") or "all_signals")
+    if mode == "strong_analog":
+        mode = "positive_expectancy"
     if mode == "off":
         return False
     if force:
@@ -2237,6 +2240,37 @@ def shadow_record_allowed(row: dict[str, Any], args: argparse.Namespace, *, forc
             return False
         return True
     return False
+
+
+def formal_entry_gate_reason_codes(row: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    mode = str(getattr(args, "journal_record_mode", "all_signals") or "all_signals")
+    if mode == "all_signals":
+        return []
+    analog = row.get("analog_evidence") or {}
+    reasons: list[str] = []
+    if mode in {"analog_supported", "strong_analog"} and not bool(analog.get("supported")):
+        reasons.append("analog_supported=false")
+    if mode != "strong_analog":
+        return reasons
+
+    min_samples = int(getattr(args, "journal_strong_min_analog_samples", 30))
+    min_expectancy = float(getattr(args, "journal_strong_min_expectancy_r", 0.25))
+    min_hit_rate = float(getattr(args, "journal_strong_min_hit_rate", 0.50))
+    min_profitable_rate = float(getattr(args, "journal_strong_min_profitable_rate", 0.55))
+    require_robustness = bool(getattr(args, "journal_strong_require_robustness", True))
+    used_count = int(analog.get("used_count") or 0)
+    if used_count < min_samples:
+        reasons.append(f"analog_used_count<{min_samples}")
+    if safe_float(analog.get("expectancy_r")) < min_expectancy:
+        reasons.append(f"analog_expectancy_r<{min_expectancy:g}")
+    if safe_float(analog.get("hit_rate")) < min_hit_rate:
+        reasons.append(f"analog_hit_rate<{min_hit_rate:g}")
+    if safe_float(analog.get("profitable_rate")) < min_profitable_rate:
+        reasons.append(f"analog_profitable_rate<{min_profitable_rate:g}")
+    robustness = analog.get("time_segment_robustness") or {}
+    if require_robustness and robustness.get("supported") is not True:
+        reasons.append("analog_time_segment_robustness!=true")
+    return reasons
 
 
 def market_quality_blocked_candidate_row(row: dict[str, Any]) -> dict[str, Any] | None:
@@ -2625,6 +2659,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     analog_robustness_fail_candidates = 0
     analog_robustness_fail_shadow_new_records = 0
     analog_robustness_fail_fast_shadow_new_records = 0
+    formal_entry_gate_blocked_candidates = 0
+    formal_entry_gate_shadow_new_records = 0
+    formal_entry_gate_fast_shadow_new_records = 0
     shadow_retest_candidate_rows = 0
     shadow_retest_new_records = 0
     regime_confirmation_backfilled = 0
@@ -3026,7 +3063,33 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             ):
                 analog_robustness_fail_fast_shadow_new_records += 1
             continue
-        if args.journal_record_mode == "analog_supported" and not analog.get("supported"):
+        formal_entry_reasons = formal_entry_gate_reason_codes(row, args)
+        if formal_entry_reasons:
+            formal_entry_gate_blocked_candidates += 1
+            extra_fields = {
+                "formal_entry_gate_block": True,
+                "formal_entry_gate_mode": str(getattr(args, "journal_record_mode", "") or ""),
+                "formal_entry_gate_reason_codes": formal_entry_reasons,
+                "promotion_eligible": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+            if add_shadow_record(
+                row,
+                "formal_entry_gate_block",
+                formal_entry_reasons,
+                extra_fields=extra_fields,
+                force=bool(analog.get("supported")),
+            ):
+                formal_entry_gate_shadow_new_records += 1
+            if add_fast_shadow_record(
+                row,
+                "formal_entry_gate_block",
+                formal_entry_reasons,
+                extra_fields=extra_fields,
+                force=bool(analog.get("supported")),
+            ):
+                formal_entry_gate_fast_shadow_new_records += 1
             continue
         if sid in seen:
             continue
@@ -3128,6 +3191,25 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "analog_robustness_fail_fast_shadow_new_records": (
             analog_robustness_fail_fast_shadow_new_records
         ),
+        "formal_entry_gate_mode": str(getattr(args, "journal_record_mode", "all_signals") or "all_signals"),
+        "formal_entry_gate_min_analog_samples": int(
+            getattr(args, "journal_strong_min_analog_samples", 30)
+        ),
+        "formal_entry_gate_min_expectancy_r": float(
+            getattr(args, "journal_strong_min_expectancy_r", 0.25)
+        ),
+        "formal_entry_gate_min_hit_rate": float(
+            getattr(args, "journal_strong_min_hit_rate", 0.50)
+        ),
+        "formal_entry_gate_min_profitable_rate": float(
+            getattr(args, "journal_strong_min_profitable_rate", 0.55)
+        ),
+        "formal_entry_gate_require_robustness": bool(
+            getattr(args, "journal_strong_require_robustness", True)
+        ),
+        "formal_entry_gate_blocked_candidate_rows": formal_entry_gate_blocked_candidates,
+        "formal_entry_gate_shadow_new_records": formal_entry_gate_shadow_new_records,
+        "formal_entry_gate_fast_shadow_new_records": formal_entry_gate_fast_shadow_new_records,
         "fast_shadow_updated_records": fast_shadow_updated,
         "fast_shadow_regime_confirmation_backfilled_records": fast_shadow_regime_confirmation_backfilled,
         "fast_shadow_total_records": len(fast_shadow_records),
@@ -3361,6 +3443,20 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_risk_actions_json": str(getattr(args, "journal_risk_actions_json", "")),
             "journal_risk_scope": str(getattr(args, "journal_risk_scope", "current_policy")),
             "journal_active_cap_scope": str(getattr(args, "journal_active_cap_scope", "current_policy")),
+            "journal_record_mode": str(getattr(args, "journal_record_mode", "all_signals")),
+            "journal_strong_min_analog_samples": int(
+                getattr(args, "journal_strong_min_analog_samples", 30)
+            ),
+            "journal_strong_min_expectancy_r": float(
+                getattr(args, "journal_strong_min_expectancy_r", 0.25)
+            ),
+            "journal_strong_min_hit_rate": float(getattr(args, "journal_strong_min_hit_rate", 0.50)),
+            "journal_strong_min_profitable_rate": float(
+                getattr(args, "journal_strong_min_profitable_rate", 0.55)
+            ),
+            "journal_strong_require_robustness": bool(
+                getattr(args, "journal_strong_require_robustness", True)
+            ),
             "journal_shadow_jsonl": str(getattr(args, "journal_shadow_jsonl", "")),
             "journal_shadow_record_mode": str(getattr(args, "journal_shadow_record_mode", "inherit")),
             "journal_shadow_min_analog_samples": int(getattr(args, "journal_shadow_min_analog_samples", 20)),
@@ -3556,6 +3652,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"`{(payload.get('journal') or {}).get('analog_robustness_fail_candidate_rows')}/"
         f"{(payload.get('journal') or {}).get('analog_robustness_fail_shadow_new_records')}/"
         f"{(payload.get('journal') or {}).get('analog_robustness_fail_fast_shadow_new_records')}`",
+        f"- journal_formal_entry_gate: "
+        f"`{(payload.get('journal') or {}).get('formal_entry_gate_mode')}/"
+        f"{(payload.get('journal') or {}).get('formal_entry_gate_blocked_candidate_rows')}/"
+        f"{(payload.get('journal') or {}).get('formal_entry_gate_shadow_new_records')}/"
+        f"{(payload.get('journal') or {}).get('formal_entry_gate_fast_shadow_new_records')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
@@ -3646,6 +3747,16 @@ def format_text(payload: dict[str, Any]) -> str:
         f"shadow_new={(payload.get('journal') or {}).get('analog_robustness_fail_shadow_new_records')} "
         "fast_shadow_new="
         f"{(payload.get('journal') or {}).get('analog_robustness_fail_fast_shadow_new_records')}",
+        "journal_formal_entry_gate "
+        f"mode={(payload.get('journal') or {}).get('formal_entry_gate_mode')} "
+        f"min_samples={(payload.get('journal') or {}).get('formal_entry_gate_min_analog_samples')} "
+        f"min_expectancy={(payload.get('journal') or {}).get('formal_entry_gate_min_expectancy_r')} "
+        f"min_hit={(payload.get('journal') or {}).get('formal_entry_gate_min_hit_rate')} "
+        f"min_profitable={(payload.get('journal') or {}).get('formal_entry_gate_min_profitable_rate')} "
+        f"require_robustness={(payload.get('journal') or {}).get('formal_entry_gate_require_robustness')} "
+        f"blocked={(payload.get('journal') or {}).get('formal_entry_gate_blocked_candidate_rows')} "
+        f"shadow_new={(payload.get('journal') or {}).get('formal_entry_gate_shadow_new_records')} "
+        f"fast_shadow_new={(payload.get('journal') or {}).get('formal_entry_gate_fast_shadow_new_records')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="
@@ -3909,9 +4020,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--journal-record-mode",
-        choices=("all_signals", "analog_supported", "off"),
+        choices=("all_signals", "analog_supported", "strong_analog", "off"),
         default="all_signals",
     )
+    parser.add_argument("--journal-strong-min-analog-samples", type=int, default=30)
+    parser.add_argument("--journal-strong-min-expectancy-r", type=float, default=0.25)
+    parser.add_argument("--journal-strong-min-hit-rate", type=float, default=0.50)
+    parser.add_argument("--journal-strong-min-profitable-rate", type=float, default=0.55)
+    parser.add_argument("--journal-strong-require-robustness", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--max-journal-records", type=int, default=20000)
     parser.add_argument("--max-shadow-journal-records", type=int, default=20000)
     parser.add_argument("--max-fast-shadow-journal-records", type=int, default=20000)

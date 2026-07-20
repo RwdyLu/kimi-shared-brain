@@ -947,6 +947,166 @@ def test_latest_market_signal_journal_blocks_fast_shadow_active_regime_cohorts_f
     assert main_rows == []
 
 
+def test_latest_market_signal_journal_blocks_current_policy_active_regime_cohorts_from_actions_json(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    actions = tmp_path / "actions.json"
+    actions.write_text(
+        json.dumps(
+            {
+                "actions": {
+                    "current_policy_active_blocked_regime_cohorts": [
+                        {
+                            "timeframe": "1h",
+                            "side": "long",
+                            "market_regime_id": "uptrend_normal_vol",
+                            "block_source": "current_policy_active_regime_stress",
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    args.journal_blocked_pairs_json = str(actions)
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "market_regime": {"regime_id": "uptrend_normal_vol"},
+                "analog_evidence": {"supported": True},
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+
+    assert summary["new_records"] == 0
+    assert summary["journal_blocked_regime_cohort_candidate_rows"] == 1
+    assert summary["journal_blocked_regime_cohorts"] == ["1h:long:uptrend_normal_vol"]
+    assert main_rows == []
+
+
+def test_latest_market_signal_strong_analog_gate_routes_weak_supported_to_shadow(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_record_mode = "strong_analog"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    args.journal_strong_min_analog_samples = 30
+    args.journal_strong_min_expectancy_r = 0.25
+    args.journal_strong_min_hit_rate = 0.50
+    args.journal_strong_min_profitable_rate = 0.55
+    args.journal_strong_require_robustness = True
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": True,
+                    "used_count": 12,
+                    "hit_rate": 0.60,
+                    "profitable_rate": 0.60,
+                    "expectancy_r": 0.30,
+                    "time_segment_robustness": {"supported": True},
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    shadow_rows = [json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()]
+    fast_shadow_rows = [json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 0
+    assert summary["formal_entry_gate_blocked_candidate_rows"] == 1
+    assert summary["formal_entry_gate_shadow_new_records"] == 1
+    assert summary["formal_entry_gate_fast_shadow_new_records"] == 1
+    assert main_rows == []
+    assert shadow_rows[0]["shadow_reason"] == "formal_entry_gate_block"
+    assert "analog_used_count<30" in shadow_rows[0]["formal_entry_gate_reason_codes"]
+    assert fast_shadow_rows[0]["shadow_reason"] == "formal_entry_gate_block"
+    assert fast_shadow_rows[0]["promotion_eligible"] is False
+
+
+def test_latest_market_signal_strong_analog_gate_allows_strong_supported_paper(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_record_mode = "strong_analog"
+    args.journal_strong_min_analog_samples = 30
+    args.journal_strong_min_expectancy_r = 0.25
+    args.journal_strong_min_hit_rate = 0.50
+    args.journal_strong_min_profitable_rate = 0.55
+    args.journal_strong_require_robustness = True
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "analog_evidence": {
+                    "supported": True,
+                    "used_count": 35,
+                    "hit_rate": 0.54,
+                    "profitable_rate": 0.58,
+                    "expectancy_r": 0.32,
+                    "time_segment_robustness": {"supported": True},
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert summary["new_records"] == 1
+    assert summary["formal_entry_gate_blocked_candidate_rows"] == 0
+    assert rows[0]["symbol"] == "AAAUSDT"
+    assert rows[0]["analog_used_count"] == 35
+
+
 def test_latest_market_signal_journal_blocks_trend_alignment_risk_cohorts_from_actions_json(
     tmp_path: Path,
 ) -> None:
