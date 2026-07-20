@@ -2273,6 +2273,151 @@ def formal_entry_gate_reason_codes(row: dict[str, Any], args: argparse.Namespace
     return reasons
 
 
+def completed_record_r(record: dict[str, Any]) -> float | None:
+    if record.get("status") != "completed":
+        return None
+    outcome = record.get("outcome") or {}
+    value = safe_float(outcome.get("r_multiple"), default=math.nan)
+    return value if math.isfinite(value) else None
+
+
+def summarize_shadow_probe_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    values = [value for record in records if (value := completed_record_r(record)) is not None]
+    wins = sum(1 for value in values if value > 0.0)
+    losses = sum(1 for value in values if value < 0.0)
+    gains = sum(value for value in values if value > 0.0)
+    loss_abs = abs(sum(value for value in values if value < 0.0))
+    profit_factor = gains / loss_abs if loss_abs > 0.0 else (999.0 if gains > 0.0 else 0.0)
+    completed = len(values)
+    return {
+        "completed": completed,
+        "wins": wins,
+        "losses": losses,
+        "loss_rate": float(losses / completed) if completed else 0.0,
+        "sum_r": float(sum(values)),
+        "avg_r": float(sum(values) / completed) if completed else 0.0,
+        "profit_factor": float(profit_factor),
+    }
+
+
+def shadow_probe_record_matches_pair(
+    record: dict[str, Any],
+    *,
+    timeframe: str,
+    symbol: str,
+    side: str,
+) -> bool:
+    return (
+        str(record.get("timeframe") or "").lower() == timeframe
+        and str(record.get("symbol") or "").upper() == symbol
+        and str(record.get("side") or "").lower() == side
+    )
+
+
+def shadow_probe_record_matches_regime(
+    record: dict[str, Any],
+    *,
+    timeframe: str,
+    side: str,
+    regime_id: str,
+) -> bool:
+    return (
+        str(record.get("timeframe") or "").lower() == timeframe
+        and str(record.get("side") or "").lower() == side
+        and str(record.get("market_regime_id") or "").strip() == regime_id
+    )
+
+
+def shadow_performance_veto_reason_codes(stats: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    min_completed = int(getattr(args, "journal_shadow_veto_min_completed", 3))
+    if int(stats.get("completed") or 0) < min_completed:
+        return []
+    max_sum_r = float(getattr(args, "journal_shadow_veto_max_sum_r", -1.0))
+    max_profit_factor = float(getattr(args, "journal_shadow_veto_max_profit_factor", 0.8))
+    min_loss_rate = float(getattr(args, "journal_shadow_veto_min_loss_rate", 0.67))
+    sum_r = safe_float(stats.get("sum_r"))
+    profit_factor = safe_float(stats.get("profit_factor"))
+    loss_rate = safe_float(stats.get("loss_rate"))
+    reasons = [f"shadow_performance_veto:{stats.get('scope')}"]
+    if sum_r <= max_sum_r:
+        reasons.append(f"shadow_sum_r<={max_sum_r:g}")
+    if profit_factor < max_profit_factor and sum_r < 0.0:
+        reasons.append(f"shadow_profit_factor<{max_profit_factor:g}")
+    if loss_rate >= min_loss_rate and sum_r < 0.0:
+        reasons.append(f"shadow_loss_rate>={min_loss_rate:g}")
+    return reasons if len(reasons) > 1 else []
+
+
+def shadow_performance_veto_payload(
+    row: dict[str, Any],
+    records: list[dict[str, Any]],
+    args: argparse.Namespace,
+    *,
+    default_timeframe: str,
+) -> dict[str, Any] | None:
+    mode = str(getattr(args, "journal_shadow_veto_mode", "off") or "off")
+    if mode == "off":
+        return None
+    timeframe = str(row.get("timeframe") or default_timeframe).lower()
+    symbol = str(row.get("symbol") or "").upper()
+    side = str(row.get("signal") or row.get("side") or "").lower()
+    if not timeframe or not symbol or side not in {"long", "short"}:
+        return None
+
+    groups: list[dict[str, Any]] = [
+        {
+            "scope": "pair",
+            "records": [
+                record
+                for record in records
+                if shadow_probe_record_matches_pair(
+                    record,
+                    timeframe=timeframe,
+                    symbol=symbol,
+                    side=side,
+                )
+            ],
+            "symbol": symbol,
+        }
+    ]
+    if mode == "pair_or_regime":
+        regime_ref = regime_cohort_ref_for_signal_row(row, default_timeframe=default_timeframe)
+        if regime_ref is not None:
+            _, _, regime_id = regime_ref
+            groups.append(
+                {
+                    "scope": "regime",
+                    "records": [
+                        record
+                        for record in records
+                        if shadow_probe_record_matches_regime(
+                            record,
+                            timeframe=timeframe,
+                            side=side,
+                            regime_id=regime_id,
+                        )
+                    ],
+                    "market_regime_id": regime_id,
+                }
+            )
+
+    for group in groups:
+        stats = summarize_shadow_probe_records(group["records"])
+        stats.update(
+            {
+                "scope": group["scope"],
+                "timeframe": timeframe,
+                "side": side,
+                "symbol": group.get("symbol"),
+                "market_regime_id": group.get("market_regime_id"),
+            }
+        )
+        reasons = shadow_performance_veto_reason_codes(stats, args)
+        if reasons:
+            return {**stats, "reason_codes": reasons}
+    return None
+
+
 def market_quality_blocked_candidate_row(row: dict[str, Any]) -> dict[str, Any] | None:
     if row.get("status") != "market_quality_blocked":
         return None
@@ -2662,6 +2807,9 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
     formal_entry_gate_blocked_candidates = 0
     formal_entry_gate_shadow_new_records = 0
     formal_entry_gate_fast_shadow_new_records = 0
+    shadow_performance_veto_candidates = 0
+    shadow_performance_veto_shadow_new_records = 0
+    shadow_performance_veto_fast_shadow_new_records = 0
     shadow_retest_candidate_rows = 0
     shadow_retest_new_records = 0
     regime_confirmation_backfilled = 0
@@ -3091,6 +3239,44 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
             ):
                 formal_entry_gate_fast_shadow_new_records += 1
             continue
+        shadow_veto = shadow_performance_veto_payload(
+            row,
+            [*shadow_records, *fast_shadow_records],
+            args,
+            default_timeframe=str(getattr(args, "timeframe", "") or "").lower(),
+        )
+        if shadow_veto is not None:
+            shadow_performance_veto_candidates += 1
+            reason_codes = [str(item) for item in shadow_veto.get("reason_codes") or []]
+            extra_fields = {
+                "shadow_performance_veto": True,
+                "shadow_performance_veto_scope": shadow_veto.get("scope"),
+                "shadow_performance_veto_reason_codes": reason_codes,
+                "shadow_performance_veto_completed": shadow_veto.get("completed"),
+                "shadow_performance_veto_sum_r": shadow_veto.get("sum_r"),
+                "shadow_performance_veto_profit_factor": shadow_veto.get("profit_factor"),
+                "shadow_performance_veto_loss_rate": shadow_veto.get("loss_rate"),
+                "promotion_eligible": False,
+                "paper_trading_authorized": False,
+                "live_trading_authorized": False,
+            }
+            if add_shadow_record(
+                row,
+                "shadow_performance_veto",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                shadow_performance_veto_shadow_new_records += 1
+            if add_fast_shadow_record(
+                row,
+                "shadow_performance_veto",
+                reason_codes,
+                extra_fields=extra_fields,
+                force=True,
+            ):
+                shadow_performance_veto_fast_shadow_new_records += 1
+            continue
         if sid in seen:
             continue
         seen.add(sid)
@@ -3210,6 +3396,24 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "formal_entry_gate_blocked_candidate_rows": formal_entry_gate_blocked_candidates,
         "formal_entry_gate_shadow_new_records": formal_entry_gate_shadow_new_records,
         "formal_entry_gate_fast_shadow_new_records": formal_entry_gate_fast_shadow_new_records,
+        "shadow_performance_veto_mode": str(getattr(args, "journal_shadow_veto_mode", "off") or "off"),
+        "shadow_performance_veto_min_completed": int(
+            getattr(args, "journal_shadow_veto_min_completed", 3)
+        ),
+        "shadow_performance_veto_max_sum_r": float(
+            getattr(args, "journal_shadow_veto_max_sum_r", -1.0)
+        ),
+        "shadow_performance_veto_max_profit_factor": float(
+            getattr(args, "journal_shadow_veto_max_profit_factor", 0.8)
+        ),
+        "shadow_performance_veto_min_loss_rate": float(
+            getattr(args, "journal_shadow_veto_min_loss_rate", 0.67)
+        ),
+        "shadow_performance_veto_candidate_rows": shadow_performance_veto_candidates,
+        "shadow_performance_veto_shadow_new_records": shadow_performance_veto_shadow_new_records,
+        "shadow_performance_veto_fast_shadow_new_records": (
+            shadow_performance_veto_fast_shadow_new_records
+        ),
         "fast_shadow_updated_records": fast_shadow_updated,
         "fast_shadow_regime_confirmation_backfilled_records": fast_shadow_regime_confirmation_backfilled,
         "fast_shadow_total_records": len(fast_shadow_records),
@@ -3457,6 +3661,19 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "journal_strong_require_robustness": bool(
                 getattr(args, "journal_strong_require_robustness", True)
             ),
+            "journal_shadow_veto_mode": str(getattr(args, "journal_shadow_veto_mode", "off")),
+            "journal_shadow_veto_min_completed": int(
+                getattr(args, "journal_shadow_veto_min_completed", 3)
+            ),
+            "journal_shadow_veto_max_sum_r": float(
+                getattr(args, "journal_shadow_veto_max_sum_r", -1.0)
+            ),
+            "journal_shadow_veto_max_profit_factor": float(
+                getattr(args, "journal_shadow_veto_max_profit_factor", 0.8)
+            ),
+            "journal_shadow_veto_min_loss_rate": float(
+                getattr(args, "journal_shadow_veto_min_loss_rate", 0.67)
+            ),
             "journal_shadow_jsonl": str(getattr(args, "journal_shadow_jsonl", "")),
             "journal_shadow_record_mode": str(getattr(args, "journal_shadow_record_mode", "inherit")),
             "journal_shadow_min_analog_samples": int(getattr(args, "journal_shadow_min_analog_samples", 20)),
@@ -3657,6 +3874,11 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('formal_entry_gate_blocked_candidate_rows')}/"
         f"{(payload.get('journal') or {}).get('formal_entry_gate_shadow_new_records')}/"
         f"{(payload.get('journal') or {}).get('formal_entry_gate_fast_shadow_new_records')}`",
+        f"- journal_shadow_performance_veto: "
+        f"`{(payload.get('journal') or {}).get('shadow_performance_veto_mode')}/"
+        f"{(payload.get('journal') or {}).get('shadow_performance_veto_candidate_rows')}/"
+        f"{(payload.get('journal') or {}).get('shadow_performance_veto_shadow_new_records')}/"
+        f"{(payload.get('journal') or {}).get('shadow_performance_veto_fast_shadow_new_records')}`",
         f"- journal_shadow_mode: `{(payload.get('journal') or {}).get('shadow_record_mode')}`",
         f"- journal_shadow_new/active/completed: "
         f"`{(payload.get('journal') or {}).get('shadow_new_records')}/"
@@ -3757,6 +3979,16 @@ def format_text(payload: dict[str, Any]) -> str:
         f"blocked={(payload.get('journal') or {}).get('formal_entry_gate_blocked_candidate_rows')} "
         f"shadow_new={(payload.get('journal') or {}).get('formal_entry_gate_shadow_new_records')} "
         f"fast_shadow_new={(payload.get('journal') or {}).get('formal_entry_gate_fast_shadow_new_records')}",
+        "journal_shadow_performance_veto "
+        f"mode={(payload.get('journal') or {}).get('shadow_performance_veto_mode')} "
+        f"min_completed={(payload.get('journal') or {}).get('shadow_performance_veto_min_completed')} "
+        f"max_sum_r={(payload.get('journal') or {}).get('shadow_performance_veto_max_sum_r')} "
+        f"max_pf={(payload.get('journal') or {}).get('shadow_performance_veto_max_profit_factor')} "
+        f"min_loss_rate={(payload.get('journal') or {}).get('shadow_performance_veto_min_loss_rate')} "
+        f"blocked={(payload.get('journal') or {}).get('shadow_performance_veto_candidate_rows')} "
+        f"shadow_new={(payload.get('journal') or {}).get('shadow_performance_veto_shadow_new_records')} "
+        "fast_shadow_new="
+        f"{(payload.get('journal') or {}).get('shadow_performance_veto_fast_shadow_new_records')}",
         "journal_portfolio_risk_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_portfolio_risk_blocked_candidate_rows')}",
         "journal_portfolio_drawdown_recovery_candidate_rows="
@@ -4028,6 +4260,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--journal-strong-min-hit-rate", type=float, default=0.50)
     parser.add_argument("--journal-strong-min-profitable-rate", type=float, default=0.55)
     parser.add_argument("--journal-strong-require-robustness", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--journal-shadow-veto-mode",
+        choices=("off", "pair", "pair_or_regime"),
+        default="off",
+    )
+    parser.add_argument("--journal-shadow-veto-min-completed", type=int, default=3)
+    parser.add_argument("--journal-shadow-veto-max-sum-r", type=float, default=-1.0)
+    parser.add_argument("--journal-shadow-veto-max-profit-factor", type=float, default=0.8)
+    parser.add_argument("--journal-shadow-veto-min-loss-rate", type=float, default=0.67)
     parser.add_argument("--max-journal-records", type=int, default=20000)
     parser.add_argument("--max-shadow-journal-records", type=int, default=20000)
     parser.add_argument("--max-fast-shadow-journal-records", type=int, default=20000)

@@ -1107,6 +1107,94 @@ def test_latest_market_signal_strong_analog_gate_allows_strong_supported_paper(
     assert rows[0]["analog_used_count"] == 35
 
 
+def test_latest_market_signal_shadow_performance_veto_blocks_strong_pair(
+    tmp_path: Path,
+) -> None:
+    args = base_args(tmp_path, symbols="AAAUSDT")
+    args.journal_record_mode = "strong_analog"
+    args.journal_shadow_jsonl = str(tmp_path / "shadow.jsonl")
+    args.journal_fast_shadow_jsonl = str(tmp_path / "fast_shadow.jsonl")
+    args.journal_fast_shadow_outcome_horizon_bars = 3
+    args.journal_strong_min_analog_samples = 30
+    args.journal_strong_min_expectancy_r = 0.25
+    args.journal_strong_min_hit_rate = 0.50
+    args.journal_strong_min_profitable_rate = 0.55
+    args.journal_strong_require_robustness = True
+    args.journal_shadow_veto_mode = "pair_or_regime"
+    args.journal_shadow_veto_min_completed = 3
+    args.journal_shadow_veto_max_sum_r = -1.0
+    args.journal_shadow_veto_max_profit_factor = 0.8
+    args.journal_shadow_veto_min_loss_rate = 0.67
+    shadow_rows = [
+        {
+            "kind": "contract_latest_market_signal_shadow_journal_v1",
+            "signal_id": f"old-{idx}",
+            "status": "completed",
+            "symbol": "AAAUSDT",
+            "side": "long",
+            "timeframe": "1h",
+            "market_regime_id": "uptrend_normal_vol",
+            "outcome": {"r_multiple": value},
+        }
+        for idx, value in enumerate([-0.8, -0.6, 0.1])
+    ]
+    (tmp_path / "shadow.jsonl").write_text(
+        "\n".join(json.dumps(row) for row in shadow_rows) + "\n"
+    )
+    payload = {
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "rows": [
+            {
+                "symbol": "AAAUSDT",
+                "signal": "long",
+                "latest_dt": "2026-01-01T00:00:00+00:00",
+                "reason": "test",
+                "market_regime": {"regime_id": "uptrend_normal_vol"},
+                "analog_evidence": {
+                    "supported": True,
+                    "used_count": 35,
+                    "hit_rate": 0.60,
+                    "profitable_rate": 0.60,
+                    "expectancy_r": 0.35,
+                    "time_segment_robustness": {"supported": True},
+                },
+                "paper_plan": {
+                    "entry_price": 100.0,
+                    "stop_loss": 98.0,
+                    "take_profit": 104.0,
+                    "risk_per_unit": 2.0,
+                    "reward_r": 2.0,
+                    "risk_per_trade": 0.005,
+                    "leverage_cap": 2.0,
+                },
+            }
+        ],
+    }
+
+    summary = signal_mod.update_journal(payload, args)
+    main_rows = (tmp_path / "journal.jsonl").read_text().splitlines()
+    updated_shadow_rows = [
+        json.loads(line) for line in (tmp_path / "shadow.jsonl").read_text().splitlines()
+    ]
+    fast_shadow_rows = [
+        json.loads(line) for line in (tmp_path / "fast_shadow.jsonl").read_text().splitlines()
+    ]
+    veto_row = updated_shadow_rows[-1]
+
+    assert summary["new_records"] == 0
+    assert summary["formal_entry_gate_blocked_candidate_rows"] == 0
+    assert summary["shadow_performance_veto_candidate_rows"] == 1
+    assert summary["shadow_performance_veto_shadow_new_records"] == 1
+    assert summary["shadow_performance_veto_fast_shadow_new_records"] == 1
+    assert main_rows == []
+    assert veto_row["shadow_reason"] == "shadow_performance_veto"
+    assert veto_row["shadow_performance_veto_scope"] == "pair"
+    assert veto_row["shadow_performance_veto_completed"] == 3
+    assert "shadow_performance_veto:pair" in veto_row["shadow_performance_veto_reason_codes"]
+    assert "shadow_sum_r<=-1" in veto_row["shadow_performance_veto_reason_codes"]
+    assert fast_shadow_rows[0]["shadow_reason"] == "shadow_performance_veto"
+
+
 def test_latest_market_signal_journal_blocks_trend_alignment_risk_cohorts_from_actions_json(
     tmp_path: Path,
 ) -> None:
