@@ -215,6 +215,138 @@ def bars_for_hours(timeframe: str, hours: float) -> int:
     return max(1, int(round(float(hours) * 60.0 / interval_minutes(timeframe))))
 
 
+def percentile_rank(series: pd.Series, value: float) -> float:
+    xs = pd.to_numeric(series, errors="coerce").dropna()
+    if xs.empty or not math.isfinite(value):
+        return 0.0
+    return float((xs <= value).mean())
+
+
+def build_market_regime_context(frames_by_symbol: dict[str, pd.DataFrame], args: argparse.Namespace) -> dict[str, Any]:
+    if str(getattr(args, "regime_filter_mode", "off")) == "off":
+        return {"enabled": False, "regime_id": "disabled", "trend_state": "unknown", "vol_state": "unknown"}
+
+    requested = parse_symbols(getattr(args, "regime_symbols", ""))
+    symbols = requested or tuple(frames_by_symbol)
+    samples = []
+    min_bars = max(
+        int(getattr(args, "slow_ema", 96)),
+        int(getattr(args, "atr_n", 14)),
+        bars_for_hours(getattr(args, "timeframe", "1h"), 24.0),
+        25,
+    ) + 2
+    for symbol in symbols:
+        frame = frames_by_symbol.get(symbol.upper())
+        if frame is None or len(frame) < min_bars:
+            continue
+        features = prepare_feature_frame(frame, args).dropna(subset=["close", "ema_slow", "ema_fast", "slow_ema_slope", "ret_24h", "atr_pct"])
+        if features.empty:
+            continue
+        latest = features.iloc[-1]
+        close = safe_float(latest.get("close"))
+        ema_slow = safe_float(latest.get("ema_slow"))
+        ema_fast = safe_float(latest.get("ema_fast"))
+        slow_slope = safe_float(latest.get("slow_ema_slope"))
+        ret_24h = safe_float(latest.get("ret_24h"))
+        atr_pct = safe_float(latest.get("atr_pct"))
+        direction_votes = 0
+        direction_votes += 1 if close > ema_slow else -1
+        direction_votes += 1 if ema_fast > ema_slow else -1
+        direction_votes += 1 if slow_slope > float(args.min_slope) else (-1 if slow_slope < -float(args.min_slope) else 0)
+        direction_votes += 1 if ret_24h > float(args.min_ret_24h) else (-1 if ret_24h < -float(args.min_ret_24h) else 0)
+        samples.append(
+            {
+                "symbol": symbol.upper(),
+                "latest_dt": latest["dt"].isoformat(),
+                "close": close,
+                "ret_24h": ret_24h,
+                "slow_ema_slope": slow_slope,
+                "ema_gap": safe_float(latest.get("ema_gap")),
+                "atr_pct": atr_pct,
+                "atr_percentile": percentile_rank(features["atr_pct"].tail(int(args.regime_vol_lookback_bars)), atr_pct),
+                "direction_votes": int(direction_votes),
+            }
+        )
+
+    if not samples:
+        return {
+            "enabled": True,
+            "regime_id": "unknown",
+            "trend_state": "unknown",
+            "vol_state": "unknown",
+            "reason": "no_market_regime_samples",
+            "source_symbols": [symbol.upper() for symbol in symbols],
+            "samples": [],
+            "thresholds": {
+                "min_direction_votes": int(args.regime_min_direction_votes),
+                "high_vol_percentile": float(args.regime_high_vol_percentile),
+            },
+        }
+
+    direction_score = int(sum(int(row["direction_votes"]) for row in samples))
+    min_votes = int(args.regime_min_direction_votes)
+    if direction_score >= min_votes:
+        trend_state = "uptrend"
+    elif direction_score <= -min_votes:
+        trend_state = "downtrend"
+    else:
+        trend_state = "range"
+    median_atr_pct = float(pd.Series([row["atr_pct"] for row in samples]).median())
+    median_atr_percentile = float(pd.Series([row["atr_percentile"] for row in samples]).median())
+    vol_state = "high_vol" if median_atr_percentile >= float(args.regime_high_vol_percentile) else "normal_vol"
+    return {
+        "enabled": True,
+        "regime_id": f"{trend_state}_{vol_state}",
+        "trend_state": trend_state,
+        "vol_state": vol_state,
+        "direction_score": direction_score,
+        "median_atr_pct": median_atr_pct,
+        "median_atr_percentile": median_atr_percentile,
+        "source_symbols": [row["symbol"] for row in samples],
+        "samples": samples,
+        "thresholds": {
+            "min_direction_votes": min_votes,
+            "high_vol_percentile": float(args.regime_high_vol_percentile),
+        },
+    }
+
+
+def regime_filter_decision(signal: str, market_regime: dict[str, Any] | None, args: argparse.Namespace) -> dict[str, Any]:
+    mode = str(getattr(args, "regime_filter_mode", "off"))
+    context = market_regime or {"enabled": False, "trend_state": "unknown", "vol_state": "unknown", "regime_id": "unknown"}
+    if mode == "off":
+        return {"enabled": False, "allowed": True, "mode": mode, "reason": "regime_filter_off"}
+    if signal not in {"long", "short"}:
+        return {"enabled": True, "allowed": True, "mode": mode, "reason": "no_directional_signal"}
+    if bool(getattr(args, "regime_block_high_vol", False)) and context.get("vol_state") == "high_vol":
+        return {
+            "enabled": True,
+            "allowed": False,
+            "mode": mode,
+            "reason": "blocked_high_vol_regime",
+            "regime_id": context.get("regime_id"),
+        }
+    trend_state = str(context.get("trend_state") or "unknown")
+    if trend_state == "unknown":
+        allowed = mode != "trend_only"
+        return {
+            "enabled": True,
+            "allowed": allowed,
+            "mode": mode,
+            "reason": "unknown_regime_allowed" if allowed else "unknown_regime_blocked",
+            "regime_id": context.get("regime_id"),
+        }
+    if mode == "annotate":
+        return {"enabled": True, "allowed": True, "mode": mode, "reason": "annotate_only", "regime_id": context.get("regime_id")}
+    if signal == "long" and trend_state == "downtrend":
+        return {"enabled": True, "allowed": False, "mode": mode, "reason": "long_blocked_by_market_downtrend", "regime_id": context.get("regime_id")}
+    if signal == "short" and trend_state == "uptrend":
+        return {"enabled": True, "allowed": False, "mode": mode, "reason": "short_blocked_by_market_uptrend", "regime_id": context.get("regime_id")}
+    if mode == "trend_only" and trend_state == "range":
+        return {"enabled": True, "allowed": False, "mode": mode, "reason": "range_regime_blocked", "regime_id": context.get("regime_id")}
+    return {"enabled": True, "allowed": True, "mode": mode, "reason": "regime_aligned", "regime_id": context.get("regime_id")}
+
+
 def prepare_feature_frame(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
     df = frame.copy().sort_values("dt").reset_index(drop=True)
     ret_6h_bars = bars_for_hours(args.timeframe, 6.0)
@@ -629,7 +761,13 @@ def historical_analog_evidence(df: pd.DataFrame, args: argparse.Namespace, *, si
     }
 
 
-def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: str) -> dict[str, Any]:
+def classify_signal(
+    frame: pd.DataFrame,
+    args: argparse.Namespace,
+    *,
+    symbol: str,
+    market_regime: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     min_bars = max(
         args.slow_ema,
         args.atr_n,
@@ -713,7 +851,27 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
             "latest_dt": latest["dt"].isoformat(),
             "close": close,
             "metrics": metrics,
+            "market_regime": market_regime or {"enabled": False},
+            "regime_filter": regime_filter_decision(signal, market_regime, args),
             "analog_evidence": {"enabled": True, "supported": False, "reason": "no_signal"},
+            "paper_plan": None,
+        }
+
+    regime_filter = regime_filter_decision(signal, market_regime, args)
+    if not regime_filter.get("allowed", True):
+        return {
+            "symbol": symbol,
+            "status": "regime_blocked",
+            "signal": "none",
+            "raw_signal": signal,
+            "reason": str(regime_filter.get("reason") or "regime_blocked"),
+            "latest_dt": latest["dt"].isoformat(),
+            "previous_dt": previous["dt"].isoformat(),
+            "close": close,
+            "metrics": {**metrics, "votes": long_votes if signal == "long" else short_votes},
+            "market_regime": market_regime or {"enabled": False},
+            "regime_filter": regime_filter,
+            "analog_evidence": {"enabled": True, "supported": False, "reason": "regime_blocked"},
             "paper_plan": None,
         }
 
@@ -724,6 +882,8 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
             "status": "invalid_plan",
             "signal": "none",
             "reason": "invalid_stop_or_take_profit",
+            "market_regime": market_regime or {"enabled": False},
+            "regime_filter": regime_filter,
             "paper_plan": None,
         }
     analog = historical_analog_evidence(df, args, signal=signal)
@@ -751,6 +911,8 @@ def classify_signal(frame: pd.DataFrame, args: argparse.Namespace, *, symbol: st
         "previous_dt": previous["dt"].isoformat(),
         "close": close,
         "metrics": {**metrics, "votes": votes},
+        "market_regime": market_regime or {"enabled": False},
+        "regime_filter": regime_filter,
         "analog_evidence": analog,
         "paper_plan": plan,
     }
@@ -798,6 +960,8 @@ def journal_record_from_row(
     plan = row["paper_plan"]
     analog = row.get("analog_evidence") or {}
     config = execution_config or {}
+    market_regime = row.get("market_regime") or {}
+    regime_filter = row.get("regime_filter") or {}
     return {
         "kind": "contract_latest_market_signal_paper_journal_v1",
         "signal_id": signal_id(row),
@@ -822,6 +986,13 @@ def journal_record_from_row(
         "risk_per_trade": float(plan["risk_per_trade"]),
         "leverage_cap": float(plan["leverage_cap"]),
         "signal_reason": row.get("reason"),
+        "market_regime_id": market_regime.get("regime_id"),
+        "market_trend_state": market_regime.get("trend_state"),
+        "market_vol_state": market_regime.get("vol_state"),
+        "market_direction_score": market_regime.get("direction_score"),
+        "market_regime_source_symbols": market_regime.get("source_symbols") or [],
+        "regime_filter_mode": regime_filter.get("mode"),
+        "regime_filter_reason": regime_filter.get("reason"),
         "analog_supported": bool(analog.get("supported")),
         "analog_reason": analog.get("reason"),
         "analog_used_count": int(analog.get("used_count") or 0),
@@ -1177,13 +1348,24 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         top_n=args.top_n,
         fallback=fallback,
     )
+    regime_symbols = parse_symbols(getattr(args, "regime_symbols", ""))
+    frame_symbols = tuple(dict.fromkeys([*symbols, *regime_symbols]))
+    frames_by_symbol: dict[str, pd.DataFrame] = {}
+    for symbol in frame_symbols:
+        frames_by_symbol[symbol] = load_symbol_cache(
+            Path(args.cache_dir),
+            symbol,
+            args.timeframe,
+            lookback_bars=args.lookback_bars,
+        )
+    market_regime = build_market_regime_context(frames_by_symbol, args)
     rows = []
     for symbol in symbols:
-        frame = load_symbol_cache(Path(args.cache_dir), symbol, args.timeframe, lookback_bars=args.lookback_bars)
-        rows.append(classify_signal(frame, args, symbol=symbol))
+        rows.append(classify_signal(frames_by_symbol[symbol], args, symbol=symbol, market_regime=market_regime))
     rows.sort(key=row_sort_key, reverse=True)
     signal_rows = [row for row in rows if row.get("signal") in {"long", "short"} and row.get("paper_plan")]
     analog_supported_rows = [row for row in signal_rows if (row.get("analog_evidence") or {}).get("supported")]
+    regime_filtered_rows = [row for row in rows if (row.get("regime_filter") or {}).get("allowed") is False]
     payload = {
         "kind": "contract_latest_market_signal_v2_analog_journal",
         "updated_at": now_utc(),
@@ -1191,6 +1373,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "timeframe": args.timeframe,
         "universe_json": args.universe_json,
         "symbols": symbols,
+        "market_regime": market_regime,
         "config": {
             "ret_6h_bars": bars_for_hours(args.timeframe, 6.0),
             "ret_24h_bars": bars_for_hours(args.timeframe, 24.0),
@@ -1211,6 +1394,12 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
             "min_analog_expectancy_r": float(args.min_analog_expectancy_r),
             "paper_outcome_horizon_bars": int(args.paper_outcome_horizon_bars),
             "paper_execution": execution_config_from_args(args),
+            "regime_filter_mode": str(getattr(args, "regime_filter_mode", "off")),
+            "regime_symbols": [symbol.upper() for symbol in regime_symbols],
+            "regime_min_direction_votes": int(args.regime_min_direction_votes),
+            "regime_vol_lookback_bars": int(args.regime_vol_lookback_bars),
+            "regime_high_vol_percentile": float(args.regime_high_vol_percentile),
+            "regime_block_high_vol": bool(args.regime_block_high_vol),
             "journal_allowed_pairs": sorted(
                 f"{symbol}:{side}" for symbol, side in parse_symbol_side_pairs(args.journal_allowed_pairs)
             ),
@@ -1220,6 +1409,7 @@ def run_screen(args: argparse.Namespace) -> dict[str, Any]:
         "summary": {
             "rows": len(rows),
             "signal_count": len(signal_rows),
+            "regime_filtered_count": len(regime_filtered_rows),
             "paper_plan_found": bool(signal_rows),
             "analog_supported_plan_count": len(analog_supported_rows),
             "analog_supported_plan_found": bool(analog_supported_rows),
@@ -1304,25 +1494,34 @@ def write_analog_marker(payload: dict[str, Any], marker_path: Path, no_marker_pa
 
 
 def format_markdown(payload: dict[str, Any]) -> str:
+    market_regime = payload.get("market_regime") or {}
     lines = [
         "# Contract Latest Market Signal",
         "",
         f"- updated_at: `{payload['updated_at']}`",
         f"- timeframe: `{payload['timeframe']}`",
+        f"- market_regime: `{market_regime.get('regime_id')}`",
+        f"- market_direction_score: `{market_regime.get('direction_score')}`",
+        f"- regime_filtered_count: `{payload['summary'].get('regime_filtered_count')}`",
         f"- signal_count: `{payload['summary']['signal_count']}`",
         f"- analog_supported_plan_count: `{payload['summary']['analog_supported_plan_count']}`",
         f"- paper_plan_found: `{payload['summary']['paper_plan_found']}`",
         f"- journal_new_records: `{(payload.get('journal') or {}).get('new_records')}`",
         "",
-        "| rank | symbol | signal | close | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
-        "| ---: | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| rank | symbol | signal | close | regime | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
+        "| ---: | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for idx, row in enumerate(payload["top"], start=1):
         plan = row.get("paper_plan") or {}
         metrics = row.get("metrics") or {}
         analog = row.get("analog_evidence") or {}
+        regime_filter = row.get("regime_filter") or {}
+        signal = row.get("signal")
+        if signal == "none" and row.get("raw_signal"):
+            signal = f"blocked:{row.get('raw_signal')}"
         lines.append(
-            f"| {idx} | {row.get('symbol')} | {row.get('signal')} | {row.get('close', 0.0):.8f} | "
+            f"| {idx} | {row.get('symbol')} | {signal} | {row.get('close', 0.0):.8f} | "
+            f"{regime_filter.get('reason')} | "
             f"{analog.get('reason')} | {safe_float(analog.get('hit_rate')):.2f} | "
             f"{safe_float(analog.get('expectancy_r')):.2f} | "
             f"{plan.get('entry_price', 0.0):.8f} | {plan.get('stop_loss', 0.0):.8f} | "
@@ -1333,10 +1532,14 @@ def format_markdown(payload: dict[str, Any]) -> str:
 
 
 def format_text(payload: dict[str, Any]) -> str:
+    market_regime = payload.get("market_regime") or {}
     lines = [
         f"updated_at={payload['updated_at']}",
         f"timeframe={payload['timeframe']}",
+        f"market_regime={market_regime.get('regime_id')} direction_score={market_regime.get('direction_score')} "
+        f"vol={market_regime.get('vol_state')} sources={','.join(market_regime.get('source_symbols') or [])}",
         f"signal_count={payload['summary']['signal_count']}",
+        f"regime_filtered_count={payload['summary'].get('regime_filtered_count')}",
         f"analog_supported_plan_count={payload['summary']['analog_supported_plan_count']}",
         f"paper_plan_found={payload['summary']['paper_plan_found']}",
         f"journal_new_records={(payload.get('journal') or {}).get('new_records')}",
@@ -1348,9 +1551,14 @@ def format_text(payload: dict[str, Any]) -> str:
         best = payload["top"][0]
         plan = best.get("paper_plan") or {}
         analog = best.get("analog_evidence") or {}
+        regime_filter = best.get("regime_filter") or {}
+        signal = best.get("signal")
+        if signal == "none" and best.get("raw_signal"):
+            signal = f"blocked:{best.get('raw_signal')}"
         lines.append(
             "best "
-            f"symbol={best.get('symbol')} signal={best.get('signal')} reason={best.get('reason')} "
+            f"symbol={best.get('symbol')} signal={signal} reason={best.get('reason')} "
+            f"regime={regime_filter.get('reason')} "
             f"analog={analog.get('reason')} hit_rate={analog.get('hit_rate')} "
             f"expectancy_r={analog.get('expectancy_r')} "
             f"entry={plan.get('entry_price')} stop={plan.get('stop_loss')} take_profit={plan.get('take_profit')}"
@@ -1399,6 +1607,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--paper-funding-bps-per-8h", type=float, default=1.0)
     parser.add_argument("--paper-partial-fill-frac", type=float, default=1.0)
     parser.add_argument("--paper-min-fill-frac", type=float, default=1.0)
+    parser.add_argument(
+        "--regime-filter-mode",
+        choices=("off", "annotate", "block_conflict", "trend_only"),
+        default="block_conflict",
+        help="Use broad BTC/ETH market regime before recording a paper signal.",
+    )
+    parser.add_argument(
+        "--regime-symbols",
+        default="BTCUSDT,ETHUSDT",
+        help="Comma list of market symbols used to infer the broad regime. Falls back to screened symbols if missing.",
+    )
+    parser.add_argument("--regime-min-direction-votes", type=int, default=2)
+    parser.add_argument("--regime-vol-lookback-bars", type=int, default=1000)
+    parser.add_argument("--regime-high-vol-percentile", type=float, default=0.85)
+    parser.add_argument("--regime-block-high-vol", action="store_true")
     parser.add_argument(
         "--paper-migrate-legacy-records",
         choices=("off", "active", "all"),

@@ -122,3 +122,48 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     assert payload["actions"]["blocked_pairs"][0]["timeframe"] == "1h"
     assert payload["actions"]["blocked_pairs"][0]["symbol"] == "BBBUSDT"
     assert payload["actions"]["blocked_pairs"][0]["side"] == "short"
+
+
+def test_paper_report_builds_regime_scoreboard(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = []
+    for idx, value in enumerate([0.8, 0.7, -0.2, 0.5]):
+        rows.append(
+            {
+                "created_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-01T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "AAAUSDT",
+                "side": "long",
+                "market_regime_id": "uptrend_normal_vol",
+                "outcome": {"r_multiple": value, "exit_dt": f"2026-01-01T0{idx}:30:00+00:00"},
+            }
+        )
+    for idx, value in enumerate([-1.0, -0.6]):
+        rows.append(
+            {
+                "created_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "updated_at": f"2026-01-02T0{idx}:00:00+00:00",
+                "status": "completed",
+                "symbol": "BBBUSDT",
+                "side": "long",
+                "market_regime_id": "downtrend_normal_vol",
+                "outcome": {"r_multiple": value, "exit_dt": f"2026-01-02T0{idx}:30:00+00:00"},
+            }
+        )
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        scoreboard_max_rows=20,
+        scoreboard_recent_trades=50,
+        actions_max_rows=20,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["summary"]["regime_scoreboard_groups"] == 2
+    assert payload["regime_scoreboard"][0]["market_regime_id"] == "uptrend_normal_vol"
+    assert abs(payload["regime_scoreboard"][0]["recent_sum_r"] - 1.8) < 1e-9

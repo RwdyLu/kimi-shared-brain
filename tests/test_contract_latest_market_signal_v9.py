@@ -78,6 +78,12 @@ def base_args(tmp_path: Path, *, symbols: str) -> Namespace:
         paper_funding_bps_per_8h=1.0,
         paper_partial_fill_frac=1.0,
         paper_min_fill_frac=1.0,
+        regime_filter_mode="block_conflict",
+        regime_symbols="BTCUSDT,ETHUSDT",
+        regime_min_direction_votes=2,
+        regime_vol_lookback_bars=1000,
+        regime_high_vol_percentile=0.85,
+        regime_block_high_vol=False,
         paper_migrate_legacy_records="all",
         journal_jsonl=str(tmp_path / "journal.jsonl"),
         journal_allowed_pairs="",
@@ -109,6 +115,7 @@ def test_latest_market_signal_builds_long_paper_plan(tmp_path: Path) -> None:
     assert payload["summary"]["live_trading_authorized"] is False
     assert best["signal"] == "long"
     assert best["analog_evidence"]["supported"] is True
+    assert best["regime_filter"]["allowed"] is True
     assert plan["stop_loss"] < plan["entry_price"] < plan["take_profit"]
     assert plan["order_intent"]["entry"] == "paper_only_no_order"
 
@@ -125,7 +132,38 @@ def test_latest_market_signal_builds_short_paper_plan(tmp_path: Path) -> None:
     assert payload["summary"]["analog_supported_plan_found"] is True
     assert best["signal"] == "short"
     assert best["analog_evidence"]["supported"] is True
+    assert best["regime_filter"]["allowed"] is True
     assert plan["take_profit"] < plan["entry_price"] < plan["stop_loss"]
+
+
+def test_market_regime_blocks_long_against_btc_downtrend(tmp_path: Path) -> None:
+    write_symbol_cache(tmp_path, "AAAUSDT", [100.0 * (1.0015**idx) for idx in range(180)])
+    write_symbol_cache(tmp_path, "BTCUSDT", [180.0 * (0.9985**idx) for idx in range(180)])
+
+    payload = signal_mod.run_screen(base_args(tmp_path, symbols="AAAUSDT"))
+
+    row = payload["rows"][0]
+    assert payload["market_regime"]["trend_state"] == "downtrend"
+    assert payload["summary"]["paper_plan_found"] is False
+    assert payload["summary"]["regime_filtered_count"] == 1
+    assert row["raw_signal"] == "long"
+    assert row["signal"] == "none"
+    assert row["status"] == "regime_blocked"
+    assert row["regime_filter"]["reason"] == "long_blocked_by_market_downtrend"
+    assert payload["journal"]["new_records"] == 0
+
+
+def test_journal_record_persists_market_regime_context(tmp_path: Path) -> None:
+    write_symbol_cache(tmp_path, "AAAUSDT", [100.0 * (1.0015**idx) for idx in range(180)])
+    write_symbol_cache(tmp_path, "BTCUSDT", [100.0 * (1.0012**idx) for idx in range(180)])
+
+    payload = signal_mod.run_screen(base_args(tmp_path, symbols="AAAUSDT"))
+    rows = [json.loads(line) for line in (tmp_path / "journal.jsonl").read_text().splitlines()]
+
+    assert payload["market_regime"]["trend_state"] == "uptrend"
+    assert rows[0]["market_regime_id"].startswith("uptrend_")
+    assert rows[0]["market_trend_state"] == "uptrend"
+    assert rows[0]["regime_filter_reason"] == "regime_aligned"
 
 
 def test_latest_market_signal_rejects_flat_market(tmp_path: Path) -> None:
