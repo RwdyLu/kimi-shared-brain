@@ -113,7 +113,7 @@ def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     assert payload["summary"]["stop_candidates"] == 1
     assert payload["scoreboard"][0]["symbol"] == "AAAUSDT"
     assert payload["scoreboard"][0]["status"] == "promote_candidate"
-    assert payload["scoreboard"][0]["recent_sum_r"] == 5.999999999999998
+    assert abs(payload["scoreboard"][0]["recent_sum_r"] - 6.0) < 1e-9
     stop = next(row for row in payload["scoreboard"] if row["symbol"] == "BBBUSDT")
     assert stop["status"] == "stop_candidate"
     assert "recent_sum_r<=-5" in stop["reason_codes"]
