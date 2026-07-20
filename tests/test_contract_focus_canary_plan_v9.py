@@ -20,6 +20,13 @@ def args_for(actions_json: Path) -> Namespace:
     return Namespace(
         actions_json=str(actions_json),
         max_candidates=3,
+        include_fresh_analog=False,
+        signal_jsons="",
+        max_fresh_analog_candidates=2,
+        min_fresh_analog_samples=30,
+        min_fresh_analog_hit_rate=0.42,
+        min_fresh_analog_profitable_rate=0.42,
+        min_fresh_analog_expectancy_r=0.25,
         min_probe_completed=8,
         min_probe_analog_supported=4,
         min_probe_analog_supported_rate=0.50,
@@ -120,3 +127,103 @@ def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
     assert row["metrics"]["recent_analog_supported"] == 8
     assert row["metrics"]["recent_analog_supported_rate"] == 0.67
     assert row["paths"]["journal_jsonl"] == "state/contract_focus_canary_1h_fffusdt_long_journal.jsonl"
+
+
+def write_signal_json(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "timeframe": "15m",
+                "rows": [
+                    {
+                        "symbol": "VELVETUSDT",
+                        "signal": "long",
+                        "reason": "long_consensus votes=6",
+                        "latest_dt": "2026-01-01T00:00:00+00:00",
+                        "paper_plan": {"entry_price": 1.0},
+                        "regime_filter": {"allowed": True, "reason": "regime_aligned"},
+                        "analog_evidence": {
+                            "supported": True,
+                            "reason": "analog_support_pass",
+                            "used_count": 40,
+                            "hit_rate": 0.55,
+                            "profitable_rate": 0.55,
+                            "expectancy_r": 0.65,
+                        },
+                    },
+                    {
+                        "symbol": "WEAKUSDT",
+                        "signal": "long",
+                        "paper_plan": {"entry_price": 1.0},
+                        "regime_filter": {"allowed": True, "reason": "regime_aligned"},
+                        "analog_evidence": {
+                            "supported": True,
+                            "used_count": 40,
+                            "hit_rate": 0.42,
+                            "profitable_rate": 0.42,
+                            "expectancy_r": 0.1,
+                        },
+                    },
+                    {
+                        "symbol": "SHORTUSDT",
+                        "signal": "short",
+                        "paper_plan": {"entry_price": 1.0},
+                        "regime_filter": {"allowed": False, "reason": "short_blocked_by_market_uptrend"},
+                        "analog_evidence": {
+                            "supported": True,
+                            "used_count": 40,
+                            "hit_rate": 0.7,
+                            "profitable_rate": 0.7,
+                            "expectancy_r": 1.0,
+                        },
+                    },
+                ],
+            }
+        )
+    )
+
+
+def test_focus_plan_seeds_fresh_analog_signal_when_no_mature_candidate(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    signal_json = tmp_path / "signal.json"
+    actions_json.write_text(json.dumps({"promote_candidates": [], "positive_watchlist": [], "blocked_pairs": []}))
+    write_signal_json(signal_json)
+    args = args_for(actions_json)
+    args.include_fresh_analog = True
+    args.signal_jsons = str(signal_json)
+
+    payload = plan_mod.build_plan(args)
+
+    assert payload["summary"]["selected"] == 1
+    assert payload["summary"]["fresh_analog_seen"] == 1
+    assert payload["summary"]["fresh_analog_added"] == 1
+    row = payload["candidates"][0]
+    assert row["source"] == "fresh_analog_signal"
+    assert row["timeframe"] == "15m"
+    assert row["symbol"] == "VELVETUSDT"
+    assert row["metrics"]["analog_expectancy_r"] == 0.65
+    assert row["env"]["CONTRACT_EDGE_CANARY_JOURNAL_RECORD_MODE"] == "analog_supported"
+
+
+def test_focus_plan_excludes_blocked_fresh_analog_signal(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    signal_json = tmp_path / "signal.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "promote_candidates": [],
+                "positive_watchlist": [],
+                "blocked_pairs": [candidate("VELVETUSDT", "long", timeframe="15m")],
+            }
+        )
+    )
+    write_signal_json(signal_json)
+    args = args_for(actions_json)
+    args.include_fresh_analog = True
+    args.signal_jsons = str(signal_json)
+
+    payload = plan_mod.build_plan(args)
+
+    assert payload["summary"]["fresh_analog_seen"] == 1
+    assert payload["summary"]["fresh_analog_added"] == 0
+    assert payload["summary"]["selected"] == 0
