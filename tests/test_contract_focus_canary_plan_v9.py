@@ -46,6 +46,7 @@ def args_for(actions_json: Path) -> Namespace:
         active_risk_max_sum_r=-2.0,
         active_risk_max_loss_rate=0.67,
         active_risk_max_avg_r=-0.25,
+        respect_portfolio_risk=True,
         allow_blocked=False,
         out_json=str(actions_json.with_suffix(".plan.json")),
         out_md=str(actions_json.with_suffix(".plan.md")),
@@ -163,6 +164,35 @@ def test_focus_plan_filters_weak_positive_watchlist(tmp_path: Path) -> None:
     assert row["metrics"]["recent_analog_supported"] == 8
     assert row["metrics"]["recent_analog_supported_rate"] == 0.67
     assert row["paths"]["journal_jsonl"] == "state/contract_focus_canary_1h_fffusdt_long_journal.jsonl"
+
+
+def test_focus_plan_blocks_new_launches_on_portfolio_risk(tmp_path: Path) -> None:
+    actions_json = tmp_path / "actions.json"
+    actions_json.write_text(
+        json.dumps(
+            {
+                "portfolio_risk": {
+                    "status": "overexposed",
+                    "block_new_focus": True,
+                    "reason_codes": ["portfolio_active>12"],
+                },
+                "promote_candidates": [],
+                "positive_watchlist": [candidate("SOLUSDT", "long", recent_sum_r=6.0, edge_score=4.0)],
+                "blocked_pairs": [],
+            }
+        )
+    )
+
+    payload = plan_mod.build_plan(args_for(actions_json))
+
+    assert payload["summary"]["selected"] == 0
+    assert payload["summary"]["paper_probe_candidates"] == 0
+    assert payload["summary"]["portfolio_block_new_focus"] is True
+    assert payload["summary"]["rejection_reason_counts"]["portfolio_overexposed"] == 1
+    assert payload["summary"]["rejection_reason_counts"]["portfolio_active>12"] == 1
+    row = payload["rejected_candidates"][0]
+    assert row["symbol"] == "SOLUSDT"
+    assert "portfolio_overexposed" in row["rejection_reasons"]
 
 
 def write_signal_json(path: Path) -> None:

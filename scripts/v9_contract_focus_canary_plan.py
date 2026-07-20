@@ -103,6 +103,18 @@ def active_risk_rejection_reasons(row: dict[str, Any], args: argparse.Namespace)
     return reasons
 
 
+def portfolio_risk_rejection_reasons(actions: dict[str, Any], args: argparse.Namespace) -> list[str]:
+    if not bool(args.respect_portfolio_risk):
+        return []
+    portfolio = actions.get("portfolio_risk") or {}
+    if not portfolio.get("block_new_focus"):
+        return []
+    status = str(portfolio.get("status") or "risk")
+    reasons = [f"portfolio_{status}"]
+    reasons.extend(str(reason) for reason in (portfolio.get("reason_codes") or []))
+    return reasons
+
+
 def candidate_sort_key(row: dict[str, Any]) -> tuple[float, float, int]:
     return (
         safe_float(row.get("edge_score")),
@@ -471,8 +483,11 @@ def build_paper_probe_candidates(
     near_miss: list[dict[str, Any]],
     args: argparse.Namespace,
     used: set[tuple[str, str, str]],
+    portfolio_reasons: list[str],
 ) -> list[dict[str, Any]]:
     if not bool(args.include_near_miss_paper_probes):
+        return []
+    if portfolio_reasons:
         return []
     rows: list[dict[str, Any]] = []
     for row in near_miss:
@@ -492,6 +507,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     actions = json.loads(Path(args.actions_json).read_text())
     blocked = {pair_key(row) for row in actions.get("blocked_pairs", [])}
     fresh_veto = {pair_key(row) for row in actions.get("fresh_analog_veto_pairs", [])}
+    portfolio_reasons = portfolio_risk_rejection_reasons(actions, args)
     selected: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     used: set[tuple[str, str, str]] = set()
@@ -513,6 +529,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             if key in used:
                 continue
             reasons: list[str] = []
+            reasons.extend(portfolio_reasons)
             if key in blocked and not args.allow_blocked:
                 reasons.append("blocked_pair")
             reasons.extend(active_risk_rejection_reasons(row, args))
@@ -538,6 +555,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         if key in used:
             continue
         reasons = []
+        reasons.extend(portfolio_reasons)
         if key in blocked and not args.allow_blocked:
             reasons.append("blocked_pair")
         if key in fresh_veto and not args.allow_fresh_veto:
@@ -552,7 +570,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     rejection_reason_counts = reason_counts(rejected)
     near_miss = build_near_miss_queue(rejected, args)
-    paper_probe_candidates = build_paper_probe_candidates(near_miss, args, used)
+    paper_probe_candidates = build_paper_probe_candidates(near_miss, args, used, portfolio_reasons)
 
     return {
         "kind": "contract_focus_canary_plan_v1",
@@ -586,6 +604,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "active_risk_max_sum_r": float(args.active_risk_max_sum_r),
             "active_risk_max_loss_rate": float(args.active_risk_max_loss_rate),
             "active_risk_max_avg_r": float(args.active_risk_max_avg_r),
+            "respect_portfolio_risk": bool(args.respect_portfolio_risk),
             "allow_blocked": bool(args.allow_blocked),
         },
         "summary": {
@@ -600,7 +619,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "near_miss_candidates": len(near_miss),
             "paper_probe_candidates": len(paper_probe_candidates),
             "rejection_reason_counts": rejection_reason_counts,
+            "portfolio_risk_status": (actions.get("portfolio_risk") or {}).get("status"),
+            "portfolio_block_new_focus": bool((actions.get("portfolio_risk") or {}).get("block_new_focus")),
         },
+        "portfolio_risk": actions.get("portfolio_risk") or {},
         "candidates": selected,
         "near_miss_candidates": near_miss,
         "paper_probe_candidates": paper_probe_candidates,
@@ -624,6 +646,7 @@ def fmt_num(value: Any, digits: int = 3) -> str:
 
 def format_markdown(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
+    portfolio = payload.get("portfolio_risk") or {}
     lines = [
         "# Contract Focus Canary Plan",
         "",
@@ -636,6 +659,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- near-miss candidates: `{summary.get('near_miss_candidates', 0)}`",
         f"- paper probe candidates: `{summary.get('paper_probe_candidates', 0)}`",
         f"- rejected candidates shown: `{summary.get('rejected_candidates', 0)}`",
+        f"- portfolio_risk: `{portfolio.get('status')}` block_new_focus=`{portfolio.get('block_new_focus')}`",
         "",
         "| rank | source | timeframe | symbol | side | recent_n | analog | analog_rate | signal_exp_R | sum_R | pf | max_DD_R | active_R | trailing_loss | session |",
         "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
@@ -730,6 +754,7 @@ def format_markdown(payload: dict[str, Any]) -> str:
 
 def format_text(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
+    portfolio = payload.get("portfolio_risk") or {}
     lines = [
         f"updated_at={payload['updated_at']}",
         f"selected={summary['selected']} promote_seen={summary['promote_candidates_seen']} "
@@ -738,6 +763,8 @@ def format_text(payload: dict[str, Any]) -> str:
         f"fresh_seen={summary.get('fresh_analog_seen', 0)} fresh_added={summary.get('fresh_analog_added', 0)} "
         f"near_miss={summary.get('near_miss_candidates', 0)} "
         f"paper_probes={summary.get('paper_probe_candidates', 0)} rejected={summary.get('rejected_candidates', 0)}",
+        f"portfolio_risk={portfolio.get('status')} block_new_focus={portfolio.get('block_new_focus')} "
+        f"reasons={','.join(portfolio.get('reason_codes') or [])}",
         f"reject_reasons={json.dumps(summary.get('rejection_reason_counts', {}), sort_keys=True)}",
         "safety=paper_authorized:False live:False",
     ]
@@ -822,6 +849,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--active-risk-max-sum-r", type=float, default=-2.0)
     parser.add_argument("--active-risk-max-loss-rate", type=float, default=0.67)
     parser.add_argument("--active-risk-max-avg-r", type=float, default=-0.25)
+    parser.add_argument("--respect-portfolio-risk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--allow-blocked", action="store_true")
     parser.add_argument("--out-json", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.json")
     parser.add_argument("--out-md", default="artifacts/v9/contract_lab/contract_focus_canary_plan_latest.md")

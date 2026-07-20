@@ -65,6 +65,52 @@ def test_paper_report_calculates_open_short_r_multiple(tmp_path: Path) -> None:
     assert report_mod.outcome_label(row) == "open_profit"
 
 
+def test_paper_report_surfaces_portfolio_overexposure_in_actions(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.jsonl"
+    rows = [
+        {
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "status": "open",
+            "symbol": "AAAUSDT",
+            "side": "long",
+            "entry_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "analog_supported": True,
+        },
+        {
+            "created_at": "2026-01-01T01:00:00+00:00",
+            "updated_at": "2026-01-01T01:00:00+00:00",
+            "status": "open",
+            "symbol": "BBBUSDT",
+            "side": "short",
+            "entry_price": 100.0,
+            "stop_loss": 102.0,
+            "take_profit": 96.0,
+            "analog_supported": True,
+        },
+    ]
+    journal.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    args = Namespace(
+        cache_dir=str(tmp_path),
+        sources=f"1h:{journal}",
+        lookback_bars=20,
+        max_rows=20,
+        portfolio_max_active=1,
+    )
+
+    payload = report_mod.build_report(args)
+
+    assert payload["portfolio_risk"]["status"] == "overexposed"
+    assert payload["portfolio_risk"]["block_new_focus"] is True
+    assert payload["portfolio_risk"]["active"] == 2
+    assert payload["portfolio_risk"]["active_excess"] == 1
+    assert "portfolio_active>1" in payload["portfolio_risk"]["reason_codes"]
+    assert payload["actions"]["portfolio_risk"]["status"] == "overexposed"
+    assert payload["actions"]["summary"]["portfolio_block_new_focus"] is True
+
+
 def test_paper_report_builds_strategy_scoreboard(tmp_path: Path) -> None:
     pd.DataFrame(
         {
