@@ -399,6 +399,7 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
     blocked_sides.update(str(side).lower() for side in (segment_risk.get("blocked_sides") or []))
     segments = segment_risk.get("segments") if isinstance(segment_risk.get("segments"), dict) else {}
     thresholds = portfolio.get("thresholds") if isinstance(portfolio.get("thresholds"), dict) else {}
+    drain = portfolio.get("drain") if isinstance(portfolio.get("drain"), dict) else {}
     return {
         "enabled": True,
         "path": path,
@@ -414,6 +415,7 @@ def journal_risk_controls(args: argparse.Namespace) -> dict[str, Any]:
         "blocked_sides": sorted(side for side in blocked_sides if side in {"long", "short"}),
         "side_reason_codes": portfolio.get("side_reason_codes") or segment_risk.get("reason_codes") or [],
         "segments": segments,
+        "drain": drain,
     }
 
 
@@ -574,6 +576,14 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     return out if math.isfinite(out) else default
+
+
+def optional_finite_float(value: Any) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if math.isfinite(out) else None
 
 
 def parse_utc_timestamp(value: Any) -> pd.Timestamp:
@@ -3332,6 +3342,7 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         for record in records
         if record.get("status") in {"pending_entry", "open"} and record.get("analog_supported")
     )
+    risk_drain = risk_controls.get("drain") if isinstance(risk_controls.get("drain"), dict) else {}
     return {
         "enabled": True,
         "path": str(path),
@@ -3459,6 +3470,21 @@ def update_journal(payload: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal_portfolio_side_reason_codes": risk_controls.get("side_reason_codes") or [],
         "journal_global_portfolio_max_active": int(risk_controls.get("max_active") or 0),
         "journal_global_portfolio_active": int(risk_controls.get("active") or 0),
+        "journal_global_portfolio_active_excess": int(risk_controls.get("active_excess") or 0),
+        "journal_global_active_cap_known_remaining": int(risk_drain.get("known_remaining") or 0),
+        "journal_global_active_cap_past_stale_after": int(risk_drain.get("past_stale_after") or 0),
+        "journal_global_active_cap_eta_hours_upper_bound": optional_finite_float(
+            risk_drain.get("eta_to_active_cap_hours_upper_bound")
+        ),
+        "journal_global_active_cap_remaining_hours_min": optional_finite_float(
+            risk_drain.get("remaining_hours_to_horizon_min")
+        ),
+        "journal_global_active_cap_remaining_hours_median": optional_finite_float(
+            risk_drain.get("remaining_hours_to_horizon_median")
+        ),
+        "journal_global_active_cap_remaining_hours_max": optional_finite_float(
+            risk_drain.get("remaining_hours_to_horizon_max")
+        ),
         "journal_global_active_cap_blocked_candidate_rows": global_active_cap_blocked_candidates,
         "journal_max_active_per_pair": max_active_per_pair,
         "journal_max_active_total": max_active_total,
@@ -3498,6 +3524,15 @@ def annotate_paper_actionability(payload: dict[str, Any]) -> dict[str, Any]:
         max_active = int(journal.get("journal_global_portfolio_max_active") or 0)
         if max_active > 0:
             reason_codes.append(f"global_active>={max_active}")
+        release_min_h = optional_finite_float(journal.get("journal_global_active_cap_remaining_hours_min"))
+        eta_h = optional_finite_float(journal.get("journal_global_active_cap_eta_hours_upper_bound"))
+        past_stale = int(journal.get("journal_global_active_cap_past_stale_after") or 0)
+        if release_min_h is not None:
+            reason_codes.append(f"active_cap_release_min_h={release_min_h:.2f}")
+        if eta_h is not None:
+            reason_codes.append(f"active_cap_eta_to_below_cap_h={eta_h:.2f}")
+        if past_stale > 0:
+            reason_codes.append(f"active_cap_past_stale={past_stale}")
     elif int(journal.get("journal_active_total_cap_blocked_candidate_rows") or 0) > 0:
         status = "blocked_by_journal_active_total_cap"
         actionable_new = False
@@ -3899,6 +3934,14 @@ def format_markdown(payload: dict[str, Any]) -> str:
         f"- journal_portfolio_risk: `{(payload.get('journal') or {}).get('journal_portfolio_risk_status')}`",
         f"- journal_portfolio_blocked_sides: "
         f"`{','.join((payload.get('journal') or {}).get('journal_portfolio_blocked_sides') or [])}`",
+        f"- journal_global_active_cap_drain: "
+        f"`active={(payload.get('journal') or {}).get('journal_global_portfolio_active')}/"
+        f"{(payload.get('journal') or {}).get('journal_global_portfolio_max_active')} "
+        f"excess={(payload.get('journal') or {}).get('journal_global_portfolio_active_excess')} "
+        f"release_min_h={(payload.get('journal') or {}).get('journal_global_active_cap_remaining_hours_min')} "
+        f"release_median_h={(payload.get('journal') or {}).get('journal_global_active_cap_remaining_hours_median')} "
+        f"eta_below_cap_h={(payload.get('journal') or {}).get('journal_global_active_cap_eta_hours_upper_bound')} "
+        f"past_stale={(payload.get('journal') or {}).get('journal_global_active_cap_past_stale_after')}`",
         "",
         "| rank | symbol | signal | close | regime | quality | analog | hit | exp_r | entry | stop | take_profit | rsi | ret_24h |",
         "| ---: | --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -3964,6 +4007,16 @@ def format_text(payload: dict[str, Any]) -> str:
         f"{(payload.get('journal') or {}).get('journal_active_total_cap_blocked_candidate_rows')}",
         "journal_global_active_cap_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_global_active_cap_blocked_candidate_rows')}",
+        "journal_global_active_cap_drain "
+        f"active={(payload.get('journal') or {}).get('journal_global_portfolio_active')} "
+        f"max={(payload.get('journal') or {}).get('journal_global_portfolio_max_active')} "
+        f"excess={(payload.get('journal') or {}).get('journal_global_portfolio_active_excess')} "
+        f"known_remaining={(payload.get('journal') or {}).get('journal_global_active_cap_known_remaining')} "
+        f"release_min_h={(payload.get('journal') or {}).get('journal_global_active_cap_remaining_hours_min')} "
+        f"release_median_h={(payload.get('journal') or {}).get('journal_global_active_cap_remaining_hours_median')} "
+        f"release_max_h={(payload.get('journal') or {}).get('journal_global_active_cap_remaining_hours_max')} "
+        f"eta_below_cap_h={(payload.get('journal') or {}).get('journal_global_active_cap_eta_hours_upper_bound')} "
+        f"past_stale={(payload.get('journal') or {}).get('journal_global_active_cap_past_stale_after')}",
         "journal_confirmation_cohort_blocked_candidate_rows="
         f"{(payload.get('journal') or {}).get('journal_blocked_confirmation_cohort_candidate_rows')}",
         "journal_regime_cohort_blocked_candidate_rows="

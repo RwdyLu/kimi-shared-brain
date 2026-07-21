@@ -1450,6 +1450,29 @@ def test_latest_market_signal_marks_portfolio_blocked_plan_as_not_actionable(tmp
     assert (tmp_path / "journal.jsonl").read_text().splitlines() == []
 
 
+def test_latest_market_signal_marks_global_active_cap_with_drain_reason() -> None:
+    payload = {
+        "summary": {"paper_plan_found": True},
+        "journal": {
+            "new_records": 0,
+            "journal_global_active_cap_blocked_candidate_rows": 2,
+            "journal_global_portfolio_max_active": 12,
+            "journal_global_active_cap_remaining_hours_min": 20.5,
+            "journal_global_active_cap_eta_hours_upper_bound": None,
+            "journal_global_active_cap_past_stale_after": 0,
+        },
+    }
+
+    signal_mod.annotate_paper_actionability(payload)
+
+    assert payload["summary"]["paper_actionable_new"] is False
+    assert payload["summary"]["paper_actionability_status"] == "blocked_by_global_active_cap"
+    assert payload["summary"]["paper_actionability_reason_codes"] == [
+        "active_cap_release_min_h=20.50",
+        "global_active>=12",
+    ]
+
+
 def test_latest_market_signal_marks_formal_entry_gate_as_shadow_only() -> None:
     payload = {
         "summary": {"paper_plan_found": True},
@@ -2020,6 +2043,14 @@ def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_p
                     "reason_codes": [],
                     "blocked_sides": [],
                     "thresholds": {"portfolio_max_active": 12},
+                    "drain": {
+                        "known_remaining": 12,
+                        "past_stale_after": 0,
+                        "remaining_hours_to_horizon_min": 20.5,
+                        "remaining_hours_to_horizon_median": 22.0,
+                        "remaining_hours_to_horizon_max": 23.5,
+                        "eta_to_active_cap_hours_upper_bound": None,
+                    },
                 }
             }
         )
@@ -2053,6 +2084,13 @@ def test_latest_market_signal_journal_respects_global_portfolio_active_cap(tmp_p
     assert summary["new_records"] == 0
     assert summary["journal_global_portfolio_active"] == 12
     assert summary["journal_global_portfolio_max_active"] == 12
+    assert summary["journal_global_portfolio_active_excess"] == 0
+    assert summary["journal_global_active_cap_known_remaining"] == 12
+    assert summary["journal_global_active_cap_past_stale_after"] == 0
+    assert summary["journal_global_active_cap_remaining_hours_min"] == 20.5
+    assert summary["journal_global_active_cap_remaining_hours_median"] == 22.0
+    assert summary["journal_global_active_cap_remaining_hours_max"] == 23.5
+    assert summary["journal_global_active_cap_eta_hours_upper_bound"] is None
     assert summary["journal_global_active_cap_blocked_candidate_rows"] == 1
     assert summary["journal_portfolio_risk_blocked_candidate_rows"] == 0
     assert rows == []
