@@ -1450,6 +1450,44 @@ def test_latest_market_signal_marks_portfolio_blocked_plan_as_not_actionable(tmp
     assert (tmp_path / "journal.jsonl").read_text().splitlines() == []
 
 
+def test_latest_market_signal_marks_formal_entry_gate_as_shadow_only() -> None:
+    payload = {
+        "summary": {"paper_plan_found": True},
+        "journal": {
+            "new_records": 0,
+            "formal_entry_gate_mode": "strong_analog",
+            "formal_entry_gate_blocked_candidate_rows": 1,
+        },
+    }
+
+    signal_mod.annotate_paper_actionability(payload)
+
+    assert payload["summary"]["paper_actionable_new"] is False
+    assert payload["summary"]["paper_actionability_status"] == "shadow_only_formal_entry_gate"
+    assert payload["summary"]["paper_actionability_reason_codes"] == [
+        "formal_entry_gate=strong_analog"
+    ]
+
+
+def test_latest_market_signal_marks_shadow_performance_veto_as_not_actionable() -> None:
+    payload = {
+        "summary": {"paper_plan_found": True},
+        "journal": {
+            "new_records": 0,
+            "shadow_performance_veto_mode": "pair_or_regime",
+            "shadow_performance_veto_candidate_rows": 1,
+        },
+    }
+
+    signal_mod.annotate_paper_actionability(payload)
+
+    assert payload["summary"]["paper_actionable_new"] is False
+    assert payload["summary"]["paper_actionability_status"] == "shadow_performance_veto"
+    assert payload["summary"]["paper_actionability_reason_codes"] == [
+        "shadow_performance_veto=pair_or_regime"
+    ]
+
+
 def test_latest_market_signal_prefers_current_policy_portfolio_risk_scope(tmp_path: Path) -> None:
     args = base_args(tmp_path, symbols="AAAUSDT")
     actions = tmp_path / "actions.json"

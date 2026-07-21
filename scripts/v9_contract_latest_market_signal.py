@@ -3519,6 +3519,18 @@ def annotate_paper_actionability(payload: dict[str, Any]) -> dict[str, Any]:
     elif int(journal.get("analog_robustness_fail_candidate_rows") or 0) > 0:
         status = "shadow_only_analog_robustness_fail"
         actionable_new = False
+    elif int(journal.get("formal_entry_gate_blocked_candidate_rows") or 0) > 0:
+        status = "shadow_only_formal_entry_gate"
+        actionable_new = False
+        mode = str(journal.get("formal_entry_gate_mode") or "")
+        if mode:
+            reason_codes.append(f"formal_entry_gate={mode}")
+    elif int(journal.get("shadow_performance_veto_candidate_rows") or 0) > 0:
+        status = "shadow_performance_veto"
+        actionable_new = False
+        mode = str(journal.get("shadow_performance_veto_mode") or "")
+        if mode:
+            reason_codes.append(f"shadow_performance_veto={mode}")
     elif int(journal.get("market_quality_blocked_candidate_rows") or 0) > 0:
         status = "shadow_only_market_quality_block"
         actionable_new = False
