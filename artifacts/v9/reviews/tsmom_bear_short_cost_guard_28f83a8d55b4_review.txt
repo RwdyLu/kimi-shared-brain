@@ -1,0 +1,5 @@
+decision=train_only_no_candidate
+passes=0/16
+safety=holdout:False paper:False live:False
+data_fingerprint=958ac849fb867a34913b4e3bcd20e8e8dc973fa1
+effective_trials=11746 prior_trials=11730

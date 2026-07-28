@@ -1,0 +1,12 @@
+decision=holdout_failed_do_not_paper_trade
+safety=holdout:False paper:False live:False
+source_artifact=artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_core_slow_cost_guard_b793a1b0bf81.json
+target_config={"asset_vol_target_ann": 0.25, "bear_mode": "short_weak", "bear_short_scale": 0.1, "cooldown_h": 0, "drawdown_stop": 0.0, "market_filter_h": 720, "market_off_scale": 0.0, "no_trade_band": 0.3, "portfolio_vol_target_ann": 0.06, "short_vote_threshold": 0.25, "vote_threshold": 0.5}
+target_lookbacks_h=[720, 1440, 2160, 4320]
+holdout_data=rows:16800 first:2024-07-01T00:00:00+00:00 last:2026-05-31T23:00:00+00:00 symbols:5
+20bps=sharpe:-0.314 return:-0.112 dd:0.231 turnover:0.052 symbols:3/5 boot:-1.868
+40bps=sharpe:-0.324 return:-0.101 dd:0.203 turnover:0.056 symbols:3/5 boot:-2.052
+60bps=sharpe:-0.646 return:-0.196 dd:0.277 turnover:0.052 symbols:3/5 boot:-2.254
+80bps=sharpe:-0.762 return:-0.208 dd:0.275 turnover:0.054 symbols:3/5 boot:-2.377
+checks=holdout_20bps_sharpe_ge_0_7:False,holdout_20bps_return_gt_0:False,holdout_20bps_drawdown_le_25pct:True,holdout_40bps_sharpe_gt_0:False,holdout_40bps_return_gt_0:False
+note=Read-only holdout audit. It does not authorize paper trading or live trading.

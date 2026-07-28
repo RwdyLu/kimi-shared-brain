@@ -26,6 +26,7 @@ FOUND_PAPER_READY = STATE / "FOUND_PAPER_READY.txt"
 FOUND_LIVE_CANARY_READY = STATE / "FOUND_LIVE_CANARY_READY.txt"
 FOUND_PRODUCTION_READY = STATE / "FOUND_PRODUCTION_READY.txt"
 STAGE_STATE = STATE / "staged_autohunter_state.json"
+PAUSE_FILE = STATE / "STAGED_AUTOHUNTER_PAUSED.txt"
 
 SYMBOLS = "BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT LINKUSDT AVAXUSDT"
 SEED_SCANS = [
@@ -751,6 +752,11 @@ def next_profile_or_stage(data: dict, idx: int, pidx: int) -> dict:
 
 
 def tick() -> None:
+    if PAUSE_FILE.exists():
+        reason = PAUSE_FILE.read_text().strip().replace("\n", " ")[:240]
+        SUMMARY.write_text(f"{now()} status=paused reason={reason}\n")
+        return
+
     if FOUND_PRODUCTION_READY.exists() and FOUND_PRODUCTION_READY.read_text().strip().startswith("FOUND_PRODUCTION_READY"):
         SUMMARY.write_text(FOUND_PRODUCTION_READY.read_text())
         return

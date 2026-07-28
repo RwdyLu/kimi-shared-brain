@@ -1,0 +1,27 @@
+decision=holdout_diagnostics_only_do_not_trade
+safety=holdout:False paper:False live:False
+source_artifact=artifacts/v9/contract_lab/tsmom_cont_full_202406_tsmom_bear_short_medium_risk_10a0716b03ff.json
+target_config={"asset_vol_target_ann": 0.25, "bear_mode": "short_weak", "bear_short_scale": 0.33, "cooldown_h": 0, "drawdown_stop": 0.0, "market_filter_h": 336, "market_off_scale": 0.0, "no_trade_band": 0.15, "portfolio_vol_target_ann": 0.08, "short_vote_threshold": 0.375, "vote_threshold": 0.5}
+target_lookbacks_h=[336, 720, 1440, 2160]
+overall=return:-0.045 sharpe:-0.055 dd:0.214 long_gross:0.126 short_gross:0.020 cost:0.162 gross_exp:0.266
+diagnosis=costs_material_vs_total_loss
+worst_months:
+- 2024-10 return:-0.063 sharpe:-4.773 dd:0.072 long:-0.040 short:-0.014 cost:0.010
+- 2025-06 return:-0.048 sharpe:-3.712 dd:0.083 long:-0.036 short:-0.003 cost:0.009
+- 2025-10 return:-0.047 sharpe:-2.426 dd:0.082 long:-0.032 short:-0.005 cost:0.010
+- 2024-08 return:-0.041 sharpe:-3.512 dd:0.098 long:-0.039 short:0.008 cost:0.010
+- 2026-04 return:-0.039 sharpe:-2.757 dd:0.065 long:-0.015 short:-0.011 cost:0.013
+- 2025-03 return:-0.038 sharpe:-2.482 dd:0.069 long:-0.035 short:0.003 cost:0.006
+symbols:
+- AVAXUSDT contrib:-0.024 avg_abs_w:0.028 long_h:5280 short_h:7463
+- BNBUSDT contrib:-0.008 avg_abs_w:0.043 long_h:5712 short_h:3072
+- LINKUSDT contrib:-0.001 avg_abs_w:0.026 long_h:5472 short_h:7199
+- XRPUSDT contrib:0.006 avg_abs_w:0.030 long_h:4728 short_h:6167
+- ADAUSDT contrib:0.012 avg_abs_w:0.021 long_h:4008 short_h:7655
+- SOLUSDT contrib:0.046 avg_abs_w:0.029 long_h:5520 short_h:6407
+- ETHUSDT contrib:0.047 avg_abs_w:0.032 long_h:5184 short_h:6527
+- BTCUSDT contrib:0.068 avg_abs_w:0.058 long_h:6168 short_h:5687
+modes:
+- short_weak return:-0.063 long:0.000 short:-0.006 cost:0.058 gross_exp:0.156
+- long return:0.020 long:0.126 short:0.026 cost:0.104 gross_exp:0.268
+note=Read-only holdout diagnostics. It does not authorize paper trading or live trading.
