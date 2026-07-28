@@ -21,7 +21,10 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     now="$(date +%s)"
     mtime="$(stat -c %Y "$STATE")"
     age="$((now - mtime))"
-    if (( age > STALE_SEC )) && ! pgrep -f "v9.contract.xsec_ohlcv_factory" >/dev/null 2>&1; then
+    if (( age > STALE_SEC )) \
+      && ! pgrep -f "python3 -m v9[.]contract[.]auto_research" >/dev/null 2>&1 \
+      && ! pgrep -f "v9[.]contract[.]xsec_ohlcv_factory" >/dev/null 2>&1 \
+      && ! pgrep -f "v9[.]contract[.]tsmom_factory" >/dev/null 2>&1; then
       echo "restarting stale session: $SESSION state_age_sec=$age"
       tmux kill-session -t "$SESSION" 2>/dev/null || true
       sleep 2
